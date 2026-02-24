@@ -167,6 +167,19 @@ class OLXScraper:
                 print("   ⚠️ Brak ofert na stronie - koniec paginacji")
                 break
             
+            # Pobierz pełny opis dla każdej oferty
+            for i, offer in enumerate(offers, 1):
+                print(f"   [{i}/{len(offers)}] Pobieranie opisu: {offer['title'][:40]}...")
+                details = self.fetch_offer_details(offer['url'])
+                if details:
+                    offer['description'] = details['description']
+                else:
+                    offer['description'] = offer.get('description_snippet', '')
+                
+                # Opóźnienie między szczegółami (anty-block)
+                if i < len(offers):
+                    self._random_delay()
+            
             all_offers.extend(offers)
             
             # Sprawdzamy czy jest następna strona

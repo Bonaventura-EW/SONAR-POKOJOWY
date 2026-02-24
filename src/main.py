@@ -85,9 +85,11 @@ class SonarPokojowy:
         full_text = raw_offer['title'] + " " + raw_offer.get('description_snippet', '')
         
         # Opcjonalnie: pobierz pełną stronę dla pełnego opisu
-        # details = self.scraper.fetch_offer_details(raw_offer['url'])
-        # if details:
-        #     full_text += " " + details['description']
+        # WAŻNE: To spowalnia scan, ale zwiększa dokładność!
+        print(f"      📄 Pobieram pełny opis z {raw_offer['url'][:50]}...")
+        details = self.scraper.fetch_offer_details(raw_offer['url'])
+        if details and details.get('description'):
+            full_text += " " + details['description']
         
         # 2. Parsuj adres
         address_data = self.address_parser.extract_address(full_text)
