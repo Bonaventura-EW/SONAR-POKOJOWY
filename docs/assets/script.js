@@ -173,13 +173,27 @@ function createMarkerGroup(baseCoords, address, offers, priceRange, isActive) {
         // Kolor markera
         const color = mapData.price_ranges[priceRange].color;
         
-        // Ikona markera z inline style
+        // Symbol dla aktywnych/nieaktywnych
+        const symbol = isActive ? '📍' : '❌';
+        
+        // Ikona markera - pinezka z kolorem
         const icon = L.divIcon({
-            className: 'custom-marker' + (isActive ? '' : ' inactive'),
-            html: `<div style="background-color: ${color}; width: 30px; height: 30px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; color: white;">${isActive ? '●' : '×'}</div>`,
-            iconSize: [30, 30],
-            iconAnchor: [15, 15],
-            popupAnchor: [0, -15]
+            className: 'pin-marker',
+            html: `
+                <div style="position: relative; width: 40px; height: 50px;">
+                    <svg width="40" height="50" viewBox="0 0 40 50" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+                        <path d="M20 0 C9 0 0 9 0 20 C0 35 20 50 20 50 C20 50 40 35 40 20 C40 9 31 0 20 0 Z" 
+                              fill="${color}" 
+                              stroke="white" 
+                              stroke-width="2"/>
+                        <circle cx="20" cy="18" r="8" fill="white" opacity="0.9"/>
+                    </svg>
+                    ${!isActive ? '<div style="position: absolute; top: 8px; left: 50%; transform: translateX(-50%); font-size: 24px;">×</div>' : ''}
+                </div>
+            `,
+            iconSize: [40, 50],
+            iconAnchor: [20, 50],
+            popupAnchor: [0, -50]
         });
         
         // Popup content

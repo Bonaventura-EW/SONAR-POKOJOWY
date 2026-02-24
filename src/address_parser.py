@@ -38,6 +38,10 @@ class AddressParser:
         if not text:
             return None
         
+        # Sprawdź czy tekst zawiera "X metrów od" - to NIE jest adres
+        if re.search(r'\d+\s*metr[oó]w\s+od', text, re.IGNORECASE):
+            return None
+        
         # Słowa które NIE mogą być nazwą ulicy
         excluded_words_lower = {'pokój', 'przy', 'obok', 'blisko', 'centrum', 'okolice', 'minut', 'minutę', 'rok', 'lata'}
         
@@ -57,16 +61,29 @@ class AddressParser:
                     is_valid = False
                     break
             
-            if is_valid:
-                # Normalizacja: usuwamy wielokrotne spacje
-                street = ' '.join(street.split())
-                number = ' '.join(number.split())
-                
-                return {
-                    'street': street,
-                    'number': number,
-                    'full': f"{street} {number}"
-                }
+            if not is_valid:
+                continue
+            
+            # Wyciągnij główny numer (przed / lub lok.)
+            main_number = number.split('/')[0].split()[0]
+            
+            # Sprawdź czy numer jest rozsądny (max 250)
+            try:
+                num_value = int(main_number)
+                if num_value > 250:
+                    continue  # Ignoruj, to prawdopodobnie cena
+            except ValueError:
+                pass  # Jeśli nie można sparsować, to OK (może być "12a")
+            
+            # Normalizacja: usuwamy wielokrotne spacje
+            street = ' '.join(street.split())
+            number = ' '.join(number.split())
+            
+            return {
+                'street': street,
+                'number': number,
+                'full': f"{street} {number}"
+            }
         
         return None
     
