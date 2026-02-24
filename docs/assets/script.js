@@ -173,10 +173,10 @@ function createMarkerGroup(baseCoords, address, offers, priceRange, isActive) {
         // Kolor markera
         const color = mapData.price_ranges[priceRange].color;
         
-        // Ikona markera
+        // Ikona markera z inline style
         const icon = L.divIcon({
             className: 'custom-marker' + (isActive ? '' : ' inactive'),
-            html: isActive ? '●' : '×',
+            html: `<div style="background-color: ${color}; width: 30px; height: 30px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; color: white;">${isActive ? '●' : '×'}</div>`,
             iconSize: [30, 30],
             iconAnchor: [15, 15],
             popupAnchor: [0, -15]
@@ -188,14 +188,6 @@ function createMarkerGroup(baseCoords, address, offers, priceRange, isActive) {
         // Tworzenie markera
         const marker = L.marker(coords, { icon: icon })
             .bindPopup(popupContent, { maxWidth: 400 });
-        
-        // Stylizacja ikony
-        marker.on('add', function() {
-            const markerElement = marker.getElement();
-            if (markerElement) {
-                markerElement.querySelector('.custom-marker').style.backgroundColor = color;
-            }
-        });
         
         // Dodaj do odpowiedniej warstwy
         if (isActive) {
