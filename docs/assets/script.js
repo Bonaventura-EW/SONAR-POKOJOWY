@@ -28,14 +28,19 @@ function initMap() {
 // Wczytanie danych
 async function loadData() {
     try {
+        // Użyj absolutnej ścieżki dla GitHub Pages
+        const baseUrl = window.location.pathname.includes('/SONAR-POKOJOWY/') 
+            ? '/SONAR-POKOJOWY/data.json' 
+            : '/data.json';
+        
         // Próba 1: Z cache-busting
         const timestamp = new Date().getTime();
-        let response = await fetch(`../data.json?v=${timestamp}`);
+        let response = await fetch(`${baseUrl}?v=${timestamp}`);
         
         // Jeśli 404, spróbuj bez cache-busting
         if (!response.ok) {
             console.warn('Fetch z cache-busting nie udał się, próbuję bez...');
-            response = await fetch('../data.json');
+            response = await fetch(baseUrl);
         }
         
         if (!response.ok) {
