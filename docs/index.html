@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SONAR POKOJOWY - Mapa pokoi Lublin</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <h1>🎯 SONAR POKOJOWY</h1>
+            <p class="subtitle">Mapa pokoi do wynajęcia w Lublinie</p>
+        </header>
+        
+        <!-- Stats Panel -->
+        <div class="stats-panel">
+            <div class="stat-item">
+                <span class="stat-label">Aktywnych ofert:</span>
+                <span class="stat-value" id="active-count">-</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Średnia cena:</span>
+                <span class="stat-value" id="avg-price">-</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Najtańszy:</span>
+                <span class="stat-value" id="min-price">-</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Najdroższy:</span>
+                <span class="stat-value" id="max-price">-</span>
+            </div>
+        </div>
+        
+        <!-- Scan Info -->
+        <div class="scan-info">
+            <div>🕐 Ostatni scan: <strong id="last-scan">-</strong></div>
+            <div>⏰ Następny scan: <strong id="next-scan">-</strong></div>
+        </div>
+        
+        <!-- Search Bar -->
+        <div class="search-container">
+            <input type="text" id="search-input" placeholder="🔍 Wyszukaj adres (np. Narutowicza)...">
+        </div>
+        
+        <!-- Filter Controls -->
+        <div class="filters-container">
+            <div class="filter-group">
+                <h3>Warstwy</h3>
+                <label>
+                    <input type="checkbox" id="layer-active" checked>
+                    Aktywne oferty
+                </label>
+                <label>
+                    <input type="checkbox" id="layer-inactive" checked>
+                    Nieaktywne oferty (historia)
+                </label>
+            </div>
+            
+            <div class="filter-group">
+                <h3>Zakresy cenowe - Aktywne</h3>
+                <div id="price-range-filters-active"></div>
+            </div>
+            
+            <div class="filter-group">
+                <h3>Zakresy cenowe - Nieaktywne</h3>
+                <div id="price-range-filters-inactive"></div>
+            </div>
+            
+            <div class="filter-group">
+                <h3>Precyzyjny filtr cen - Aktywne</h3>
+                <label>
+                    Min: <input type="number" id="price-min-active" placeholder="0" min="0" step="50"> zł
+                </label>
+                <label>
+                    Max: <input type="number" id="price-max-active" placeholder="3000" min="0" step="50"> zł
+                </label>
+            </div>
+            
+            <div class="filter-group">
+                <h3>Precyzyjny filtr cen - Nieaktywne</h3>
+                <label>
+                    Min: <input type="number" id="price-min-inactive" placeholder="0" min="0" step="50"> zł
+                </label>
+                <label>
+                    Max: <input type="number" id="price-max-inactive" placeholder="3000" min="0" step="50"> zł
+                </label>
+            </div>
+        </div>
+        
+        <!-- Map Container -->
+        <div id="map"></div>
+    </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Custom JS -->
+    <script src="assets/script.js"></script>
+</body>
+</html>

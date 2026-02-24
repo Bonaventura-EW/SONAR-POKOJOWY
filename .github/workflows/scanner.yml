@@ -1,0 +1,48 @@
+name: SONAR POKOJOWY Scanner
+
+on:
+  schedule:
+    # 3 scany dziennie: 9:00, 15:00, 21:00 CET (UTC = CET - 1h zimą, - 2h latem)
+    # W zimie (standard time): 8:00, 14:00, 20:00 UTC
+    # W lecie (daylight saving): 7:00, 13:00, 19:00 UTC
+    # GitHub Actions używa UTC, więc podajemy czas zimowy (standard)
+    - cron: '0 8,14,20 * * *'  # 9:00, 15:00, 21:00 CET (zimowy)
+    
+  # Możliwość manualnego uruchomienia
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Run SONAR POKOJOWY scanner
+        run: |
+          cd src
+          python main.py
+      
+      - name: Generate map data
+        run: |
+          cd src
+          python map_generator.py
+      
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data/ docs/data.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 Automatyczny scan: $(date +'%Y-%m-%d %H:%M')" && git push)
