@@ -170,17 +170,15 @@ function createMarkerGroup(baseCoords, address, offers, priceRange, isActive) {
             baseCoords[1] + offsetLon
         ];
         
-        // Kolor markera
-        const color = mapData.price_ranges[priceRange].color;
-        
-        // Symbol dla aktywnych/nieaktywnych
-        const symbol = isActive ? '📍' : '❌';
+        // Tooltip (pojawia się przy hover)
+        const price = offer.price;
+        const tooltipText = `${address} - ${price} zł`;
         
         // Ikona markera - pinezka z kolorem
         const icon = L.divIcon({
             className: 'pin-marker',
             html: `
-                <div style="position: relative; width: 40px; height: 50px;">
+                <div style="position: relative; width: 40px; height: 50px;" title="${tooltipText}">
                     <svg width="40" height="50" viewBox="0 0 40 50" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
                         <path d="M20 0 C9 0 0 9 0 20 C0 35 20 50 20 50 C20 50 40 35 40 20 C40 9 31 0 20 0 Z" 
                               fill="${color}" 
@@ -444,5 +442,27 @@ function deleteOffer(offerId, address) {
         
         // Zamknij popup
         map.closePopup();
+    }
+}
+
+
+// Usuwanie oferty z mapy
+function deleteOffer(offerId, address) {
+    if (!confirm(`Czy na pewno chcesz usunąć ofertę z adresu "${address}"?`)) {
+        return;
+    }
+    
+    console.log('🗑️ Usuwam ofertę:', offerId);
+    
+    // Znajdź i usuń marker
+    const markerIndex = allMarkers.findIndex(m => m.address === address);
+    
+    if (markerIndex !== -1) {
+        const markerData = allMarkers[markerIndex];
+        markerData.marker.remove();
+        allMarkers.splice(markerIndex, 1);
+        
+        console.log('✅ Oferta usunięta');
+        alert('Oferta usunięta z mapy. Przy kolejnym scanie pojawi się ponownie jeśli nadal istnieje na OLX.');
     }
 }
