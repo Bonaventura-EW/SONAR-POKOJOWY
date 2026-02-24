@@ -28,7 +28,14 @@ function initMap() {
 // Wczytanie danych
 async function loadData() {
     try {
-        const response = await fetch('../data.json');
+        // Cache-busting: dodaj timestamp do URL
+        const timestamp = new Date().getTime();
+        const response = await fetch(`../data.json?v=${timestamp}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         mapData = await response.json();
         
         updateStats();
