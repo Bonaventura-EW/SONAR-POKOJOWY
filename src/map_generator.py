@@ -18,7 +18,7 @@ class MapDataGenerator:
         'over_1200': {'label': '1200+ zł', 'color': '#8B0000', 'min': 1200, 'max': 999999}
     }
     
-    def __init__(self, input_file: str = "data/offers.json", output_file: str = "docs/data.json"):
+    def __init__(self, input_file: str = "../data/offers.json", output_file: str = "../docs/data.json"):
         self.input_file = Path(input_file)
         self.output_file = Path(output_file)
     

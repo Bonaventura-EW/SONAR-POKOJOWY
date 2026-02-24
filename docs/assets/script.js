@@ -28,7 +28,7 @@ function initMap() {
 // Wczytanie danych
 async function loadData() {
     try {
-        const response = await fetch('data.json');
+        const response = await fetch('../data.json');
         mapData = await response.json();
         
         updateStats();

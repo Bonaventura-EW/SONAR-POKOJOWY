@@ -18,12 +18,12 @@ from geocoder import Geocoder
 from duplicate_detector import DuplicateDetector
 
 class SonarPokojowy:
-    def __init__(self, data_file: str = "data/offers.json"):
+    def __init__(self, data_file: str = "../data/offers.json"):
         self.data_file = Path(data_file)
         self.scraper = OLXScraper(delay_range=(2, 4))
         self.address_parser = AddressParser()
         self.price_parser = PriceParser()
-        self.geocoder = Geocoder(cache_file="data/geocoding_cache.json")
+        self.geocoder = Geocoder(cache_file="../data/geocoding_cache.json")
         self.duplicate_detector = DuplicateDetector(similarity_threshold=0.95)
         
         # Strefa czasowa polska
