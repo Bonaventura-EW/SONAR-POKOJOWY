@@ -167,18 +167,20 @@ class OLXScraper:
                 print("   ⚠️ Brak ofert na stronie - koniec paginacji")
                 break
             
-            # Pobierz pełny opis dla każdej oferty
+            # Pobierz pełny opis TYLKO jeśli w snippet nie ma numeru
             for i, offer in enumerate(offers, 1):
-                print(f"   [{i}/{len(offers)}] Pobieranie opisu: {offer['title'][:40]}...")
-                details = self.fetch_offer_details(offer['url'])
-                if details:
-                    offer['description'] = details['description']
-                else:
-                    offer['description'] = offer.get('description_snippet', '')
+                snippet = offer['title'] + ' ' + offer.get('description_snippet', '')
                 
-                # Opóźnienie między szczegółami (anty-block)
-                if i < len(offers):
-                    self._random_delay()
+                # Sprawdź czy snippet zawiera jakikolwiek numer (potencjalny adres)
+                if not re.search(r'\d+', snippet):
+                    print(f"   [{i}/{len(offers)}] Brak numeru w snippet, pobieram pełny opis...")
+                    details = self.fetch_offer_details(offer['url'])
+                    if details:
+                        offer['description'] = details['description']
+                        self._random_delay()
+                else:
+                    # Użyj snippet jako opisu
+                    offer['description'] = snippet
             
             all_offers.extend(offers)
             
