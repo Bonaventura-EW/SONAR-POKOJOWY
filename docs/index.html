@@ -18,66 +18,69 @@
             <h1>🎯 SONAR POKOJOWY</h1>
         </header>
         
-        <!-- Scan Info - przeniesione do prawego górnego rogu mapy -->
-        <!-- Search Bar - przeniesione na mapę jako floating control -->
-        
-        <!-- Filter Controls -->
-        <div class="filters-container">
-            <div class="filter-group">
-                <h3>Warstwy</h3>
-                <label>
-                    <input type="checkbox" id="layer-active" checked>
-                    Aktywne oferty
-                </label>
-                <label>
-                    <input type="checkbox" id="layer-inactive" checked>
-                    Nieaktywne oferty (historia)
-                </label>
+        <!-- Main content: mapa + sidebar -->
+        <div class="main-container">
+            <!-- Map Container -->
+            <div id="map">
+                <!-- Search control - floating na mapie -->
+                <div class="map-search-control">
+                    <input type="text" id="search-input" placeholder="🔍 Szukaj adresu...">
+                </div>
+                
+                <!-- Scan info - floating w prawym górnym rogu -->
+                <div class="map-scan-info">
+                    <div style="font-size: 10px;">🕐 <span id="last-scan">-</span></div>
+                    <div style="font-size: 10px;">⏰ <span id="next-scan">-</span></div>
+                </div>
             </div>
             
-            <div class="filter-group">
-                <h3>Zakresy cenowe - Aktywne</h3>
-                <div id="price-range-filters-active"></div>
-            </div>
-            
-            <div class="filter-group">
-                <h3>Zakresy cenowe - Nieaktywne</h3>
-                <div id="price-range-filters-inactive"></div>
-            </div>
-            
-            <div class="filter-group">
-                <h3>Precyzyjny filtr cen - Aktywne</h3>
-                <label>
-                    Min: <input type="number" id="price-min-active" placeholder="0" min="0" step="50"> zł
-                </label>
-                <label>
-                    Max: <input type="number" id="price-max-active" placeholder="3000" min="0" step="50"> zł
-                </label>
-            </div>
-            
-            <div class="filter-group">
-                <h3>Precyzyjny filtr cen - Nieaktywne</h3>
-                <label>
-                    Min: <input type="number" id="price-min-inactive" placeholder="0" min="0" step="50"> zł
-                </label>
-                <label>
-                    Max: <input type="number" id="price-max-inactive" placeholder="3000" min="0" step="50"> zł
-                </label>
-            </div>
-        </div>
-        
-        <!-- Map Container -->
-        <div id="map">
-            <!-- Search control - floating na mapie -->
-            <div class="map-search-control">
-                <input type="text" id="search-input" placeholder="🔍 Szukaj adresu...">
-            </div>
-            
-            <!-- Scan info - floating w prawym górnym rogu -->
-            <div class="map-scan-info">
-                <div style="font-size: 10px;">🕐 <span id="last-scan">-</span></div>
-                <div style="font-size: 10px;">⏰ <span id="next-scan">-</span></div>
-            </div>
+            <!-- Sidebar po prawej -->
+            <aside class="sidebar">
+                <!-- Filter Controls -->
+                <div class="filters-container">
+                    <div class="filter-group">
+                        <h3>Warstwy</h3>
+                        <label>
+                            <input type="checkbox" id="layer-active" checked>
+                            Aktywne oferty
+                        </label>
+                        <label>
+                            <input type="checkbox" id="layer-inactive" checked>
+                            Nieaktywne oferty (historia)
+                        </label>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <h3>Zakresy cenowe - Aktywne</h3>
+                        <div id="price-range-filters-active"></div>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <h3>Zakresy cenowe - Nieaktywne</h3>
+                        <div id="price-range-filters-inactive"></div>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <h3>Precyzyjny filtr cen - Aktywne</h3>
+                        <label>
+                            Min: <input type="number" id="price-min-active" placeholder="0" min="0" step="50"> zł
+                        </label>
+                        <label>
+                            Max: <input type="number" id="price-max-active" placeholder="3000" min="0" step="50"> zł
+                        </label>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <h3>Precyzyjny filtr cen - Nieaktywne</h3>
+                        <label>
+                            Min: <input type="number" id="price-min-inactive" placeholder="0" min="0" step="50"> zł
+                        </label>
+                        <label>
+                            Max: <input type="number" id="price-max-inactive" placeholder="3000" min="0" step="50"> zł
+                        </label>
+                    </div>
+                </div>
+            </aside>
         </div>
     </div>
     
