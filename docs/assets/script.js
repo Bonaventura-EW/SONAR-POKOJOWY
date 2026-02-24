@@ -197,22 +197,26 @@ function createMarkerGroup(baseCoords, address, offers, priceRange, isActive) {
         });
         
         // Popup content
-        const popupContent = createPopupContent(address, [offer]);
+        const popupContent = createPopupContent(address, [offer], marker);
         
-        // Tworzenie markera
-        const marker = L.marker(coords, { icon: icon })
+        // Tworzenie markera z tooltip
+        const tooltipText = `${address} - ${offer.price} zł`;
+        const markerObj = L.marker(coords, { 
+            icon: icon,
+            title: tooltipText  // Tooltip przy hover
+        })
             .bindPopup(popupContent, { maxWidth: 400 });
         
         // Dodaj do odpowiedniej warstwy
         if (isActive) {
-            marker.addTo(markerLayers.active);
+            markerObj.addTo(markerLayers.active);
         } else {
-            marker.addTo(markerLayers.inactive);
+            markerObj.addTo(markerLayers.inactive);
         }
         
         // Zapisz referencję
         allMarkers.push({
-            marker: marker,
+            marker: markerObj,
             address: address,
             offers: [offer],
             priceRange: priceRange,
@@ -222,14 +226,14 @@ function createMarkerGroup(baseCoords, address, offers, priceRange, isActive) {
 }
 
 // Tworzenie HTML popup
-function createPopupContent(address, offers) {
+function createPopupContent(address, offers, marker) {
     let html = `<div class="offer-popup">`;
     html += `<h3>📍 ${address}</h3>`;
     
     offers.forEach(offer => {
         const isActive = offer.active;
         
-        html += `<div class="offer-item ${isActive ? '' : 'inactive'}">`;
+        html += `<div class="offer-item ${isActive ? '' : 'inactive'}" data-offer-id="${offer.id}">`;
         
         if (!isActive) {
             html += `<div class="inactive-badge">❌ Nieaktywne</div>`;
@@ -267,6 +271,9 @@ function createPopupContent(address, offers) {
             html += `💰 Ostatnia cena: ${offer.price} zł`;
             html += `</div>`;
         }
+        
+        // Przycisk usuwania
+        html += `<button class="delete-offer-btn" onclick="deleteOffer('${offer.id}', '${address}')">🗑️ Usuń z mapy</button>`;
         
         html += `</div>`;
     });
@@ -408,3 +415,34 @@ document.addEventListener('DOMContentLoaded', function() {
     initMap();
     loadData();
 });
+
+// Funkcja usuwania oferty z mapy
+function deleteOffer(offerId, address) {
+    if (!confirm(`Czy na pewno chcesz usunąć ofertę:\n${address}\n\nTa akcja ukryje ofertę tylko lokalnie (nie wpływa na bazę danych).`)) {
+        return;
+    }
+    
+    // Znajdź marker z tą ofertą
+    const markerIndex = allMarkers.findIndex(m => 
+        m.offers.some(o => o.id === offerId)
+    );
+    
+    if (markerIndex !== -1) {
+        const markerData = allMarkers[markerIndex];
+        
+        // Usuń z mapy
+        if (markerData.isActive) {
+            markerLayers.active.removeLayer(markerData.marker);
+        } else {
+            markerLayers.inactive.removeLayer(markerData.marker);
+        }
+        
+        // Usuń z listy
+        allMarkers.splice(markerIndex, 1);
+        
+        console.log(`🗑️ Usunięto ofertę: ${address} (${offerId})`);
+        
+        // Zamknij popup
+        map.closePopup();
+    }
+}

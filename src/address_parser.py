@@ -45,7 +45,8 @@ class AddressParser:
         # Słowa które NIE mogą być nazwą ulicy
         excluded_words_lower = {
             'pokój', 'przy', 'obok', 'blisko', 'centrum', 'okolice', 'minut', 'minutę', 'rok', 'lata',
-            'jednoosobowy', 'dwuosobowy', 'trzoosobowy', 'osobowy'
+            'jednoosobowy', 'dwuosobowy', 'trzoosobowy', 'osobowy',
+            'dla', 'bez', 'lub', 'lub', 'osób', 'osoby'  # Krótkie słowa wykluczenia
         }
         
         # Szukamy WSZYSTKICH dopasowań
@@ -54,6 +55,10 @@ class AddressParser:
         for match in matches:
             street = match.group(1).strip()
             number = match.group(2).strip()
+            
+            # Sprawdź minimum 4 litery w nazwie ulicy (żeby wykluczyć "dla", "bez" etc)
+            if len(street.replace(' ', '')) < 4:
+                continue
             
             # Sprawdź czy którekolwiek słowo w nazwie ulicy NIE jest słowem wykluczonym
             street_words = street.split()
