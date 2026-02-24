@@ -28,15 +28,22 @@ function initMap() {
 // Wczytanie danych
 async function loadData() {
     try {
-        // Cache-busting: dodaj timestamp do URL
+        // Próba 1: Z cache-busting
         const timestamp = new Date().getTime();
-        const response = await fetch(`../data.json?v=${timestamp}`);
+        let response = await fetch(`../data.json?v=${timestamp}`);
+        
+        // Jeśli 404, spróbuj bez cache-busting
+        if (!response.ok) {
+            console.warn('Fetch z cache-busting nie udał się, próbuję bez...');
+            response = await fetch('../data.json');
+        }
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        mapData = await response.json();
+        const text = await response.text();
+        mapData = JSON.parse(text);
         
         updateStats();
         updateScanInfo();
