@@ -7,6 +7,7 @@ import requests
 from bs4 import BeautifulSoup
 import time
 import random
+import re
 from typing import List, Dict, Optional
 from urllib.parse import urljoin
 
