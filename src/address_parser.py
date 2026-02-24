@@ -15,10 +15,10 @@ class AddressParser:
     PREFIXES = r'(?:ul\.|ulica|al\.|aleja|aleje|pl\.|plac|os\.|osiedle)?'
     
     # Główny pattern adresu
-    # Dopuszcza: 1-2 słowa z wielkimi literami (np. "Narutowicza", "Aleje Racławickie")
-    # Numer: cyfry, opcjonalnie /cyfry, opcjonalnie lok. cyfry
+    # Dopuszcza: 1-2 słowa (pierwsze MOŻE być małe - "zimowa"), liczba + opcjonalna litera (3A, 12B)
+    # Numer: cyfry + opcjonalna litera (a-z), opcjonalnie /cyfry, opcjonalnie lok. cyfry
     ADDRESS_PATTERN = re.compile(
-        rf'{PREFIXES}\s*([A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]+(?:\s+[A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]+)?)\s+(\d+(?:/\d+)?(?:\s+lok\.\s+\d+)?)',
+        rf'{PREFIXES}\s*([A-ZŚĆŁĄĘÓŻŹŃ]?[a-zśćłąęóżźń]+(?:\s+[A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]+)?)\s+(\d+[a-zA-Z]?(?:/\d+)?(?:\s+lok\.\s+\d+)?)',
         re.UNICODE
     )
     
@@ -43,7 +43,10 @@ class AddressParser:
             return None
         
         # Słowa które NIE mogą być nazwą ulicy
-        excluded_words_lower = {'pokój', 'przy', 'obok', 'blisko', 'centrum', 'okolice', 'minut', 'minutę', 'rok', 'lata'}
+        excluded_words_lower = {
+            'pokój', 'przy', 'obok', 'blisko', 'centrum', 'okolice', 'minut', 'minutę', 'rok', 'lata',
+            'jednoosobowy', 'dwuosobowy', 'trzoosobowy', 'osobowy'
+        }
         
         # Szukamy WSZYSTKICH dopasowań
         matches = self.ADDRESS_PATTERN.finditer(text)
@@ -120,14 +123,17 @@ if __name__ == "__main__":
     parser = AddressParser()
     
     test_cases = [
-        ("Pokój przy Narutowicza 5, umeblowany", "Narutowicza 5"),
+        ("Narutowicza 5", "Narutowicza 5"),  # Bez 'przy' - powinno działać
         ("ul. Rynek 8, centrum", "Rynek 8"),
         ("al. Andersa 13 lok. 5", "Andersa 13 lok. 5"),
-        ("Aleje Racławickie 12/2", "Aleje Racławickie 12/2"),  # Poprawna 2-składnikowa nazwa
+        ("Aleje Racławickie 12/2", "Aleje Racławickie 12/2"),
         ("Os. Przyjaźni 23", "Przyjaźni 23"),
+        ("Langiewicza 3A", "Langiewicza 3A"),  # Z literą
+        ("zimowa 10", "zimowa 10"),  # Mała litera
         ("Czechów okolice", None),  # brak numeru
         ("Przy rondzie Chatki Żaka", None),  # brak numeru
         ("5 minut od centrum", None),  # nie adres
+        ("100 metrów od UMCS", None),  # metrów od
     ]
     
     print("🧪 Testy Address Parser:\n")
