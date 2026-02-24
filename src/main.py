@@ -288,5 +288,5 @@ class SonarPokojowy:
 
 
 if __name__ == "__main__":
-    agent = SonarPokojowy(data_file="data/offers.json")
+    agent = SonarPokojowy(data_file="../data/offers.json")
     agent.run_scan()
