@@ -27,20 +27,30 @@ function initMap() {
 
 // Wczytanie danych
 async function loadData() {
+    console.log('🔄 Rozpoczynam ładowanie danych...');
+    
     try {
         // Użyj absolutnej ścieżki dla GitHub Pages
         const baseUrl = window.location.pathname.includes('/SONAR-POKOJOWY/') 
             ? '/SONAR-POKOJOWY/data.json' 
             : '/data.json';
         
+        console.log('📍 Base URL:', baseUrl);
+        console.log('📍 Current pathname:', window.location.pathname);
+        
         // Próba 1: Z cache-busting
         const timestamp = new Date().getTime();
-        let response = await fetch(`${baseUrl}?v=${timestamp}`);
+        const urlWithCache = `${baseUrl}?v=${timestamp}`;
+        
+        console.log('🌐 Próba fetch:', urlWithCache);
+        let response = await fetch(urlWithCache);
+        console.log('📥 Response status:', response.status, response.statusText);
         
         // Jeśli 404, spróbuj bez cache-busting
         if (!response.ok) {
-            console.warn('Fetch z cache-busting nie udał się, próbuję bez...');
+            console.warn('⚠️ Fetch z cache-busting nie udał się, próbuję bez...');
             response = await fetch(baseUrl);
+            console.log('📥 Response (bez cache) status:', response.status, response.statusText);
         }
         
         if (!response.ok) {
@@ -48,17 +58,32 @@ async function loadData() {
         }
         
         const text = await response.text();
+        console.log('📄 Otrzymano tekst, długość:', text.length);
+        
         mapData = JSON.parse(text);
+        console.log('✅ JSON sparsowany, markery:', mapData.markers?.length || 0);
         
         updateStats();
+        console.log('✅ Statystyki zaktualizowane');
+        
         updateScanInfo();
+        console.log('✅ Scan info zaktualizowane');
+        
         createPriceRangeFilters();
+        console.log('✅ Filtry cenowe utworzone');
+        
         createMarkers();
+        console.log('✅ Markery utworzone');
+        
         setupEventListeners();
+        console.log('✅ Event listenery dodane');
+        
+        console.log('🎉 Ładowanie zakończone sukcesem!');
         
     } catch (error) {
-        console.error('Błąd wczytywania danych:', error);
-        alert('Nie udało się wczytać danych mapy. Sprawdź czy plik data.json istnieje.');
+        console.error('❌ Błąd wczytywania danych:', error);
+        console.error('❌ Stack:', error.stack);
+        alert('Nie udało się wczytać danych mapy. Sprawdź czy plik data.json istnieje.\n\nBłąd: ' + error.message);
     }
 }
 
