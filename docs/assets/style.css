@@ -21,81 +21,26 @@ body {
 .header {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    padding: 10px 20px;
+    padding: 5px 15px;
     text-align: center;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    box-shadow: 0 1px 5px rgba(0,0,0,0.1);
 }
 
 .header h1 {
-    font-size: 24px;
-    margin-bottom: 3px;
+    font-size: 14px;
+    margin: 0;
+    font-weight: 600;
 }
 
 .subtitle {
-    font-size: 12px;
-    opacity: 0.9;
+    display: none; /* Usunięty */
 }
 
-/* Stats Panel */
-.stats-panel {
-    display: flex;
-    justify-content: space-around;
-    padding: 8px;
-    background: white;
-    border-bottom: 1px solid #ddd;
-    flex-wrap: wrap;
-}
+/* Stats Panel - USUNIĘTY */
 
-.stat-item {
-    text-align: center;
-    padding: 3px 10px;
-}
+/* Scan Info - USUNIĘTY, teraz floating na mapie */
 
-.stat-label {
-    display: block;
-    font-size: 10px;
-    color: #666;
-    margin-bottom: 3px;
-}
-
-.stat-value {
-    display: block;
-    font-size: 16px;
-    font-weight: bold;
-    color: #667eea;
-}
-
-/* Scan Info */
-.scan-info {
-    display: flex;
-    justify-content: space-around;
-    padding: 6px;
-    background: #fff9e6;
-    border-bottom: 1px solid #ddd;
-    font-size: 11px;
-    flex-wrap: wrap;
-}
-
-/* Search Bar */
-.search-container {
-    padding: 8px;
-    background: white;
-    border-bottom: 1px solid #ddd;
-}
-
-#search-input {
-    width: 100%;
-    padding: 8px;
-    font-size: 14px;
-    border: 2px solid #ddd;
-    border-radius: 6px;
-    transition: border-color 0.3s;
-}
-
-#search-input:focus {
-    outline: none;
-    border-color: #667eea;
-}
+/* Search Bar - USUNIĘTY, teraz floating na mapie */
 
 /* Filters */
 .filters-container {
@@ -146,6 +91,50 @@ body {
     flex: 1;
     width: 100%;
     min-height: 500px;
+    position: relative;
+}
+
+/* Floating Search Control - lewy górny róg */
+.map-search-control {
+    position: absolute;
+    top: 10px;
+    left: 50px;
+    z-index: 1000;
+    background: white;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    padding: 8px;
+}
+
+.map-search-control input {
+    width: 250px;
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.map-search-control input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+/* Floating Scan Info - prawy górny róg */
+.map-scan-info {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    padding: 8px 12px;
+    font-size: 10px;
+    line-height: 1.4;
+}
+
+.map-scan-info div {
+    margin: 2px 0;
 }
 
 /* Leaflet Popup customization */

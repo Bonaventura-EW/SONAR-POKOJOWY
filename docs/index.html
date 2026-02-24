@@ -16,39 +16,10 @@
         <!-- Header -->
         <header class="header">
             <h1>🎯 SONAR POKOJOWY</h1>
-            <p class="subtitle">Mapa pokoi do wynajęcia w Lublinie</p>
         </header>
         
-        <!-- Stats Panel -->
-        <div class="stats-panel">
-            <div class="stat-item">
-                <span class="stat-label">Aktywnych ofert:</span>
-                <span class="stat-value" id="active-count">-</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">Średnia cena:</span>
-                <span class="stat-value" id="avg-price">-</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">Najtańszy:</span>
-                <span class="stat-value" id="min-price">-</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-label">Najdroższy:</span>
-                <span class="stat-value" id="max-price">-</span>
-            </div>
-        </div>
-        
-        <!-- Scan Info -->
-        <div class="scan-info">
-            <div>🕐 Ostatni scan: <strong id="last-scan">-</strong></div>
-            <div>⏰ Następny scan: <strong id="next-scan">-</strong></div>
-        </div>
-        
-        <!-- Search Bar -->
-        <div class="search-container">
-            <input type="text" id="search-input" placeholder="🔍 Wyszukaj adres (np. Narutowicza)...">
-        </div>
+        <!-- Scan Info - przeniesione do prawego górnego rogu mapy -->
+        <!-- Search Bar - przeniesione na mapę jako floating control -->
         
         <!-- Filter Controls -->
         <div class="filters-container">
@@ -96,7 +67,18 @@
         </div>
         
         <!-- Map Container -->
-        <div id="map"></div>
+        <div id="map">
+            <!-- Search control - floating na mapie -->
+            <div class="map-search-control">
+                <input type="text" id="search-input" placeholder="🔍 Szukaj adresu...">
+            </div>
+            
+            <!-- Scan info - floating w prawym górnym rogu -->
+            <div class="map-scan-info">
+                <div style="font-size: 10px;">🕐 <span id="last-scan">-</span></div>
+                <div style="font-size: 10px;">⏰ <span id="next-scan">-</span></div>
+            </div>
+        </div>
     </div>
     
     <!-- Leaflet JS -->
