@@ -33,6 +33,41 @@ body {
     flex-shrink: 0;
 }
 
+/* Statystyki w sidebarze */
+.sidebar-stats {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px;
+    border-bottom: 2px solid #ddd;
+}
+
+.sidebar-stats .stat-item {
+    margin-bottom: 8px;
+    font-size: 11px;
+}
+
+.sidebar-stats .stat-label {
+    display: inline-block;
+    width: 110px;
+    opacity: 0.9;
+}
+
+.sidebar-stats .stat-value {
+    font-weight: bold;
+    font-size: 13px;
+}
+
+.sidebar-stats .scan-time {
+    font-size: 10px;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,0.3);
+}
+
+.sidebar-stats .scan-time:first-of-type {
+    margin-top: 10px;
+}
+
 /* Header */
 .header {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -130,24 +165,6 @@ body {
 .map-search-control input:focus {
     outline: none;
     border-color: #667eea;
-}
-
-/* Floating Scan Info - prawy górny róg */
-.map-scan-info {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    z-index: 1000;
-    background: rgba(255, 255, 255, 0.95);
-    border-radius: 6px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    padding: 8px 12px;
-    font-size: 10px;
-    line-height: 1.4;
-}
-
-.map-scan-info div {
-    margin: 2px 0;
 }
 
 /* Leaflet Popup customization */

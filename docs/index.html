@@ -26,16 +26,36 @@
                 <div class="map-search-control">
                     <input type="text" id="search-input" placeholder="🔍 Szukaj adresu...">
                 </div>
-                
-                <!-- Scan info - floating w prawym górnym rogu -->
-                <div class="map-scan-info">
-                    <div style="font-size: 10px;">🕐 <span id="last-scan">-</span></div>
-                    <div style="font-size: 10px;">⏰ <span id="next-scan">-</span></div>
-                </div>
             </div>
             
             <!-- Sidebar po prawej -->
             <aside class="sidebar">
+                <!-- Statystyki -->
+                <div class="sidebar-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Aktywnych ofert:</span>
+                        <span class="stat-value" id="active-count">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Średnia cena:</span>
+                        <span class="stat-value" id="avg-price">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Najtańszy:</span>
+                        <span class="stat-value" id="min-price">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Najdroższy:</span>
+                        <span class="stat-value" id="max-price">-</span>
+                    </div>
+                    <div class="stat-item scan-time">
+                        <span>🕐 Ostatni scan: <strong id="last-scan">-</strong></span>
+                    </div>
+                    <div class="stat-item scan-time">
+                        <span>⏰ Następny scan: <strong id="next-scan">-</strong></span>
+                    </div>
+                </div>
+                
                 <!-- Filter Controls -->
                 <div class="filters-container">
                     <div class="filter-group">

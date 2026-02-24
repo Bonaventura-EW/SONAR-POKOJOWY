@@ -31,6 +31,7 @@ async function loadData() {
         const response = await fetch('../data.json');
         mapData = await response.json();
         
+        updateStats();
         updateScanInfo();
         createPriceRangeFilters();
         createMarkers();
@@ -40,6 +41,14 @@ async function loadData() {
         console.error('Błąd wczytywania danych:', error);
         alert('Nie udało się wczytać danych mapy. Sprawdź czy plik data.json istnieje.');
     }
+}
+
+// Aktualizacja statystyk
+function updateStats() {
+    document.getElementById('active-count').textContent = mapData.stats.active_count;
+    document.getElementById('avg-price').textContent = mapData.stats.avg_price + ' zł';
+    document.getElementById('min-price').textContent = mapData.stats.min_price + ' zł';
+    document.getElementById('max-price').textContent = mapData.stats.max_price + ' zł';
 }
 
 // Aktualizacja informacji o skanach
