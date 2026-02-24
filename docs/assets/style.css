@@ -21,18 +21,18 @@ body {
 .header {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    padding: 20px;
+    padding: 10px 20px;
     text-align: center;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
 
 .header h1 {
-    font-size: 32px;
-    margin-bottom: 5px;
+    font-size: 24px;
+    margin-bottom: 3px;
 }
 
 .subtitle {
-    font-size: 14px;
+    font-size: 12px;
     opacity: 0.9;
 }
 
@@ -40,7 +40,7 @@ body {
 .stats-panel {
     display: flex;
     justify-content: space-around;
-    padding: 15px;
+    padding: 8px;
     background: white;
     border-bottom: 1px solid #ddd;
     flex-wrap: wrap;
@@ -48,19 +48,19 @@ body {
 
 .stat-item {
     text-align: center;
-    padding: 5px 15px;
+    padding: 3px 10px;
 }
 
 .stat-label {
     display: block;
-    font-size: 12px;
+    font-size: 10px;
     color: #666;
-    margin-bottom: 5px;
+    margin-bottom: 3px;
 }
 
 .stat-value {
     display: block;
-    font-size: 20px;
+    font-size: 16px;
     font-weight: bold;
     color: #667eea;
 }
@@ -69,26 +69,26 @@ body {
 .scan-info {
     display: flex;
     justify-content: space-around;
-    padding: 10px;
+    padding: 6px;
     background: #fff9e6;
     border-bottom: 1px solid #ddd;
-    font-size: 13px;
+    font-size: 11px;
     flex-wrap: wrap;
 }
 
 /* Search Bar */
 .search-container {
-    padding: 15px;
+    padding: 8px;
     background: white;
     border-bottom: 1px solid #ddd;
 }
 
 #search-input {
     width: 100%;
-    padding: 12px;
-    font-size: 16px;
+    padding: 8px;
+    font-size: 14px;
     border: 2px solid #ddd;
-    border-radius: 8px;
+    border-radius: 6px;
     transition: border-color 0.3s;
 }
 
@@ -100,51 +100,52 @@ body {
 /* Filters */
 .filters-container {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
-    padding: 15px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    padding: 10px;
     background: white;
     border-bottom: 2px solid #ddd;
-    max-height: 300px;
+    max-height: 250px;
     overflow-y: auto;
 }
 
 .filter-group {
-    padding: 10px;
+    padding: 8px;
     background: #f9f9f9;
-    border-radius: 8px;
+    border-radius: 6px;
 }
 
 .filter-group h3 {
-    font-size: 14px;
-    margin-bottom: 10px;
+    font-size: 12px;
+    margin-bottom: 8px;
     color: #667eea;
 }
 
 .filter-group label {
     display: block;
-    margin-bottom: 8px;
-    font-size: 13px;
+    margin-bottom: 6px;
+    font-size: 11px;
     cursor: pointer;
 }
 
 .filter-group input[type="checkbox"] {
-    margin-right: 8px;
+    margin-right: 6px;
 }
 
 .filter-group input[type="number"] {
     width: 100%;
-    padding: 6px;
-    margin-top: 5px;
+    padding: 4px;
+    margin-top: 3px;
     border: 1px solid #ddd;
     border-radius: 4px;
+    font-size: 11px;
 }
 
 /* Map */
 #map {
     flex: 1;
     width: 100%;
-    min-height: 400px;
+    min-height: 500px;
 }
 
 /* Leaflet Popup customization */
