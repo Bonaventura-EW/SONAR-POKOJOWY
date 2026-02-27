@@ -81,7 +81,7 @@ class AddressParser:
             'pokoju', 'kuchni', 'salonu', 'łazienki', 'sypialni'
         }
         
-        # Szukamy WSZYSTKICH dopasowań
+        # Szukamy WSZYSTKICH dopasowań (ulica + numer)
         matches = self.ADDRESS_PATTERN.finditer(text)
         
         for match in matches:
@@ -126,6 +126,42 @@ class AddressParser:
                 'street': street,
                 'number': number,
                 'full': f"{street} {number}"
+            }
+        
+        # FALLBACK: Jeśli nie znaleziono ulicy z numerem, szukaj samej nazwy ulicy
+        # Pattern: ul./aleja/etc NAZWA (bez numeru)
+        street_only_pattern = re.compile(
+            r'(?:ul\.|ulica|al\.|aleja|aleje)\s+([A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]+(?:\s+[A-ZŚĆŁĄĘÓŻŹŃ]?[a-zśćłąęóżźń]+)?)',
+            re.UNICODE
+        )
+        
+        matches = street_only_pattern.finditer(text)
+        for match in matches:
+            street = match.group(1).strip()
+            
+            # Sprawdź długość
+            if len(street.replace(' ', '')) < 4:
+                continue
+            
+            # Sprawdź excluded words
+            street_words = street.split()
+            is_valid = True
+            
+            for word in street_words:
+                if word.lower() in excluded_words_lower:
+                    is_valid = False
+                    break
+            
+            if not is_valid:
+                continue
+            
+            # Normalizuj
+            street = ' '.join(street.split())
+            
+            return {
+                'street': street,
+                'number': 's/n',  # sin número
+                'full': f"{street}"
             }
         
         return None
