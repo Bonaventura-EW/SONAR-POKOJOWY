@@ -38,15 +38,22 @@ class AddressParser:
         if not text:
             return None
         
-        # Sprawdź czy tekst zawiera "X metrów od" - to NIE jest adres
-        if re.search(r'\d+\s*metr[oó]w\s+od', text, re.IGNORECASE):
+        # FILTR 1: Sprawdź czy tekst zawiera "X metrów od" - to NIE jest adres
+        if re.search(r'\d+\s*metr[oó]w\s+(od|do)', text, re.IGNORECASE):
             return None
         
         # Słowa które NIE mogą być nazwą ulicy
         excluded_words_lower = {
             'pokój', 'przy', 'obok', 'blisko', 'centrum', 'okolice', 'minut', 'minutę', 'rok', 'lata',
             'jednoosobowy', 'dwuosobowy', 'trzoosobowy', 'osobowy',
-            'dla', 'bez', 'lub', 'lub', 'osób', 'osoby'  # Krótkie słowa wykluczenia
+            'dla', 'bez', 'lub', 'osób', 'osoby',
+            # NOWE: nazwy dzielnic Lublina (nie są ulicami)
+            'wieniawa', 'śródmieście', 'bronowice', 'czuby', 'kalinowszczyzna', 'tatary',
+            'czechów', 'sławinek', 'sławin', 'abramowice', 'konstantynów', 'ponikwoda',
+            'głusk', 'węglin', 'felin', 'hajdów',
+            # NOWE: słowa z ogłoszeń które nie są ulicami
+            'net', 'ciepło', 'internet', 'wifi', 'balkon', 'ogród', 'parking',
+            'od', 'do', 'za', 'na', 'po', 'we', 'ze'
         }
         
         # Szukamy WSZYSTKICH dopasowań
@@ -75,13 +82,16 @@ class AddressParser:
             # Wyciągnij główny numer (przed / lub lok.)
             main_number = number.split('/')[0].split()[0]
             
-            # Sprawdź czy numer jest rozsądny (max 250)
+            # FILTR 2: Sprawdź czy numer jest rozsądny (max 250)
+            # Numery >250 to prawdopodobnie CENY np. "Samsonowicza 500 zł"
             try:
-                num_value = int(main_number)
+                # Usuń literę na końcu jeśli jest (np. "12a" -> "12")
+                num_str = main_number.rstrip('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
+                num_value = int(num_str)
                 if num_value > 250:
                     continue  # Ignoruj, to prawdopodobnie cena
             except ValueError:
-                pass  # Jeśli nie można sparsować, to OK (może być "12a")
+                pass  # Jeśli nie można sparsować, to OK
             
             # Normalizacja: usuwamy wielokrotne spacje
             street = ' '.join(street.split())

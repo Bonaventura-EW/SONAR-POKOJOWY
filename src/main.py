@@ -81,18 +81,17 @@ class SonarPokojowy:
         Returns:
             Dict z przetworzonymi danymi lub None jeśli oferta nieprawidłowa
         """
-        # 1. Pobierz pełny opis (jeśli potrzebny)
-        full_text = raw_offer['title'] + " " + raw_offer.get('description_snippet', '')
+        # 1. Użyj pełnego opisu (scraper już go pobrał)
+        full_text = raw_offer['title'] + " " + raw_offer.get('description', '')
         
-        # Opcjonalnie: pobierz pełną stronę dla pełnego opisu
-        # WAŻNE: To spowalnia scan, ale zwiększa dokładność!
-        print(f"      📄 Pobieram pełny opis z {raw_offer['url'][:50]}...")
-        details = self.scraper.fetch_offer_details(raw_offer['url'])
-        if details and details.get('description'):
-            full_text += " " + details['description']
-        
-        # 2. Parsuj adres
+        # 2. Parsuj adres z pełnego tekstu (tytuł + opis)
         address_data = self.address_parser.extract_address(full_text)
+        
+        # Jeśli nie znaleziono adresu w tytule, spróbuj w samym opisie
+        if not address_data and raw_offer.get('description'):
+            print(f"      🔍 Brak adresu w tytule, szukam w opisie...")
+            address_data = self.address_parser.extract_address(raw_offer['description'])
+        
         if not address_data:
             return None  # Brak adresu → ignoruj
         
@@ -215,7 +214,7 @@ class SonarPokojowy:
             
             if not processed:
                 # Zlicz powody odrzucenia
-                full_text = raw_offer['title'] + " " + raw_offer.get('description_snippet', '')
+                full_text = raw_offer['title'] + " " + raw_offer.get('description', '')
                 if not self.address_parser.extract_address(full_text):
                     skipped_no_address += 1
                 elif not self.price_parser.extract_price(full_text):

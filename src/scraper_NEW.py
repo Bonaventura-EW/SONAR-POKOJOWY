@@ -18,6 +18,7 @@ class OLXScraper:
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'pl,en-US;q=0.7,en;q=0.3',
+        'Accept-Encoding': 'gzip, deflate, br',
         'Connection': 'keep-alive',
         'Upgrade-Insecure-Requests': '1'
     }
@@ -43,8 +44,7 @@ class OLXScraper:
         try:
             response = self.session.get(url, timeout=15)
             response.raise_for_status()
-            # Użyj response.text (automatycznie zdekodowany) zamiast response.content
-            return BeautifulSoup(response.text, 'lxml')
+            return BeautifulSoup(response.content, 'lxml')
         except requests.RequestException as e:
             print(f"❌ Błąd pobierania {url}: {e}")
             return None
@@ -57,58 +57,49 @@ class OLXScraper:
             Lista Dict z kluczami: url, title, description_snippet, price_raw
         """
         offers = []
-        seen_urls = set()  # Deduplikacja
         
-        # Nowa strategia: znajdź wszystkie linki do /d/oferta/ i wyciągnij dane z kontekstu
-        all_links = soup.find_all('a', href=lambda x: x and '/d/oferta/' in str(x))
+        # OLX używa różnych struktur HTML, szukamy głównych kontenerów
+        # Wariant 1: div[data-cy="l-card"]
+        listings = soup.find_all('div', {'data-cy': 'l-card'})
         
-        for link_tag in all_links:
+        if not listings:
+            # Wariant 2: div zawierający link do ogłoszenia
+            listings = soup.find_all('div', class_=lambda x: x and 'css-' in x and 'offer' in str(x).lower())
+        
+        for listing in listings:
             try:
                 # URL ogłoszenia
-                url = link_tag.get('href', '')
+                link_tag = listing.find('a', href=True)
+                if not link_tag:
+                    continue
+                
+                url = link_tag['href']
                 if not url.startswith('http'):
                     url = urljoin(self.BASE_URL, url)
                 
-                # Deduplikacja - normalizuj URL (bez query params)
-                clean_url = url.split('?')[0]
-                if clean_url in seen_urls:
-                    continue
-                seen_urls.add(clean_url)
-                
-                # Znajdź kontener ogłoszenia - idź w górę maksymalnie 6 poziomów
-                container = None
-                title_tag = None
-                price_tag = None
-                current = link_tag
-                
-                for level in range(6):
-                    current = current.find_parent()
-                    if not current:
-                        break
-                    
-                    # Sprawdź czy ten poziom ma tytuł i cenę
-                    title_tag = current.find('h6') or current.find('h4') or current.find('h3')
-                    price_tag = current.find('p', {'data-testid': 'ad-price'})
-                    
-                    if title_tag and price_tag:
-                        container = current
-                        break
-                
-                if not container or not title_tag or not price_tag:
+                # Pomijamy promowane/wyróżnione (czasem duplikaty)
+                if '/d/oferta/' not in url:
                     continue
                 
-                # Wyciągnij dane
-                title = title_tag.get_text(strip=True)
-                price_raw = price_tag.get_text(strip=True)
+                # Tytuł
+                title_tag = listing.find('h6') or listing.find('h4') or listing.find('strong')
+                title = title_tag.get_text(strip=True) if title_tag else ""
                 
-                # Minimum validation - tytuł musi mieć >5 znaków
-                if len(title) < 5:
-                    continue
+                # Cena (raw text, będzie parsowana później)
+                price_tag = listing.find('p', {'data-testid': 'ad-price'})
+                if not price_tag:
+                    price_tag = listing.find('p', class_=lambda x: x and 'price' in str(x).lower())
+                
+                price_raw = price_tag.get_text(strip=True) if price_tag else ""
+                
+                # Snippet opisu (jeśli dostępny na liście)
+                desc_tag = listing.find('p', class_=lambda x: x and 'description' in str(x).lower())
+                description_snippet = desc_tag.get_text(strip=True) if desc_tag else ""
                 
                 offers.append({
                     'url': url,
                     'title': title,
-                    'description_snippet': "",
+                    'description_snippet': description_snippet,
                     'price_raw': price_raw
                 })
                 
@@ -177,17 +168,20 @@ class OLXScraper:
                 print("   ⚠️ Brak ofert na stronie - koniec paginacji")
                 break
             
-            # Pobierz pełny opis z każdego ogłoszenia (Opcja A - najbezpieczniejsza)
+            # Pobierz pełny opis TYLKO jeśli w snippet nie ma numeru
             for i, offer in enumerate(offers, 1):
-                print(f"   [{i}/{len(offers)}] Pobieram pełny opis...")
-                details = self.fetch_offer_details(offer['url'])
-                if details:
-                    offer['description'] = details['description']
-                else:
-                    # Fallback - użyj tytułu jako opisu
-                    offer['description'] = offer['title']
+                snippet = offer['title'] + ' ' + offer.get('description_snippet', '')
                 
-                self._random_delay()
+                # Sprawdź czy snippet zawiera jakikolwiek numer (potencjalny adres)
+                if not re.search(r'\d+', snippet):
+                    print(f"   [{i}/{len(offers)}] Brak numeru w snippet, pobieram pełny opis...")
+                    details = self.fetch_offer_details(offer['url'])
+                    if details:
+                        offer['description'] = details['description']
+                        self._random_delay()
+                else:
+                    # Użyj snippet jako opisu
+                    offer['description'] = snippet
             
             all_offers.extend(offers)
             
