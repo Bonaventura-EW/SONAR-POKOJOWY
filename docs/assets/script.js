@@ -159,6 +159,9 @@ function createMarkerGroup(baseCoords, address, offers, priceRange, isActive) {
     const zoom = map.getZoom();
     const offsetDistance = zoom > 15 ? 0.0001 : 0;  // 15-20px przy dużym zoomie
     
+    // Pobierz kolor z zakresu cenowego
+    const color = mapData.price_ranges[priceRange]?.color || '#808080';
+    
     offers.forEach((offer, index) => {
         // Oblicz offset w kole (rozsunięcie)
         const angle = (index / offers.length) * 2 * Math.PI;
@@ -195,10 +198,9 @@ function createMarkerGroup(baseCoords, address, offers, priceRange, isActive) {
         });
         
         // Popup content
-        const popupContent = createPopupContent(address, [offer], marker);
+        const popupContent = createPopupContent(address, [offer]);
         
         // Tworzenie markera z tooltip
-        const tooltipText = `${address} - ${offer.price} zł`;
         const markerObj = L.marker(coords, { 
             icon: icon,
             title: tooltipText  // Tooltip przy hover
@@ -224,7 +226,7 @@ function createMarkerGroup(baseCoords, address, offers, priceRange, isActive) {
 }
 
 // Tworzenie HTML popup
-function createPopupContent(address, offers, marker) {
+function createPopupContent(address, offers) {
     let html = `<div class="offer-popup">`;
     html += `<h3>📍 ${address}</h3>`;
     
