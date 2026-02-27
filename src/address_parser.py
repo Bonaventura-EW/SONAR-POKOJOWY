@@ -44,11 +44,12 @@ class AddressParser:
             return None
         
         # SPECJALNY PRZYPADEK: znane ulice w Lublinie które mogą zaczynać się małą literą lub nie pasować do wzorca
+        # WYMAGA NUMERU! (usunięto fallback bez numeru)
         lowercase_streets = ['zimowa', 'wiosenna', 'letnia', 'jesienna']
         special_streets = ['botaniczna', 'morsztynów'] + lowercase_streets
         
         for street_name in special_streets:
-            # Pattern z numerem
+            # Pattern z numerem (WYMAGANY!)
             pattern_num = rf'\b{street_name}\s+(\d+[a-zA-Z]?(?:/\d+)?)'
             match = re.search(pattern_num, text, re.IGNORECASE)
             if match:
@@ -65,15 +66,6 @@ class AddressParser:
                         }
                 except ValueError:
                     pass
-            
-            # Pattern bez numeru (z ul./aleja)
-            pattern_no_num = rf'(?:ul\.|ulica|al\.|aleja)\s+{street_name}\b'
-            if re.search(pattern_no_num, text, re.IGNORECASE):
-                return {
-                    'street': street_name.capitalize(),
-                    'number': 's/n',
-                    'full': f"{street_name.capitalize()}"
-                }
         
         # Słowa które NIE mogą być nazwą ulicy
         excluded_words_lower = {
