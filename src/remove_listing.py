@@ -12,7 +12,9 @@ import pytz
 
 def remove_listing(offer_id: str):
     """Dodaje ID ogłoszenia do listy usuniętych."""
-    removed_file = Path("../data/removed_listings.json")
+    # Znajdź katalog data/ relatywnie do lokalizacji skryptu
+    script_dir = Path(__file__).parent
+    removed_file = script_dir.parent / "data" / "removed_listings.json"
     
     # Wczytaj listę usuniętych
     if removed_file.exists():
@@ -42,7 +44,8 @@ def remove_listing(offer_id: str):
 
 def list_removed():
     """Wyświetla listę usuniętych ogłoszeń."""
-    removed_file = Path("../data/removed_listings.json")
+    script_dir = Path(__file__).parent
+    removed_file = script_dir.parent / "data" / "removed_listings.json"
     
     if not removed_file.exists():
         print("📋 Lista usuniętych ogłoszeń jest pusta")
@@ -66,7 +69,8 @@ def list_removed():
 
 def restore_listing(offer_id: str):
     """Usuwa ID ogłoszenia z listy usuniętych (przywrócenie)."""
-    removed_file = Path("../data/removed_listings.json")
+    script_dir = Path(__file__).parent
+    removed_file = script_dir.parent / "data" / "removed_listings.json"
     
     if not removed_file.exists():
         print(f"⚠️ Brak pliku z usuniętymi ogłoszeniami")
