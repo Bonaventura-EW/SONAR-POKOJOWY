@@ -15,10 +15,11 @@ class AddressParser:
     PREFIXES = r'(?:ul\.|ulica|al\.|aleja|aleje|pl\.|plac|os\.|osiedle)?'
     
     # Główny pattern adresu
-    # Dopuszcza: 1-2 słowa (pierwsze MOŻE być małe - "zimowa"), liczba + opcjonalna litera (3A, 12B)
+    # WYMAGA dużej litery na początku pierwszego słowa (nie dopuszcza "stancja 1", "pokoju 4")
+    # Dopuszcza: 1-2 słowa, pierwsze słowo MUSI zaczynać się dużą literą
     # Numer: cyfry + opcjonalna litera (a-z), opcjonalnie /cyfry, opcjonalnie lok. cyfry
     ADDRESS_PATTERN = re.compile(
-        rf'{PREFIXES}\s*([A-ZŚĆŁĄĘÓŻŹŃ]?[a-zśćłąęóżźń]+(?:\s+[A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]+)?)\s+(\d+[a-zA-Z]?(?:/\d+)?(?:\s+lok\.\s+\d+)?)',
+        rf'{PREFIXES}\s*([A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]+(?:\s+[A-ZŚĆŁĄĘÓŻŹŃ]?[a-zśćłąęóżźń]+)?)\s+(\d+[a-zA-Z]?(?:/\d+)?(?:\s+lok\.\s+\d+)?)',
         re.UNICODE
     )
     
@@ -42,6 +43,26 @@ class AddressParser:
         if re.search(r'\d+\s*metr[oó]w\s+(od|do)', text, re.IGNORECASE):
             return None
         
+        # SPECJALNY PRZYPADEK: znane ulice w Lublinie które mogą zaczynać się małą literą
+        lowercase_streets = ['zimowa', 'wiosenna', 'letnia', 'jesienna']
+        for street_name in lowercase_streets:
+            pattern = rf'\b{street_name}\s+(\d+[a-zA-Z]?(?:/\d+)?)'
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                number = match.group(1)
+                # Walidacja numeru
+                try:
+                    num_str = number.rstrip('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/')
+                    num_value = int(num_str)
+                    if num_value <= 250:
+                        return {
+                            'street': street_name.capitalize(),
+                            'number': number,
+                            'full': f"{street_name.capitalize()} {number}"
+                        }
+                except ValueError:
+                    pass
+        
         # Słowa które NIE mogą być nazwą ulicy
         excluded_words_lower = {
             'pokój', 'przy', 'obok', 'blisko', 'centrum', 'okolice', 'minut', 'minutę', 'rok', 'lata',
@@ -53,7 +74,11 @@ class AddressParser:
             'głusk', 'węglin', 'felin', 'hajdów',
             # NOWE: słowa z ogłoszeń które nie są ulicami
             'net', 'ciepło', 'internet', 'wifi', 'balkon', 'ogród', 'parking',
-            'od', 'do', 'za', 'na', 'po', 'we', 'ze'
+            'od', 'do', 'za', 'na', 'po', 'we', 'ze',
+            # NOWE: słowa które parser myli z ulicami
+            'stancja', 'mieszkaniu', 'mieszkanie', 'przechowywania', 'powierzchni',
+            'fajna', 'fajny', 'studentki', 'studenta', 'lokalu', 'budynku',
+            'pokoju', 'kuchni', 'salonu', 'łazienki', 'sypialni'
         }
         
         # Szukamy WSZYSTKICH dopasowań
