@@ -27,30 +27,22 @@ function initMap() {
 
 // Wczytanie danych
 async function loadData() {
-    console.log('🔄 Rozpoczynam ładowanie danych...');
-    
     try {
         // Użyj absolutnej ścieżki dla GitHub Pages
         const baseUrl = window.location.pathname.includes('/SONAR-POKOJOWY/') 
             ? '/SONAR-POKOJOWY/data.json' 
             : '/data.json';
         
-        console.log('📍 Base URL:', baseUrl);
-        console.log('📍 Current pathname:', window.location.pathname);
-        
         // Próba 1: Z cache-busting
         const timestamp = new Date().getTime();
         const urlWithCache = `${baseUrl}?v=${timestamp}`;
         
-        console.log('🌐 Próba fetch:', urlWithCache);
         let response = await fetch(urlWithCache);
-        console.log('📥 Response status:', response.status, response.statusText);
         
         // Jeśli 404, spróbuj bez cache-busting
         if (!response.ok) {
             console.warn('⚠️ Fetch z cache-busting nie udał się, próbuję bez...');
             response = await fetch(baseUrl);
-            console.log('📥 Response (bez cache) status:', response.status, response.statusText);
         }
         
         if (!response.ok) {
@@ -58,31 +50,20 @@ async function loadData() {
         }
         
         const text = await response.text();
-        console.log('📄 Otrzymano tekst, długość:', text.length);
-        
         mapData = JSON.parse(text);
-        console.log('✅ JSON sparsowany, markery:', mapData.markers?.length || 0);
+        
+        console.log(`✅ Załadowano ${mapData.markers?.length || 0} markerów`);
         
         updateStats();
-        console.log('✅ Statystyki zaktualizowane');
-        
         updateScanInfo();
-        console.log('✅ Scan info zaktualizowane');
-        
         createPriceRangeFilters();
-        console.log('✅ Filtry cenowe utworzone');
-        
         createMarkers();
-        console.log('✅ Markery utworzone');
-        
         setupEventListeners();
-        console.log('✅ Event listenery dodane');
         
-        console.log('🎉 Ładowanie zakończone sukcesem!');
+        console.log('🎉 Mapa gotowa!');
         
     } catch (error) {
         console.error('❌ Błąd wczytywania danych:', error);
-        console.error('❌ Stack:', error.stack);
         alert('Nie udało się wczytać danych mapy. Sprawdź czy plik data.json istnieje.\n\nBłąd: ' + error.message);
     }
 }
@@ -168,9 +149,10 @@ function createMarkerGroup(baseCoords, address, offers, priceRange, isActive) {
         const offsetLat = Math.cos(angle) * offsetDistance * index;
         const offsetLon = Math.sin(angle) * offsetDistance * index;
         
+        // Konwersja z obiektu {lat, lon} na tablicę [lat, lon] dla Leaflet
         const coords = [
-            baseCoords[0] + offsetLat,
-            baseCoords[1] + offsetLon
+            baseCoords.lat + offsetLat,
+            baseCoords.lon + offsetLon
         ];
         
         // Tooltip (pojawia się przy hover)
@@ -415,38 +397,6 @@ document.addEventListener('DOMContentLoaded', function() {
     initMap();
     loadData();
 });
-
-// Funkcja usuwania oferty z mapy
-function deleteOffer(offerId, address) {
-    if (!confirm(`Czy na pewno chcesz usunąć ofertę:\n${address}\n\nTa akcja ukryje ofertę tylko lokalnie (nie wpływa na bazę danych).`)) {
-        return;
-    }
-    
-    // Znajdź marker z tą ofertą
-    const markerIndex = allMarkers.findIndex(m => 
-        m.offers.some(o => o.id === offerId)
-    );
-    
-    if (markerIndex !== -1) {
-        const markerData = allMarkers[markerIndex];
-        
-        // Usuń z mapy
-        if (markerData.isActive) {
-            markerLayers.active.removeLayer(markerData.marker);
-        } else {
-            markerLayers.inactive.removeLayer(markerData.marker);
-        }
-        
-        // Usuń z listy
-        allMarkers.splice(markerIndex, 1);
-        
-        console.log(`🗑️ Usunięto ofertę: ${address} (${offerId})`);
-        
-        // Zamknij popup
-        map.closePopup();
-    }
-}
-
 
 // Usuwanie oferty z mapy
 function deleteOffer(offerId, address) {
