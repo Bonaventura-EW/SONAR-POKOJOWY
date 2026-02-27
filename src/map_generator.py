@@ -79,7 +79,7 @@ class MapDataGenerator:
                 'price_history': offer['price']['history'],
                 'media_info': offer['price']['media_info'],
                 'url': offer['url'],
-                'description': offer['description'][:300] + ('...' if len(offer['description']) > 300 else ''),
+                'description': offer['description'],  # Pełny opis bez ucinania
                 'first_seen': self._format_date(offer['first_seen']),
                 'last_seen': self._format_date(offer['last_seen']),
                 'days_active': offer['days_active'],
@@ -92,7 +92,7 @@ class MapDataGenerator:
         price_range_key = self._get_price_range_key(representative_price)
         
         return {
-            'coords': [coords['lat'], coords['lon']],
+            'coords': {'lat': coords['lat'], 'lon': coords['lon']},  # Format obiektowy dla Leaflet
             'address': address,
             'offers': formatted_offers,
             'price_range': price_range_key,

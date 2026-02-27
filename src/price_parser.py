@@ -58,13 +58,25 @@ class PriceParser:
         filtered = []
         
         for price in prices:
-            # Odrzuć lata
-            if 2024 <= price <= 2030:
+            # Odrzuć lata (2020-2030)
+            if 2020 <= price <= 2030:
                 continue
             
             # Odrzuć kwoty poza sensownym zakresem
             if price < 100 or price > 3000:
                 continue
+            
+            # Odrzuć liczby z kontekstem "m²" lub "mkw" (powierzchnia mieszkania)
+            price_str = str(price)
+            idx = text_lower.find(price_str)
+            
+            if idx != -1:
+                # Sprawdź 20 znaków PO liczbie
+                context_after = text_lower[idx + len(price_str):idx + len(price_str) + 20]
+                
+                # Jeśli zaraz po liczbie jest "m²", "mkw", "m2" - to powierzchnia, nie cena
+                if any(unit in context_after for unit in ['m²', 'mkw', 'm2', 'm²', 'metr']):
+                    continue
             
             # Odrzuć numery domów - sprawdź czy występuje przy "ul.", "ulica"
             if 100 <= price <= 300:

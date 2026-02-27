@@ -140,31 +140,8 @@ class AddressParser:
                 'full': f"{street} {number}"
             }
         
-        # FALLBACK: Jeśli nie znaleziono ulicy z numerem, szukaj samej nazwy ulicy
-        # Pattern: ul./aleja/etc NAZWA (bez numeru) - tylko 1 słowo aby uniknąć "Dunikowskiego dzielnica"
-        street_only_pattern = re.compile(
-            r'(?:ul\.|ulica|al\.|aleja|aleje)\s+([A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]+)',
-            re.UNICODE
-        )
-        
-        matches = street_only_pattern.finditer(text)
-        for match in matches:
-            street = match.group(1).strip()
-            
-            # Sprawdź długość
-            if len(street.replace(' ', '')) < 4:
-                continue
-            
-            # Sprawdź excluded words
-            if street.lower() in excluded_words_lower:
-                continue
-            
-            return {
-                'street': street,
-                'number': 's/n',  # sin número
-                'full': f"{street}"
-            }
-        
+        # BRAK FALLBACK - Wymagamy NUMERU domu!
+        # Adresy bez numeru (np. "ul. Niecała") są zbyt nieprecyzyjne dla mapy
         return None
     
     def validate_lublin_address(self, address: str) -> bool:
