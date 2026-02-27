@@ -43,11 +43,14 @@ class AddressParser:
         if re.search(r'\d+\s*metr[oó]w\s+(od|do)', text, re.IGNORECASE):
             return None
         
-        # SPECJALNY PRZYPADEK: znane ulice w Lublinie które mogą zaczynać się małą literą
+        # SPECJALNY PRZYPADEK: znane ulice w Lublinie które mogą zaczynać się małą literą lub nie pasować do wzorca
         lowercase_streets = ['zimowa', 'wiosenna', 'letnia', 'jesienna']
-        for street_name in lowercase_streets:
-            pattern = rf'\b{street_name}\s+(\d+[a-zA-Z]?(?:/\d+)?)'
-            match = re.search(pattern, text, re.IGNORECASE)
+        special_streets = ['botaniczna', 'morsztynów'] + lowercase_streets
+        
+        for street_name in special_streets:
+            # Pattern z numerem
+            pattern_num = rf'\b{street_name}\s+(\d+[a-zA-Z]?(?:/\d+)?)'
+            match = re.search(pattern_num, text, re.IGNORECASE)
             if match:
                 number = match.group(1)
                 # Walidacja numeru
@@ -62,6 +65,15 @@ class AddressParser:
                         }
                 except ValueError:
                     pass
+            
+            # Pattern bez numeru (z ul./aleja)
+            pattern_no_num = rf'(?:ul\.|ulica|al\.|aleja)\s+{street_name}\b'
+            if re.search(pattern_no_num, text, re.IGNORECASE):
+                return {
+                    'street': street_name.capitalize(),
+                    'number': 's/n',
+                    'full': f"{street_name.capitalize()}"
+                }
         
         # Słowa które NIE mogą być nazwą ulicy
         excluded_words_lower = {
@@ -129,9 +141,9 @@ class AddressParser:
             }
         
         # FALLBACK: Jeśli nie znaleziono ulicy z numerem, szukaj samej nazwy ulicy
-        # Pattern: ul./aleja/etc NAZWA (bez numeru)
+        # Pattern: ul./aleja/etc NAZWA (bez numeru) - tylko 1 słowo aby uniknąć "Dunikowskiego dzielnica"
         street_only_pattern = re.compile(
-            r'(?:ul\.|ulica|al\.|aleja|aleje)\s+([A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]+(?:\s+[A-ZŚĆŁĄĘÓŻŹŃ]?[a-zśćłąęóżźń]+)?)',
+            r'(?:ul\.|ulica|al\.|aleja|aleje)\s+([A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]+)',
             re.UNICODE
         )
         
@@ -144,19 +156,8 @@ class AddressParser:
                 continue
             
             # Sprawdź excluded words
-            street_words = street.split()
-            is_valid = True
-            
-            for word in street_words:
-                if word.lower() in excluded_words_lower:
-                    is_valid = False
-                    break
-            
-            if not is_valid:
+            if street.lower() in excluded_words_lower:
                 continue
-            
-            # Normalizuj
-            street = ' '.join(street.split())
             
             return {
                 'street': street,
