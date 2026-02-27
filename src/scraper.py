@@ -183,6 +183,10 @@ class OLXScraper:
                 details = self.fetch_offer_details(offer['url'])
                 if details:
                     offer['description'] = details['description']
+                    # Dodaj oficjalną cenę jeśli została znaleziona
+                    if details.get('official_price'):
+                        offer['official_price'] = details['official_price']
+                        offer['official_price_raw'] = details['official_price_raw']
                 else:
                     # Fallback - użyj tytułu jako opisu
                     offer['description'] = offer['title']
@@ -210,13 +214,13 @@ class OLXScraper:
     
     def fetch_offer_details(self, url: str) -> Optional[Dict]:
         """
-        Pobiera pełne szczegóły ogłoszenia (pełny opis).
+        Pobiera pełne szczegóły ogłoszenia (pełny opis + oficjalna cena).
         
         Args:
             url: URL ogłoszenia
             
         Returns:
-            Dict z pełnym opisem i innymi danymi
+            Dict z pełnym opisem, oficjalną ceną i innymi danymi
         """
         soup = self._fetch_page(url)
         if not soup:
@@ -230,8 +234,31 @@ class OLXScraper:
             
             description = desc_div.get_text(strip=True) if desc_div else ""
             
+            # Oficjalna cena - szukaj h3 z klasą css-yauxmy (lub podobną)
+            official_price = None
+            official_price_raw = None
+            
+            # Strategia 1: Szukaj h3 z ceną (klasa css-yauxmy lub podobna)
+            for h3 in soup.find_all('h3'):
+                text = h3.get_text(strip=True)
+                # Sprawdź czy zawiera cenę (cyfry + zł)
+                if 'zł' in text.lower() and any(char.isdigit() for char in text):
+                    official_price_raw = text
+                    # Wyciągnij liczbę
+                    import re
+                    match = re.search(r'(\d[\d\s]*)', text)
+                    if match:
+                        price_str = match.group(1).replace(' ', '')
+                        try:
+                            official_price = int(price_str)
+                            break
+                        except ValueError:
+                            pass
+            
             return {
-                'description': description
+                'description': description,
+                'official_price': official_price,
+                'official_price_raw': official_price_raw
             }
             
         except Exception as e:

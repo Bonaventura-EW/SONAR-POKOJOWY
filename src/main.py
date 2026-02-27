@@ -18,8 +18,9 @@ from geocoder import Geocoder
 from duplicate_detector import DuplicateDetector
 
 class SonarPokojowy:
-    def __init__(self, data_file: str = "../data/offers.json"):
+    def __init__(self, data_file: str = "../data/offers.json", removed_file: str = "../data/removed_listings.json"):
         self.data_file = Path(data_file)
+        self.removed_file = Path(removed_file)
         self.scraper = OLXScraper(delay_range=(2, 4))
         self.address_parser = AddressParser()
         self.price_parser = PriceParser()
@@ -31,6 +32,9 @@ class SonarPokojowy:
         
         # Wczytaj istniejącą bazę
         self.database = self._load_database()
+        
+        # Wczytaj listę usuniętych ogłoszeń
+        self.removed_listings = self._load_removed_listings()
     
     def _load_database(self) -> Dict:
         """Wczytuje bazę danych z JSON."""
@@ -43,6 +47,28 @@ class SonarPokojowy:
                 return self._create_empty_database()
         else:
             return self._create_empty_database()
+    
+    def _load_removed_listings(self) -> set:
+        """Wczytuje listę usuniętych ogłoszeń."""
+        if self.removed_file.exists():
+            try:
+                with open(self.removed_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    return set(data.get('removed_ids', []))
+            except json.JSONDecodeError:
+                print("⚠️ Uszkodzony plik usuniętych ogłoszeń, tworzę nowy")
+                return set()
+        else:
+            return set()
+    
+    def _save_removed_listings(self):
+        """Zapisuje listę usuniętych ogłoszeń."""
+        self.removed_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.removed_file, 'w', encoding='utf-8') as f:
+            json.dump({
+                'removed_ids': list(self.removed_listings),
+                'last_updated': datetime.now(self.tz).isoformat()
+            }, f, ensure_ascii=False, indent=2)
     
     def _create_empty_database(self) -> Dict:
         """Tworzy pustą strukturę bazy danych."""
@@ -113,10 +139,20 @@ class SonarPokojowy:
         if not address_data:
             return None  # Brak adresu → ignoruj
         
-        # 3. Parsuj cenę
-        price_data = self.price_parser.extract_price(full_text)
-        if not price_data:
-            return None  # Brak ceny → ignoruj
+        # 3. Parsuj cenę - NOWA LOGIKA
+        # PRIORYTET 1: Oficjalna cena ze strony ogłoszenia
+        if raw_offer.get('official_price'):
+            price = raw_offer['official_price']
+            media_info = "sprawdź w opisie"  # Oficjalna cena nie zawiera info o mediach
+            print(f"      💰 Użyto oficjalnej ceny: {price} zł")
+        else:
+            # FALLBACK: Parser ceny z treści (stara metoda)
+            price_data = self.price_parser.extract_price(full_text)
+            if not price_data:
+                return None  # Brak ceny → ignoruj
+            price = price_data['price']
+            media_info = price_data['media_info']
+            print(f"      💰 Użyto parsera ceny z treści: {price} zł")
         
         # 4. Geokoduj adres
         coords = self.geocoder.geocode_address(address_data['full'])
@@ -137,9 +173,9 @@ class SonarPokojowy:
                 'coords': coords
             },
             'price': {
-                'current': price_data['price'],
-                'history': [price_data['price']],
-                'media_info': price_data['media_info']
+                'current': price,
+                'history': [price],
+                'media_info': media_info
             },
             'description': full_text,
             'first_seen': datetime.now(self.tz).isoformat(),
@@ -227,6 +263,14 @@ class SonarPokojowy:
         
         for i, raw_offer in enumerate(raw_offers, 1):
             print(f"   [{i}/{len(raw_offers)}] Przetwarzam: {raw_offer['title'][:50]}...")
+            
+            # Stwórz ID z URL
+            offer_id = raw_offer['url'].split('/')[-1].split('.')[0]
+            
+            # FILTR: Pomiń usunięte ogłoszenia
+            if offer_id in self.removed_listings:
+                print(f"      🚫 Pominięto - ogłoszenie usunięte przez użytkownika")
+                continue
             
             processed = self._process_offer(raw_offer)
             

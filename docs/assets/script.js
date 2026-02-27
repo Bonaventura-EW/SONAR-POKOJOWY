@@ -236,6 +236,9 @@ function createPopupContent(address, offers) {
         // Link
         html += `<a href="${offer.url}" target="_blank" class="offer-link">🔗 Otwórz ogłoszenie</a>`;
         
+        // NOWY: Przycisk "Usuń"
+        html += `<button class="remove-listing-btn" onclick="removeListingPrompt('${offer.id}')" style="margin-top: 10px; padding: 5px 10px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ Usuń to ogłoszenie</button>`;
+        
         // Opis
         html += `<div class="offer-description">📝 ${offer.description}</div>`;
         
@@ -398,7 +401,16 @@ document.addEventListener('DOMContentLoaded', function() {
     loadData();
 });
 
-// Usuwanie oferty z mapy
+// NOWA funkcja: Usuwanie ogłoszenia (dodaje do removed_listings.json)
+function removeListingPrompt(offerId) {
+    if (!confirm('⚠️ Czy na pewno chcesz usunąć to ogłoszenie?\n\nOgłoszenie zostanie dodane do listy blokowanych i nie pojawi się ponownie przy kolejnych skanach.\n\nAby je usunąć, uruchom skrypt:\npython src/remove_listing.py ' + offerId)) {
+        return;
+    }
+    
+    alert('📝 Skopiuj i wykonaj polecenie:\n\npython src/remove_listing.py ' + offerId + '\n\nPo wykonaniu uruchom ponownie scan.');
+}
+
+// Usuwanie oferty z mapy (STARA funkcja - tylko usuwa z widoku)
 function deleteOffer(offerId, address) {
     if (!confirm(`Czy na pewno chcesz usunąć ofertę z adresu "${address}"?`)) {
         return;
