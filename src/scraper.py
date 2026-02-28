@@ -1,6 +1,7 @@
 """
 OLX Scraper - pobiera wszystkie oferty pokoi w Lublinie
 Obsługuje paginację (wszystkie strony), opóźnienia anti-block
+WERSJA 2.0: Równoległe pobieranie szczegółów (ThreadPoolExecutor)
 """
 
 import requests
@@ -10,6 +11,8 @@ import random
 import re
 from typing import List, Dict, Optional
 from urllib.parse import urljoin
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 
 class OLXScraper:
     BASE_URL = "https://www.olx.pl/nieruchomosci/stancje-pokoje/lublin/"
@@ -22,19 +25,39 @@ class OLXScraper:
         'Upgrade-Insecure-Requests': '1'
     }
     
-    def __init__(self, delay_range: tuple = (2, 4)):
+    def __init__(self, delay_range: tuple = (2, 4), max_workers: int = 5):
         """
         Args:
             delay_range: Zakres opóźnień między requestami (min, max) w sekundach
+            max_workers: Liczba równoległych wątków dla pobierania szczegółów
         """
         self.delay_min, self.delay_max = delay_range
+        self.max_workers = max_workers
         self.session = requests.Session()
         self.session.headers.update(self.HEADERS)
+        
+        # Thread-safe rate limiter
+        self._lock = threading.Lock()
+        self._last_request_time = 0
     
     def _random_delay(self):
-        """Losowe opóźnienie między requestami."""
-        delay = random.uniform(self.delay_min, self.delay_max)
-        time.sleep(delay)
+        """Thread-safe losowe opóźnienie między requestami."""
+        with self._lock:
+            now = time.time()
+            time_since_last = now - self._last_request_time
+            
+            # Minimalne opóźnienie między requestami
+            min_interval = self.delay_min
+            if time_since_last < min_interval:
+                sleep_time = min_interval - time_since_last
+                time.sleep(sleep_time)
+            
+            # Dodatkowe losowe opóźnienie
+            extra_delay = random.uniform(0, self.delay_max - self.delay_min)
+            if extra_delay > 0:
+                time.sleep(extra_delay)
+            
+            self._last_request_time = time.time()
     
     def _fetch_page(self, url: str) -> Optional[BeautifulSoup]:
         """
@@ -148,6 +171,7 @@ class OLXScraper:
     def scrape_all_pages(self, max_pages: int = 20) -> List[Dict]:
         """
         Scrapuje wszystkie strony z ofertami (z limitem max_pages).
+        NOWE: Równoległe pobieranie szczegółów ofert.
         
         Args:
             max_pages: Maksymalna liczba stron do przejrzenia (zabezpieczenie)
@@ -160,7 +184,9 @@ class OLXScraper:
         page_num = 1
         
         print(f"🔍 Rozpoczynam scraping OLX Lublin - Pokoje...")
+        print(f"⚡ Tryb równoległy: {self.max_workers} wątków\n")
         
+        # FAZA 1: Pobierz wszystkie podstawowe oferty ze stron listingowych
         while current_url and page_num <= max_pages:
             print(f"📄 Strona {page_num}: {current_url}")
             
@@ -176,22 +202,6 @@ class OLXScraper:
             if not offers:
                 print("   ⚠️ Brak ofert na stronie - koniec paginacji")
                 break
-            
-            # Pobierz pełny opis z każdego ogłoszenia (Opcja A - najbezpieczniejsza)
-            for i, offer in enumerate(offers, 1):
-                print(f"   [{i}/{len(offers)}] Pobieram pełny opis...")
-                details = self.fetch_offer_details(offer['url'])
-                if details:
-                    offer['description'] = details['description']
-                    # Dodaj oficjalną cenę jeśli została znaleziona
-                    if details.get('official_price'):
-                        offer['official_price'] = details['official_price']
-                        offer['official_price_raw'] = details['official_price_raw']
-                else:
-                    # Fallback - użyj tytułu jako opisu
-                    offer['description'] = offer['title']
-                
-                self._random_delay()
             
             all_offers.extend(offers)
             
@@ -209,6 +219,40 @@ class OLXScraper:
             if page_num <= max_pages:
                 self._random_delay()
         
+        print(f"\n✅ Faza 1: Pobrano {len(all_offers)} podstawowych ofert z {page_num} stron")
+        
+        # FAZA 2: Równoległe pobieranie szczegółów
+        if all_offers:
+            print(f"\n⚡ Faza 2: Równoległe pobieranie szczegółów ({self.max_workers} wątków)...")
+            start_time = time.time()
+            
+            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                # Submit wszystkie zadania
+                future_to_offer = {
+                    executor.submit(self._fetch_single_offer_details, offer): i 
+                    for i, offer in enumerate(all_offers)
+                }
+                
+                # Zbierz wyniki w miarę ich ukończenia
+                completed = 0
+                total = len(all_offers)
+                
+                for future in as_completed(future_to_offer):
+                    completed += 1
+                    idx = future_to_offer[future]
+                    try:
+                        updated_offer = future.result()
+                        all_offers[idx] = updated_offer
+                        
+                        # Progress bar
+                        progress = (completed / total) * 100
+                        print(f"\r   Postęp: [{completed}/{total}] {progress:.1f}%", end='', flush=True)
+                    except Exception as e:
+                        print(f"\n   ⚠️ Błąd pobierania oferty #{idx}: {e}")
+            
+            elapsed = time.time() - start_time
+            print(f"\n✅ Szczegóły pobrane w {elapsed:.1f}s (średnio {elapsed/len(all_offers):.2f}s/oferta)")
+        
         print(f"\n✅ Scraping zakończony: {len(all_offers)} ofert z {page_num} stron")
         return all_offers
     
@@ -222,6 +266,7 @@ class OLXScraper:
         Returns:
             Dict z pełnym opisem, oficjalną ceną i innymi danymi
         """
+        self._random_delay()
         soup = self._fetch_page(url)
         if not soup:
             return None
@@ -264,13 +309,30 @@ class OLXScraper:
         except Exception as e:
             print(f"⚠️ Błąd parsowania szczegółów ogłoszenia {url}: {e}")
             return None
+    
+    def _fetch_single_offer_details(self, offer: Dict) -> Dict:
+        """
+        Wrapper do równoległego pobierania szczegółów pojedynczej oferty.
+        Zwraca ofertę z dodanymi szczegółami.
+        """
+        details = self.fetch_offer_details(offer['url'])
+        if details:
+            offer['description'] = details['description']
+            if details.get('official_price'):
+                offer['official_price'] = details['official_price']
+                offer['official_price_raw'] = details['official_price_raw']
+        else:
+            # Fallback - użyj tytułu jako opisu
+            offer['description'] = offer['title']
+        
+        return offer
 
 
 # Testy jednostkowe
 if __name__ == "__main__":
-    scraper = OLXScraper(delay_range=(1, 2))  # Krótsze opóźnienia dla testów
+    scraper = OLXScraper(delay_range=(0.5, 1), max_workers=5)  # Szybsze dla testów
     
-    print("🧪 Test scrapera - pierwsze 2 strony:\n")
+    print("🧪 Test scrapera równoległego - pierwsze 2 strony:\n")
     offers = scraper.scrape_all_pages(max_pages=2)
     
     print(f"\n📊 Podsumowanie:")
@@ -281,4 +343,5 @@ if __name__ == "__main__":
         sample = offers[0]
         print(f"   Tytuł: {sample['title'][:60]}...")
         print(f"   URL: {sample['url']}")
-        print(f"   Cena: {sample['price_raw']}")
+        print(f"   Cena: {sample.get('official_price', sample['price_raw'])}")
+        print(f"   Opis (pierwsze 100 znaków): {sample.get('description', '')[:100]}...")

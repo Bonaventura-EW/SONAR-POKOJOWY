@@ -180,3 +180,8 @@ class MapDataGenerator:
 if __name__ == "__main__":
     generator = MapDataGenerator()
     generator.generate()
+    
+    # Wygeneruj także dane monitoringu
+    print("\n📊 Generowanie danych monitoringu...")
+    from monitoring_generator import generate_monitoring_data
+    generate_monitoring_data()
