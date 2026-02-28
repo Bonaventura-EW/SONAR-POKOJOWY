@@ -240,16 +240,17 @@ function createPopupContent(address, offers) {
         html += `<button class="remove-listing-btn" onclick="removeListingPrompt('${offer.id}')" style="margin-top: 10px; padding: 5px 10px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ Usuń to ogłoszenie</button>`;
         
         // Opis - z funkcją zwijania/rozwijania
-        const descriptionLines = offer.description.split('\n');
-        const shortDescription = descriptionLines.slice(0, 4).join('\n');
-        const hasMore = descriptionLines.length > 4 || offer.description.length > 300;
+        const maxChars = 200; // Maksymalna długość podglądu (około 2-3 linie)
+        const needsTruncate = offer.description.length > maxChars;
         
-        if (hasMore) {
+        if (needsTruncate) {
             const uniqueId = `desc-${offer.id}`;
+            const shortDescription = offer.description.substring(0, maxChars);
+            
             html += `
                 <div class="offer-description">
                     <div id="${uniqueId}-short">
-                        📝 ${shortDescription}${descriptionLines.length <= 4 && offer.description.length > 300 ? '...' : ''}
+                        📝 ${shortDescription}...
                         <br><a href="javascript:void(0)" onclick="toggleDescription('${uniqueId}')" class="show-more-link">▼ Pokaż całość</a>
                     </div>
                     <div id="${uniqueId}-full" style="display: none;">
