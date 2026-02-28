@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SONAR POKOJOWY - Analityka</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        header h1 {
+            color: #667eea;
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .back-link {
+            color: #667eea;
+            text-decoration: none;
+            padding: 10px 20px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .back-link:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        .loading {
+            text-align: center;
+            color: white;
+            font-size: 24px;
+            padding: 100px 20px;
+        }
+        
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .stats-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .stat-card h3 {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #333;
+        }
+        
+        .stat-card .trend {
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        
+        .trend.up {
+            color: #10b981;
+        }
+        
+        .trend.down {
+            color: #ef4444;
+        }
+        
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .chart-container h2 {
+            color: #333;
+            font-size: 20px;
+            margin-bottom: 16px;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 400px;
+        }
+        
+        @media (max-width: 768px) {
+            .stats-overview {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-wrapper {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>
+                <svg width="32" height="32" viewBox="0 0 64 64" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
+                    <defs>
+                        <radialGradient id="analyticsRadarBg" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" style="stop-color:#1a3a1a;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#0a1a0a;stop-opacity:1" />
+                        </radialGradient>
+                        <linearGradient id="analyticsSweepGradient" x1="50%" y1="50%" x2="100%" y2="50%">
+                            <stop offset="0%" style="stop-color:#00ff00;stop-opacity:0.8" />
+                            <stop offset="50%" style="stop-color:#00ff00;stop-opacity:0.3" />
+                            <stop offset="100%" style="stop-color:#00ff00;stop-opacity:0" />
+                        </linearGradient>
+                        <mask id="analyticsSweepMask">
+                            <circle cx="32" cy="32" r="28" fill="white"/>
+                        </mask>
+                    </defs>
+                    <circle cx="32" cy="32" r="32" fill="url(#analyticsRadarBg)"/>
+                    <circle cx="32" cy="32" r="30" fill="none" stroke="#00ff00" stroke-width="0.5" opacity="0.6"/>
+                    <circle cx="32" cy="32" r="24" fill="none" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+                    <circle cx="32" cy="32" r="18" fill="none" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+                    <line x1="32" y1="4" x2="32" y2="60" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+                    <line x1="4" y1="32" x2="60" y2="32" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+                    <g transform="translate(32, 32)">
+                        <path d="M0,-6 L-2,-3 L-2,0 C-2,2 -1,3 0,6 C1,3 2,2 2,0 L2,-3 Z" fill="#00ff00" stroke="#003300" stroke-width="0.5" opacity="0.9">
+                            <animateTransform attributeName="transform" type="scale" values="1;1.3;1" dur="2s" repeatCount="indefinite"/>
+                        </path>
+                    </g>
+                    <g mask="url(#analyticsSweepMask)">
+                        <path d="M32,32 L32,4 A28,28 0 0,1 60,32 Z" fill="url(#analyticsSweepGradient)" opacity="0.6">
+                            <animateTransform attributeName="transform" type="rotate" from="0 32 32" to="360 32 32" dur="3s" repeatCount="indefinite"/>
+                        </path>
+                    </g>
+                    <circle cx="22" cy="18" r="1.5" fill="#00ff00" opacity="0.8">
+                        <animate attributeName="opacity" values="0.8;0.3;0.8" dur="1.5s" repeatCount="indefinite"/>
+                    </circle>
+                </svg>
+                📈 SONAR POKOJOWY - Analityka
+            </h1>
+            <a href="index.html" class="back-link">← Powrót do mapy</a>
+        </header>
+        
+        <div id="loading" class="loading">⏳ Ładowanie danych analitycznych...</div>
+        <div id="error" class="error-message" style="display: none;"></div>
+        
+        <div id="content" style="display: none;">
+            <!-- Statystyki przegląd -->
+            <div class="stats-overview">
+                <div class="stat-card">
+                    <h3>Łącznie ofert (aktywne)</h3>
+                    <div class="value" id="total-active">-</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Średnia cena</h3>
+                    <div class="value" id="avg-price">-</div>
+                    <div class="trend" id="price-trend"></div>
+                </div>
+                <div class="stat-card">
+                    <h3>Nowych w ostatnich 7 dniach</h3>
+                    <div class="value" id="new-7days">-</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Mediana ceny</h3>
+                    <div class="value" id="median-price">-</div>
+                </div>
+            </div>
+            
+            <!-- Wykresy -->
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <h2>📊 Trend średniej ceny w czasie (ostatnie 30 dni)</h2>
+                    <div class="chart-wrapper">
+                        <canvas id="priceChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <h2>📈 Nowe oferty dziennie (ostatnie 30 dni)</h2>
+                    <div class="chart-wrapper">
+                        <canvas id="newOffersChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <h2>🎯 Rozkład cen (histogram)</h2>
+                    <div class="chart-wrapper">
+                        <canvas id="priceDistribution"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <script>
+        async function loadAnalyticsData() {
+            try {
+                // Wczytaj dane ofert
+                const response = await fetch('data.json');
+                if (!response.ok) {
+                    throw new Error('Nie udało się załadować danych');
+                }
+                
+                const data = await response.json();
+                
+                // Ukryj loading, pokaż content
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+                
+                // Przetwórz dane
+                processAnalytics(data);
+                
+            } catch (error) {
+                console.error('❌ Błąd:', error);
+                document.getElementById('loading').style.display = 'none';
+                const errorDiv = document.getElementById('error');
+                errorDiv.textContent = `Błąd: ${error.message}`;
+                errorDiv.style.display = 'block';
+            }
+        }
+        
+        function processAnalytics(data) {
+            const markers = data.markers || [];
+            
+            // Zbierz wszystkie aktywne oferty
+            const allOffers = [];
+            markers.forEach(marker => {
+                marker.offers.forEach(offer => {
+                    if (offer.active) {
+                        allOffers.push({
+                            ...offer,
+                            first_seen_date: parseDate(offer.first_seen)
+                        });
+                    }
+                });
+            });
+            
+            // Statystyki
+            const totalActive = allOffers.length;
+            const prices = allOffers.map(o => o.price);
+            const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+            const medianPrice = calculateMedian(prices);
+            
+            // Nowe w ostatnich 7 dniach
+            const now = new Date();
+            const sevenDaysAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+            const newLast7Days = allOffers.filter(o => o.first_seen_date >= sevenDaysAgo).length;
+            
+            // Wypełnij statystyki
+            document.getElementById('total-active').textContent = totalActive;
+            document.getElementById('avg-price').textContent = Math.round(avgPrice) + ' zł';
+            document.getElementById('new-7days').textContent = newLast7Days;
+            document.getElementById('median-price').textContent = Math.round(medianPrice) + ' zł';
+            
+            // Wykresy
+            createPriceChart(allOffers);
+            createNewOffersChart(allOffers);
+            createPriceDistribution(prices);
+        }
+        
+        function parseDate(dateStr) {
+            // Format: "28.02.2026 19:57"
+            try {
+                const parts = dateStr.split(' ');
+                const dateParts = parts[0].split('.');
+                const timeParts = parts[1].split(':');
+                return new Date(
+                    parseInt('20' + dateParts[2]),
+                    parseInt(dateParts[1]) - 1,
+                    parseInt(dateParts[0]),
+                    parseInt(timeParts[0]),
+                    parseInt(timeParts[1])
+                );
+            } catch (e) {
+                return new Date();
+            }
+        }
+        
+        function calculateMedian(arr) {
+            const sorted = [...arr].sort((a, b) => a - b);
+            const mid = Math.floor(sorted.length / 2);
+            return sorted.length % 2 === 0 
+                ? (sorted[mid - 1] + sorted[mid]) / 2 
+                : sorted[mid];
+        }
+        
+        function createPriceChart(offers) {
+            // Grupuj po dniach (ostatnie 30 dni)
+            const now = new Date();
+            const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+            
+            const dailyPrices = {};
+            offers.forEach(offer => {
+                if (offer.first_seen_date >= thirtyDaysAgo) {
+                    const dateKey = offer.first_seen_date.toISOString().split('T')[0];
+                    if (!dailyPrices[dateKey]) {
+                        dailyPrices[dateKey] = [];
+                    }
+                    dailyPrices[dateKey].push(offer.price);
+                }
+            });
+            
+            const labels = Object.keys(dailyPrices).sort();
+            const avgPrices = labels.map(date => {
+                const prices = dailyPrices[date];
+                return prices.reduce((a, b) => a + b, 0) / prices.length;
+            });
+            
+            const ctx = document.getElementById('priceChart');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels.map(d => new Date(d).toLocaleDateString('pl-PL')),
+                    datasets: [{
+                        label: 'Średnia cena',
+                        data: avgPrices,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                callback: value => value + ' zł'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function createNewOffersChart(offers) {
+            const now = new Date();
+            const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+            
+            const dailyCounts = {};
+            offers.forEach(offer => {
+                if (offer.first_seen_date >= thirtyDaysAgo) {
+                    const dateKey = offer.first_seen_date.toISOString().split('T')[0];
+                    dailyCounts[dateKey] = (dailyCounts[dateKey] || 0) + 1;
+                }
+            });
+            
+            const labels = Object.keys(dailyCounts).sort();
+            const counts = labels.map(date => dailyCounts[date]);
+            
+            const ctx = document.getElementById('newOffersChart');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels.map(d => new Date(d).toLocaleDateString('pl-PL')),
+                    datasets: [{
+                        label: 'Nowe oferty',
+                        data: counts,
+                        backgroundColor: '#10b981',
+                        borderColor: '#059669',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function createPriceDistribution(prices) {
+            // Histogram cen (przedziały co 100 zł)
+            const bins = {};
+            prices.forEach(price => {
+                const bin = Math.floor(price / 100) * 100;
+                bins[bin] = (bins[bin] || 0) + 1;
+            });
+            
+            const labels = Object.keys(bins).sort((a, b) => a - b);
+            const counts = labels.map(bin => bins[bin]);
+            
+            const ctx = document.getElementById('priceDistribution');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels.map(bin => `${bin}-${parseInt(bin) + 99} zł`),
+                    datasets: [{
+                        label: 'Liczba ofert',
+                        data: counts,
+                        backgroundColor: '#f59e0b',
+                        borderColor: '#d97706',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Załaduj dane przy starcie
+        loadAnalyticsData();
+    </script>
+</body>
+</html>
