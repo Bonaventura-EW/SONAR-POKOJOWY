@@ -82,7 +82,11 @@ class AddressParser:
             # NOWE: słowa które parser myli z ulicami
             'stancja', 'mieszkaniu', 'mieszkanie', 'przechowywania', 'powierzchni',
             'fajna', 'fajny', 'studentki', 'studenta', 'lokalu', 'budynku',
-            'pokoju', 'kuchni', 'salonu', 'łazienki', 'sypialni'
+            'pokoju', 'kuchni', 'salonu', 'łazienki', 'sypialni',
+            # KRYTYCZNE: pseudo-ulice wyciągnięte z opisów (rachunki, pokoje, itp.)
+            'rachunki', 'pokoje', 'około', 'dostępny', 'dostępna', 'dostępne',
+            'wynajmę', 'wynajem', 'located', 'gyms', 'available', 'meters',
+            'numer', 'kontaktowy', 'telefon', 'kontakt', 'number'
         }
         
         # Szukamy WSZYSTKICH dopasowań (ulica + numer)
