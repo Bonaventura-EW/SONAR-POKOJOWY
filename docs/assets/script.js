@@ -159,7 +159,14 @@ function createMarkerGroup(baseCoords, address, offers, priceRange, isActive) {
         const price = offer.price;
         const tooltipText = `${address} - ${price} zł`;
         
+        // Sprawdź czy oferta jest nowa (z ostatniego skanu)
+        const isNew = offer.is_new === true;
+        
         // Ikona markera - pinezka z kolorem
+        // Jeśli nowa - czerwona obwódka, jeśli nie - biała
+        const strokeColor = isNew ? '#ff0000' : 'white';
+        const strokeWidth = isNew ? '3' : '2';
+        
         const icon = L.divIcon({
             className: 'pin-marker',
             html: `
@@ -167,11 +174,12 @@ function createMarkerGroup(baseCoords, address, offers, priceRange, isActive) {
                     <svg width="40" height="50" viewBox="0 0 40 50" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
                         <path d="M20 0 C9 0 0 9 0 20 C0 35 20 50 20 50 C20 50 40 35 40 20 C40 9 31 0 20 0 Z" 
                               fill="${color}" 
-                              stroke="white" 
-                              stroke-width="2"/>
+                              stroke="${strokeColor}" 
+                              stroke-width="${strokeWidth}"/>
                         <circle cx="20" cy="18" r="8" fill="white" opacity="0.9"/>
                     </svg>
                     ${!isActive ? '<div style="position: absolute; top: 8px; left: 50%; transform: translateX(-50%); font-size: 24px;">×</div>' : ''}
+                    ${isNew ? '<div style="position: absolute; top: -5px; right: -5px; background: #ff0000; color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">N</div>' : ''}
                 </div>
             `,
             iconSize: [40, 50],
@@ -240,7 +248,7 @@ function createPopupContent(address, offers) {
         html += `<button class="remove-listing-btn" onclick="removeListingPrompt('${offer.id}')" style="margin-top: 10px; padding: 5px 10px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ Usuń to ogłoszenie</button>`;
         
         // Opis - z funkcją zwijania/rozwijania
-        const maxChars = 200; // Maksymalna długość podglądu (około 2-3 linie)
+        const maxChars = 100; // Maksymalna długość podglądu (~1-2 linie)
         const needsTruncate = offer.description.length > maxChars;
         
         if (needsTruncate) {

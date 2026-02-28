@@ -56,10 +56,17 @@ class MapDataGenerator:
         except:
             return iso_datetime
     
-    def _create_marker_data(self, address: str, coords: Dict, offers: List[Dict]) -> Dict:
+    def _create_marker_data(self, address: str, coords: Dict, offers: List[Dict], last_scan_time: str) -> Dict:
         """
         Tworzy dane dla jednego markera (może zawierać wiele ofert).
         """
+        # Parsuj czas ostatniego skanu
+        from datetime import datetime, timedelta
+        try:
+            last_scan = datetime.fromisoformat(last_scan_time)
+        except:
+            last_scan = None
+        
         # Sortuj oferty: aktywne najpierw, potem po dacie
         offers.sort(key=lambda x: (not x['active'], x['last_seen']), reverse=True)
         
@@ -73,6 +80,17 @@ class MapDataGenerator:
         # Formatuj oferty do wyświetlenia
         formatted_offers = []
         for offer in limited_offers:
+            # Sprawdź czy oferta jest nowa (dodana w ostatnim scanie)
+            is_new = False
+            if last_scan:
+                try:
+                    first_seen = datetime.fromisoformat(offer['first_seen'])
+                    # Oferta jest "nowa" jeśli first_seen jest w ciągu 15 minut od last_scan
+                    time_diff = abs((last_scan - first_seen).total_seconds())
+                    is_new = time_diff < 900  # 15 minut
+                except:
+                    pass
+            
             formatted = {
                 'id': offer['id'],
                 'price': offer['price']['current'],
@@ -83,7 +101,8 @@ class MapDataGenerator:
                 'first_seen': self._format_date(offer['first_seen']),
                 'last_seen': self._format_date(offer['last_seen']),
                 'days_active': offer['days_active'],
-                'active': offer['active']
+                'active': offer['active'],
+                'is_new': is_new  # NOWE: flaga czy oferta z ostatniego skanu
             }
             formatted_offers.append(formatted)
         
@@ -91,12 +110,16 @@ class MapDataGenerator:
         representative_price = active_offers[0]['price']['current'] if active_offers else offers[0]['price']['current']
         price_range_key = self._get_price_range_key(representative_price)
         
+        # Sprawdź czy marker ma jakieś nowe oferty
+        has_new_offers = any(o.get('is_new', False) for o in formatted_offers if o['active'])
+        
         return {
             'coords': {'lat': coords['lat'], 'lon': coords['lon']},  # Format obiektowy dla Leaflet
             'address': address,
             'offers': formatted_offers,
             'price_range': price_range_key,
-            'has_active': len(active_offers) > 0
+            'has_active': len(active_offers) > 0,
+            'has_new': has_new_offers  # NOWE: czy marker ma nowe oferty
         }
     
     def _calculate_stats(self, offers: List[Dict]) -> Dict:
@@ -141,12 +164,15 @@ class MapDataGenerator:
         # Grupuj po adresie
         grouped = self._group_by_address(offers)
         
+        # Pobierz czas ostatniego skanu
+        last_scan_time = database.get('last_scan', '')
+        
         # Twórz markery
         markers = []
         for coords_key, address_offers in grouped.items():
             address = address_offers[0]['address']['full']
             coords = address_offers[0]['address']['coords']
-            marker = self._create_marker_data(address, coords, address_offers)
+            marker = self._create_marker_data(address, coords, address_offers, last_scan_time)
             markers.append(marker)
         
         # Oblicz statystyki
