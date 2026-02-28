@@ -1,6 +1,7 @@
 """
 Geocoder - zamiana adresów na współrzędne GPS
 Używa Nominatim API (OpenStreetMap) + cache w JSON
++ walidacja czy adres jest w Lublinie (bounding box)
 """
 
 import json
@@ -9,6 +10,15 @@ from pathlib import Path
 from typing import Optional, Dict
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
+
+# Bounding box Lublina (~20x25 km z marginesem)
+# Pokrywa centrum + wszystkie dzielnice + przedmieścia
+LUBLIN_BBOX = {
+    'min_lat': 51.18,   # Południowa granica (~3km od skraju)
+    'max_lat': 51.30,   # Północna granica (~3km zapasu)
+    'min_lon': 22.42,   # Zachodnia granica
+    'max_lon': 22.68    # Wschodnia granica
+}
 
 class Geocoder:
     def __init__(self, cache_file: str = "data/geocoding_cache.json"):
@@ -31,6 +41,24 @@ class Geocoder:
         self.cache_file.parent.mkdir(parents=True, exist_ok=True)
         with open(self.cache_file, 'w', encoding='utf-8') as f:
             json.dump(self.cache, f, ensure_ascii=False, indent=2)
+    
+    def is_in_lublin(self, coords: Dict[str, float]) -> bool:
+        """
+        Sprawdza czy współrzędne są w granicach Lublina (bounding box).
+        
+        Args:
+            coords: Dict z kluczami 'lat' i 'lon'
+            
+        Returns:
+            True jeśli w Lublinie, False jeśli poza
+        """
+        if not coords:
+            return False
+        
+        return (
+            LUBLIN_BBOX['min_lat'] <= coords['lat'] <= LUBLIN_BBOX['max_lat'] and
+            LUBLIN_BBOX['min_lon'] <= coords['lon'] <= LUBLIN_BBOX['max_lon']
+        )
     
     def geocode_address(self, address: str, max_retries: int = 3) -> Optional[Dict[str, float]]:
         """
@@ -67,6 +95,14 @@ class Geocoder:
                         'lat': location.latitude,
                         'lon': location.longitude
                     }
+                    
+                    # WALIDACJA: Sprawdź czy adres jest w Lublinie
+                    if not self.is_in_lublin(coords):
+                        print(f"⚠️ Odrzucono {address} - poza Lublinem (lat={coords['lat']:.4f}, lon={coords['lon']:.4f})")
+                        # Zapisujemy do cache jako None (nie próbujemy ponownie)
+                        self.cache[address] = None
+                        self._save_cache()
+                        return None
                     
                     # Zapisujemy do cache
                     self.cache[address] = coords
