@@ -239,8 +239,28 @@ function createPopupContent(address, offers) {
         // NOWY: Przycisk "Usuń"
         html += `<button class="remove-listing-btn" onclick="removeListingPrompt('${offer.id}')" style="margin-top: 10px; padding: 5px 10px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ Usuń to ogłoszenie</button>`;
         
-        // Opis
-        html += `<div class="offer-description">📝 ${offer.description}</div>`;
+        // Opis - z funkcją zwijania/rozwijania
+        const descriptionLines = offer.description.split('\n');
+        const shortDescription = descriptionLines.slice(0, 4).join('\n');
+        const hasMore = descriptionLines.length > 4 || offer.description.length > 300;
+        
+        if (hasMore) {
+            const uniqueId = `desc-${offer.id}`;
+            html += `
+                <div class="offer-description">
+                    <div id="${uniqueId}-short">
+                        📝 ${shortDescription}${descriptionLines.length <= 4 && offer.description.length > 300 ? '...' : ''}
+                        <br><a href="javascript:void(0)" onclick="toggleDescription('${uniqueId}')" class="show-more-link">▼ Pokaż całość</a>
+                    </div>
+                    <div id="${uniqueId}-full" style="display: none;">
+                        📝 ${offer.description}
+                        <br><a href="javascript:void(0)" onclick="toggleDescription('${uniqueId}')" class="show-more-link">▲ Zwiń</a>
+                    </div>
+                </div>
+            `;
+        } else {
+            html += `<div class="offer-description">📝 ${offer.description}</div>`;
+        }
         
         // Daty
         if (isActive) {
@@ -428,5 +448,23 @@ function deleteOffer(offerId, address) {
         
         console.log('✅ Oferta usunięta');
         alert('Oferta usunięta z mapy. Przy kolejnym scanie pojawi się ponownie jeśli nadal istnieje na OLX.');
+    }
+}
+
+// NOWA funkcja: Przełączanie widoku opisu (pokaż całość / zwiń)
+function toggleDescription(uniqueId) {
+    const shortDiv = document.getElementById(`${uniqueId}-short`);
+    const fullDiv = document.getElementById(`${uniqueId}-full`);
+    
+    if (shortDiv && fullDiv) {
+        if (shortDiv.style.display === 'none') {
+            // Pokazuj krótką wersję
+            shortDiv.style.display = 'block';
+            fullDiv.style.display = 'none';
+        } else {
+            // Pokazuj pełną wersję
+            shortDiv.style.display = 'none';
+            fullDiv.style.display = 'block';
+        }
     }
 }
