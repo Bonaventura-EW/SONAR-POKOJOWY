@@ -302,6 +302,16 @@ function filterMarkers() {
     const showActive = document.getElementById('layer-active').checked;
     const showInactive = document.getElementById('layer-inactive').checked;
     
+    // NOWY: Filtr czasowy
+    const timeFilter = document.getElementById('time-filter').value;
+    const now = new Date();
+    let cutoffDate = null;
+    
+    if (timeFilter !== 'all') {
+        const daysAgo = parseInt(timeFilter);
+        cutoffDate = new Date(now.getTime() - (daysAgo * 24 * 60 * 60 * 1000));
+    }
+    
     // Zakresy cenowe - aktywne
     const activeRanges = Array.from(document.querySelectorAll('.price-range-filter-active:checked'))
         .map(cb => cb.dataset.range);
@@ -329,6 +339,32 @@ function filterMarkers() {
         }
         if (!item.isActive && !showInactive) {
             visible = false;
+        }
+        
+        // NOWY: Filtr czasowy (sprawdź first_seen każdej oferty)
+        if (visible && cutoffDate && item.offers) {
+            const hasRecentOffer = item.offers.some(offer => {
+                try {
+                    // Parse first_seen date (format: "28.02.2026 19:57")
+                    const parts = offer.first_seen.split(' ');
+                    const dateParts = parts[0].split('.');
+                    const timeParts = parts[1].split(':');
+                    const offerDate = new Date(
+                        parseInt('20' + dateParts[2]), // year
+                        parseInt(dateParts[1]) - 1,     // month (0-indexed)
+                        parseInt(dateParts[0]),         // day
+                        parseInt(timeParts[0]),         // hour
+                        parseInt(timeParts[1])          // minute
+                    );
+                    return offerDate >= cutoffDate;
+                } catch (e) {
+                    return true; // Jeśli błąd parsowania, pokaż ofertę
+                }
+            });
+            
+            if (!hasRecentOffer) {
+                visible = false;
+            }
         }
         
         // Filtr zakresów cenowych
@@ -399,6 +435,9 @@ function setupEventListeners() {
     // Warstwy
     document.getElementById('layer-active').addEventListener('change', filterMarkers);
     document.getElementById('layer-inactive').addEventListener('change', filterMarkers);
+    
+    // NOWY: Filtr czasowy
+    document.getElementById('time-filter').addEventListener('change', filterMarkers);
     
     // Zakresy cenowe
     document.querySelectorAll('.price-range-filter-active').forEach(cb => {

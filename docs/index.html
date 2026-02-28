@@ -117,6 +117,18 @@
                         </label>
                     </div>
                     
+                    <!-- NOWY: Filtr czasowy -->
+                    <div class="filter-group">
+                        <h3>📅 Pokaż oferty z ostatnich:</h3>
+                        <select id="time-filter" class="time-filter-select">
+                            <option value="all">Wszystkie</option>
+                            <option value="7">7 dni</option>
+                            <option value="30" selected>30 dni</option>
+                            <option value="90">90 dni</option>
+                            <option value="180">180 dni</option>
+                        </select>
+                    </div>
+                    
                     <div class="filter-group">
                         <h3>Zakresy cenowe - Aktywne</h3>
                         <div id="price-range-filters-active"></div>
