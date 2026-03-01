@@ -175,9 +175,9 @@ class SonarPokojowy:
         # PRIORYTET 3: Fallback - cena z HTML (jeśli JSON-LD nie był dostępny)
         if not price and raw_offer.get('official_price'):
             price = raw_offer['official_price']
-            media_info = "sprawdź w opisie - cena z HTML"
+            media_info = self.price_parser.detect_media_info_only(full_text)
             price_source = "HTML fallback"
-            print(f"      💰 Użyto ceny HTML (fallback): {price} zł")
+            print(f"      💰 Użyto ceny HTML (fallback): {price} zł ({media_info})")
         
         if not price:
             return None  # Brak ceny → ignoruj

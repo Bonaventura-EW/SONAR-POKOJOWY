@@ -48,7 +48,9 @@ class PriceParser:
     MEDIA_SEPARATE = [
         '+ media', 'plus media', 'bez mediów', 'opłaty dodatkowe',
         'media dodatkowo', 'media osobno', 'do tego media', 'bez opłat',
-        'media oddzielnie', '+ opłaty', 'opłaty osobno'
+        'media oddzielnie', '+ opłaty', 'opłaty osobno', 
+        'dodatkowo płatne', 'płatne dodatkowo', 'media wg zużycia',
+        'media według zużycia', 'wg zużycia', 'według zużycia'
     ]
     
     def __init__(self):
@@ -145,15 +147,15 @@ class PriceParser:
             if phrase in text_lower:
                 return "wliczone"
         
+        # PRIORYTET: Sprawdź czy media są osobno (przed częściowo!)
+        for phrase in self.MEDIA_SEPARATE:
+            if phrase in text_lower:
+                return "+ media"
+        
         # Sprawdź czy media są częściowo wliczone (np. tylko internet)
         for phrase in self.MEDIA_PARTIAL:
             if phrase in text_lower:
                 return "częściowo wliczone (sprawdź opis)"
-        
-        # Sprawdź czy media są osobno
-        for phrase in self.MEDIA_SEPARATE:
-            if phrase in text_lower:
-                return "+ media"
         
         # Jeśli nie ma informacji
         return "brak informacji"
@@ -215,20 +217,23 @@ class PriceParser:
         
         text_lower = text.lower()
         
-        # Sprawdź czy wszystkie media są wliczone
-        for phrase in self.MEDIA_INCLUDED:
-            if phrase in text_lower:
-                return "wliczone"
+        # Sprawdź co jest w tekście (może być kilka kategorii naraz!)
+        has_all_included = any(phrase in text_lower for phrase in self.MEDIA_INCLUDED)
+        has_separate = any(phrase in text_lower for phrase in self.MEDIA_SEPARATE)
+        has_partial = any(phrase in text_lower for phrase in self.MEDIA_PARTIAL)
         
-        # Sprawdź czy media są częściowo wliczone (np. tylko internet)
-        for phrase in self.MEDIA_PARTIAL:
-            if phrase in text_lower:
-                return "częściowo wliczone (sprawdź opis)"
+        # PRIORYTET 1: Wszystko wliczone (najważniejsze)
+        if has_all_included:
+            return "wliczone"
         
-        # Sprawdź czy media są osobno
-        for phrase in self.MEDIA_SEPARATE:
-            if phrase in text_lower:
-                return "+ media"
+        # PRIORYTET 2: Media osobno (ważniejsze niż częściowo)
+        # Nawet jeśli jest "internet w cenie" + "media dodatkowo", to media są osobno
+        if has_separate:
+            return "+ media"
+        
+        # PRIORYTET 3: Częściowo wliczone (tylko jeśli NIE ma separate)
+        if has_partial:
+            return "częściowo wliczone (sprawdź opis)"
         
         # Szukaj wzorca z konkretną kwotą mediów "media ok. 150 zł"
         media_cost_pattern = re.compile(r'media.*?(\d{2,3})\s*(?:zł|złotych)', re.IGNORECASE)
