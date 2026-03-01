@@ -344,7 +344,23 @@
                     row.insertCell().textContent = scan.stats?.raw_offers || '-';
                     row.insertCell().textContent = scan.stats?.processed || '-';
                     row.insertCell().textContent = scan.stats?.new || '-';
-                    row.insertCell().textContent = scan.errors?.length || '0';
+                    
+                    // Błędy - z tooltipem
+                    const errorsCell = row.insertCell();
+                    const errorCount = scan.errors?.length || 0;
+                    errorsCell.textContent = errorCount;
+                    
+                    if (errorCount > 0) {
+                        errorsCell.style.cursor = 'help';
+                        errorsCell.style.color = '#ef4444';
+                        errorsCell.style.fontWeight = 'bold';
+                        errorsCell.title = 'Błędy:\n' + scan.errors.join('\n');
+                        
+                        // Opcjonalnie: modal przy kliknięciu
+                        errorsCell.onclick = () => {
+                            alert('🔴 Błędy w skanie:\n\n' + scan.errors.map((e, i) => `${i+1}. ${e}`).join('\n'));
+                        };
+                    }
                 });
                 
                 // Wykresy
