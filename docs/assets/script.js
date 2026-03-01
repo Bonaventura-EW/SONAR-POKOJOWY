@@ -203,6 +203,11 @@ function createMarkerGroup(baseCoords, address, offers, priceRange, isActive) {
         const priceUp = offer.price_trend === 'up';
         const priceDown = offer.price_trend === 'down';
         
+        // DEBUG: Log ofert ze zmianą ceny
+        if (hasPriceChange) {
+            console.log(`💲 Zmiana ceny: ${address} | ${offer.previous_price} → ${offer.price} (${offer.price_trend})`);
+        }
+        
         // Ikona markera - pinezka z kolorem
         // Jeśli uszkodzone - pomarańczowy, jeśli nowa - czerwona obwódka, inaczej - biała
         const strokeColor = isDamagedOffer ? '#ff6600' : (isNew ? '#ff0000' : 'white');
@@ -232,6 +237,7 @@ function createMarkerGroup(baseCoords, address, offers, priceRange, isActive) {
                     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
                     padding: 0 4px;
                     border: 2px solid white;
+                    z-index: 1000;
                 ">💲${arrow}</div>
             `;
         }
