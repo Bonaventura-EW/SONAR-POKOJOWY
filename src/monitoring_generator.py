@@ -52,6 +52,10 @@ def generate_monitoring_data():
             'status': status
         })
     
+    # Posortuj wszystkie wykresy chronologicznie po timestamp
+    for key in chart_data:
+        chart_data[key] = sorted(chart_data[key], key=lambda x: x['timestamp'])
+    
     # Zbierz dane dla podstrony
     monitoring_data = {
         'generated_at': recent_scans[0]['timestamp'] if recent_scans else None,
