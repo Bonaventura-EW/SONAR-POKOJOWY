@@ -74,7 +74,7 @@ def format_datetime(iso_string):
         
         # Format do DD.MM.YYYY HH:MM
         return dt.strftime('%d.%m.%Y %H:%M')
-    except Exception as e:
+    except (ValueError, AttributeError) as e:
         print(f"⚠️  Błąd parsowania daty '{iso_string}': {e}")
         return iso_string
 
@@ -98,7 +98,7 @@ def format_scan_datetime(iso_string):
             dt = datetime.strptime(dt_str, '%Y-%m-%dT%H:%M:%S')
         
         return dt.strftime('%d.%m.%Y %H:%M:%S')
-    except Exception as e:
+    except (ValueError, AttributeError) as e:
         print(f"⚠️  Błąd parsowania daty skanu '{iso_string}': {e}")
         return iso_string
 

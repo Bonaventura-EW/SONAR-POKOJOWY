@@ -34,21 +34,17 @@ def test_integration():
     
     processed = monitor._process_offer(test_offer_1)
     
-    if processed:
-        actual_price = processed['price']['current']
-        price_source = processed['price'].get('source', 'unknown')
-        media_info = processed['price']['media_info']
-        
-        if actual_price == 700:
-            print(f"   ✅ SUKCES: Cena {actual_price} zł")
-            print(f"   Źródło: {price_source}")
-            print(f"   Media: {media_info}")
-        else:
-            print(f"   ❌ BŁĄD: Otrzymano {actual_price} zł, oczekiwano 700 zł")
-            return 1
-    else:
-        print(f"   ❌ BŁĄD: Oferta odrzucona przez system")
-        return 1
+    assert processed is not None, "Oferta odrzucona przez system"
+    
+    actual_price = processed['price']['current']
+    price_source = processed['price'].get('source', 'unknown')
+    media_info = processed['price']['media_info']
+    
+    assert actual_price == 700, f"Otrzymano {actual_price} zł, oczekiwano 700 zł"
+    
+    print(f"   ✅ SUKCES: Cena {actual_price} zł")
+    print(f"   Źródło: {price_source}")
+    print(f"   Media: {media_info}")
     
     print("\n" + "=" * 70)
     print("\n✅ Test integracyjny zakończony pomyślnie!")
@@ -56,8 +52,6 @@ def test_integration():
     print("   1. GitHub Actions automatycznie uruchomi skanowanie za ~8h")
     print("   2. Lub możesz uruchomić ręcznie: python3 src/main.py")
     print("   3. Sprawdź zaktualizowane ceny na mapie: https://bonaventura-ew.github.io/SONAR-POKOJOWY/")
-    
-    return 0
 
 if __name__ == "__main__":
-    exit(test_integration())
+    test_integration()

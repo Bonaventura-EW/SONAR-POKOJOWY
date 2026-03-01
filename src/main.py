@@ -5,7 +5,6 @@ WERSJA 2.0: Równoległy scraping + monitoring
 """
 
 import json
-import sys
 from pathlib import Path
 from datetime import datetime, timedelta
 import pytz
@@ -285,8 +284,6 @@ class SonarPokojowy:
     
     def _mark_inactive_offers(self, current_offer_ids: List[str]):
         """Oznacza ogłoszenia jako nieaktywne jeśli nie ma ich w bieżącym scanie."""
-        now = datetime.now(self.tz)
-        
         for offer in self.database['offers']:
             if offer['id'] not in current_offer_ids and offer['active']:
                 offer['active'] = False

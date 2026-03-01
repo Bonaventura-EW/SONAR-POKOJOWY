@@ -79,7 +79,7 @@ class QuickSonar(SonarPokojowy):
             
             processing_duration = time.time() - processing_start
             
-            print(f"\n✅ Przetworzone: {len(processed_offers)}")
+            print(f"\n✅ Przetworzone: {len(processed_offers)} (w {processing_duration:.1f}s)")
             print(f"   Pominięte - brak adresu: {skipped_no_address}")
             print(f"   Pominięte - brak ceny: {skipped_no_price}")
             print(f"   Pominięte - brak coords: {skipped_no_coords}")

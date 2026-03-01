@@ -105,7 +105,7 @@ class OLXScraper:
                 price_tag = None
                 current = link_tag
                 
-                for level in range(6):
+                for _ in range(6):
                     current = current.find_parent()
                     if not current:
                         break
@@ -136,7 +136,7 @@ class OLXScraper:
                     'price_raw': price_raw
                 })
                 
-            except Exception as e:
+            except (AttributeError, TypeError, KeyError) as e:
                 print(f"⚠️ Błąd parsowania ogłoszenia: {e}")
                 continue
         
@@ -157,7 +157,6 @@ class OLXScraper:
         
         # Alternatywnie: próbujemy page=X+1
         next_page_num = current_page + 1
-        test_url = f"{self.BASE_URL}?page={next_page_num}"
         
         # Sprawdzamy czy następna strona istnieje (nie róbmy requesta, tylko sprawdźmy czy jest link)
         pagination = soup.find('ul', {'data-testid': 'pagination-list'})
@@ -248,7 +247,7 @@ class OLXScraper:
                         # Progress bar
                         progress = (completed / total) * 100
                         print(f"\r   Postęp: [{completed}/{total}] {progress:.1f}%", end='', flush=True)
-                    except Exception as e:
+                    except (requests.RequestException, AttributeError, TypeError) as e:
                         print(f"\n   ⚠️ Błąd pobierania oferty #{idx}: {e}")
             
             elapsed = time.time() - start_time
@@ -312,7 +311,7 @@ class OLXScraper:
                                 # Cena poza zakresem - odrzuć i użyj fallback
                                 official_price = None
                                 official_price_raw = None
-                except (json.JSONDecodeError, KeyError, TypeError) as e:
+                except (json.JSONDecodeError, KeyError, TypeError):
                     # JSON-LD nie zadziałało - przejdź do fallback
                     pass
             
@@ -344,7 +343,7 @@ class OLXScraper:
                 'price_source': 'html-fallback' if official_price else None
             }
             
-        except Exception as e:
+        except (AttributeError, TypeError, KeyError, json.JSONDecodeError) as e:
             print(f"⚠️ Błąd parsowania szczegółów ogłoszenia {url}: {e}")
             return None
     
