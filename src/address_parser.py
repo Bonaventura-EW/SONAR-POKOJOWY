@@ -115,6 +115,12 @@ class AddressParser:
             # Wyciągnij główny numer (przed / lub lok.)
             main_number = number.split('/')[0].split()[0]
             
+            # FILTR BEZPIECZEŃSTWA: Odrzuć numery z literą O/o zaraz po cyfrze (błąd OCR)
+            # Przykład: "1O", "10O", "2o" - prawdopodobnie błąd, powinno być "10", "100", "20"
+            if re.search(r'\d[Oo](?:[^a-zA-Z]|$)', main_number):
+                print(f"      ⚠️ Odrzucono podejrzany numer: {number} (prawdopodobnie błąd OCR: 'O' zamiast '0')")
+                continue
+            
             # FILTR 2: Sprawdź czy numer jest rozsądny (max 250)
             # Numery >250 to prawdopodobnie CENY np. "Samsonowicza 500 zł"
             try:

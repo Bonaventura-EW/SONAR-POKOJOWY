@@ -143,20 +143,20 @@ class SonarPokojowy:
         if not address_data:
             return None  # Brak adresu → ignoruj
         
-        # 3. Parsuj cenę - NOWA LOGIKA
-        # PRIORYTET 1: Oficjalna cena ze strony ogłoszenia
-        if raw_offer.get('official_price'):
-            price = raw_offer['official_price']
-            media_info = "sprawdź w opisie"  # Oficjalna cena nie zawiera info o mediach
-            print(f"      💰 Użyto oficjalnej ceny: {price} zł")
-        else:
-            # FALLBACK: Parser ceny z treści (stara metoda)
-            price_data = self.price_parser.extract_price(full_text)
-            if not price_data:
-                return None  # Brak ceny → ignoruj
+        # 3. Parsuj cenę - NOWA LOGIKA (PRIORYTET: cena pokoju bez mediów)
+        # PRIORYTET 1: Parser ceny z treści (wyciąga czystą cenę pokoju)
+        price_data = self.price_parser.extract_price(full_text)
+        if price_data:
             price = price_data['price']
             media_info = price_data['media_info']
-            print(f"      💰 Użyto parsera ceny z treści: {price} zł")
+            print(f"      💰 Użyto parsera ceny z opisu: {price} zł ({media_info})")
+        elif raw_offer.get('official_price'):
+            # FALLBACK: Oficjalna cena z OLX (może zawierać media)
+            price = raw_offer['official_price']
+            media_info = "sprawdź w opisie - cena może zawierać media"
+            print(f"      💰 Użyto oficjalnej ceny z OLX: {price} zł (fallback)")
+        else:
+            return None  # Brak ceny → ignoruj
         
         # 4. Geokoduj adres
         coords = self.geocoder.geocode_address(address_data['full'])

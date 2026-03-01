@@ -80,9 +80,9 @@ class MapDataGenerator:
         # Formatuj oferty do wyświetlenia
         formatted_offers = []
         for offer in limited_offers:
-            # Sprawdź czy oferta jest nowa (dodana w ostatnim scanie)
+            # Sprawdź czy oferta jest nowa (dodana w ostatnim scanie I AKTYWNA)
             is_new = False
-            if last_scan:
+            if offer['active'] and last_scan:  # TYLKO AKTYWNE mogą być nowe
                 try:
                     first_seen = datetime.fromisoformat(offer['first_seen'])
                     # Oferta jest "nowa" jeśli first_seen jest w ciągu 15 minut od last_scan
