@@ -23,7 +23,6 @@ class SonarPokojowy:
     def __init__(self, data_file: str = "../data/offers.json", removed_file: str = "../data/removed_listings.json"):
         self.data_file = Path(data_file)
         self.removed_file = Path(removed_file)
-        self.scraper = OLXScraper(delay_range=(0.5, 1), max_workers=5)  # Równoległy scraping
         self.address_parser = AddressParser()
         self.price_parser = PriceParser()
         self.geocoder = Geocoder(cache_file="../data/geocoding_cache.json")
@@ -38,6 +37,26 @@ class SonarPokojowy:
         
         # Wczytaj listę usuniętych ogłoszeń
         self.removed_listings = self._load_removed_listings()
+        
+        # Inicjalizuj scraper Z istniejącymi ofertami (inteligentne pomijanie)
+        existing_offers = self._build_existing_offers_index()
+        self.scraper = OLXScraper(delay_range=(0.5, 1), max_workers=5, existing_offers=existing_offers)
+    
+    def _build_existing_offers_index(self) -> Dict:
+        """
+        Buduje indeks istniejących ofert dla inteligentnego pomijania.
+        Returns: {offer_id: {'price': X, 'description': '...'}}
+        """
+        index = {}
+        for offer in self.database.get('offers', []):
+            if offer.get('active', False):  # Tylko aktywne oferty
+                index[offer['id']] = {
+                    'price': offer.get('price', {}).get('current'),
+                    'description': offer.get('description', ''),
+                    'previous_price': offer.get('price', {}).get('previous_price')
+                }
+        print(f"📚 Zaindeksowano {len(index)} aktywnych ofert do inteligentnego pomijania")
+        return index
     
     def _load_database(self) -> Dict:
         """Wczytuje bazę danych z JSON."""
@@ -235,6 +254,7 @@ class SonarPokojowy:
         # Hierarchia źródeł (od najlepszego do najgorszego)
         source_priority = {
             'JSON-LD (OLX)': 3,
+            'cache': 3,  # Cache ma ten sam priorytet co JSON-LD (bo pochodzi z niego)
             'HTML fallback': 2,
             'Parser tekstowy': 1,
             'unknown': 0
@@ -246,7 +266,7 @@ class SonarPokojowy:
         # DECYZJA: Aktualizuj cenę tylko jeśli:
         # 1. Nowe źródło ma wyższy priorytet, LUB
         # 2. Ten sam priorytet ale cena się zmieniła (realna zmiana ceny), LUB
-        # 3. Różnica ceny jest mniejsza niż 20% (zabezpieczenie przed błędami parsera)
+        # 3. Różnica ceny jest mniejsza niż 50% (zabezpieczenie przed błędami parsera)
         
         should_update = False
         
@@ -268,13 +288,24 @@ class SonarPokojowy:
             # Gorsze źródło - nie aktualizuj
             print(f"      ℹ️ Zachowano cenę z lepszego źródła: {old_source} ({old_price} zł)")
         
-        if should_update:
+        if should_update and old_price != new_price:
+            # NOWE: Zapisz poprzednią cenę przed aktualizacją
+            existing['price']['previous_price'] = old_price
+            existing['price']['price_changed_at'] = now
+            
+            # Określ kierunek zmiany
+            if new_price < old_price:
+                existing['price']['price_trend'] = 'down'
+                print(f"      📉 Cena SPADŁA: {old_price} → {new_price} zł (↓{old_price - new_price} zł)")
+            else:
+                existing['price']['price_trend'] = 'up'
+                print(f"      📈 Cena WZROSŁA: {old_price} → {new_price} zł (↑{new_price - old_price} zł)")
+            
             existing['price']['current'] = new_price
             existing['price']['source'] = new_source
             
-            # Dodaj do historii tylko jeśli cena faktycznie się zmieniła
-            if old_price != new_price:
-                existing['price']['history'].append(new_price)
+            # Dodaj do historii
+            existing['price']['history'].append(new_price)
         
         # Zawsze aktualizuj media_info (może się zmienić niezależnie)
         existing['price']['media_info'] = new_data['price']['media_info']

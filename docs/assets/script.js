@@ -270,13 +270,34 @@ function createPopupContent(address, offers) {
             html += `<div class="inactive-badge">❌ Nieaktywne</div>`;
         }
         
-        // Cena
-        html += `<div class="offer-price ${isActive ? '' : 'inactive'}">💰 ${offer.price} zł</div>`;
+        // Cena - NOWE: wyświetlanie zmiany ceny
+        if (offer.previous_price && offer.price_trend) {
+            const priceDiff = offer.price - offer.previous_price;
+            const trendIcon = offer.price_trend === 'down' ? '📉' : '📈';
+            const trendColor = offer.price_trend === 'down' ? '#28a745' : '#dc3545';
+            const trendSign = offer.price_trend === 'down' ? '' : '+';
+            
+            html += `<div class="offer-price ${isActive ? '' : 'inactive'}">`;
+            html += `💰 <strong style="font-size: 1.2em;">${offer.price} zł</strong>`;
+            html += `<span style="color: ${trendColor}; font-weight: bold; margin-left: 8px;">`;
+            html += `${trendIcon} ${trendSign}${priceDiff} zł</span>`;
+            html += `</div>`;
+            
+            // Poprzednia cena
+            html += `<div class="previous-price" style="color: #888; font-size: 0.9em; margin-top: 2px;">`;
+            html += `<s>Poprzednio: ${offer.previous_price} zł</s>`;
+            if (offer.price_changed_at) {
+                html += ` <span style="font-size: 0.85em;">(zmiana: ${offer.price_changed_at})</span>`;
+            }
+            html += `</div>`;
+        } else {
+            html += `<div class="offer-price ${isActive ? '' : 'inactive'}">💰 ${offer.price} zł</div>`;
+        }
         
-        // Historia cen
-        if (offer.price_history.length > 1) {
+        // Historia cen (pełna)
+        if (offer.price_history && offer.price_history.length > 1) {
             const history = offer.price_history.map(p => p + ' zł').join(' → ');
-            html += `<div class="price-history">Historia: ${history}</div>`;
+            html += `<div class="price-history" style="color: #666; font-size: 0.85em; margin-top: 4px;">📊 Historia: ${history}</div>`;
         }
         
         // Media info

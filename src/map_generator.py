@@ -137,6 +137,9 @@ def generate_map_data(input_file, output_file):
             'url': offer.get('url'),
             'price': price_data.get('current', 0),
             'price_history': price_data.get('history', []),  # Historia cen
+            'previous_price': price_data.get('previous_price'),  # Poprzednia cena (jeśli się zmieniła)
+            'price_trend': price_data.get('price_trend'),  # 'up' lub 'down'
+            'price_changed_at': format_datetime(price_data.get('price_changed_at', '')) if price_data.get('price_changed_at') else None,
             'media_info': price_data.get('media_info', 'brak informacji'),  # Info o mediach
             'first_seen': format_datetime(offer.get('first_seen', '')),
             'last_seen': format_datetime(offer.get('last_seen', '')),
