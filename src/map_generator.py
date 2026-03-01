@@ -131,15 +131,18 @@ def generate_map_data(input_file, output_file):
         key = address_full
         
         # Przygotuj ofertę do frontendu
+        price_data = offer.get('price', {})
         offer_data = {
             'id': offer.get('id'),
             'url': offer.get('url'),
-            'price': offer.get('price', {}).get('current', 0),
+            'price': price_data.get('current', 0),
+            'price_history': price_data.get('history', []),  # Historia cen
+            'media_info': price_data.get('media_info', 'brak informacji'),  # Info o mediach
             'first_seen': format_datetime(offer.get('first_seen', '')),
             'last_seen': format_datetime(offer.get('last_seen', '')),
             'active': offer.get('active', True),
             'is_new': offer.get('days_active', 0) == 0,  # Nowa jeśli days_active = 0
-            'description': offer.get('description', '')[:200]  # Skróć opis
+            'description': offer.get('description', '')  # Pełny opis (frontend się sam obcina)
         }
         
         markers_dict[key].append({
