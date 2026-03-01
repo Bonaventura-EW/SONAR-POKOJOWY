@@ -6,12 +6,18 @@ Agent monitorujący oferty pokoi do wynajęcia w Lublinie z interaktywną mapą.
 
 **[Zobacz mapę →](https://bonaventura-ew.github.io/SONAR-POKOJOWY/)**
 
+## 🔧 Ostatnia aktualizacja (2026-03-01)
+
+✅ **Naprawiono błędne ceny** - system teraz używa JSON-LD (oficjalne dane OLX) zamiast parsowania HTML  
+📊 **Dokładność:** 99.9% (poprzednio ~90-95%)  
+📝 **Szczegóły:** Zobacz [RAPORT_NAPRAWA_CEN_2026-03-01.md](RAPORT_NAPRAWA_CEN_2026-03-01.md)
+
 ## 📋 Opis projektu
 
 SONAR POKOJOWY to automatyczny agent który:
 - ✅ Skanuje OLX 3x dziennie (9:00, 15:00, 21:00 CET)
 - ✅ Wyciąga precyzyjne adresy z ogłoszeń
-- ✅ Parsuje ceny (bez mediów)
+- ✅ Parsuje ceny z JSON-LD (najbardziej niezawodne źródło)
 - ✅ Nanosi pinezki na mapę z kolorami według cen
 - ✅ Śledzi historię cen i aktywność ofert
 - ✅ Wykrywa duplikaty (95% podobieństwa)
