@@ -350,16 +350,29 @@
                 return;
             }
             
-            // Statystyki
-            const totalActive = allOffers.length;
-            const prices = allOffers.map(o => o.price);
+            // Walidacja cen: filtruj oferty z sensownymi cenami (200-3000 zł)
+            const validOffers = allOffers.filter(o => o.price >= 200 && o.price <= 3000);
+            const invalidCount = allOffers.length - validOffers.length;
+            
+            if (invalidCount > 0) {
+                console.warn(`⚠️ Odfiltrowano ${invalidCount} ofert z nieprawidłowymi cenami (< 200 zł lub > 3000 zł)`);
+            }
+            
+            if (validOffers.length === 0) {
+                showError('Brak ofert z prawidłowymi cenami do wyświetlenia');
+                return;
+            }
+            
+            // Statystyki - używaj tylko prawidłowych ofert
+            const totalActive = validOffers.length;
+            const prices = validOffers.map(o => o.price);
             const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
             const medianPrice = calculateMedian(prices);
             
-            // Nowe w ostatnich 7 dniach
+            // Nowe w ostatnich 7 dniach (również z filtrem cen)
             const now = new Date();
             const sevenDaysAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
-            const newLast7Days = allOffers.filter(o => o.first_seen_date >= sevenDaysAgo).length;
+            const newLast7Days = validOffers.filter(o => o.first_seen_date >= sevenDaysAgo).length;
             
             // Wypełnij statystyki
             document.getElementById('total-active').textContent = totalActive;
@@ -367,11 +380,11 @@
             document.getElementById('new-7days').textContent = newLast7Days;
             document.getElementById('median-price').textContent = Math.round(medianPrice) + ' zł';
             
-            // Wykresy (zapisz oferty globalnie dla suwaków)
-            window.allOffersData = allOffers;
+            // Wykresy (zapisz oferty globalnie dla suwaków) - używaj validOffers
+            window.allOffersData = validOffers;
             window.allPricesData = prices;
-            createPriceChart(allOffers, 30); // Domyślnie 30 dni
-            createNewOffersChart(allOffers, 30);
+            createPriceChart(validOffers, 30); // Domyślnie 30 dni
+            createNewOffersChart(validOffers, 30);
             createPriceDistribution(prices);
         }
         
@@ -417,12 +430,16 @@
             
             const dailyPrices = {};
             offers.forEach(offer => {
-                if (offer.first_seen_date >= startDate) {
+                // Walidacja: tylko sensowne ceny i prawidłowy zakres dat
+                const price = offer.price;
+                const isValidPrice = price >= 200 && price <= 3000;
+                
+                if (offer.first_seen_date >= startDate && isValidPrice) {
                     const dateKey = offer.first_seen_date.toISOString().split('T')[0];
                     if (!dailyPrices[dateKey]) {
                         dailyPrices[dateKey] = [];
                     }
-                    dailyPrices[dateKey].push(offer.price);
+                    dailyPrices[dateKey].push(price);
                 }
             });
             
@@ -479,7 +496,11 @@
             
             const dailyCounts = {};
             offers.forEach(offer => {
-                if (offer.first_seen_date >= startDate) {
+                // Walidacja: tylko oferty z sensownymi cenami
+                const price = offer.price;
+                const isValidPrice = price >= 200 && price <= 3000;
+                
+                if (offer.first_seen_date >= startDate && isValidPrice) {
                     const dateKey = offer.first_seen_date.toISOString().split('T')[0];
                     dailyCounts[dateKey] = (dailyCounts[dateKey] || 0) + 1;
                 }
@@ -530,8 +551,11 @@
         
         function createPriceDistribution(prices) {
             // Histogram cen (przedziały co 50 zł)
+            // Walidacja: filtruj tylko sensowne ceny
+            const validPrices = prices.filter(price => price >= 200 && price <= 3000);
+            
             const bins = {};
-            prices.forEach(price => {
+            validPrices.forEach(price => {
                 const bin = Math.floor(price / 50) * 50;
                 bins[bin] = (bins[bin] || 0) + 1;
             });
