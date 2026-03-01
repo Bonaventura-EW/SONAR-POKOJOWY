@@ -31,11 +31,17 @@ class PriceParser:
         re.compile(r'pokój\s*(\d{3,4})\s*(?:zł)?\s*\+\s*opłaty\s*(\d{2,4})', re.IGNORECASE),
     ]
     
-    # Frazy wskazujące na media wliczone
+    # Frazy wskazujące na media wliczone (WSZYSTKIE media)
     MEDIA_INCLUDED = [
-        'wliczone', 'w cenie', 'wszystko wliczone', 'razem z mediami',
-        'wraz z mediami', 'łącznie z mediami', 'z mediami', 'all inclusive',
-        'wszystko w cenie', 'opłaty wliczone', 'w tym wszystkie opłaty'
+        'wszystko wliczone', 'razem z mediami', 'wraz z mediami', 
+        'łącznie z mediami', 'all inclusive', 'wszystko w cenie', 
+        'opłaty wliczone', 'w tym wszystkie opłaty', 'media w cenie czynszu'
+    ]
+    
+    # Frazy wskazujące na media częściowo wliczone (np. tylko internet)
+    MEDIA_PARTIAL = [
+        'internet w cenie', 'internet wliczony', 'wi-fi w cenie',
+        'wi-fi wliczony', 'wifi w cenie'
     ]
     
     # Frazy wskazujące na media osobno
@@ -134,10 +140,15 @@ class PriceParser:
                 utilities_cost = int(match.group(2))
                 return f"+ {utilities_cost} zł opłaty"
         
-        # Sprawdź czy media są wliczone
+        # Sprawdź czy wszystkie media są wliczone
         for phrase in self.MEDIA_INCLUDED:
             if phrase in text_lower:
                 return "wliczone"
+        
+        # Sprawdź czy media są częściowo wliczone (np. tylko internet)
+        for phrase in self.MEDIA_PARTIAL:
+            if phrase in text_lower:
+                return "częściowo wliczone (sprawdź opis)"
         
         # Sprawdź czy media są osobno
         for phrase in self.MEDIA_SEPARATE:
@@ -183,32 +194,51 @@ class PriceParser:
                 'raw_text': self._extract_price_context(text, room_price)
             }
         
-        # PRIORYTET 2: Nie znaleziono wzorców - użyj pierwszej sensownej kwoty
-        # Znajdujemy wszystkie kwoty w tekście
-        prices = self.PRICE_PATTERN.findall(text)
-        if not prices:
-            return None
+        # PRIORYTET 2: Nie znaleziono wzorców - ODRZUĆ
+        # Nie używamy już fallbacku "pierwsza sensowna kwota" bo to powoduje błędy
+        # (np. wyciąganie kosztów mediów zamiast czynszu)
+        return None
+    
+    def detect_media_info_only(self, text: str) -> str:
+        """
+        Wykrywa tylko informację o mediach bez parsowania ceny.
+        Użyteczne gdy mamy już cenę z JSON-LD i chcemy tylko media_info.
         
-        # Konwertujemy na int
-        prices = [int(p) for p in prices]
+        Args:
+            text: Tekst ogłoszenia
+            
+        Returns:
+            str - informacja o mediach
+        """
+        if not text:
+            return "brak informacji"
         
-        # Filtrujemy nieprawidłowe kwoty (lata, numery domów, etc.)
-        valid_prices = self._filter_invalid_prices(prices, text_lower)
+        text_lower = text.lower()
         
-        if not valid_prices:
-            return None
+        # Sprawdź czy wszystkie media są wliczone
+        for phrase in self.MEDIA_INCLUDED:
+            if phrase in text_lower:
+                return "wliczone"
         
-        # Bierzemy pierwszą sensowną kwotę
-        main_price = valid_prices[0]
+        # Sprawdź czy media są częściowo wliczone (np. tylko internet)
+        for phrase in self.MEDIA_PARTIAL:
+            if phrase in text_lower:
+                return "częściowo wliczone (sprawdź opis)"
         
-        # Wykrywamy informację o mediach
-        media_info = self._detect_media_info_simple(text_lower, valid_prices)
+        # Sprawdź czy media są osobno
+        for phrase in self.MEDIA_SEPARATE:
+            if phrase in text_lower:
+                return "+ media"
         
-        return {
-            'price': main_price,
-            'media_info': media_info,
-            'raw_text': self._extract_price_context(text, main_price)
-        }
+        # Szukaj wzorca z konkretną kwotą mediów "media ok. 150 zł"
+        media_cost_pattern = re.compile(r'media.*?(\d{2,3})\s*(?:zł|złotych)', re.IGNORECASE)
+        match = media_cost_pattern.search(text)
+        if match:
+            cost = match.group(1)
+            return f"+ ~{cost} zł media"
+        
+        # Domyślnie - brak jasnej informacji
+        return "sprawdź w opisie"
     
     def _detect_media_info_simple(self, text_lower: str, prices: list) -> str:
         """

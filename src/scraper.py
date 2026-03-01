@@ -359,6 +359,7 @@ class OLXScraper:
             if details.get('official_price'):
                 offer['official_price'] = details['official_price']
                 offer['official_price_raw'] = details['official_price_raw']
+                offer['price_source'] = details['price_source']  # FIX: kopiuj price_source!
         else:
             # Fallback - użyj tytułu jako opisu
             offer['description'] = offer['title']

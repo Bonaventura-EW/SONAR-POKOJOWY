@@ -158,12 +158,8 @@ class SonarPokojowy:
             price = raw_offer['official_price']
             price_source = "JSON-LD (OLX)"
             
-            # Spróbuj wykryć info o mediach z opisu
-            price_data = self.price_parser.extract_price(full_text)
-            if price_data:
-                media_info = price_data['media_info']
-            else:
-                media_info = "sprawdź w opisie"
+            # Wykryj info o mediach z opisu (BEZ parsowania ceny!)
+            media_info = self.price_parser.detect_media_info_only(full_text)
             
             print(f"      💰 Użyto ceny JSON-LD: {price} zł ({media_info})")
         
