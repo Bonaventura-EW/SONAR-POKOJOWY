@@ -506,8 +506,19 @@
                 }
             });
             
-            const labels = Object.keys(dailyCounts).sort();
-            const counts = labels.map(date => dailyCounts[date]);
+            // Wypełnij puste dni zerami (ciągła oś czasu)
+            const filledCounts = {};
+            let currentDate = new Date(startDate);
+            const endDate = now;
+            
+            while (currentDate <= endDate) {
+                const dateKey = currentDate.toISOString().split('T')[0];
+                filledCounts[dateKey] = dailyCounts[dateKey] || 0;
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            
+            const labels = Object.keys(filledCounts).sort();
+            const counts = labels.map(date => filledCounts[date]);
             
             const ctx = document.getElementById('newOffersChart');
             
