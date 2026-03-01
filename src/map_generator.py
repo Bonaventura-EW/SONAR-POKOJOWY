@@ -15,31 +15,31 @@ PRICE_RANGES = {
         'label': '0-600 zł',
         'min': 0,
         'max': 600,
-        'color': '#28a745'  # Zielony
+        'color': '#00c853'  # Jaskrawy zielony (świetna cena!)
     },
     'range_601_800': {
         'label': '601-800 zł',
         'min': 601,
         'max': 800,
-        'color': '#5cb85c'  # Jasnozielony
+        'color': '#76ff03'  # Limonkowy (dobra cena)
     },
     'range_801_1000': {
         'label': '801-1000 zł',
         'min': 801,
         'max': 1000,
-        'color': '#ffc107'  # Żółty
+        'color': '#ffc107'  # Żółty (średnia cena)
     },
     'range_1001_1300': {
         'label': '1001-1300 zł',
         'min': 1001,
         'max': 1300,
-        'color': '#ff9800'  # Pomarańczowy
+        'color': '#ff9800'  # Pomarańczowy (wysoka cena)
     },
     'range_1301_plus': {
         'label': '1301+ zł',
         'min': 1301,
         'max': 999999,
-        'color': '#dc3545'  # Czerwony
+        'color': '#f44336'  # Jaskrawy czerwony (bardzo wysoka!)
     }
 }
 
