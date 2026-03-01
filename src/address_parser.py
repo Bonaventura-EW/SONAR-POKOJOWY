@@ -5,23 +5,37 @@ Akceptuje formaty:
 - "Rynek 8" (bez określenia typu)
 - "al. Andersa 13 lok. 5"
 - "ul. Racławickie 12/2"
+- "Aleja Kraśnicka 73a" - zachowuje prefiks Aleja!
 """
 
 import re
 from typing import Optional, Dict
 
 class AddressParser:
-    # Prefiksy ulic (opcjonalne)
-    PREFIXES = r'(?:ul\.|ulica|al\.|aleja|aleje|pl\.|plac|os\.|osiedle)?'
+    # Prefiksy ulic - teraz jako GRUPY do wyciągnięcia
+    # Grupa 1: prefiks (opcjonalny)
+    # Grupa 2: nazwa ulicy
+    # Grupa 3: numer
+    PREFIX_PATTERN = r'(ul\.|ulica|al\.|aleja|aleje|pl\.|plac|os\.|osiedle)?\s*'
     
-    # Główny pattern adresu
-    # WYMAGA dużej litery na początku pierwszego słowa (nie dopuszcza "stancja 1", "pokoju 4")
-    # Dopuszcza: 1-2 słowa, pierwsze słowo MUSI zaczynać się dużą literą
-    # Numer: cyfry + opcjonalna litera (a-z), opcjonalnie /cyfry, opcjonalnie lok. cyfry
+    # Główny pattern adresu - z prefixem jako opcjonalną grupą
     ADDRESS_PATTERN = re.compile(
-        rf'{PREFIXES}\s*([A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]+(?:\s+[A-ZŚĆŁĄĘÓŻŹŃ]?[a-zśćłąęóżźń]+)?)\s+(\d+[a-zA-Z]?(?:/\d+)?(?:\s+lok\.\s+\d+)?)',
-        re.UNICODE
+        rf'(ul\.|ulica|al\.|aleja|aleje|pl\.|plac|os\.|osiedle)?\s*([A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]+(?:\s+[A-ZŚĆŁĄĘÓŻŹŃ]?[a-zśćłąęóżźń]+)?)\s+(\d+[a-zA-Z]?(?:/\d+)?(?:\s+lok\.\s+\d+)?)',
+        re.UNICODE | re.IGNORECASE
     )
+    
+    # Mapowanie prefiksów do pełnych nazw (dla geokodowania)
+    PREFIX_MAP = {
+        'ul.': '',  # ul. usuwamy
+        'ulica': '',
+        'al.': 'Aleja',  # al. zamieniamy na Aleja
+        'aleja': 'Aleja',
+        'aleje': 'Aleje',
+        'pl.': 'Plac',
+        'plac': 'Plac',
+        'os.': 'Osiedle',
+        'osiedle': 'Osiedle'
+    }
     
     def __init__(self):
         pass
@@ -89,12 +103,13 @@ class AddressParser:
             'numer', 'kontaktowy', 'telefon', 'kontakt', 'number'
         }
         
-        # Szukamy WSZYSTKICH dopasowań (ulica + numer)
+        # Szukamy WSZYSTKICH dopasowań (prefiks + ulica + numer)
         matches = self.ADDRESS_PATTERN.finditer(text)
         
         for match in matches:
-            street = match.group(1).strip()
-            number = match.group(2).strip()
+            prefix = match.group(1)  # może być None
+            street = match.group(2).strip()
+            number = match.group(3).strip()
             
             # Sprawdź minimum 4 litery w nazwie ulicy (żeby wykluczyć "dla", "bez" etc)
             if len(street.replace(' ', '')) < 4:
@@ -136,10 +151,25 @@ class AddressParser:
             street = ' '.join(street.split())
             number = ' '.join(number.split())
             
+            # NOWE: Buduj pełny adres z prefixem (jeśli jest)
+            full_address = street
+            if prefix:
+                prefix_lower = prefix.lower().rstrip('.')
+                # Mapuj prefiks na pełną nazwę
+                if prefix_lower in ['al', 'aleja']:
+                    full_address = f"Aleja {street}"
+                elif prefix_lower in ['aleje']:
+                    full_address = f"Aleje {street}"
+                elif prefix_lower in ['pl', 'plac']:
+                    full_address = f"Plac {street}"
+                elif prefix_lower in ['os', 'osiedle']:
+                    full_address = f"Osiedle {street}"
+                # ul./ulica - pomijamy, zostawiamy samą nazwę ulicy
+            
             return {
                 'street': street,
                 'number': number,
-                'full': f"{street} {number}"
+                'full': f"{full_address} {number}"
             }
         
         # BRAK FALLBACK - Wymagamy NUMERU domu!
