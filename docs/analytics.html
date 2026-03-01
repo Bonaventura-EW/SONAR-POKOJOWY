@@ -139,6 +139,35 @@
             height: 400px;
         }
         
+        .time-range-control {
+            margin-bottom: 16px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .time-range-control label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .range-slider {
+            width: 100%;
+            margin-bottom: 8px;
+        }
+        
+        .range-value {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
         @media (max-width: 768px) {
             .stats-overview {
                 grid-template-columns: 1fr;
@@ -222,14 +251,26 @@
             <!-- Wykresy -->
             <div class="charts-grid">
                 <div class="chart-container">
-                    <h2>📊 Trend średniej ceny w czasie (ostatnie 30 dni)</h2>
+                    <h2>📊 Trend średniej ceny w czasie</h2>
+                    <div class="time-range-control">
+                        <label for="priceChartRange">Zakres czasowy:</label>
+                        <input type="range" id="priceChartRange" class="range-slider" 
+                               min="7" max="180" value="30" step="1">
+                        <span class="range-value" id="priceChartRangeValue">30 dni</span>
+                    </div>
                     <div class="chart-wrapper">
                         <canvas id="priceChart"></canvas>
                     </div>
                 </div>
                 
                 <div class="chart-container">
-                    <h2>📈 Nowe oferty dziennie (ostatnie 30 dni)</h2>
+                    <h2>📈 Nowe oferty dziennie</h2>
+                    <div class="time-range-control">
+                        <label for="newOffersChartRange">Zakres czasowy:</label>
+                        <input type="range" id="newOffersChartRange" class="range-slider" 
+                               min="7" max="180" value="30" step="1">
+                        <span class="range-value" id="newOffersChartRangeValue">30 dni</span>
+                    </div>
                     <div class="chart-wrapper">
                         <canvas id="newOffersChart"></canvas>
                     </div>
@@ -275,21 +316,39 @@
             }
         }
         
+        function showError(message) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('content').style.display = 'none';
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+        
         function processAnalytics(data) {
             const markers = data.markers || [];
             
-            // Zbierz wszystkie aktywne oferty
+            // Zbierz wszystkie aktywne oferty z prawidłowymi datami
             const allOffers = [];
             markers.forEach(marker => {
                 marker.offers.forEach(offer => {
                     if (offer.active) {
-                        allOffers.push({
-                            ...offer,
-                            first_seen_date: parseDate(offer.first_seen)
-                        });
+                        const parsedDate = parseDate(offer.first_seen);
+                        if (parsedDate) {
+                            allOffers.push({
+                                ...offer,
+                                first_seen_date: parsedDate
+                            });
+                        } else {
+                            console.warn('Pominięto ofertę z nieprawidłową datą:', offer.id, offer.first_seen);
+                        }
                     }
                 });
             });
+            
+            if (allOffers.length === 0) {
+                showError('Brak ofert z prawidłowymi datami do wyświetlenia');
+                return;
+            }
             
             // Statystyki
             const totalActive = allOffers.length;
@@ -308,27 +367,38 @@
             document.getElementById('new-7days').textContent = newLast7Days;
             document.getElementById('median-price').textContent = Math.round(medianPrice) + ' zł';
             
-            // Wykresy
-            createPriceChart(allOffers);
-            createNewOffersChart(allOffers);
+            // Wykresy (zapisz oferty globalnie dla suwaków)
+            window.allOffersData = allOffers;
+            window.allPricesData = prices;
+            createPriceChart(allOffers, 30); // Domyślnie 30 dni
+            createNewOffersChart(allOffers, 30);
             createPriceDistribution(prices);
         }
         
         function parseDate(dateStr) {
-            // Format: "28.02.2026 19:57"
+            // Format: "28.02.2026" (DD.MM.YYYY)
             try {
-                const parts = dateStr.split(' ');
-                const dateParts = parts[0].split('.');
-                const timeParts = parts[1].split(':');
-                return new Date(
-                    parseInt('20' + dateParts[2]),
-                    parseInt(dateParts[1]) - 1,
-                    parseInt(dateParts[0]),
-                    parseInt(timeParts[0]),
-                    parseInt(timeParts[1])
-                );
+                const dateParts = dateStr.trim().split('.');
+                if (dateParts.length !== 3) {
+                    console.warn('Nieprawidłowy format daty:', dateStr);
+                    return null;
+                }
+                const day = parseInt(dateParts[0]);
+                const month = parseInt(dateParts[1]) - 1; // Miesiące 0-11
+                const year = parseInt(dateParts[2]);
+                
+                const date = new Date(year, month, day);
+                
+                // Walidacja czy data jest poprawna
+                if (isNaN(date.getTime())) {
+                    console.warn('Nieprawidłowa data:', dateStr);
+                    return null;
+                }
+                
+                return date;
             } catch (e) {
-                return new Date();
+                console.error('Błąd parsowania daty:', dateStr, e);
+                return null;
             }
         }
         
@@ -340,14 +410,14 @@
                 : sorted[mid];
         }
         
-        function createPriceChart(offers) {
-            // Grupuj po dniach (ostatnie 30 dni)
+        function createPriceChart(offers, daysRange = 30) {
+            // Grupuj po dniach
             const now = new Date();
-            const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+            const startDate = new Date(now.getTime() - (daysRange * 24 * 60 * 60 * 1000));
             
             const dailyPrices = {};
             offers.forEach(offer => {
-                if (offer.first_seen_date >= thirtyDaysAgo) {
+                if (offer.first_seen_date >= startDate) {
                     const dateKey = offer.first_seen_date.toISOString().split('T')[0];
                     if (!dailyPrices[dateKey]) {
                         dailyPrices[dateKey] = [];
@@ -363,7 +433,13 @@
             });
             
             const ctx = document.getElementById('priceChart');
-            new Chart(ctx, {
+            
+            // Zniszcz poprzedni wykres jeśli istnieje
+            if (window.priceChartInstance) {
+                window.priceChartInstance.destroy();
+            }
+            
+            window.priceChartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: labels.map(d => new Date(d).toLocaleDateString('pl-PL')),
@@ -397,13 +473,13 @@
             });
         }
         
-        function createNewOffersChart(offers) {
+        function createNewOffersChart(offers, daysRange = 30) {
             const now = new Date();
-            const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+            const startDate = new Date(now.getTime() - (daysRange * 24 * 60 * 60 * 1000));
             
             const dailyCounts = {};
             offers.forEach(offer => {
-                if (offer.first_seen_date >= thirtyDaysAgo) {
+                if (offer.first_seen_date >= startDate) {
                     const dateKey = offer.first_seen_date.toISOString().split('T')[0];
                     dailyCounts[dateKey] = (dailyCounts[dateKey] || 0) + 1;
                 }
@@ -413,7 +489,13 @@
             const counts = labels.map(date => dailyCounts[date]);
             
             const ctx = document.getElementById('newOffersChart');
-            new Chart(ctx, {
+            
+            // Zniszcz poprzedni wykres jeśli istnieje
+            if (window.newOffersChartInstance) {
+                window.newOffersChartInstance.destroy();
+            }
+            
+            window.newOffersChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: labels.map(d => new Date(d).toLocaleDateString('pl-PL')),
@@ -447,10 +529,10 @@
         }
         
         function createPriceDistribution(prices) {
-            // Histogram cen (przedziały co 100 zł)
+            // Histogram cen (przedziały co 50 zł)
             const bins = {};
             prices.forEach(price => {
-                const bin = Math.floor(price / 100) * 100;
+                const bin = Math.floor(price / 50) * 50;
                 bins[bin] = (bins[bin] || 0) + 1;
             });
             
@@ -461,7 +543,7 @@
             new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: labels.map(bin => `${bin}-${parseInt(bin) + 99} zł`),
+                    labels: labels.map(bin => `${bin}-${parseInt(bin) + 49} zł`),
                     datasets: [{
                         label: 'Liczba ofert',
                         data: counts,
@@ -491,8 +573,37 @@
             });
         }
         
+        // Funkcje obsługi suwaków
+        function setupRangeSliders() {
+            // Suwak dla wykresu cen
+            const priceChartRange = document.getElementById('priceChartRange');
+            const priceChartRangeValue = document.getElementById('priceChartRangeValue');
+            
+            priceChartRange.addEventListener('input', (e) => {
+                const days = parseInt(e.target.value);
+                priceChartRangeValue.textContent = days + ' dni';
+                if (window.allOffersData) {
+                    createPriceChart(window.allOffersData, days);
+                }
+            });
+            
+            // Suwak dla wykresu nowych ofert
+            const newOffersChartRange = document.getElementById('newOffersChartRange');
+            const newOffersChartRangeValue = document.getElementById('newOffersChartRangeValue');
+            
+            newOffersChartRange.addEventListener('input', (e) => {
+                const days = parseInt(e.target.value);
+                newOffersChartRangeValue.textContent = days + ' dni';
+                if (window.allOffersData) {
+                    createNewOffersChart(window.allOffersData, days);
+                }
+            });
+        }
+        
         // Załaduj dane przy starcie
-        loadAnalyticsData();
+        loadAnalyticsData().then(() => {
+            setupRangeSliders();
+        });
     </script>
 </body>
 </html>
