@@ -6,8 +6,38 @@ let mapData;
 let allMarkers = [];
 let markerLayers = {
     active: L.layerGroup(),
-    inactive: L.layerGroup()
+    inactive: L.layerGroup(),
+    damaged: L.layerGroup()  // Warstwa dla ogłoszeń oznaczonych jako uszkodzone
 };
+
+// LocalStorage dla ogłoszeń oznaczonych jako uszkodzone
+const DAMAGED_KEY = 'sonar_damaged_listings';
+
+// Pomocnicze funkcje dla damaged listings
+function getDamagedListings() {
+    const stored = localStorage.getItem(DAMAGED_KEY);
+    return stored ? JSON.parse(stored) : [];
+}
+
+function addToDamaged(offerId) {
+    const damaged = getDamagedListings();
+    if (!damaged.includes(offerId)) {
+        damaged.push(offerId);
+        localStorage.setItem(DAMAGED_KEY, JSON.stringify(damaged));
+        return true;
+    }
+    return false;
+}
+
+function removeFromDamaged(offerId) {
+    let damaged = getDamagedListings();
+    damaged = damaged.filter(id => id !== offerId);
+    localStorage.setItem(DAMAGED_KEY, JSON.stringify(damaged));
+}
+
+function isDamaged(offerId) {
+    return getDamagedListings().includes(offerId);
+}
 
 // Inicjalizacja mapy
 function initMap() {
@@ -23,6 +53,7 @@ function initMap() {
     // Dodaj warstwy do mapy
     markerLayers.active.addTo(map);
     markerLayers.inactive.addTo(map);
+    // markerLayers.damaged NIE dodajemy - będzie domyślnie ukryta
 }
 
 // Wczytanie danych
@@ -144,6 +175,9 @@ function createMarkerGroup(baseCoords, address, offers, priceRange, isActive) {
     const color = mapData.price_ranges[priceRange]?.color || '#808080';
     
     offers.forEach((offer, index) => {
+        // Sprawdź czy oferta jest oznaczona jako uszkodzona
+        const isDamagedOffer = isDamaged(offer.id);
+        
         // Oblicz offset w kole (rozsunięcie)
         const angle = (index / offers.length) * 2 * Math.PI;
         const offsetLat = Math.cos(angle) * offsetDistance * index;
@@ -157,15 +191,18 @@ function createMarkerGroup(baseCoords, address, offers, priceRange, isActive) {
         
         // Tooltip (pojawia się przy hover)
         const price = offer.price;
-        const tooltipText = `${address} - ${price} zł`;
+        const tooltipText = isDamagedOffer 
+            ? `⚠️ USZKODZONE: ${address} - ${price} zł`
+            : `${address} - ${price} zł`;
         
         // Sprawdź czy oferta jest nowa (z ostatniego skanu)
         const isNew = offer.is_new === true;
         
         // Ikona markera - pinezka z kolorem
-        // Jeśli nowa - czerwona obwódka, jeśli nie - biała
-        const strokeColor = isNew ? '#ff0000' : 'white';
-        const strokeWidth = isNew ? '3' : '2';
+        // Jeśli uszkodzone - pomarańczowy, jeśli nowa - czerwona obwódka, inaczej - biała
+        const strokeColor = isDamagedOffer ? '#ff6600' : (isNew ? '#ff0000' : 'white');
+        const strokeWidth = isDamagedOffer ? '4' : (isNew ? '3' : '2');
+        const markerColor = isDamagedOffer ? '#ff9933' : color;  // Pomarańczowy dla uszkodzonych
         
         const icon = L.divIcon({
             className: 'pin-marker',
@@ -173,13 +210,14 @@ function createMarkerGroup(baseCoords, address, offers, priceRange, isActive) {
                 <div style="position: relative; width: 40px; height: 50px;" title="${tooltipText}">
                     <svg width="40" height="50" viewBox="0 0 40 50" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
                         <path d="M20 0 C9 0 0 9 0 20 C0 35 20 50 20 50 C20 50 40 35 40 20 C40 9 31 0 20 0 Z" 
-                              fill="${color}" 
+                              fill="${markerColor}" 
                               stroke="${strokeColor}" 
                               stroke-width="${strokeWidth}"/>
                         <circle cx="20" cy="18" r="8" fill="white" opacity="0.9"/>
                     </svg>
                     ${!isActive ? '<div style="position: absolute; top: 8px; left: 50%; transform: translateX(-50%); font-size: 24px;">×</div>' : ''}
                     ${isNew ? '<div style="position: absolute; top: -5px; right: -5px; background: #ff0000; color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">N</div>' : ''}
+                    ${isDamagedOffer ? '<div style="position: absolute; top: -5px; left: -5px; background: #ff6600; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">⚠</div>' : ''}
                 </div>
             `,
             iconSize: [40, 50],
@@ -198,7 +236,9 @@ function createMarkerGroup(baseCoords, address, offers, priceRange, isActive) {
             .bindPopup(popupContent, { maxWidth: 400 });
         
         // Dodaj do odpowiedniej warstwy
-        if (isActive) {
+        if (isDamagedOffer) {
+            markerObj.addTo(markerLayers.damaged);
+        } else if (isActive) {
             markerObj.addTo(markerLayers.active);
         } else {
             markerObj.addTo(markerLayers.inactive);
@@ -210,7 +250,8 @@ function createMarkerGroup(baseCoords, address, offers, priceRange, isActive) {
             address: address,
             offers: [offer],
             priceRange: priceRange,
-            isActive: isActive
+            isActive: isActive,
+            isDamaged: isDamagedOffer
         });
     });
 }
@@ -244,8 +285,12 @@ function createPopupContent(address, offers) {
         // Link
         html += `<a href="${offer.url}" target="_blank" class="offer-link">🔗 Otwórz ogłoszenie</a>`;
         
-        // NOWY: Przycisk "Usuń"
-        html += `<button class="remove-listing-btn" onclick="removeListingPrompt('${offer.id}')" style="margin-top: 10px; padding: 5px 10px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ Usuń to ogłoszenie</button>`;
+        // Przycisk: Oznacz jako uszkodzone / Przywróć
+        if (isDamaged(offer.id)) {
+            html += `<button class="restore-listing-btn" onclick="restoreListing('${offer.id}')" style="margin-top: 10px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">✅ Przywróć ogłoszenie</button>`;
+        } else {
+            html += `<button class="mark-damaged-btn" onclick="markAsDamaged('${offer.id}')" style="margin-top: 10px; padding: 5px 10px; background: #ff6600; color: white; border: none; border-radius: 4px; cursor: pointer;">⚠️ Oznacz jako uszkodzone</button>`;
+        }
         
         // Opis - z funkcją zwijania/rozwijania
         const maxChars = 100; // Maksymalna długość podglądu (~1-2 linie)
@@ -435,6 +480,7 @@ function setupEventListeners() {
     // Warstwy
     document.getElementById('layer-active').addEventListener('change', filterMarkers);
     document.getElementById('layer-inactive').addEventListener('change', filterMarkers);
+    document.getElementById('layer-damaged').addEventListener('change', toggleDamagedLayer);
     
     // NOWY: Filtr czasowy
     document.getElementById('time-filter').addEventListener('change', filterMarkers);
@@ -469,34 +515,37 @@ document.addEventListener('DOMContentLoaded', function() {
     loadData();
 });
 
-// NOWA funkcja: Usuwanie ogłoszenia (dodaje do removed_listings.json)
-function removeListingPrompt(offerId) {
-    if (!confirm('⚠️ Czy na pewno chcesz usunąć to ogłoszenie?\n\nOgłoszenie zostanie dodane do listy blokowanych i nie pojawi się ponownie przy kolejnych skanach.\n\nAby je usunąć, uruchom skrypt:\npython src/remove_listing.py ' + offerId)) {
+// NOWA funkcja: Oznaczanie ogłoszenia jako uszkodzone
+function markAsDamaged(offerId) {
+    if (!confirm('⚠️ Oznaczyć to ogłoszenie jako uszkodzone?\n\nOgłoszenie trafi do warstwy "Uszkodzone" (domyślnie ukrytej).\nMożesz je przywrócić w każdej chwili.')) {
         return;
     }
     
-    alert('📝 Skopiuj i wykonaj polecenie:\n\npython src/remove_listing.py ' + offerId + '\n\nPo wykonaniu uruchom ponownie scan.');
+    if (addToDamaged(offerId)) {
+        console.log('⚠️ Oznaczono jako uszkodzone:', offerId);
+        alert('✅ Ogłoszenie oznaczone jako uszkodzone!\n\nOdśwież stronę (F5) aby zobaczyć zmiany.');
+        
+        // Opcjonalnie: odśwież automatycznie
+        setTimeout(() => {
+            location.reload();
+        }, 1000);
+    }
 }
 
-// Usuwanie oferty z mapy (STARA funkcja - tylko usuwa z widoku)
-function deleteOffer(offerId, address) {
-    if (!confirm(`Czy na pewno chcesz usunąć ofertę z adresu "${address}"?`)) {
+// NOWA funkcja: Przywracanie ogłoszenia z warstwy uszkodzone
+function restoreListing(offerId) {
+    if (!confirm('✅ Przywrócić to ogłoszenie?\n\nOgłoszenie wróci do normalnej warstwy.')) {
         return;
     }
     
-    console.log('🗑️ Usuwam ofertę:', offerId);
+    removeFromDamaged(offerId);
+    console.log('✅ Przywrócono ogłoszenie:', offerId);
+    alert('✅ Ogłoszenie przywrócone!\n\nOdśwież stronę (F5) aby zobaczyć zmiany.');
     
-    // Znajdź i usuń marker
-    const markerIndex = allMarkers.findIndex(m => m.address === address);
-    
-    if (markerIndex !== -1) {
-        const markerData = allMarkers[markerIndex];
-        markerData.marker.remove();
-        allMarkers.splice(markerIndex, 1);
-        
-        console.log('✅ Oferta usunięta');
-        alert('Oferta usunięta z mapy. Przy kolejnym scanie pojawi się ponownie jeśli nadal istnieje na OLX.');
-    }
+    // Opcjonalnie: odśwież automatycznie
+    setTimeout(() => {
+        location.reload();
+    }, 1000);
 }
 
 // NOWA funkcja: Przełączanie widoku opisu (pokaż całość / zwiń)
@@ -514,5 +563,20 @@ function toggleDescription(uniqueId) {
             shortDiv.style.display = 'none';
             fullDiv.style.display = 'block';
         }
+    }
+}
+
+// NOWA funkcja: Włączanie/wyłączanie warstwy "Uszkodzone"
+function toggleDamagedLayer() {
+    const isChecked = document.getElementById('layer-damaged').checked;
+    
+    if (isChecked) {
+        // Dodaj warstwę do mapy
+        markerLayers.damaged.addTo(map);
+        console.log('✅ Warstwa "Uszkodzone" włączona');
+    } else {
+        // Usuń warstwę z mapy
+        map.removeLayer(markerLayers.damaged);
+        console.log('⚠️ Warstwa "Uszkodzone" wyłączona');
     }
 }
