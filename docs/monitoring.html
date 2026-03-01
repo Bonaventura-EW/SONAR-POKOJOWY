@@ -267,6 +267,11 @@
                 <canvas id="offersChart"></canvas>
             </div>
             
+            <div class="chart-container">
+                <h2>✅ Success Rate</h2>
+                <canvas id="successRateChart"></canvas>
+            </div>
+            
             <!-- Tabela ostatnich skanów -->
             <div class="table-container">
                 <h2>🕐 Ostatnie skany</h2>
@@ -433,6 +438,63 @@
                             title: {
                                 display: true,
                                 text: 'Liczba ofert'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Wykres Success Rate
+            const successRateCtx = document.getElementById('successRateChart').getContext('2d');
+            new Chart(successRateCtx, {
+                type: 'line',
+                data: {
+                    labels: chartData.success_rate.map(d => {
+                        const date = new Date(d.timestamp);
+                        return date.toLocaleDateString('pl-PL') + ' ' + date.toLocaleTimeString('pl-PL', {hour: '2-digit', minute: '2-digit'});
+                    }),
+                    datasets: [{
+                        label: 'Success Rate (%)',
+                        data: chartData.success_rate.map(d => d.success),
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: chartData.success_rate.map(d => 
+                            d.success === 100 ? '#10b981' : '#ef4444'
+                        ),
+                        pointRadius: 5,
+                        pointHoverRadius: 7
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const dataPoint = chartData.success_rate[context.dataIndex];
+                                    return `Status: ${dataPoint.status === 'completed' ? 'Sukces' : 'Błąd'} (${dataPoint.success}%)`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Procent sukcesu'
                             }
                         }
                     }

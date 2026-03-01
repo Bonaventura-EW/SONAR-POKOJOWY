@@ -42,6 +42,15 @@ def generate_monitoring_data():
                 'processed': scan['stats'].get('processed', 0),
                 'new': scan['stats'].get('new', 0)
             })
+        
+        # Wykres success rate
+        status = scan.get('status', 'unknown')
+        success_value = 100 if status == 'completed' else 0
+        chart_data['success_rate'].append({
+            'timestamp': timestamp,
+            'success': success_value,
+            'status': status
+        })
     
     # Zbierz dane dla podstrony
     monitoring_data = {
