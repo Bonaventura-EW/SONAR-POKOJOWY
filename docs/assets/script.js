@@ -198,11 +198,43 @@ function createMarkerGroup(baseCoords, address, offers, priceRange, isActive) {
         // Sprawdź czy oferta jest nowa (z ostatniego skanu)
         const isNew = offer.is_new === true;
         
+        // Sprawdź czy cena się zmieniła
+        const hasPriceChange = offer.previous_price && offer.price_trend;
+        const priceUp = offer.price_trend === 'up';
+        const priceDown = offer.price_trend === 'down';
+        
         // Ikona markera - pinezka z kolorem
         // Jeśli uszkodzone - pomarańczowy, jeśli nowa - czerwona obwódka, inaczej - biała
         const strokeColor = isDamagedOffer ? '#ff6600' : (isNew ? '#ff0000' : 'white');
         const strokeWidth = isDamagedOffer ? '4' : (isNew ? '3' : '2');
         const markerColor = isDamagedOffer ? '#ff9933' : color;  // Pomarańczowy dla uszkodzonych
+        
+        // Badge zmiany ceny - ikona dolara ze strzałką
+        let priceChangeBadge = '';
+        if (hasPriceChange && !isDamagedOffer) {
+            const badgeColor = priceDown ? '#28a745' : '#dc3545';  // Zielony=spadek, Czerwony=wzrost
+            const arrow = priceDown ? '↓' : '↑';
+            priceChangeBadge = `
+                <div style="
+                    position: absolute; 
+                    top: -8px; 
+                    right: -8px; 
+                    background: ${badgeColor}; 
+                    color: white; 
+                    border-radius: 10px; 
+                    min-width: 28px; 
+                    height: 20px; 
+                    font-size: 11px; 
+                    font-weight: bold; 
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: center; 
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                    padding: 0 4px;
+                    border: 2px solid white;
+                ">💲${arrow}</div>
+            `;
+        }
         
         const icon = L.divIcon({
             className: 'pin-marker',
@@ -216,7 +248,8 @@ function createMarkerGroup(baseCoords, address, offers, priceRange, isActive) {
                         <circle cx="20" cy="18" r="8" fill="white" opacity="0.9"/>
                     </svg>
                     ${!isActive ? '<div style="position: absolute; top: 8px; left: 50%; transform: translateX(-50%); font-size: 24px;">×</div>' : ''}
-                    ${isNew ? '<div style="position: absolute; top: -5px; right: -5px; background: #ff0000; color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">N</div>' : ''}
+                    ${isNew && !hasPriceChange ? '<div style="position: absolute; top: -5px; right: -5px; background: #ff0000; color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">N</div>' : ''}
+                    ${priceChangeBadge}
                     ${isDamagedOffer ? '<div style="position: absolute; top: -5px; left: -5px; background: #ff6600; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">⚠</div>' : ''}
                 </div>
             `,
