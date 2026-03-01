@@ -221,18 +221,63 @@ class SonarPokojowy:
         return None
     
     def _update_existing_offer(self, existing: Dict, new_data: Dict):
-        """Aktualizuje istniejące ogłoszenie."""
+        """Aktualizuje istniejące ogłoszenie z inteligentnym zarządzaniem ceną."""
         now = datetime.now(self.tz).isoformat()
         
         # Aktualizuj last_seen
         existing['last_seen'] = now
         
-        # Sprawdź zmianę ceny
-        if existing['price']['current'] != new_data['price']['current']:
-            existing['price']['history'].append(new_data['price']['current'])
-            existing['price']['current'] = new_data['price']['current']
+        # INTELIGENTNA AKTUALIZACJA CENY - priorytetyzuj źródła
+        old_price = existing['price']['current']
+        new_price = new_data['price']['current']
+        old_source = existing['price'].get('source', 'unknown')
+        new_source = new_data['price'].get('source', 'unknown')
         
-        # Aktualizuj media_info (może się zmienić)
+        # Hierarchia źródeł (od najlepszego do najgorszego)
+        source_priority = {
+            'JSON-LD (OLX)': 3,
+            'HTML fallback': 2,
+            'Parser tekstowy': 1,
+            'unknown': 0
+        }
+        
+        old_priority = source_priority.get(old_source, 0)
+        new_priority = source_priority.get(new_source, 0)
+        
+        # DECYZJA: Aktualizuj cenę tylko jeśli:
+        # 1. Nowe źródło ma wyższy priorytet, LUB
+        # 2. Ten sam priorytet ale cena się zmieniła (realna zmiana ceny), LUB
+        # 3. Różnica ceny jest mniejsza niż 20% (zabezpieczenie przed błędami parsera)
+        
+        should_update = False
+        
+        if new_priority > old_priority:
+            # Lepsze źródło - aktualizuj
+            should_update = True
+            print(f"      💰 Upgrade źródła: {old_source} → {new_source}")
+        elif new_priority == old_priority and old_price != new_price:
+            # To samo źródło ale inna cena - sprawdź czy zmiana sensowna
+            price_diff_percent = abs(new_price - old_price) / old_price * 100
+            
+            if price_diff_percent < 50:  # Max 50% zmiany
+                should_update = True
+                print(f"      💰 Zmiana ceny: {old_price} → {new_price} zł ({price_diff_percent:.1f}%)")
+            else:
+                # Zbyt duża zmiana - podejrzane, nie aktualizuj
+                print(f"      ⚠️ PODEJRZANA zmiana ceny: {old_price} → {new_price} zł ({price_diff_percent:.1f}%) - IGNORUJĘ")
+        elif new_priority < old_priority:
+            # Gorsze źródło - nie aktualizuj
+            print(f"      ℹ️ Zachowano cenę z lepszego źródła: {old_source} ({old_price} zł)")
+        
+        if should_update:
+            existing['price']['current'] = new_price
+            existing['price']['source'] = new_source
+            
+            # Dodaj do historii tylko jeśli cena faktycznie się zmieniła
+            if old_price != new_price:
+                existing['price']['history'].append(new_price)
+        
+        # Zawsze aktualizuj media_info (może się zmienić niezależnie)
         existing['price']['media_info'] = new_data['price']['media_info']
         
         # Upewnij się że jest aktywne
