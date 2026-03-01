@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 import time
 import random
 import re
+import json
 from typing import List, Dict, Optional
 from urllib.parse import urljoin
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -260,6 +261,10 @@ class OLXScraper:
         """
         Pobiera pełne szczegóły ogłoszenia (pełny opis + oficjalna cena).
         
+        STRATEGIA EKSTRAKCJI CENY (według priorytetu):
+        1. JSON-LD schema.org (najbardziej niezawodne - OLX oficjalne dane)
+        2. Fallback: HTML <h3> z ceną
+        
         Args:
             url: URL ogłoszenia
             
@@ -279,31 +284,64 @@ class OLXScraper:
             
             description = desc_div.get_text(strip=True) if desc_div else ""
             
-            # Oficjalna cena - szukaj h3 z klasą css-yauxmy (lub podobną)
+            # === PRIORYTET 1: JSON-LD (najbardziej niezawodne) ===
             official_price = None
             official_price_raw = None
             
-            # Strategia 1: Szukaj h3 z ceną (klasa css-yauxmy lub podobna)
-            for h3 in soup.find_all('h3'):
-                text = h3.get_text(strip=True)
-                # Sprawdź czy zawiera cenę (cyfry + zł)
-                if 'zł' in text.lower() and any(char.isdigit() for char in text):
-                    official_price_raw = text
-                    # Wyciągnij liczbę
-                    import re
-                    match = re.search(r'(\d[\d\s]*)', text)
-                    if match:
-                        price_str = match.group(1).replace(' ', '')
-                        try:
-                            official_price = int(price_str)
-                            break
-                        except ValueError:
-                            pass
+            json_ld_script = soup.find('script', {'type': 'application/ld+json'})
+            if json_ld_script:
+                try:
+                    json_data = json.loads(json_ld_script.string)
+                    # Schema.org Product -> offers -> price
+                    if json_data.get('@type') == 'Product' and 'offers' in json_data:
+                        price = json_data['offers'].get('price')
+                        if price and isinstance(price, (int, float)):
+                            official_price = int(price)
+                            official_price_raw = f"{official_price} zł (JSON-LD)"
+                            
+                            # Walidacja - sensowny zakres dla pokoi w Lublinie
+                            if 200 <= official_price <= 5000:
+                                # Sukces - mamy niezawodną cenę z JSON-LD
+                                return {
+                                    'description': description,
+                                    'official_price': official_price,
+                                    'official_price_raw': official_price_raw,
+                                    'price_source': 'json-ld'
+                                }
+                            else:
+                                # Cena poza zakresem - odrzuć i użyj fallback
+                                official_price = None
+                                official_price_raw = None
+                except (json.JSONDecodeError, KeyError, TypeError) as e:
+                    # JSON-LD nie zadziałało - przejdź do fallback
+                    pass
+            
+            # === FALLBACK: HTML <h3> z ceną ===
+            # Tylko jeśli JSON-LD nie zadziałało
+            if not official_price:
+                for h3 in soup.find_all('h3'):
+                    text = h3.get_text(strip=True)
+                    # Sprawdź czy zawiera cenę (cyfry + zł)
+                    if 'zł' in text.lower() and any(char.isdigit() for char in text):
+                        official_price_raw = text
+                        # Wyciągnij liczbę - obsługa separatorów tysięcy
+                        match = re.search(r'(\d[\d\s]*)', text)
+                        if match:
+                            price_str = match.group(1).replace(' ', '').replace('\xa0', '')
+                            try:
+                                price_candidate = int(price_str)
+                                # Walidacja
+                                if 200 <= price_candidate <= 5000:
+                                    official_price = price_candidate
+                                    break
+                            except ValueError:
+                                pass
             
             return {
                 'description': description,
                 'official_price': official_price,
-                'official_price_raw': official_price_raw
+                'official_price_raw': official_price_raw,
+                'price_source': 'html-fallback' if official_price else None
             }
             
         except Exception as e:

@@ -143,19 +143,47 @@ class SonarPokojowy:
         if not address_data:
             return None  # Brak adresu → ignoruj
         
-        # 3. Parsuj cenę - NOWA LOGIKA (PRIORYTET: cena pokoju bez mediów)
-        # PRIORYTET 1: Parser ceny z treści (wyciąga czystą cenę pokoju)
-        price_data = self.price_parser.extract_price(full_text)
-        if price_data:
-            price = price_data['price']
-            media_info = price_data['media_info']
-            print(f"      💰 Użyto parsera ceny z opisu: {price} zł ({media_info})")
-        elif raw_offer.get('official_price'):
-            # FALLBACK: Oficjalna cena z OLX (może zawierać media)
+        # 3. Parsuj cenę - NOWA LOGIKA TRÓJPOZIOMOWA (2C)
+        # PRIORYTET 1: JSON-LD z OLX (najbardziej niezawodne, oficjalne dane)
+        # PRIORYTET 2: Parser ceny z treści (wyciąga czystą cenę pokoju bez mediów)
+        # PRIORYTET 3: Fallback HTML (jeśli JSON-LD i parser zawiodły)
+        
+        price = None
+        media_info = "brak informacji"
+        price_source = None
+        
+        # Sprawdź czy mamy JSON-LD z niezawodną ceną
+        if raw_offer.get('official_price') and raw_offer.get('price_source') == 'json-ld':
+            # PRIORYTET 1: JSON-LD - najbardziej niezawodne źródło
             price = raw_offer['official_price']
-            media_info = "sprawdź w opisie - cena może zawierać media"
-            print(f"      💰 Użyto oficjalnej ceny z OLX: {price} zł (fallback)")
-        else:
+            price_source = "JSON-LD (OLX)"
+            
+            # Spróbuj wykryć info o mediach z opisu
+            price_data = self.price_parser.extract_price(full_text)
+            if price_data:
+                media_info = price_data['media_info']
+            else:
+                media_info = "sprawdź w opisie"
+            
+            print(f"      💰 Użyto ceny JSON-LD: {price} zł ({media_info})")
+        
+        # PRIORYTET 2: Parser tekstowy - wyciąga czystą cenę pokoju
+        if not price:
+            price_data = self.price_parser.extract_price(full_text)
+            if price_data:
+                price = price_data['price']
+                media_info = price_data['media_info']
+                price_source = "Parser tekstowy"
+                print(f"      💰 Użyto parsera ceny z opisu: {price} zł ({media_info})")
+        
+        # PRIORYTET 3: Fallback - cena z HTML (jeśli JSON-LD nie był dostępny)
+        if not price and raw_offer.get('official_price'):
+            price = raw_offer['official_price']
+            media_info = "sprawdź w opisie - cena z HTML"
+            price_source = "HTML fallback"
+            print(f"      💰 Użyto ceny HTML (fallback): {price} zł")
+        
+        if not price:
             return None  # Brak ceny → ignoruj
         
         # 4. Geokoduj adres
@@ -179,7 +207,8 @@ class SonarPokojowy:
             'price': {
                 'current': price,
                 'history': [price],
-                'media_info': media_info
+                'media_info': media_info,
+                'source': price_source  # Dodane: JSON-LD / Parser / HTML fallback
             },
             'description': full_text,
             'first_seen': datetime.now(self.tz).isoformat(),
