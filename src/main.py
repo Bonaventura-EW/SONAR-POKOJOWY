@@ -163,8 +163,9 @@ class SonarPokojowy:
         
         # 3. Parsuj cenę - NOWA LOGIKA TRÓJPOZIOMOWA (2C)
         # PRIORYTET 1: JSON-LD z OLX (najbardziej niezawodne, oficjalne dane)
-        # PRIORYTET 2: Parser ceny z treści (wyciąga czystą cenę pokoju bez mediów)
-        # PRIORYTET 3: Fallback HTML (jeśli JSON-LD i parser zawiodły)
+        # PRIORYTET 2: Cache (dane z poprzedniego skanu - równie niezawodne jak JSON-LD)
+        # PRIORYTET 3: Parser ceny z treści (wyciąga czystą cenę pokoju bez mediów)
+        # PRIORYTET 4: Fallback HTML (jeśli JSON-LD i parser zawiodły)
         
         price = None
         media_info = "brak informacji"
@@ -181,7 +182,18 @@ class SonarPokojowy:
             
             print(f"      💰 Użyto ceny JSON-LD: {price} zł ({media_info})")
         
-        # PRIORYTET 2: Parser tekstowy - wyciąga czystą cenę pokoju
+        # PRIORYTET 2: Cache - dane z poprzedniego skanu (równie niezawodne)
+        elif raw_offer.get('official_price') and raw_offer.get('price_source') == 'cache':
+            # Cache - oferta pominięta w scraping bo cena się nie zmieniła
+            price = raw_offer['official_price']
+            price_source = "cache"
+            
+            # Wykryj info o mediach używając parsera (BEZ parsowania ceny!)
+            media_info = self.price_parser.detect_media_info_only(full_text)
+            
+            print(f"      💰 Użyto ceny z cache (pominięto pobieranie): {price} zł ({media_info})")
+        
+        # PRIORYTET 3: Parser tekstowy - wyciąga czystą cenę pokoju
         if not price:
             price_data = self.price_parser.extract_price(full_text)
             if price_data:
@@ -190,7 +202,7 @@ class SonarPokojowy:
                 price_source = "Parser tekstowy"
                 print(f"      💰 Użyto parsera ceny z opisu: {price} zł ({media_info})")
         
-        # PRIORYTET 3: Fallback - cena z HTML (jeśli JSON-LD nie był dostępny)
+        # PRIORYTET 4: Fallback - cena z HTML (jeśli JSON-LD i parser zawiodły)
         if not price and raw_offer.get('official_price'):
             price = raw_offer['official_price']
             media_info = self.price_parser.detect_media_info_only(full_text)
@@ -263,30 +275,41 @@ class SonarPokojowy:
         old_priority = source_priority.get(old_source, 0)
         new_priority = source_priority.get(new_source, 0)
         
+        # SZCZEGÓŁOWE LOGOWANIE ZMIAN CEN
+        print(f"      🔍 Analiza ceny dla oferty: {existing['id']}")
+        print(f"         Stara cena: {old_price} zł (źródło: {old_source}, priorytet: {old_priority})")
+        print(f"         Nowa cena: {new_price} zł (źródło: {new_source}, priorytet: {new_priority})")
+        
         # DECYZJA: Aktualizuj cenę tylko jeśli:
         # 1. Nowe źródło ma wyższy priorytet, LUB
         # 2. Ten sam priorytet ale cena się zmieniła (realna zmiana ceny), LUB
         # 3. Różnica ceny jest mniejsza niż 50% (zabezpieczenie przed błędami parsera)
         
         should_update = False
+        update_reason = None
         
         if new_priority > old_priority:
             # Lepsze źródło - aktualizuj
             should_update = True
-            print(f"      💰 Upgrade źródła: {old_source} → {new_source}")
+            update_reason = f"Upgrade źródła: {old_source} → {new_source}"
+            print(f"      💰 {update_reason}")
         elif new_priority == old_priority and old_price != new_price:
             # To samo źródło ale inna cena - sprawdź czy zmiana sensowna
             price_diff_percent = abs(new_price - old_price) / old_price * 100
             
             if price_diff_percent < 50:  # Max 50% zmiany
                 should_update = True
-                print(f"      💰 Zmiana ceny: {old_price} → {new_price} zł ({price_diff_percent:.1f}%)")
+                update_reason = f"Zmiana ceny (to samo źródło): {old_price} → {new_price} zł ({price_diff_percent:.1f}%)"
+                print(f"      💰 {update_reason}")
             else:
                 # Zbyt duża zmiana - podejrzane, nie aktualizuj
                 print(f"      ⚠️ PODEJRZANA zmiana ceny: {old_price} → {new_price} zł ({price_diff_percent:.1f}%) - IGNORUJĘ")
         elif new_priority < old_priority:
             # Gorsze źródło - nie aktualizuj
             print(f"      ℹ️ Zachowano cenę z lepszego źródła: {old_source} ({old_price} zł)")
+        else:
+            # Ta sama cena, to samo źródło - brak zmian
+            print(f"      ✓ Cena bez zmian: {old_price} zł")
         
         if should_update and old_price != new_price:
             # NOWE: Zapisz poprzednią cenę przed aktualizacją
@@ -297,9 +320,11 @@ class SonarPokojowy:
             if new_price < old_price:
                 existing['price']['price_trend'] = 'down'
                 print(f"      📉 Cena SPADŁA: {old_price} → {new_price} zł (↓{old_price - new_price} zł)")
+                print(f"      📝 Powód zmiany: {update_reason}")
             else:
                 existing['price']['price_trend'] = 'up'
                 print(f"      📈 Cena WZROSŁA: {old_price} → {new_price} zł (↑{new_price - old_price} zł)")
+                print(f"      📝 Powód zmiany: {update_reason}")
             
             existing['price']['current'] = new_price
             existing['price']['source'] = new_source
