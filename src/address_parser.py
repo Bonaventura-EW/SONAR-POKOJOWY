@@ -24,6 +24,13 @@ class AddressParser:
         re.UNICODE | re.IGNORECASE
     )
     
+    # NOWY: Wzorzec dla polskich nazwisk w dopełniaczu (Langiewicza, Słowackiego, Czuby itd.)
+    # Łapie: "[Nazwisko kończące się na -a/-cza/-sza/-ego/-iego/-owej/-skiej] + numer"
+    POLISH_SURNAME_PATTERN = re.compile(
+        r'\b([A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]*(?:cza|sza|ego|iego|owej|skiej|skiego|ckiego|nej|nego|wej|wego|ej|a))\s+(\d+[a-zA-Z]?(?:/\d+)?)\b',
+        re.UNICODE
+    )
+    
     # Mapowanie prefiksów do pełnych nazw (dla geokodowania)
     PREFIX_MAP = {
         'ul.': '',  # ul. usuwamy
@@ -170,6 +177,36 @@ class AddressParser:
                 'street': street,
                 'number': number,
                 'full': f"{full_address} {number}"
+            }
+        
+        # NOWY FALLBACK: Wzorzec dla polskich nazwisk w dopełniaczu
+        # Łapie przypadki jak "Langiewicza 3A", "Słowackiego 12" bez prefiksu
+        surname_matches = self.POLISH_SURNAME_PATTERN.finditer(text)
+        
+        for match in surname_matches:
+            street = match.group(1).strip()
+            number = match.group(2).strip()
+            
+            # Sprawdź minimum 5 liter (żeby wykluczyć "Pokoja 5" itp.)
+            if len(street) < 5:
+                continue
+            
+            # Sprawdź czy nie jest wykluczonym słowem
+            if street.lower() in excluded_words_lower:
+                continue
+            
+            # Walidacja numeru (max 250)
+            try:
+                main_num = number.rstrip('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/').split('/')[0]
+                if int(main_num) > 250:
+                    continue
+            except ValueError:
+                continue
+            
+            return {
+                'street': street,
+                'number': number,
+                'full': f"{street} {number}"
             }
         
         # BRAK FALLBACK - Wymagamy NUMERU domu!

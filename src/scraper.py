@@ -380,12 +380,26 @@ class OLXScraper:
             return None
         
         try:
+            # NOWE: Pobierz tytuł z og:title (bardziej niezawodne niż h1)
+            title_from_page = ""
+            og_title = soup.find('meta', property='og:title')
+            if og_title:
+                title_from_page = og_title.get('content', '').replace(' • OLX.pl', '').strip()
+            
             # Pełny opis
             desc_div = soup.find('div', {'data-cy': 'ad_description'})
             if not desc_div:
                 desc_div = soup.find('div', class_=lambda x: x and 'description' in str(x).lower())
             
             description = desc_div.get_text(strip=True) if desc_div else ""
+            
+            # Usuń prefix "Opis" który OLX dodaje
+            if description.startswith('Opis'):
+                description = description[4:]
+            
+            # Połącz tytuł z opisem dla lepszego parsowania adresu
+            if title_from_page:
+                description = title_from_page + ' ' + description
             
             # === PRIORYTET 1: JSON-LD (najbardziej niezawodne) ===
             official_price = None
