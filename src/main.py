@@ -338,16 +338,25 @@ class SonarPokojowy:
         # Upewnij się że jest aktywne
         existing['active'] = True
     
+    def _update_days_active(self):
+        """
+        Aktualizuje pole days_active dla WSZYSTKICH ofert (aktywnych i nieaktywnych).
+        Oblicza różnicę w dniach między first_seen a last_seen.
+        """
+        for offer in self.database['offers']:
+            try:
+                first_seen = datetime.fromisoformat(offer['first_seen'])
+                last_seen = datetime.fromisoformat(offer['last_seen'])
+                offer['days_active'] = (last_seen - first_seen).days
+            except (ValueError, KeyError) as e:
+                print(f"⚠️ Błąd obliczania days_active dla oferty {offer.get('id')}: {e}")
+                offer['days_active'] = 0
+    
     def _mark_inactive_offers(self, current_offer_ids: List[str]):
         """Oznacza ogłoszenia jako nieaktywne jeśli nie ma ich w bieżącym scanie."""
         for offer in self.database['offers']:
             if offer['id'] not in current_offer_ids and offer['active']:
                 offer['active'] = False
-                
-                # Oblicz dni aktywności
-                first_seen = datetime.fromisoformat(offer['first_seen'])
-                last_seen = datetime.fromisoformat(offer['last_seen'])
-                offer['days_active'] = (last_seen - first_seen).days
     
     def _cleanup_old_offers(self, max_age_days: int = 548):
         """
@@ -477,6 +486,9 @@ class SonarPokojowy:
             
             # Oznacz nieaktywne
             self._mark_inactive_offers(current_offer_ids)
+            
+            # Aktualizuj days_active dla WSZYSTKICH ofert
+            self._update_days_active()
             
             print(f"   Nowe oferty: {new_offers_count}")
             print(f"   Zaktualizowane: {updated_offers_count}")
