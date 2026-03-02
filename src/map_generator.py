@@ -115,6 +115,13 @@ def generate_map_data(input_file, output_file):
     offers = data.get('offers', [])
     print(f"📥 Wczytano {len(offers)} ofert z data.json")
     
+    # Pobierz aktualną datę w strefie czasowej polskiej
+    from datetime import datetime
+    import pytz
+    tz = pytz.timezone('Europe/Warsaw')
+    now = datetime.now(tz)
+    today_date = now.date()  # Tylko data (bez godziny)
+    
     # 2. Grupuj oferty według adresów
     markers_dict = defaultdict(list)
     
@@ -132,6 +139,26 @@ def generate_map_data(input_file, output_file):
         
         # Przygotuj ofertę do frontendu
         price_data = offer.get('price', {})
+        
+        # Oblicz czy oferta jest nowa (first_seen dzisiaj)
+        first_seen_str = offer.get('first_seen', '')
+        is_new = False
+        if first_seen_str:
+            try:
+                # Parse ISO datetime
+                first_seen_dt = datetime.fromisoformat(first_seen_str.replace('Z', '+00:00'))
+                # Konwertuj na polską strefę czasową
+                if first_seen_dt.tzinfo is None:
+                    first_seen_dt = tz.localize(first_seen_dt)
+                else:
+                    first_seen_dt = first_seen_dt.astimezone(tz)
+                
+                first_seen_date = first_seen_dt.date()
+                is_new = (first_seen_date == today_date)  # Porównaj tylko daty
+            except (ValueError, AttributeError) as e:
+                print(f"⚠️  Błąd parsowania first_seen dla {offer.get('id')}: {e}")
+                is_new = False
+        
         offer_data = {
             'id': offer.get('id'),
             'url': offer.get('url'),
@@ -144,7 +171,7 @@ def generate_map_data(input_file, output_file):
             'first_seen': format_datetime(offer.get('first_seen', '')),
             'last_seen': format_datetime(offer.get('last_seen', '')),
             'active': offer.get('active', True),
-            'is_new': offer.get('days_active', 0) == 0,  # Nowa jeśli days_active = 0
+            'is_new': is_new,  # ✅ Obliczone na podstawie daty
             'description': offer.get('description', '')  # Pełny opis (frontend się sam obcina)
         }
         
