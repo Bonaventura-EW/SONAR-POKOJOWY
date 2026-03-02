@@ -306,6 +306,14 @@ class OLXScraper:
                 offer['official_price_raw'] = f"{existing.get('price')} zł (cache)"
                 offer['price_source'] = 'cache'
                 offer['skipped'] = True  # Flaga że pominięto pobieranie
+                
+                # Dodaj adres i współrzędne z cache (dla reaktywacji nieaktywnych ofert)
+                if existing.get('address'):
+                    offer['cached_address'] = existing.get('address')
+                if existing.get('coordinates'):
+                    offer['cached_coordinates'] = existing.get('coordinates')
+                # Oznacz czy oferta była nieaktywna (do potencjalnej reaktywacji)
+                offer['was_inactive'] = not existing.get('was_active', True)
             
             # Pobierz szczegóły tylko dla ofert które tego wymagają
             if offers_to_fetch:

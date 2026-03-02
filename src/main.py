@@ -45,17 +45,43 @@ class SonarPokojowy:
     def _build_existing_offers_index(self) -> Dict:
         """
         Buduje indeks istniejących ofert dla inteligentnego pomijania.
-        Returns: {offer_id: {'price': X, 'description': '...'}}
+        Zawiera WSZYSTKIE oferty (aktywne + nieaktywne z ostatnich 30 dni)
+        aby umożliwić reaktywację ofert które tymczasowo zniknęły.
+        Returns: {offer_id: {'price': X, 'description': '...', 'was_active': bool}}
         """
         index = {}
+        active_count = 0
+        inactive_count = 0
+        cutoff_date = datetime.now(self.tz) - timedelta(days=30)
+        
         for offer in self.database.get('offers', []):
-            if offer.get('active', False):  # Tylko aktywne oferty
-                index[offer['id']] = {
-                    'price': offer.get('price', {}).get('current'),
-                    'description': offer.get('description', ''),
-                    'previous_price': offer.get('price', {}).get('previous_price')
-                }
-        print(f"📚 Zaindeksowano {len(index)} aktywnych ofert do inteligentnego pomijania")
+            is_active = offer.get('active', False)
+            
+            # Nieaktywne oferty: tylko te z ostatnich 30 dni
+            if not is_active:
+                try:
+                    last_seen = datetime.fromisoformat(offer['last_seen'])
+                    if last_seen < cutoff_date:
+                        continue  # Pomiń stare nieaktywne oferty
+                except (ValueError, KeyError):
+                    continue
+            
+            index[offer['id']] = {
+                'price': offer.get('price', {}).get('current'),
+                'description': offer.get('description', ''),
+                'previous_price': offer.get('price', {}).get('previous_price'),
+                'was_active': is_active,
+                'address': offer.get('address', ''),
+                'coordinates': offer.get('coordinates', {})
+            }
+            
+            if is_active:
+                active_count += 1
+            else:
+                inactive_count += 1
+        
+        print(f"📚 Zaindeksowano {len(index)} ofert do inteligentnego pomijania "
+              f"({active_count} aktywnych, {inactive_count} nieaktywnych z ostatnich 30 dni)")
         return index
     
     def _load_database(self) -> Dict:
@@ -158,6 +184,17 @@ class SonarPokojowy:
             print(f"      🔍 Brak adresu w tytule, szukam w opisie...")
             address_data = self.address_parser.extract_address(raw_offer['description'])
         
+        # REAKTYWACJA: Jeśli brak adresu ale mamy cache (oferta była nieaktywna)
+        use_cached_coords = False
+        cached_coords = None
+        if not address_data and raw_offer.get('cached_address'):
+            print(f"      🔄 Brak adresu w tekście, używam z cache: {raw_offer['cached_address']}")
+            address_data = {'full': raw_offer['cached_address']}
+            # Jeśli mamy też współrzędne w cache, użyjemy ich zamiast geokodowania
+            if raw_offer.get('cached_coordinates'):
+                cached_coords = raw_offer['cached_coordinates']
+                use_cached_coords = True
+        
         if not address_data:
             return None  # Brak adresu → ignoruj
         
@@ -212,11 +249,15 @@ class SonarPokojowy:
         if not price:
             return None  # Brak ceny → ignoruj
         
-        # 4. Geokoduj adres
-        coords = self.geocoder.geocode_address(address_data['full'])
-        if not coords:
-            print(f"⚠️ Nie można geokodować: {address_data['full']}")
-            return None  # Nie znaleziono współrzędnych → ignoruj
+        # 4. Geokoduj adres (lub użyj cache dla reaktywacji)
+        if use_cached_coords and cached_coords:
+            coords = cached_coords
+            print(f"      📍 Użyto współrzędnych z cache: {coords['lat']:.4f}, {coords['lon']:.4f}")
+        else:
+            coords = self.geocoder.geocode_address(address_data['full'])
+            if not coords:
+                print(f"⚠️ Nie można geokodować: {address_data['full']}")
+                return None  # Nie znaleziono współrzędnych → ignoruj
         
         # 5. Stwórz ID z URL (unikalne)
         offer_id = raw_offer['url'].split('/')[-1].split('.')[0]
@@ -335,8 +376,13 @@ class SonarPokojowy:
         # Zawsze aktualizuj media_info (może się zmienić niezależnie)
         existing['price']['media_info'] = new_data['price']['media_info']
         
-        # Upewnij się że jest aktywne
+        # Upewnij się że jest aktywne (REAKTYWACJA nieaktywnych ofert)
+        was_inactive = not existing.get('active', True)
         existing['active'] = True
+        
+        if was_inactive:
+            print(f"      🔄 REAKTYWOWANO ofertę: {existing['id']} (była nieaktywna)")
+            existing['reactivated_at'] = now
     
     def _update_days_active(self):
         """
@@ -471,6 +517,7 @@ class SonarPokojowy:
             current_offer_ids = []
             new_offers_count = 0
             updated_offers_count = 0
+            reactivated_count = 0
             
             for processed in processed_offers:
                 current_offer_ids.append(processed['id'])
@@ -478,8 +525,11 @@ class SonarPokojowy:
                 existing = self._find_existing_offer(processed['id'])
                 
                 if existing:
+                    was_inactive = not existing.get('active', True)
                     self._update_existing_offer(existing, processed)
                     updated_offers_count += 1
+                    if was_inactive:
+                        reactivated_count += 1
                 else:
                     self.database['offers'].append(processed)
                     new_offers_count += 1
@@ -492,6 +542,8 @@ class SonarPokojowy:
             
             print(f"   Nowe oferty: {new_offers_count}")
             print(f"   Zaktualizowane: {updated_offers_count}")
+            if reactivated_count > 0:
+                print(f"   🔄 Reaktywowane: {reactivated_count}")
             
             # 4. Czyszczenie starych ofert
             print("\n🗑️ Krok 4: Czyszczenie starych ofert...")
@@ -516,6 +568,7 @@ class SonarPokojowy:
                 'processed': len(processed_offers),
                 'new': new_offers_count,
                 'updated': updated_offers_count,
+                'reactivated': reactivated_count,
                 'total_in_db': len(self.database['offers']),
                 'active': active,
                 'inactive': inactive,
