@@ -1,14 +1,56 @@
 {
-  "generated_at": "2026-03-03T17:06:35.377032+01:00",
+  "generated_at": "2026-03-03T21:18:40.622478+01:00",
   "statistics": {
-    "total_scans": 20,
-    "successful": 19,
+    "total_scans": 21,
+    "successful": 20,
     "failed": 1,
-    "success_rate": 95.0,
-    "avg_duration": 255.21,
-    "avg_offers_found": 296.9
+    "success_rate": 95.23809523809523,
+    "avg_duration": 257.51,
+    "avg_offers_found": 305.5
   },
   "recent_scans": [
+    {
+      "timestamp": "2026-03-03T21:18:40.622478+01:00",
+      "status": "completed",
+      "phases": {
+        "scraping": {
+          "duration": 300.29,
+          "details": {
+            "offers_found": 477,
+            "max_pages": 20
+          }
+        },
+        "processing": {
+          "duration": 3.24,
+          "details": {
+            "processed": 92,
+            "skipped_no_address": 177,
+            "skipped_no_price": 0,
+            "skipped_no_coords": 200,
+            "skipped_duplicate": 8,
+            "skipped_removed": 0
+          }
+        }
+      },
+      "stats": {
+        "raw_offers": 477,
+        "processed": 92,
+        "new": 3,
+        "updated": 89,
+        "reactivated": 0,
+        "total_in_db": 132,
+        "active": 92,
+        "inactive": 40,
+        "skipped_no_address": 177,
+        "skipped_no_price": 0,
+        "skipped_no_coords": 200,
+        "skipped_duplicate": 8,
+        "skipped_removed": 0
+      },
+      "errors": [],
+      "end_timestamp": "2026-03-03T21:23:44.164135+01:00",
+      "total_duration": 303.54
+    },
     {
       "timestamp": "2026-03-03T17:06:35.377032+01:00",
       "status": "failed",
@@ -640,34 +682,6 @@
       "errors": [],
       "end_timestamp": "2026-02-26T03:21:57.545439+01:00",
       "total_duration": 204.82
-    },
-    {
-      "timestamp": "2026-02-25T19:18:32.728936+01:00",
-      "status": "completed",
-      "phases": {
-        "scraping": {
-          "duration": 139.6,
-          "details": {
-            "offers_found": 207,
-            "max_pages": 20
-          }
-        },
-        "processing": {
-          "duration": 26.18,
-          "details": {
-            "processed": 192
-          }
-        }
-      },
-      "stats": {
-        "raw_offers": 207,
-        "processed": 192,
-        "new": 19,
-        "updated": 173
-      },
-      "errors": [],
-      "end_timestamp": "2026-02-25T19:21:27.232616+01:00",
-      "total_duration": 174.5
     }
   ],
   "charts": {
@@ -751,6 +765,10 @@
       {
         "timestamp": "2026-03-03T17:06:35.377032+01:00",
         "duration": 305.67
+      },
+      {
+        "timestamp": "2026-03-03T21:18:40.622478+01:00",
+        "duration": 303.54
       }
     ],
     "offers_over_time": [
@@ -873,6 +891,12 @@
         "raw_offers": 0,
         "processed": 0,
         "new": 0
+      },
+      {
+        "timestamp": "2026-03-03T21:18:40.622478+01:00",
+        "raw_offers": 477,
+        "processed": 92,
+        "new": 3
       }
     ],
     "success_rate": [
@@ -975,6 +999,11 @@
         "timestamp": "2026-03-03T17:06:35.377032+01:00",
         "success": 0,
         "status": "failed"
+      },
+      {
+        "timestamp": "2026-03-03T21:18:40.622478+01:00",
+        "success": 100,
+        "status": "completed"
       }
     ]
   }
