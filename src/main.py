@@ -401,6 +401,7 @@ class SonarPokojowy:
     def _mark_inactive_offers(self, current_offer_ids: List[str], skipped_offer_ids: List[str] = None):
         """
         Oznacza ogłoszenia jako nieaktywne jeśli nie ma ich w bieżącym scanie.
+        Reaktywuje oferty które pojawiły się ponownie (w skipped_ids).
         
         Args:
             current_offer_ids: Lista ID ofert które zostały przetworzone (nowe + zaktualizowane)
@@ -411,15 +412,33 @@ class SonarPokojowy:
         
         # Wszystkie oferty które powinny być aktywne = przetworzone + pominięte
         all_active_ids = set(current_offer_ids + skipped_offer_ids)
+        skipped_set = set(skipped_offer_ids)
         
+        now = datetime.now(self.tz).isoformat()
         deactivated_count = 0
+        reactivated_from_skipped = 0
+        
         for offer in self.database['offers']:
-            if offer['id'] not in all_active_ids and offer['active']:
+            if offer['id'] in all_active_ids:
+                # Oferta jest aktywna - upewnij się że ma active=True
+                # i zaktualizuj last_seen dla pominiętych ofert
+                if offer['id'] in skipped_set:
+                    if not offer.get('active', True):
+                        # Reaktywacja oferty która była nieaktywna
+                        offer['active'] = True
+                        offer['reactivated_at'] = now
+                        reactivated_from_skipped += 1
+                    # Aktualizuj last_seen dla skipped ofert
+                    offer['last_seen'] = now
+            elif offer['active']:
+                # Oferta nie jest w scanie - dezaktywuj
                 offer['active'] = False
                 deactivated_count += 1
         
         if deactivated_count > 0:
             print(f"   ⏸️  Oznaczono jako nieaktywne: {deactivated_count}")
+        if reactivated_from_skipped > 0:
+            print(f"   🔄 Reaktywowano (skipped): {reactivated_from_skipped}")
     
     def _cleanup_old_offers(self, max_age_days: int = 548):
         """
