@@ -16,11 +16,13 @@ class AddressParser:
     # Grupa 1: prefiks (opcjonalny)
     # Grupa 2: nazwa ulicy
     # Grupa 3: numer
-    PREFIX_PATTERN = r'(ul\.|ulica|al\.|aleja|aleje|pl\.|plac|os\.|osiedle)?\s*'
+    # UWAGA: Dłuższe prefiksy MUSZĄ być przed krótszymi
+    PREFIX_PATTERN = r'(ulica|ul\.|ul|aleja|aleje|al\.|al|plac|pl\.|pl|osiedle|os\.|os)?\s*'
     
     # Główny pattern adresu - z prefixem jako opcjonalną grupą
+    # UWAGA: Dłuższe prefiksy MUSZĄ być przed krótszymi (ulica przed ul, aleja przed al, itd.)
     ADDRESS_PATTERN = re.compile(
-        rf'(ul\.|ulica|al\.|aleja|aleje|pl\.|plac|os\.|osiedle)?\s*([A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]+(?:\s+[A-ZŚĆŁĄĘÓŻŹŃ]?[a-zśćłąęóżźń]+)?)\s+(\d+[a-zA-Z]?(?:/\d+)?(?:\s+lok\.\s+\d+)?)',
+        rf'(ulica|ul\.|ul|aleja|aleje|al\.|al|plac|pl\.|pl|osiedle|os\.|os)?\s*([A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]+(?:\s+[A-ZŚĆŁĄĘÓŻŹŃ]?[a-zśćłąęóżźń]+)?)\s+(\d+[a-zA-Z]?(?:/\d+)?(?:\s+lok\.\s+\d+)?)',
         re.UNICODE | re.IGNORECASE
     )
     
