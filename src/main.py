@@ -398,11 +398,28 @@ class SonarPokojowy:
                 print(f"⚠️ Błąd obliczania days_active dla oferty {offer.get('id')}: {e}")
                 offer['days_active'] = 0
     
-    def _mark_inactive_offers(self, current_offer_ids: List[str]):
-        """Oznacza ogłoszenia jako nieaktywne jeśli nie ma ich w bieżącym scanie."""
+    def _mark_inactive_offers(self, current_offer_ids: List[str], skipped_offer_ids: List[str] = None):
+        """
+        Oznacza ogłoszenia jako nieaktywne jeśli nie ma ich w bieżącym scanie.
+        
+        Args:
+            current_offer_ids: Lista ID ofert które zostały przetworzone (nowe + zaktualizowane)
+            skipped_offer_ids: Lista ID ofert które zostały pominięte przez inteligentne skanowanie
+        """
+        if skipped_offer_ids is None:
+            skipped_offer_ids = []
+        
+        # Wszystkie oferty które powinny być aktywne = przetworzone + pominięte
+        all_active_ids = set(current_offer_ids + skipped_offer_ids)
+        
+        deactivated_count = 0
         for offer in self.database['offers']:
-            if offer['id'] not in current_offer_ids and offer['active']:
+            if offer['id'] not in all_active_ids and offer['active']:
                 offer['active'] = False
+                deactivated_count += 1
+        
+        if deactivated_count > 0:
+            print(f"   ⏸️  Oznaczono jako nieaktywne: {deactivated_count}")
     
     def _cleanup_old_offers(self, max_age_days: int = 548):
         """
@@ -534,8 +551,9 @@ class SonarPokojowy:
                     self.database['offers'].append(processed)
                     new_offers_count += 1
             
-            # Oznacz nieaktywne
-            self._mark_inactive_offers(current_offer_ids)
+            # Oznacz nieaktywne (ale pominij oferty które były skipped - one są nadal aktywne)
+            skipped_ids = [offer['id'] for offer in raw_offers if offer.get('skipped', False)]
+            self._mark_inactive_offers(current_offer_ids, skipped_ids)
             
             # Aktualizuj days_active dla WSZYSTKICH ofert
             self._update_days_active()
