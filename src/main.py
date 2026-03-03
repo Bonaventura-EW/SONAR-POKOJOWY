@@ -552,7 +552,12 @@ class SonarPokojowy:
                     new_offers_count += 1
             
             # Oznacz nieaktywne (ale pominij oferty które były skipped - one są nadal aktywne)
-            skipped_ids = [offer['id'] for offer in raw_offers if offer.get('skipped', False)]
+            # UWAGA: raw_offers nie mają klucza 'id', trzeba go wyciągnąć z URL
+            skipped_ids = [
+                offer['url'].split('/')[-1].split('.')[0] 
+                for offer in raw_offers 
+                if offer.get('skipped', False)
+            ]
             self._mark_inactive_offers(current_offer_ids, skipped_ids)
             
             # Aktualizuj days_active dla WSZYSTKICH ofert
