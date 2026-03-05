@@ -170,6 +170,7 @@ def generate_map_data(input_file, output_file):
             'media_info': price_data.get('media_info', 'brak informacji'),  # Info o mediach
             'first_seen': format_datetime(offer.get('first_seen', '')),
             'last_seen': format_datetime(offer.get('last_seen', '')),
+            'days_active': offer.get('days_active', 0),  # Dni aktywności
             'active': offer.get('active', True),
             'is_new': is_new,  # ✅ Obliczone na podstawie daty
             'description': offer.get('description', '')  # Pełny opis (frontend się sam obcina)
