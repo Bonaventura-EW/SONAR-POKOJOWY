@@ -1,0 +1,306 @@
+<!-- 
+PRZYKŁADOWY ARTEFAKT WIZUALIZACYJNY
+Użyj tego jako szablonu przy przyszłych zmianach wizualnych
+-->
+
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PRZYKŁAD: Wizualizacja zmian kolorów statystyk</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f5f5f5;
+            padding: 40px;
+            margin: 0;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 16px;
+        }
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+        .version {
+            border: 3px solid #ddd;
+            border-radius: 12px;
+            padding: 30px;
+            background: #fafafa;
+        }
+        .version h2 {
+            margin-top: 0;
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .before {
+            border-color: #ff6b6b;
+            background: #fff5f5;
+        }
+        .after {
+            border-color: #51cf66;
+            background: #f0fff4;
+        }
+        .before h2 {
+            color: #ff6b6b;
+        }
+        .after h2 {
+            color: #51cf66;
+        }
+        
+        /* DEMO: Statystyki PRZED */
+        .stats-before {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+        }
+        .stats-before .stat-item {
+            margin-bottom: 8px;
+            font-size: 11px;
+        }
+        .stats-before .stat-label {
+            display: inline-block;
+            width: 110px;
+            opacity: 0.9;
+        }
+        .stats-before .stat-value {
+            font-weight: bold;
+            font-size: 13px;
+        }
+        
+        /* DEMO: Statystyki PO */
+        .stats-after {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        .stats-after .stat-item {
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+        .stats-after .stat-item:hover {
+            background: rgba(255,255,255,0.25);
+            transform: translateX(-2px);
+        }
+        .stats-after .stat-label {
+            font-size: 13px;
+            font-weight: 500;
+            opacity: 0.95;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .stats-after .stat-label::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background: rgba(255,255,255,0.7);
+            border-radius: 50%;
+        }
+        .stats-after .stat-value {
+            font-weight: 700;
+            font-size: 18px;
+        }
+        
+        .changes {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 12px;
+            margin-top: 20px;
+            border-left: 4px solid #667eea;
+        }
+        .changes h3 {
+            margin-top: 0;
+            color: #667eea;
+            font-size: 20px;
+        }
+        .changes ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .changes li {
+            margin-bottom: 12px;
+            line-height: 1.6;
+        }
+        .changes code {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            color: #d63384;
+        }
+        .benefits {
+            background: #d4edda;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border-left: 4px solid #28a745;
+        }
+        .benefits h4 {
+            margin-top: 0;
+            color: #155724;
+        }
+        .options {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-top: 40px;
+        }
+        .option {
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .option:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+        .option h4 {
+            color: #667eea;
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Wizualizacja: Modernizacja statystyk</h1>
+        <p class="subtitle">Porównanie obecnego i proponowanego wyglądu panelu statystyk</p>
+        
+        <div class="comparison">
+            <div class="version before">
+                <h2>❌ PRZED (Obecny wygląd)</h2>
+                
+                <div class="stats-before">
+                    <div class="stat-item">
+                        <span class="stat-label">Widocznych ofert:</span>
+                        <span class="stat-value">15</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Średnia cena:</span>
+                        <span class="stat-value">710 zł</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Najtańsza:</span>
+                        <span class="stat-value">610 zł</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Najdroższa:</span>
+                        <span class="stat-value">800 zł</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="version after">
+                <h2>✅ PO (Proponowany wygląd)</h2>
+                
+                <div class="stats-after">
+                    <div class="stat-item">
+                        <span class="stat-label">Widocznych ofert:</span>
+                        <span class="stat-value">15</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Średnia cena:</span>
+                        <span class="stat-value">710 zł</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Najtańsza:</span>
+                        <span class="stat-value">610 zł</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Najdroższa:</span>
+                        <span class="stat-value">800 zł</span>
+                    </div>
+                </div>
+                
+                <p style="margin-top: 15px; font-size: 13px; color: #666;">
+                    💡 <strong>Tip:</strong> Najedź myszką na statystyki po prawej stronie!
+                </p>
+            </div>
+        </div>
+        
+        <div class="changes">
+            <h3>📋 Szczegółowa lista zmian:</h3>
+            <ul>
+                <li><strong>Font size wartości:</strong> <code>13px</code> → <code>18px</code> (+38% większe)</li>
+                <li><strong>Font weight wartości:</strong> <code>bold</code> → <code>700</code> (wyraźniejsze)</li>
+                <li><strong>Struktura:</strong> Każda statystyka jako osobna karta zamiast inline</li>
+                <li><strong>Tło karty:</strong> <code>rgba(255,255,255,0.15)</code> (przezroczyste białe)</li>
+                <li><strong>Padding karty:</strong> <code>12px 16px</code> (więcej przestrzeni)</li>
+                <li><strong>Border-radius karty:</strong> <code>8px</code> (zaokrąglenia)</li>
+                <li><strong>Ikona przed etykietą:</strong> Kropka <code>6px</code> dla lepszej czytelności</li>
+                <li><strong>Hover effect:</strong> <code>transform: translateX(-2px)</code> + jaśniejsze tło</li>
+                <li><strong>Transition:</strong> <code>all 0.3s</code> (płynne animacje)</li>
+            </ul>
+            
+            <div class="benefits">
+                <h4>✨ Korzyści tej zmiany:</h4>
+                <ul>
+                    <li>Większe liczby = łatwiejsze czytanie (szczególnie dla osób starszych)</li>
+                    <li>Karty = wyraźne oddzielenie każdej statystyki</li>
+                    <li>Hover effect = interaktywność i nowoczesny wygląd</li>
+                    <li>Kropki = wizualna hierarchia i elegancja</li>
+                    <li>Animacje = żywy, responsywny interfejs</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div style="margin-top: 40px; padding: 20px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+            <h3 style="margin-top: 0; color: #856404;">⚠️ Pytanie do użytkownika:</h3>
+            <p style="color: #856404; margin-bottom: 0;">
+                Czy zaakceptować te zmiany? Jeśli tak - napiszę "TAK" i zaimplementuję.<br>
+                Jeśli chcesz coś zmienić - opisz co, pokażę kolejną wizualizację.
+            </p>
+        </div>
+        
+        <!-- OPCJONALNIE: Warianty do wyboru -->
+        <h3 style="margin-top: 60px; text-align: center; color: #667eea;">
+            Lub wybierz jeden z wariantów poniżej:
+        </h3>
+        
+        <div class="options">
+            <div class="option">
+                <h4>Opcja A</h4>
+                <p>Jak pokazano powyżej<br>(Nowoczesny z kartami)</p>
+            </div>
+            <div class="option">
+                <h4>Opcja B</h4>
+                <p>Zachowaj obecny układ<br>Tylko powiększ czcionki</p>
+            </div>
+            <div class="option">
+                <h4>Opcja C</h4>
+                <p>Tabela zamiast kart<br>Bardziej kompaktowo</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
