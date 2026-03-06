@@ -26,7 +26,7 @@ body {
 
 /* Sidebar po prawej */
 .sidebar {
-    width: 320px;
+    width: 200px;
     background: #ffffff;
     border-left: 1px solid #e9ecef;
     overflow-y: auto;
@@ -34,23 +34,23 @@ body {
     box-shadow: -2px 0 8px rgba(0,0,0,0.05);
 }
 
-/* Statystyki w sidebarze - NOWY DESIGN */
+/* Statystyki w sidebarze - EXTREME COMPACT */
 .sidebar-stats {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    padding: 20px;
+    padding: 8px;
     position: relative;
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
 .sidebar-stats .stat-item {
-    margin-bottom: 16px;
+    margin-bottom: 4px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 16px;
+    padding: 6px 8px;
     background: rgba(255,255,255,0.15);
-    border-radius: 8px;
+    border-radius: 3px;
     backdrop-filter: blur(10px);
     transition: all 0.3s;
 }
@@ -61,12 +61,12 @@ body {
 }
 
 .sidebar-stats .stat-label {
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 500;
     opacity: 0.95;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
 }
 
 .sidebar-stats .stat-label::before {
@@ -80,20 +80,20 @@ body {
 
 .sidebar-stats .stat-value {
     font-weight: 700;
-    font-size: 18px;
+    font-size: 14px;
     letter-spacing: -0.5px;
     text-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .sidebar-stats .scan-time {
-    font-size: 11px;
-    margin-top: 16px;
-    padding-top: 12px;
+    font-size: 9px;
+    margin-top: 6px;
+    padding-top: 6px;
     border-top: 1px solid rgba(255,255,255,0.2);
     opacity: 0.9;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
 }
 
 .sidebar-stats .scan-time strong {
@@ -127,45 +127,46 @@ body {
     display: none;
 }
 
-/* Filters Container */
+/* Filters Container - EXTREME COMPACT */
 .filters-container {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 16px;
+    gap: 0;
+    padding: 0;
 }
 
-/* Filter Group - NOWY DESIGN z kartami */
+/* Filter Group - EXTREME COMPACT */
 .filter-group {
-    padding: 16px;
+    padding: 6px 8px;
     background: #ffffff;
-    border-radius: 12px;
-    border: 1px solid #e9ecef;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    transition: all 0.3s;
+    border-radius: 0;
+    border: none;
+    border-bottom: 1px solid #e9ecef;
+    box-shadow: none;
+    transition: none;
 }
 
 .filter-group:hover {
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    border-color: #667eea;
+    box-shadow: none;
+    border-color: #e9ecef;
 }
 
 .filter-group h3 {
-    font-size: 14px;
-    margin-bottom: 12px;
+    font-size: 11px;
+    margin-bottom: 4px;
     color: #495057;
     font-weight: 700;
     letter-spacing: -0.2px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
 }
 
 .filter-group h3::before {
     content: '';
     display: inline-block;
-    width: 4px;
-    height: 18px;
+    width: 3px;
+    height: 12px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border-radius: 2px;
 }
@@ -173,11 +174,11 @@ body {
 .filter-group label {
     display: flex;
     align-items: center;
-    margin-bottom: 10px;
-    font-size: 13px;
+    margin-bottom: 3px;
+    font-size: 11px;
     cursor: pointer;
-    padding: 8px 12px;
-    border-radius: 6px;
+    padding: 2px 4px;
+    border-radius: 3px;
     transition: all 0.2s;
     color: #495057;
 }
@@ -187,20 +188,20 @@ body {
 }
 
 .filter-group input[type="checkbox"] {
-    margin-right: 10px;
-    width: 18px;
-    height: 18px;
+    margin-right: 6px;
+    width: 14px;
+    height: 14px;
     cursor: pointer;
     accent-color: #667eea;
 }
 
 .filter-group input[type="number"] {
     width: 100%;
-    padding: 10px 12px;
-    margin-top: 6px;
-    border: 2px solid #e9ecef;
-    border-radius: 8px;
-    font-size: 14px;
+    padding: 4px 6px;
+    margin-top: 2px;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    font-size: 10px;
     transition: all 0.3s;
     font-family: inherit;
 }
@@ -208,7 +209,7 @@ body {
 .filter-group input[type="number"]:focus {
     outline: none;
     border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
 }
 
 /* Map */
@@ -465,14 +466,14 @@ body {
     border-color: #667eea;
 }
 
-/* Styl dla filtra czasowego - MODERNIZACJA */
+/* Styl dla filtra czasowego - EXTREME COMPACT */
 .time-filter-select {
     width: 100%;
-    padding: 12px 16px;
-    margin-top: 8px;
-    font-size: 14px;
-    border: 2px solid #e9ecef;
-    border-radius: 8px;
+    padding: 6px 8px;
+    margin-top: 4px;
+    font-size: 11px;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
     background: white;
     color: #495057;
     cursor: pointer;
@@ -481,8 +482,8 @@ body {
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23495057' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 12px center;
-    padding-right: 36px;
+    background-position: right 6px center;
+    padding-right: 24px;
 }
 
 .time-filter-select:hover {
@@ -493,5 +494,5 @@ body {
 .time-filter-select:focus {
     outline: none;
     border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
 }
