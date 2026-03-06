@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analiza Rynku - SONAR POKOJOWY</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        header h1 {
+            color: #667eea;
+            font-size: 28px;
+        }
+        
+        .back-link {
+            color: #667eea;
+            text-decoration: none;
+            padding: 10px 20px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .back-link:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        .section {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+        }
+        
+        .section h2 {
+            color: #333;
+            font-size: 22px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .stat-box {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .stat-box .label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        
+        .stat-box .value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #333;
+        }
+        
+        .stat-box .subtext {
+            font-size: 13px;
+            color: #666;
+            margin-top: 4px;
+        }
+        
+        /* Filtry */
+        .filters {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+        }
+        
+        .filter-group {
+            margin-bottom: 20px;
+        }
+        
+        .filter-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        .filter-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 12px;
+        }
+        
+        .slider-container {
+            position: relative;
+            margin-bottom: 8px;
+        }
+        
+        .slider {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: #e5e7eb;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .slider::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+        
+        .slider-value {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+        
+        .toggle-buttons {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .toggle-btn {
+            padding: 10px 20px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .toggle-btn:hover {
+            background: #f0f2ff;
+        }
+        
+        .toggle-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 300px;
+            margin-bottom: 20px;
+        }
+        
+        .offers-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .offer-card {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            border-left: 4px solid #10b981;
+            transition: all 0.2s;
+        }
+        
+        .offer-card:hover {
+            background: #e8f4f1;
+            transform: translateX(4px);
+        }
+        
+        .offer-card.increase {
+            border-left-color: #ef4444;
+        }
+        
+        .offer-card h3 {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .offer-card .price-change {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .offer-card .price-change.decrease {
+            color: #10b981;
+        }
+        
+        .offer-card .price-change.increase {
+            color: #ef4444;
+        }
+        
+        .offer-card .details {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        
+        .offer-card .timestamp {
+            font-size: 12px;
+            color: #999;
+            font-style: italic;
+        }
+        
+        .offer-card a {
+            display: inline-block;
+            margin-top: 8px;
+            color: #667eea;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        
+        .offer-card a:hover {
+            text-decoration: underline;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        
+        .empty-state .icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+        
+        .empty-state p {
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+        
+        .empty-state .hint {
+            font-size: 14px;
+            color: #999;
+        }
+        
+        .velocity-indicator {
+            position: relative;
+            height: 40px;
+            background: #e5e7eb;
+            border-radius: 20px;
+            overflow: hidden;
+            margin-top: 12px;
+        }
+        
+        .velocity-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #fbbf24, #ef4444);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+            font-size: 16px;
+            transition: width 0.5s ease;
+        }
+        
+        .rotation-bars {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+        
+        .rotation-day {
+            flex: 1;
+            text-align: center;
+        }
+        
+        .rotation-day .date {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        
+        .rotation-day .bars {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            height: 100px;
+            justify-content: flex-end;
+        }
+        
+        .rotation-day .bar {
+            border-radius: 4px;
+        }
+        
+        .rotation-day .bar.new {
+            background: #10b981;
+        }
+        
+        .rotation-day .bar.removed {
+            background: #ef4444;
+        }
+        
+        .rotation-day .count {
+            font-size: 10px;
+            font-weight: 600;
+            color: #333;
+            margin-top: 4px;
+        }
+
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                gap: 16px;
+                text-align: center;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .toggle-buttons {
+                flex-direction: column;
+            }
+            
+            .toggle-btn {
+                width: 100%;
+            }
+            
+            .rotation-day .date {
+                font-size: 9px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 ANALIZA RYNKU - LUBLIN</h1>
+            <a href="index.html" class="back-link">← Powrót do mapy</a>
+        </header>
+        
+        <!-- FILTRY -->
+        <div class="section">
+            <h2>⚙️ Filtry</h2>
+            <div class="filters">
+                <div class="filter-group">
+                    <label>Okres analizy zmian cen:</label>
+                    <div class="slider-value" id="daysValue">7 dni</div>
+                    <div class="slider-container">
+                        <input type="range" min="1" max="30" value="7" class="slider" id="daysSlider">
+                    </div>
+                    <div class="slider-labels">
+                        <span>1 dzień</span>
+                        <span>30 dni</span>
+                    </div>
+                </div>
+                
+                <div class="filter-group">
+                    <label>Typ zmian:</label>
+                    <div class="toggle-buttons">
+                        <button class="toggle-btn active" data-filter="all">Wszystkie</button>
+                        <button class="toggle-btn" data-filter="decreases">Tylko obniżki</button>
+                        <button class="toggle-btn" data-filter="increases">Tylko podwyżki</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 2.2 ANALIZA ZMIAN CEN -->
+        <div class="section">
+            <h2>💰 Zmiany Cen</h2>
+            
+            <div class="stats-grid" id="priceStatsGrid">
+                <div class="stat-box">
+                    <div class="label">Obniżki cen</div>
+                    <div class="value" id="priceDecreases">-</div>
+                    <div class="subtext" id="priceDecreasesAvg">-</div>
+                </div>
+                <div class="stat-box">
+                    <div class="label">Podwyżki cen</div>
+                    <div class="value" id="priceIncreases">-</div>
+                    <div class="subtext" id="priceIncreasesAvg">-</div>
+                </div>
+                <div class="stat-box">
+                    <div class="label">Ceny stabilne</div>
+                    <div class="value" id="priceStable">-</div>
+                </div>
+            </div>
+            
+            <div id="priceChangesContent"></div>
+        </div>
+        
+        <!-- 2.1 CZAS ŻYCIA OFERT -->
+        <div class="section">
+            <h2>⏱️ Czas Życia Ofert</h2>
+            
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="label">Aktywne oferty</div>
+                    <div class="value" id="survivalActive">-</div>
+                </div>
+                <div class="stat-box">
+                    <div class="label">Nieaktywne</div>
+                    <div class="value" id="survivalInactive">-</div>
+                </div>
+                <div class="stat-box">
+                    <div class="label">Średni czas na rynku</div>
+                    <div class="value" id="survivalAvg">-</div>
+                    <div class="subtext">dni</div>
+                </div>
+                <div class="stat-box">
+                    <div class="label">Wskaźnik przetrwania</div>
+                    <div class="value" id="survivalRate">-</div>
+                    <div class="subtext">% aktywnych</div>
+                </div>
+            </div>
+            
+            <div class="chart-wrapper">
+                <canvas id="survivalChart"></canvas>
+            </div>
+        </div>
+        
+        <!-- 2.3 WSKAŹNIK ROTACJI RYNKU -->
+        <div class="section">
+            <h2>🔄 Wskaźnik Rotacji Rynku</h2>
+            
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="label">Nowe oferty (7 dni)</div>
+                    <div class="value" id="rotationNew">-</div>
+                </div>
+                <div class="stat-box">
+                    <div class="label">Usunięte (7 dni)</div>
+                    <div class="value" id="rotationRemoved">-</div>
+                </div>
+                <div class="stat-box">
+                    <div class="label">Saldo</div>
+                    <div class="value" id="rotationNet">-</div>
+                </div>
+            </div>
+            
+            <h3 style="margin-top: 24px; margin-bottom: 12px; color: #333; font-size: 16px;">
+                Market Velocity (aktywność rynku)
+            </h3>
+            <div class="velocity-indicator">
+                <div class="velocity-fill" id="velocityFill" style="width: 0%;">
+                    <span id="velocityText">0/100</span>
+                </div>
+            </div>
+            <p style="margin-top: 8px; font-size: 13px; color: #666;">
+                0-30: Rynek słaby | 31-60: Umiarkowany | 61-80: Aktywny | 81-100: Bardzo aktywny
+            </p>
+            
+            <h3 style="margin-top: 32px; margin-bottom: 16px; color: #333; font-size: 16px;">
+                Rozkład dzienny (ostatnie 7 dni)
+            </h3>
+            <div class="rotation-bars" id="rotationBars"></div>
+        </div>
+    </div>
+
+    <script>
+        console.log('=== START MARKET ANALYSIS ===');
+        
+        // Załaduj dane z data.json
+        let allData = null;
+        let currentFilter = 'all';
+        let currentDays = 7;
+        
+        async function loadData() {
+            try {
+                const response = await fetch('data.json?' + new Date().getTime());
+                const data = await response.json();
+                allData = processData(data);
+                renderAll();
+            } catch (error) {
+                console.error('Błąd ładowania danych:', error);
+            }
+        }
+        
+        // Przetwarzanie danych
+        function processData(rawData) {
+            const offers = rawData.offers || [];
+            const now = new Date();
+            
+            // Przygotuj dane survival
+            const active = offers.filter(o => o.active);
+            const inactive = offers.filter(o => !o.active);
+            const avgDays = offers.reduce((sum, o) => sum + (o.days_active || 0), 0) / offers.length;
+            
+            // Przygotuj zmiany cen
+            const priceChanges = [];
+            offers.forEach(offer => {
+                const history = offer.price?.history || [];
+                if (history.length >= 2) {
+                    const first = history[0];
+                    const last = history[history.length - 1];
+                    if (first !== last) {
+                        const changePct = ((last - first) / first) * 100;
+                        
+                        // Timestamp zmiany (last_seen jako przybliżenie)
+                        const changedAt = offer.last_seen ? new Date(offer.last_seen) : now;
+                        const daysAgo = Math.floor((now - changedAt) / (1000 * 60 * 60 * 24));
+                        
+                        priceChanges.push({
+                            address: offer.address?.full || 'Brak adresu',
+                            first,
+                            last,
+                            change: last - first,
+                            changePct,
+                            url: offer.url,
+                            daysAgo,
+                            changedAt
+                        });
+                    }
+                }
+            });
+            
+            priceChanges.sort((a, b) => a.changePct - b.changePct);
+            
+            // Rotacja rynku
+            const dailyNew = {};
+            const dailyRemoved = {};
+            
+            offers.forEach(offer => {
+                if (offer.first_seen) {
+                    const date = new Date(offer.first_seen).toISOString().split('T')[0];
+                    dailyNew[date] = (dailyNew[date] || 0) + 1;
+                }
+                
+                if (!offer.active && offer.last_seen) {
+                    const date = new Date(offer.last_seen).toISOString().split('T')[0];
+                    dailyRemoved[date] = (dailyRemoved[date] || 0) + 1;
+                }
+            });
+            
+            const last7Days = [];
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date(now - i * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                last7Days.push({
+                    date,
+                    new: dailyNew[date] || 0,
+                    removed: dailyRemoved[date] || 0
+                });
+            }
+            
+            const totalNew = last7Days.reduce((sum, d) => sum + d.new, 0);
+            const totalRemoved = last7Days.reduce((sum, d) => sum + d.removed, 0);
+            
+            return {
+                survival: {
+                    active: active.length,
+                    inactive: inactive.length,
+                    avgDays: avgDays.toFixed(1),
+                    distribution: [{ days: 0, count: offers.length }]
+                },
+                priceChanges: {
+                    all: priceChanges,
+                    decreases: priceChanges.filter(p => p.change < 0),
+                    increases: priceChanges.filter(p => p.change > 0),
+                    stable: offers.length - priceChanges.length
+                },
+                rotation: {
+                    last7d: {
+                        new: totalNew,
+                        removed: totalRemoved,
+                        net: totalNew - totalRemoved,
+                        velocity: Math.min(100, Math.round((totalNew + totalRemoved) / 2))
+                    },
+                    daily: last7Days
+                }
+            };
+        }
+        
+        // Filtrowanie zmian cen według dni
+        function filterPriceChanges(changes, days) {
+            return changes.filter(c => c.daysAgo <= days);
+        }
+        
+        // Renderowanie wszystkich sekcji
+        function renderAll() {
+            if (!allData) return;
+            
+            renderSurvival();
+            renderPriceChanges();
+            renderRotation();
+        }
+        
+        // 2.1 SURVIVAL
+        function renderSurvival() {
+            const data = allData.survival;
+            
+            document.getElementById('survivalActive').textContent = data.active;
+            document.getElementById('survivalInactive').textContent = data.inactive;
+            document.getElementById('survivalAvg').textContent = data.avgDays;
+            
+            const total = data.active + data.inactive;
+            const survivalRate = ((data.active / total) * 100).toFixed(1);
+            document.getElementById('survivalRate').textContent = survivalRate + '%';
+            
+            const ctx = document.getElementById('survivalChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['0-6 dni', '7-13 dni', '14-20 dni', '21-27 dni', '28+ dni'],
+                    datasets: [{
+                        label: 'Liczba ofert',
+                        data: [data.distribution[0]?.count || 0, 0, 0, 0, 0],
+                        backgroundColor: '#667eea'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        title: {
+                            display: true,
+                            text: 'Rozkład czasu życia ofert'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Liczba ofert' }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 2.2 PRICE CHANGES
+        function renderPriceChanges() {
+            const filtered = filterPriceChanges(allData.priceChanges.all, currentDays);
+            const decreases = filtered.filter(p => p.change < 0);
+            const increases = filtered.filter(p => p.change > 0);
+            
+            // Aktualizuj statystyki
+            document.getElementById('priceDecreases').textContent = decreases.length;
+            document.getElementById('priceIncreases').textContent = increases.length;
+            document.getElementById('priceStable').textContent = allData.priceChanges.stable;
+            
+            if (decreases.length > 0) {
+                const avgDecrease = decreases.reduce((sum, d) => sum + d.changePct, 0) / decreases.length;
+                document.getElementById('priceDecreasesAvg').textContent = `średnio ${avgDecrease.toFixed(1)}%`;
+            } else {
+                document.getElementById('priceDecreasesAvg').textContent = '-';
+            }
+            
+            if (increases.length > 0) {
+                const avgIncrease = increases.reduce((sum, i) => sum + i.changePct, 0) / increases.length;
+                document.getElementById('priceIncreasesAvg').textContent = `średnio +${avgIncrease.toFixed(1)}%`;
+            } else {
+                document.getElementById('priceIncreasesAvg').textContent = '-';
+            }
+            
+            // Renderuj listy
+            const container = document.getElementById('priceChangesContent');
+            let html = '';
+            
+            // Filtruj według typu
+            let showDecreases = currentFilter === 'all' || currentFilter === 'decreases';
+            let showIncreases = currentFilter === 'all' || currentFilter === 'increases';
+            
+            if (showDecreases && decreases.length > 0) {
+                html += `<h3 style="margin-top: 24px; margin-bottom: 16px; color: #10b981; font-size: 18px;">🔥 Największe Obniżki Cen (Okazje!)</h3>`;
+                html += '<div class="offers-list">';
+                decreases.forEach(offer => {
+                    html += `
+                        <div class="offer-card">
+                            <h3>${offer.address}</h3>
+                            <div class="price-change decrease">
+                                ${offer.first} zł → ${offer.last} zł (${offer.changePct.toFixed(1)}%)
+                            </div>
+                            <div class="details">Oszczędzasz: ${Math.abs(offer.change)} zł/mies.</div>
+                            <div class="timestamp">${offer.daysAgo} dni temu</div>
+                            <a href="${offer.url}" target="_blank">Zobacz ogłoszenie →</a>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+            
+            if (showIncreases && increases.length > 0) {
+                html += `<h3 style="margin-top: 24px; margin-bottom: 16px; color: #ef4444; font-size: 18px;">📈 Największe Podwyżki Cen</h3>`;
+                html += '<div class="offers-list">';
+                increases.reverse().forEach(offer => {
+                    html += `
+                        <div class="offer-card increase">
+                            <h3>${offer.address}</h3>
+                            <div class="price-change increase">
+                                ${offer.first} zł → ${offer.last} zł (+${offer.changePct.toFixed(1)}%)
+                            </div>
+                            <div class="details">Wzrost: +${offer.change} zł/mies.</div>
+                            <div class="timestamp">${offer.daysAgo} dni temu</div>
+                            <a href="${offer.url}" target="_blank">Zobacz ogłoszenie →</a>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+            
+            if (html === '') {
+                html = `
+                    <div class="empty-state">
+                        <div class="icon">🔍</div>
+                        <p>Brak zmian cen w wybranym okresie</p>
+                        <p class="hint">Spróbuj zwiększyć zakres dni lub zmienić filtr</p>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        // 2.3 ROTATION
+        function renderRotation() {
+            const data = allData.rotation;
+            
+            document.getElementById('rotationNew').textContent = '+' + data.last7d.new;
+            document.getElementById('rotationRemoved').textContent = '-' + data.last7d.removed;
+            
+            const net = data.last7d.net;
+            const netEl = document.getElementById('rotationNet');
+            netEl.textContent = (net >= 0 ? '+' : '') + net;
+            netEl.style.color = net > 0 ? '#10b981' : (net < 0 ? '#ef4444' : '#666');
+            
+            const velocity = data.last7d.velocity;
+            document.getElementById('velocityFill').style.width = velocity + '%';
+            document.getElementById('velocityText').textContent = velocity + '/100';
+            
+            const barsContainer = document.getElementById('rotationBars');
+            const maxValue = Math.max(...data.daily.map(d => Math.max(d.new, d.removed)), 1);
+            
+            barsContainer.innerHTML = data.daily.map(day => {
+                const newHeight = (day.new / maxValue) * 100;
+                const removedHeight = (day.removed / maxValue) * 100;
+                const dateFormatted = new Date(day.date).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit' });
+                
+                return `
+                    <div class="rotation-day">
+                        <div class="date">${dateFormatted}</div>
+                        <div class="bars">
+                            <div class="bar new" style="height: ${newHeight}px;"></div>
+                            <div class="bar removed" style="height: ${removedHeight}px;"></div>
+                        </div>
+                        <div class="count">+${day.new} / -${day.removed}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Obsługa suwaka
+        document.getElementById('daysSlider').addEventListener('input', (e) => {
+            currentDays = parseInt(e.target.value);
+            document.getElementById('daysValue').textContent = currentDays + ' dni';
+            renderPriceChanges();
+        });
+        
+        // Obsługa przycisków filtra
+        document.querySelectorAll('[data-filter]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentFilter = btn.dataset.filter;
+                document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderPriceChanges();
+            });
+        });
+        
+        // Inicjalizacja
+        loadData();
+        console.log('=== MARKET ANALYSIS GOTOWA ===');
+    </script>
+</body>
+</html>
