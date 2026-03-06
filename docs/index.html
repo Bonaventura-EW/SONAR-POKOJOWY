@@ -84,49 +84,22 @@
             <aside class="sidebar">
                 <!-- Statystyki -->
                 <div class="sidebar-stats">
-                    <!-- Statystyki AKTYWNE -->
-                    <div style="background: #e8f5e9; padding: 8px; border-radius: 6px; margin-bottom: 12px;">
-                        <h4 style="margin: 0 0 8px 0; font-size: 13px; color: #2e7d32;">📊 Aktywne (widoczne)</h4>
-                        <div class="stat-item">
-                            <span class="stat-label">Liczba ofert:</span>
-                            <span class="stat-value" id="active-count">-</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Średnia cena:</span>
-                            <span class="stat-value" id="active-avg-price">-</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Najtańsza:</span>
-                            <span class="stat-value" id="active-min-price">-</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Najdroższa:</span>
-                            <span class="stat-value" id="active-max-price">-</span>
-                        </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Widocznych ofert:</span>
+                        <span class="stat-value" id="visible-count">-</span>
                     </div>
-                    
-                    <!-- Statystyki NIEAKTYWNE -->
-                    <div style="background: #fafafa; padding: 8px; border-radius: 6px; margin-bottom: 12px;">
-                        <h4 style="margin: 0 0 8px 0; font-size: 13px; color: #616161;">📊 Nieaktywne (widoczne)</h4>
-                        <div class="stat-item">
-                            <span class="stat-label">Liczba ofert:</span>
-                            <span class="stat-value" id="inactive-count">-</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Średnia cena:</span>
-                            <span class="stat-value" id="inactive-avg-price">-</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Najtańsza:</span>
-                            <span class="stat-value" id="inactive-min-price">-</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Najdroższa:</span>
-                            <span class="stat-value" id="inactive-max-price">-</span>
-                        </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Średnia cena:</span>
+                        <span class="stat-value" id="avg-price">-</span>
                     </div>
-                    
-                    <!-- Informacje o skanach -->
+                    <div class="stat-item">
+                        <span class="stat-label">Najtańsza oferta:</span>
+                        <span class="stat-value" id="min-price">-</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Najdroższa oferta:</span>
+                        <span class="stat-value" id="max-price">-</span>
+                    </div>
                     <div class="stat-item scan-time">
                         <span>🕐 Ostatni scan: <strong id="last-scan">-</strong></span>
                     </div>
@@ -225,7 +198,7 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
-    <!-- Custom JS (v4 - dynamiczne statystyki dla filtrów) -->
-    <script src="assets/script.js?v=4"></script>
+    <!-- Custom JS (v5 - dynamiczne statystyki dla filtrów - jedna tabelka) -->
+    <script src="assets/script.js?v=5"></script>
 </body>
 </html>
