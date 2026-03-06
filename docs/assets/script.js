@@ -85,10 +85,10 @@ async function loadData() {
         
         console.log(`✅ Załadowano ${mapData.markers?.length || 0} markerów`);
         
-        updateStats();
         updateScanInfo();
         createPriceRangeFilters();
         createMarkers();
+        updateStats();  // Wywołaj PO createMarkers(), żeby allMarkers był wypełniony
         setupEventListeners();
         
         console.log('🎉 Mapa gotowa!');
@@ -99,12 +99,148 @@ async function loadData() {
     }
 }
 
-// Aktualizacja statystyk
+// Obliczanie statystyk dla widocznych ofert (po filtrowaniu)
+function calculateFilteredStats() {
+    // Pobierz ustawienia filtrów
+    const showActive = document.getElementById('layer-active').checked;
+    const showInactive = document.getElementById('layer-inactive').checked;
+    
+    // Filtr czasowy
+    const timeFilter = document.getElementById('time-filter').value;
+    const now = new Date();
+    let cutoffDate = null;
+    
+    if (timeFilter !== 'all') {
+        const daysAgo = parseInt(timeFilter);
+        cutoffDate = new Date(now.getTime() - (daysAgo * 24 * 60 * 60 * 1000));
+    }
+    
+    // Zakresy cenowe - aktywne
+    const activeRanges = Array.from(document.querySelectorAll('.price-range-filter-active:checked'))
+        .map(cb => cb.dataset.range);
+    
+    // Zakresy cenowe - nieaktywne
+    const inactiveRanges = Array.from(document.querySelectorAll('.price-range-filter-inactive:checked'))
+        .map(cb => cb.dataset.range);
+    
+    // Wyszukiwanie
+    const searchTerm = document.getElementById('search-input').value.toLowerCase();
+    
+    // Funkcja pomocnicza sprawdzająca czy oferta spełnia kryteria czasowe
+    function passesTimeFilter(offer) {
+        if (!cutoffDate) return true;
+        
+        try {
+            const parts = offer.first_seen.split(' ');
+            const dateParts = parts[0].split('.');
+            const timeParts = parts[1].split(':');
+            const offerDate = new Date(
+                parseInt('20' + dateParts[2]), // year
+                parseInt(dateParts[1]) - 1,     // month (0-indexed)
+                parseInt(dateParts[0]),         // day
+                parseInt(timeParts[0]),         // hour
+                parseInt(timeParts[1])          // minute
+            );
+            return offerDate >= cutoffDate;
+        } catch (e) {
+            return true; // Jeśli błąd parsowania, uwzględnij ofertę
+        }
+    }
+    
+    // Zbierz widoczne oferty - osobno dla aktywnych i nieaktywnych
+    const visibleActiveOffers = [];
+    const visibleInactiveOffers = [];
+    
+    allMarkers.forEach(item => {
+        // Sprawdź filtr warstwy
+        if (item.isActive && !showActive) return;
+        if (!item.isActive && !showInactive) return;
+        
+        // Sprawdź czy marker jest widoczny (jest w odpowiedniej warstwie na mapie)
+        const isOnMap = (item.isActive && markerLayers.active.hasLayer(item.marker)) ||
+                        (!item.isActive && markerLayers.inactive.hasLayer(item.marker));
+        
+        if (!isOnMap) return;
+        
+        // Sprawdź wyszukiwanie
+        if (searchTerm && !item.address.toLowerCase().includes(searchTerm)) return;
+        
+        // Przetwórz każdą ofertę z tego markera
+        item.offers.forEach(offer => {
+            // Sprawdź filtr czasowy
+            if (!passesTimeFilter(offer)) return;
+            
+            // Sprawdź zakres cenowy (osobno dla aktywnych i nieaktywnych)
+            if (item.isActive) {
+                if (!activeRanges.includes(item.priceRange)) return;
+                visibleActiveOffers.push(offer);
+            } else {
+                if (!inactiveRanges.includes(item.priceRange)) return;
+                visibleInactiveOffers.push(offer);
+            }
+        });
+    });
+    
+    // Oblicz statystyki dla aktywnych
+    let activeStats;
+    if (visibleActiveOffers.length > 0) {
+        const activePrices = visibleActiveOffers.map(o => o.price);
+        activeStats = {
+            count: visibleActiveOffers.length,
+            avg: Math.round(activePrices.reduce((a, b) => a + b, 0) / activePrices.length),
+            min: Math.min(...activePrices),
+            max: Math.max(...activePrices)
+        };
+    } else {
+        activeStats = null;
+    }
+    
+    // Oblicz statystyki dla nieaktywnych
+    let inactiveStats;
+    if (visibleInactiveOffers.length > 0) {
+        const inactivePrices = visibleInactiveOffers.map(o => o.price);
+        inactiveStats = {
+            count: visibleInactiveOffers.length,
+            avg: Math.round(inactivePrices.reduce((a, b) => a + b, 0) / inactivePrices.length),
+            min: Math.min(...inactivePrices),
+            max: Math.max(...inactivePrices)
+        };
+    } else {
+        inactiveStats = null;
+    }
+    
+    return { active: activeStats, inactive: inactiveStats };
+}
+
+// Aktualizacja wyświetlanych statystyk
 function updateStats() {
-    document.getElementById('active-count').textContent = mapData.stats.active_count;
-    document.getElementById('avg-price').textContent = mapData.stats.avg_price + ' zł';
-    document.getElementById('min-price').textContent = mapData.stats.min_price + ' zł';
-    document.getElementById('max-price').textContent = mapData.stats.max_price + ' zł';
+    const stats = calculateFilteredStats();
+    
+    // Statystyki aktywne
+    if (stats.active) {
+        document.getElementById('active-count').textContent = stats.active.count;
+        document.getElementById('active-avg-price').textContent = stats.active.avg + ' zł';
+        document.getElementById('active-min-price').textContent = stats.active.min + ' zł';
+        document.getElementById('active-max-price').textContent = stats.active.max + ' zł';
+    } else {
+        document.getElementById('active-count').textContent = '-';
+        document.getElementById('active-avg-price').textContent = '-';
+        document.getElementById('active-min-price').textContent = '-';
+        document.getElementById('active-max-price').textContent = '-';
+    }
+    
+    // Statystyki nieaktywne
+    if (stats.inactive) {
+        document.getElementById('inactive-count').textContent = stats.inactive.count;
+        document.getElementById('inactive-avg-price').textContent = stats.inactive.avg + ' zł';
+        document.getElementById('inactive-min-price').textContent = stats.inactive.min + ' zł';
+        document.getElementById('inactive-max-price').textContent = stats.inactive.max + ' zł';
+    } else {
+        document.getElementById('inactive-count').textContent = '-';
+        document.getElementById('inactive-avg-price').textContent = '-';
+        document.getElementById('inactive-min-price').textContent = '-';
+        document.getElementById('inactive-max-price').textContent = '-';
+    }
 }
 
 // Aktualizacja informacji o skanach
@@ -509,6 +645,9 @@ function filterMarkers() {
             }
         }
     });
+    
+    // Przelicz i zaktualizuj statystyki po filtrowaniu
+    updateStats();
 }
 
 // Wyszukiwanie z zoomem
