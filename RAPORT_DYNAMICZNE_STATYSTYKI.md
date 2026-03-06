@@ -1,7 +1,7 @@
 # 📊 RAPORT: Dynamiczne statystyki reagujące na filtry
 
 **Data:** 2026-03-06  
-**Commit:** `752c264`  
+**Commit:** `ab2e3b8`  
 **Status:** ✅ Wdrożone i wypushowane
 
 ---
@@ -10,12 +10,14 @@
 
 Zaimplementowanie statystyk (najtańsza oferta, średnia cena, najdroższa oferta, liczba ofert) **reagujących dynamicznie na zastosowane filtry** zamiast pokazywania stałych wartości obliczonych w backendzie.
 
+**WAŻNE:** Zachowanie oryginalnego układu (jedna tabelka statystyk), tylko wartości mają się zmieniać dynamicznie.
+
 ---
 
-## 📋 WYMAGANIA FUNKCJONALNE (ustalone z użytkownikiem)
+## 📋 WYMAGANIA FUNKCJONALNE
 
 ### ✅ Uwzględniane filtry:
-- **Warstwy**: aktywne/nieaktywne (osobno dla każdej)
+- **Warstwy**: aktywne/nieaktywne (zliczane razem)
 - **Zakresy cenowe**: checkboxy (osobno dla każdej warstwy)
 - **Filtr czasowy**: 7/30/90/180 dni / wszystkie
 - **Wyszukiwanie**: po adresie
@@ -24,7 +26,7 @@ Zaimplementowanie statystyk (najtańsza oferta, średnia cena, najdroższa ofert
 - **Precyzyjne Min/Max**: ignorowane w statystykach (tylko wpływają na widoczność markerów)
 
 ### 📊 Logika prezentacji:
-- **Osobne statystyki** dla warstwy aktywnej i nieaktywnej
+- **Jedna tabelka statystyk** pokazuje wszystkie widoczne oferty (aktywne + nieaktywne razem)
 - **Przykład filtrowania**: 
   - Adres z 3 ofertami: 500zł (aktywna), 600zł (nieaktywna), 700zł (nieaktywna)
   - Filtry: Aktywne ✓ + Nieaktywne ✓ + zakres "0-600 zł"
@@ -40,53 +42,34 @@ Zaimplementowanie statystyk (najtańsza oferta, średnia cena, najdroższa ofert
 
 ### **Zmiany w HTML** (`docs/index.html`)
 
-**Przed:**
-```html
-<div class="stat-item">
-    <span class="stat-label">Aktywnych ofert:</span>
-    <span class="stat-value" id="active-count">-</span>
-</div>
-<div class="stat-item">
-    <span class="stat-label">Średnia cena:</span>
-    <span class="stat-value" id="avg-price">-</span>
-</div>
-<!-- ... podobnie min-price, max-price ... -->
-```
+**Zmiana:** Zachowano oryginalny układ - jedna tabelka statystyk
 
-**Po:**
+**Przed i Po:**
 ```html
-<!-- Statystyki AKTYWNE -->
-<div style="background: #e8f5e9; padding: 8px; border-radius: 6px;">
-    <h4>📊 Aktywne (widoczne)</h4>
+<div class="sidebar-stats">
     <div class="stat-item">
-        <span class="stat-label">Liczba ofert:</span>
-        <span class="stat-value" id="active-count">-</span>
+        <span class="stat-label">Widocznych ofert:</span>  <!-- Zmieniono z "Aktywnych" -->
+        <span class="stat-value" id="visible-count">-</span>
     </div>
     <div class="stat-item">
         <span class="stat-label">Średnia cena:</span>
-        <span class="stat-value" id="active-avg-price">-</span>
+        <span class="stat-value" id="avg-price">-</span>
     </div>
     <div class="stat-item">
-        <span class="stat-label">Najtańsza:</span>
-        <span class="stat-value" id="active-min-price">-</span>
+        <span class="stat-label">Najtańsza oferta:</span>
+        <span class="stat-value" id="min-price">-</span>
     </div>
     <div class="stat-item">
-        <span class="stat-label">Najdroższa:</span>
-        <span class="stat-value" id="active-max-price">-</span>
+        <span class="stat-label">Najdroższa oferta:</span>
+        <span class="stat-value" id="max-price">-</span>
     </div>
-</div>
-
-<!-- Statystyki NIEAKTYWNE -->
-<div style="background: #fafafa; padding: 8px; border-radius: 6px;">
-    <h4>📊 Nieaktywne (widoczne)</h4>
-    <!-- ... analogicznie z ID: inactive-count, inactive-avg-price, itp. ... -->
 </div>
 ```
 
 **Rezultat:**
-- Dwie osobne sekcje statystyk
-- Wizualne odróżnienie kolorami (zielone tło dla aktywnych, szare dla nieaktywnych)
-- Jasna etykieta "(widoczne)" podkreślająca dynamiczny charakter
+- Ten sam układ wizualny jak wcześniej
+- Tylko jedna zmiana: "Aktywnych ofert" → "Widocznych ofert"
+- Wartości są dynamicznie aktualizowane po filtrowaniu
 
 ---
 
@@ -267,28 +250,21 @@ async function loadData() {
 
 ### **Przed zmianą:**
 ```
-Aktywnych ofert: 105
-Średnia cena: 904 zł
-Najtańsza oferta: 300 zł  
-Najdroższa oferta: 2400 zł
+Aktywnych ofert: 105        ← Zawsze wszystkie aktywne
+Średnia cena: 904 zł        ← Zawsze średnia ze wszystkich
+Najtańsza oferta: 300 zł    ← Zawsze najtańsza ze wszystkich
+Najdroższa oferta: 2400 zł  ← Zawsze najdroższa ze wszystkich
 ```
-(Statystyki pokazywały WSZYSTKIE oferty, ignorując filtry)
+(Statystyki pokazywały WSZYSTKIE aktywne oferty, ignorując filtry)
 
 ### **Po zmianie:**
 ```
-📊 Aktywne (widoczne)
-Liczba ofert: 12
-Średnia cena: 720 zł
-Najtańsza: 610 zł
-Najdroższa: 800 zł
-
-📊 Nieaktywne (widoczne)
-Liczba ofert: 3
-Średnia cena: 680 zł
-Najtańsza: 650 zł
-Najdroższa: 750 zł
+Widocznych ofert: 15        ← 12 aktywnych + 3 nieaktywne w zakresie 601-800 zł
+Średnia cena: 710 zł        ← Średnia z 15 widocznych ofert
+Najtańsza oferta: 610 zł    ← Najtańsza z widocznych
+Najdroższa oferta: 800 zł   ← Najdroższa z widocznych
 ```
-(Statystyki pokazują TYLKO oferty spełniające filtry)
+(Statystyki pokazują TYLKO oferty spełniające filtry - aktywne + nieaktywne razem)
 
 ---
 
