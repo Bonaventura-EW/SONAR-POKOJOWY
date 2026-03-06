@@ -547,30 +547,56 @@
         
         // Przetwarzanie danych
         function processData(rawData) {
-            const offers = rawData.offers || [];
+            // Wyciągnij wszystkie oferty z markers
+            const offers = [];
+            if (rawData.markers) {
+                rawData.markers.forEach(marker => {
+                    if (marker.offers) {
+                        marker.offers.forEach(offer => {
+                            offers.push({
+                                ...offer,
+                                address_full: marker.address
+                            });
+                        });
+                    }
+                });
+            }
+            
+            console.log('Przetworzone oferty:', offers.length);
+            
             const now = new Date();
             
             // Przygotuj dane survival
             const active = offers.filter(o => o.active);
             const inactive = offers.filter(o => !o.active);
-            const avgDays = offers.reduce((sum, o) => sum + (o.days_active || 0), 0) / offers.length;
+            const avgDays = offers.length > 0 
+                ? offers.reduce((sum, o) => sum + (o.days_active || 0), 0) / offers.length 
+                : 0;
             
             // Przygotuj zmiany cen
             const priceChanges = [];
             offers.forEach(offer => {
-                const history = offer.price?.history || [];
+                const history = offer.price_history || [];
                 if (history.length >= 2) {
                     const first = history[0];
                     const last = history[history.length - 1];
                     if (first !== last) {
                         const changePct = ((last - first) / first) * 100;
                         
-                        // Timestamp zmiany (last_seen jako przybliżenie)
-                        const changedAt = offer.last_seen ? new Date(offer.last_seen) : now;
-                        const daysAgo = Math.floor((now - changedAt) / (1000 * 60 * 60 * 24));
+                        // Timestamp zmiany (użyj price_changed_at lub last_seen)
+                        let changedAt = now;
+                        let daysAgo = 0;
+                        
+                        if (offer.price_changed_at) {
+                            changedAt = parseDateString(offer.price_changed_at);
+                            daysAgo = Math.floor((now - changedAt) / (1000 * 60 * 60 * 24));
+                        } else if (offer.last_seen) {
+                            changedAt = parseDateString(offer.last_seen);
+                            daysAgo = Math.floor((now - changedAt) / (1000 * 60 * 60 * 24));
+                        }
                         
                         priceChanges.push({
-                            address: offer.address?.full || 'Brak adresu',
+                            address: offer.address_full || 'Brak adresu',
                             first,
                             last,
                             change: last - first,
@@ -585,19 +611,23 @@
             
             priceChanges.sort((a, b) => a.changePct - b.changePct);
             
+            console.log('Zmiany cen:', priceChanges.length);
+            
             // Rotacja rynku
             const dailyNew = {};
             const dailyRemoved = {};
             
             offers.forEach(offer => {
                 if (offer.first_seen) {
-                    const date = new Date(offer.first_seen).toISOString().split('T')[0];
-                    dailyNew[date] = (dailyNew[date] || 0) + 1;
+                    const date = parseDateString(offer.first_seen);
+                    const dateKey = date.toISOString().split('T')[0];
+                    dailyNew[dateKey] = (dailyNew[dateKey] || 0) + 1;
                 }
                 
                 if (!offer.active && offer.last_seen) {
-                    const date = new Date(offer.last_seen).toISOString().split('T')[0];
-                    dailyRemoved[date] = (dailyRemoved[date] || 0) + 1;
+                    const date = parseDateString(offer.last_seen);
+                    const dateKey = date.toISOString().split('T')[0];
+                    dailyRemoved[dateKey] = (dailyRemoved[dateKey] || 0) + 1;
                 }
             });
             
@@ -637,6 +667,24 @@
                     daily: last7Days
                 }
             };
+        }
+        
+        // Parsowanie daty w formacie "DD.MM.YYYY HH:MM"
+        function parseDateString(dateStr) {
+            if (!dateStr) return new Date();
+            
+            // Format: "28.02.2026 20:46"
+            const parts = dateStr.split(' ');
+            const dateParts = parts[0].split('.');
+            const timeParts = parts[1] ? parts[1].split(':') : ['00', '00'];
+            
+            return new Date(
+                parseInt(dateParts[2]), // year
+                parseInt(dateParts[1]) - 1, // month (0-indexed)
+                parseInt(dateParts[0]), // day
+                parseInt(timeParts[0]), // hour
+                parseInt(timeParts[1]) // minute
+            );
         }
         
         // Filtrowanie zmian cen według dni
