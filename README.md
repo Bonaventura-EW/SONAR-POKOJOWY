@@ -190,10 +190,22 @@ MIT License - możesz swobodnie używać i modyfikować kod.
 
 Jeśli znajdziesz błąd lub masz sugestię, stwórz Issue na GitHubie.
 
+## 🎨 Zmiany wizualne
+
+**WAŻNE dla developerów/Claude:**
+
+Przed wprowadzeniem jakichkolwiek zmian wizualnych (CSS, HTML layout, kolory, czcionki):
+1. **Przeczytaj:** [INSTRUKCJE_ZMIANY_WIZUALNE.md](INSTRUKCJE_ZMIANY_WIZUALNE.md)
+2. **Stwórz wizualizację** PRZED/PO w artefakcie HTML
+3. **Poczekaj na akceptację** użytkownika
+4. **Dopiero wtedy** implementuj zmiany
+
+📋 **Zasada:** ZAWSZE wizualizacja przed implementacją!
+
 ## 👨‍💻 Autor
 
 Projekt stworzony dla monitoringu rynku wynajmu pokoi w Lublinie.
 
 ---
 
-**Ostatnia aktualizacja**: 24.02.2026
+**Ostatnia aktualizacja**: 06.03.2026
