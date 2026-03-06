@@ -115,12 +115,8 @@ function calculateFilteredStats() {
         cutoffDate = new Date(now.getTime() - (daysAgo * 24 * 60 * 60 * 1000));
     }
     
-    // Zakresy cenowe - aktywne
-    const activeRanges = Array.from(document.querySelectorAll('.price-range-filter-active:checked'))
-        .map(cb => cb.dataset.range);
-    
-    // Zakresy cenowe - nieaktywne
-    const inactiveRanges = Array.from(document.querySelectorAll('.price-range-filter-inactive:checked'))
+    // Zakresy cenowe - wspólne dla obu warstw
+    const selectedRanges = Array.from(document.querySelectorAll('.price-range-filter:checked'))
         .map(cb => cb.dataset.range);
     
     // Wyszukiwanie
@@ -164,17 +160,13 @@ function calculateFilteredStats() {
         // Sprawdź wyszukiwanie
         if (searchTerm && !item.address.toLowerCase().includes(searchTerm)) return;
         
+        // Sprawdź zakres cenowy (wspólny dla obu warstw)
+        if (!selectedRanges.includes(item.priceRange)) return;
+        
         // Przetwórz każdą ofertę z tego markera
         item.offers.forEach(offer => {
             // Sprawdź filtr czasowy
             if (!passesTimeFilter(offer)) return;
-            
-            // Sprawdź zakres cenowy (osobno dla aktywnych i nieaktywnych)
-            if (item.isActive) {
-                if (!activeRanges.includes(item.priceRange)) return;
-            } else {
-                if (!inactiveRanges.includes(item.priceRange)) return;
-            }
             
             // Oferta przeszła wszystkie filtry - dodaj do listy
             visibleOffers.push(offer);
@@ -221,27 +213,16 @@ function updateScanInfo() {
 
 // Tworzenie checkboxów dla zakresów cenowych
 function createPriceRangeFilters() {
-    const activeContainer = document.getElementById('price-range-filters-active');
-    const inactiveContainer = document.getElementById('price-range-filters-inactive');
+    const container = document.getElementById('price-range-filters');
     
     Object.entries(mapData.price_ranges).forEach(([key, range]) => {
-        // Aktywne
-        const labelActive = document.createElement('label');
-        labelActive.innerHTML = `
-            <input type="checkbox" class="price-range-filter-active" data-range="${key}" checked>
+        const label = document.createElement('label');
+        label.innerHTML = `
+            <input type="checkbox" class="price-range-filter" data-range="${key}" checked>
             <span style="display:inline-block; width:15px; height:15px; background:${range.color}; margin-right:5px; vertical-align:middle; border-radius:50%;"></span>
             ${range.label}
         `;
-        activeContainer.appendChild(labelActive);
-        
-        // Nieaktywne
-        const labelInactive = document.createElement('label');
-        labelInactive.innerHTML = `
-            <input type="checkbox" class="price-range-filter-inactive" data-range="${key}" checked>
-            <span style="display:inline-block; width:15px; height:15px; background:${range.color}; margin-right:5px; vertical-align:middle; border-radius:50%; opacity:0.5;">×</span>
-            ${range.label}
-        `;
-        inactiveContainer.appendChild(labelInactive);
+        container.appendChild(label);
     });
 }
 
@@ -523,19 +504,13 @@ function filterMarkers() {
         cutoffDate = new Date(now.getTime() - (daysAgo * 24 * 60 * 60 * 1000));
     }
     
-    // Zakresy cenowe - aktywne
-    const activeRanges = Array.from(document.querySelectorAll('.price-range-filter-active:checked'))
+    // Zakresy cenowe - wspólne dla obu warstw
+    const selectedRanges = Array.from(document.querySelectorAll('.price-range-filter:checked'))
         .map(cb => cb.dataset.range);
     
-    // Zakresy cenowe - nieaktywne
-    const inactiveRanges = Array.from(document.querySelectorAll('.price-range-filter-inactive:checked'))
-        .map(cb => cb.dataset.range);
-    
-    // Precyzyjne filtry cen
-    const priceMinActive = parseInt(document.getElementById('price-min-active').value) || 0;
-    const priceMaxActive = parseInt(document.getElementById('price-max-active').value) || 999999;
-    const priceMinInactive = parseInt(document.getElementById('price-min-inactive').value) || 0;
-    const priceMaxInactive = parseInt(document.getElementById('price-max-inactive').value) || 999999;
+    // Precyzyjne filtry cen - wspólne dla obu warstw
+    const priceMin = parseInt(document.getElementById('price-min').value) || 0;
+    const priceMax = parseInt(document.getElementById('price-max').value) || 999999;
     
     // Wyszukiwanie
     const searchTerm = document.getElementById('search-input').value.toLowerCase();
@@ -578,20 +553,14 @@ function filterMarkers() {
             }
         }
         
-        // Filtr zakresów cenowych
-        if (item.isActive && !activeRanges.includes(item.priceRange)) {
-            visible = false;
-        }
-        if (!item.isActive && !inactiveRanges.includes(item.priceRange)) {
+        // Filtr zakresów cenowych - wspólny dla obu warstw
+        if (!selectedRanges.includes(item.priceRange)) {
             visible = false;
         }
         
-        // Precyzyjny filtr cen
+        // Precyzyjny filtr cen - wspólny dla obu warstw
         const price = item.offers[0].price;
-        if (item.isActive && (price < priceMinActive || price > priceMaxActive)) {
-            visible = false;
-        }
-        if (!item.isActive && (price < priceMinInactive || price > priceMaxInactive)) {
+        if (price < priceMin || price > priceMax) {
             visible = false;
         }
         
@@ -654,19 +623,14 @@ function setupEventListeners() {
     // NOWY: Filtr czasowy
     document.getElementById('time-filter').addEventListener('change', filterMarkers);
     
-    // Zakresy cenowe
-    document.querySelectorAll('.price-range-filter-active').forEach(cb => {
-        cb.addEventListener('change', filterMarkers);
-    });
-    document.querySelectorAll('.price-range-filter-inactive').forEach(cb => {
+    // Zakresy cenowe - wspólne dla obu warstw
+    document.querySelectorAll('.price-range-filter').forEach(cb => {
         cb.addEventListener('change', filterMarkers);
     });
     
-    // Precyzyjne filtry cen
-    document.getElementById('price-min-active').addEventListener('input', filterMarkers);
-    document.getElementById('price-max-active').addEventListener('input', filterMarkers);
-    document.getElementById('price-min-inactive').addEventListener('input', filterMarkers);
-    document.getElementById('price-max-inactive').addEventListener('input', filterMarkers);
+    // Precyzyjne filtry cen - wspólne dla obu warstw
+    document.getElementById('price-min').addEventListener('input', filterMarkers);
+    document.getElementById('price-max').addEventListener('input', filterMarkers);
     
     // Wyszukiwanie
     document.getElementById('search-input').addEventListener('input', searchAndZoom);

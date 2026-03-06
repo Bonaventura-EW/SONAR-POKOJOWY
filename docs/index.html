@@ -162,32 +162,17 @@
                     </div>
                     
                     <div class="filter-group">
-                        <h3>Zakresy cenowe - Aktywne</h3>
-                        <div id="price-range-filters-active"></div>
+                        <h3>Zakresy cenowe</h3>
+                        <div id="price-range-filters"></div>
                     </div>
                     
                     <div class="filter-group">
-                        <h3>Zakresy cenowe - Nieaktywne</h3>
-                        <div id="price-range-filters-inactive"></div>
-                    </div>
-                    
-                    <div class="filter-group">
-                        <h3>Precyzyjny filtr cen - Aktywne</h3>
+                        <h3>Precyzyjny filtr cen</h3>
                         <label>
-                            Min: <input type="number" id="price-min-active" placeholder="0" min="0" step="50"> zł
+                            Min: <input type="number" id="price-min" placeholder="0" min="0" step="50"> zł
                         </label>
                         <label>
-                            Max: <input type="number" id="price-max-active" placeholder="3000" min="0" step="50"> zł
-                        </label>
-                    </div>
-                    
-                    <div class="filter-group">
-                        <h3>Precyzyjny filtr cen - Nieaktywne</h3>
-                        <label>
-                            Min: <input type="number" id="price-min-inactive" placeholder="0" min="0" step="50"> zł
-                        </label>
-                        <label>
-                            Max: <input type="number" id="price-max-inactive" placeholder="3000" min="0" step="50"> zł
+                            Max: <input type="number" id="price-max" placeholder="3000" min="0" step="50"> zł
                         </label>
                     </div>
                 </div>
@@ -198,7 +183,7 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
-    <!-- Custom JS (v5 - dynamiczne statystyki dla filtrów - jedna tabelka) -->
-    <script src="assets/script.js?v=5"></script>
+    <!-- Custom JS (v6 - jeden wspólny zakres cenowy dla obu warstw) -->
+    <script src="assets/script.js?v=6"></script>
 </body>
 </html>
