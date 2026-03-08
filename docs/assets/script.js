@@ -362,20 +362,31 @@ function createMarkers() {
 
 // Tworzenie grupy markerów (rozsunięcie dla tego samego adresu)
 function createMarkerGroup(baseCoords, address, offers, priceRange, isActive) {
-    const zoom = map.getZoom();
-    const offsetDistance = zoom > 15 ? 0.0001 : 0;  // 15-20px przy dużym zoomie
-    
     // Pobierz kolor z zakresu cenowego
     const color = mapData.price_ranges[priceRange]?.color || '#808080';
+    
+    // Oblicz offset bazowy - większy gdy więcej ofert
+    // ~15-20 metrów między markerami (0.00015 stopnia ≈ 15m)
+    const baseOffset = 0.00018;
     
     offers.forEach((offer, index) => {
         // Sprawdź czy oferta jest oznaczona jako uszkodzona
         const isDamagedOffer = isDamaged(offer.id);
         
         // Oblicz offset w kole (rozsunięcie)
-        const angle = (index / offers.length) * 2 * Math.PI;
-        const offsetLat = Math.cos(angle) * offsetDistance * index;
-        const offsetLon = Math.sin(angle) * offsetDistance * index;
+        // Każda oferta na innym kącie, promień rośnie z ilością ofert
+        const totalOffers = offers.length;
+        
+        let offsetLat = 0;
+        let offsetLon = 0;
+        
+        if (totalOffers > 1) {
+            const angle = (index / totalOffers) * 2 * Math.PI;
+            // Promień zależny od pozycji - spirala
+            const radius = baseOffset * (0.5 + index * 0.5);
+            offsetLat = Math.cos(angle) * radius;
+            offsetLon = Math.sin(angle) * radius * 1.5; // 1.5x bo longitude jest "węższa"
+        }
         
         // Konwersja z obiektu {lat, lon} na tablicę [lat, lon] dla Leaflet
         const coords = [
