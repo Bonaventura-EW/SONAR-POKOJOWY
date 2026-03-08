@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 import pytz
 from typing import List, Dict
 import time
+import random
 
 # Import lokalnych modułów
 from scraper import OLXScraper
@@ -440,6 +441,138 @@ class SonarPokojowy:
         if reactivated_from_skipped > 0:
             print(f"   🔄 Reaktywowano (skipped): {reactivated_from_skipped}")
     
+    def _verify_inactive_offers(self, max_to_verify: int = 50) -> Dict:
+        """
+        Weryfikuje nieaktywne oferty sprawdzając bezpośrednio ich URL na OLX.
+        Reaktywuje oferty które nadal istnieją na OLX.
+        
+        Args:
+            max_to_verify: Maksymalna liczba ofert do zweryfikowania na jeden skan
+            
+        Returns:
+            Dict ze statystykami: {'verified': N, 'reactivated': N, 'confirmed_inactive': N, 'errors': N}
+        """
+        import requests
+        from bs4 import BeautifulSoup
+        
+        stats = {
+            'verified': 0,
+            'reactivated': 0,
+            'confirmed_inactive': 0,
+            'errors': 0
+        }
+        
+        # Pobierz nieaktywne oferty, posortowane od najnowszych (ostatnio dezaktywowane)
+        inactive_offers = [
+            offer for offer in self.database.get('offers', [])
+            if not offer.get('active', True)
+        ]
+        
+        if not inactive_offers:
+            print("   ℹ️  Brak nieaktywnych ofert do weryfikacji")
+            return stats
+        
+        # Sortuj od najnowszych (last_seen malejąco)
+        inactive_offers.sort(
+            key=lambda x: x.get('last_seen', '1970-01-01'),
+            reverse=True
+        )
+        
+        # Ogranicz do max_to_verify
+        to_verify = inactive_offers[:max_to_verify]
+        
+        print(f"   🔍 Weryfikuję {len(to_verify)} nieaktywnych ofert (z {len(inactive_offers)} łącznie)...")
+        
+        # Użyj sesji scrapera z odpowiednimi headerami
+        session = requests.Session()
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'pl-PL,pl;q=0.9,en;q=0.8'
+        })
+        
+        now = datetime.now(self.tz).isoformat()
+        
+        for i, offer in enumerate(to_verify, 1):
+            url = offer.get('url', '')
+            offer_id = offer.get('id', 'unknown')
+            
+            if not url:
+                continue
+                
+            try:
+                # Opóźnienie między requestami (anti-throttling)
+                if i > 1:
+                    time.sleep(random.uniform(0.3, 0.7))
+                
+                response = session.get(url, timeout=15)
+                stats['verified'] += 1
+                
+                # Sprawdź czy oferta istnieje
+                if response.status_code in (404, 410):
+                    # 404 = Not Found, 410 = Gone - oferta usunięta
+                    stats['confirmed_inactive'] += 1
+                    continue
+                
+                if response.status_code != 200:
+                    stats['errors'] += 1
+                    continue
+                
+                soup = BeautifulSoup(response.text, 'lxml')
+                
+                # Sprawdź status oferty przez JSON-LD (najbardziej wiarygodne źródło)
+                is_active = False
+                
+                scripts = soup.find_all('script', type='application/ld+json')
+                for script in scripts:
+                    try:
+                        data = json.loads(script.string)
+                        if isinstance(data, dict) and data.get('@type') == 'Product':
+                            availability = data.get('offers', {}).get('availability', '')
+                            # InStock = aktywna oferta
+                            if 'InStock' in availability:
+                                is_active = True
+                            break
+                    except:
+                        pass
+                
+                # Jeśli nie ma JSON-LD, sprawdź elementy HTML
+                if not is_active:
+                    # Sprawdź czy jest cena (znak aktywnej oferty)
+                    price_element = soup.select_one('[data-testid="ad-price-container"]')
+                    # Sprawdź czy są przyciski kontaktu
+                    contact_btns = soup.select('[data-testid*="phone"], [data-testid*="contact"]')
+                    
+                    if price_element and len(contact_btns) > 0:
+                        is_active = True
+                
+                if is_active:
+                    # Oferta AKTYWNA - reaktywuj!
+                    offer['active'] = True
+                    offer['last_seen'] = now
+                    offer['reactivated_at'] = now
+                    offer['reactivation_source'] = 'verification'
+                    stats['reactivated'] += 1
+                    print(f"      ✅ Reaktywowano: {offer_id[:50]}...")
+                else:
+                    # Oferta nieaktywna - potwierdzone
+                    stats['confirmed_inactive'] += 1
+                    
+            except requests.RequestException as e:
+                stats['errors'] += 1
+            except Exception as e:
+                stats['errors'] += 1
+        
+        # Podsumowanie
+        print(f"   📊 Weryfikacja zakończona:")
+        print(f"      Sprawdzono: {stats['verified']}")
+        print(f"      Reaktywowano: {stats['reactivated']}")
+        print(f"      Potwierdzone nieaktywne: {stats['confirmed_inactive']}")
+        if stats['errors'] > 0:
+            print(f"      Błędy: {stats['errors']}")
+        
+        return stats
+
     def _cleanup_old_offers(self, max_age_days: int = 548):
         """
         Usuwa oferty starsze niż 1.5 roku (548 dni).
@@ -587,19 +720,24 @@ class SonarPokojowy:
             if reactivated_count > 0:
                 print(f"   🔄 Reaktywowane: {reactivated_count}")
             
-            # 4. Czyszczenie starych ofert
-            print("\n🗑️ Krok 4: Czyszczenie starych ofert...")
+            # 4. Weryfikacja nieaktywnych ofert
+            print("\n🔍 Krok 4: Weryfikacja nieaktywnych ofert...")
+            verification_stats = self._verify_inactive_offers(max_to_verify=50)
+            reactivated_count += verification_stats.get('reactivated', 0)
+            
+            # 5. Czyszczenie starych ofert
+            print("\n🗑️ Krok 5: Czyszczenie starych ofert...")
             self._cleanup_old_offers(max_age_days=548)
             
-            # 5. Aktualizacja metadanych
+            # 6. Aktualizacja metadanych
             self.database['last_scan'] = now.isoformat()
             self.database['next_scan'] = self._calculate_next_scan_time()
             
-            # 6. Zapisz bazę
-            print("\n💾 Krok 5: Zapisywanie bazy danych...")
+            # 7. Zapisz bazę
+            print("\n💾 Krok 6: Zapisywanie bazy danych...")
             self._save_database()
             
-            # 7. Loguj statystyki
+            # 8. Loguj statystyki
             total_duration = time.time() - scan_start_time
             
             active = sum(1 for o in self.database['offers'] if o['active'])
@@ -618,12 +756,13 @@ class SonarPokojowy:
                 'skipped_no_price': skipped_no_price,
                 'skipped_no_coords': skipped_no_coords,
                 'skipped_duplicate': skipped_duplicate,
-                'skipped_removed': skipped_removed
+                'skipped_removed': skipped_removed,
+                'verification': verification_stats
             })
             
             self.scan_logger.end_scan('completed', total_duration)
             
-            # 8. Podsumowanie
+            # 9. Podsumowanie
             print("\n" + "="*60)
             print("📊 PODSUMOWANIE SCANU")
             print("="*60)
