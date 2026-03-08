@@ -365,9 +365,8 @@ function createMarkerGroup(baseCoords, address, offers, priceRange, isActive) {
     // Pobierz kolor z zakresu cenowego
     const color = mapData.price_ranges[priceRange]?.color || '#808080';
     
-    // Oblicz offset bazowy - większy gdy więcej ofert
-    // ~15-20 metrów między markerami (0.00015 stopnia ≈ 15m)
-    const baseOffset = 0.00018;
+    // Oblicz offset bazowy - ~10 metrów między markerami (0.0001 stopnia ≈ 10m)
+    const baseOffset = 0.0001;
     
     offers.forEach((offer, index) => {
         // Sprawdź czy oferta jest oznaczona jako uszkodzona
