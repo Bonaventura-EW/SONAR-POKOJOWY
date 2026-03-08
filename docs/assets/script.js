@@ -341,7 +341,6 @@ function createMarkers() {
         const coords = marker.coords;
         const address = marker.address;
         const offers = marker.offers;
-        const priceRange = marker.price_range;
         const hasActive = marker.has_active;
         
         // Grupuj oferty: aktywne osobno, nieaktywne osobno
@@ -350,24 +349,24 @@ function createMarkers() {
         
         // Twórz marker dla aktywnych (jeśli są)
         if (activeOffers.length > 0) {
-            createMarkerGroup(coords, address, activeOffers, priceRange, true);
+            createMarkerGroup(coords, address, activeOffers, true);
         }
         
         // Twórz marker dla nieaktywnych (jeśli są)
         if (inactiveOffers.length > 0) {
-            createMarkerGroup(coords, address, inactiveOffers, priceRange, false);
+            createMarkerGroup(coords, address, inactiveOffers, false);
         }
     });
 }
 
 // Tworzenie grupy markerów (rozsunięcie dla tego samego adresu)
-function createMarkerGroup(baseCoords, address, offers, markerPriceRange, isActive) {
+function createMarkerGroup(baseCoords, address, offers, isActive) {
     // Oblicz offset bazowy - ~10 metrów między markerami (0.0001 stopnia ≈ 10m)
     const baseOffset = 0.0001;
     
     offers.forEach((offer, index) => {
-        // ✅ Pobierz kolor z zakresu cenowego OFERTY (nie markera)
-        const offerPriceRange = offer.price_range || markerPriceRange;
+        // Pobierz kolor z zakresu cenowego oferty
+        const offerPriceRange = offer.price_range;
         const color = mapData.price_ranges[offerPriceRange]?.color || '#808080';
         
         // Sprawdź czy oferta jest oznaczona jako uszkodzona

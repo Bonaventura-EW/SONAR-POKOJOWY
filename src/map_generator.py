@@ -201,23 +201,13 @@ def generate_map_data(input_file, output_file):
         # Zbierz wszystkie oferty dla tego adresu
         offers_list = [item['offer'] for item in items]
         
-        # Oblicz cenę średnią dla aktywnych ofert
-        active_offers = [o for o in offers_list if o['active']]
-        if active_offers:
-            avg_price = sum(o['price'] for o in active_offers) / len(active_offers)
-            price_range = get_price_range(avg_price)
-            has_active = True
-        else:
-            # Jeśli brak aktywnych, użyj pierwszej nieaktywnej
-            avg_price = offers_list[0]['price']
-            price_range = get_price_range(avg_price)
-            has_active = False
+        # Sprawdź czy są aktywne oferty
+        has_active = any(o['active'] for o in offers_list)
         
         markers.append({
             'coords': coords,
             'address': address,
             'offers': offers_list,
-            'price_range': price_range,
             'has_active': has_active
         })
     
