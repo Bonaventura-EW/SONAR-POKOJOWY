@@ -159,10 +159,15 @@ def generate_map_data(input_file, output_file):
                 print(f"⚠️  Błąd parsowania first_seen dla {offer.get('id')}: {e}")
                 is_new = False
         
+        # Pobierz cenę i oblicz price_range dla tej konkretnej oferty
+        current_price = price_data.get('current', 0)
+        offer_price_range = get_price_range(current_price)
+        
         offer_data = {
             'id': offer.get('id'),
             'url': offer.get('url'),
-            'price': price_data.get('current', 0),
+            'price': current_price,
+            'price_range': offer_price_range,  # ✅ Zakres cenowy dla tej konkretnej oferty
             'price_history': price_data.get('history', []),  # Historia cen
             'previous_price': price_data.get('previous_price'),  # Poprzednia cena (jeśli się zmieniła)
             'price_trend': price_data.get('price_trend'),  # 'up' lub 'down'
