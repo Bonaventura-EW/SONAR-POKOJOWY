@@ -129,6 +129,55 @@
                         </label>
                     </div>
                     
+                    <!-- WARSTWY UCZELNI -->
+                    <div class="filter-group" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border: 1px solid #90caf9;">
+                        <h3 onclick="toggleUniSection()" style="cursor: pointer; user-select: none; color: #1565c0;">
+                            🎓 Warstwy uczelni <span id="uni-toggle-icon" style="float: right;">▶</span>
+                        </h3>
+                        <div id="uni-list" style="display: none;">
+                            <label>
+                                <input type="checkbox" id="layer-uni-kul" onchange="toggleUniversityLayer('kul')">
+                                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#1e88e5;margin-right:4px;"></span>
+                                <strong>KUL</strong> <span style="color:#888">(5)</span>
+                            </label>
+                            <label>
+                                <input type="checkbox" id="layer-uni-umcs" onchange="toggleUniversityLayer('umcs')">
+                                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#43a047;margin-right:4px;"></span>
+                                <strong>UMCS</strong> <span style="color:#888">(12)</span>
+                            </label>
+                            <label>
+                                <input type="checkbox" id="layer-uni-politechnika" onchange="toggleUniversityLayer('politechnika')">
+                                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ff5722;margin-right:4px;"></span>
+                                <strong>Politechnika</strong> <span style="color:#888">(7)</span>
+                            </label>
+                            <label>
+                                <input type="checkbox" id="layer-uni-wspa" onchange="toggleUniversityLayer('wspa')">
+                                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#9c27b0;margin-right:4px;"></span>
+                                <strong>WSPA</strong> <span style="color:#888">(1)</span>
+                            </label>
+                            <label>
+                                <input type="checkbox" id="layer-uni-up" onchange="toggleUniversityLayer('up')">
+                                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#009688;margin-right:4px;"></span>
+                                <strong>UP</strong> <span style="color:#888">(8)</span>
+                            </label>
+                            <label>
+                                <input type="checkbox" id="layer-uni-umed" onchange="toggleUniversityLayer('umed')">
+                                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#e91e63;margin-right:4px;"></span>
+                                <strong>UM</strong> <span style="color:#888">(8)</span>
+                            </label>
+                            <label>
+                                <input type="checkbox" id="layer-uni-awp" onchange="toggleUniversityLayer('awp')">
+                                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ff9800;margin-right:4px;"></span>
+                                <strong>AWP</strong> <span style="color:#888">(1)</span>
+                            </label>
+                            <label>
+                                <input type="checkbox" id="layer-uni-ansim" onchange="toggleUniversityLayer('ansim')">
+                                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#795548;margin-right:4px;"></span>
+                                <strong>ANSiM</strong> <span style="color:#888">(1)</span>
+                            </label>
+                        </div>
+                    </div>
+                    
                     <!-- Legenda oznaczeń -->
                     <div class="filter-group">
                         <h3>📌 Legenda pinezek</h3>

@@ -10,6 +10,110 @@ let markerLayers = {
     damaged: L.layerGroup()  // Warstwa dla ogłoszeń oznaczonych jako uszkodzone
 };
 
+// Warstwy uczelni
+let universityLayers = {};
+const universities = {
+    kul: {
+        name: "KUL",
+        fullName: "Katolicki Uniwersytet Lubelski",
+        color: "#1e88e5",
+        locations: [
+            { name: "Kampus Główny", lat: 51.2475, lng: 22.5450, radius: 120 },
+            { name: "Konstantynów (Medyczny)", lat: 51.2382, lng: 22.5014, radius: 140 },
+            { name: "Biblioteka", lat: 51.2438, lng: 22.5538, radius: 70 },
+            { name: "Collegium Iuridicum", lat: 51.2494, lng: 22.5543, radius: 60 },
+            { name: "Akademik Idzi", lat: 51.2505, lng: 22.5605, radius: 50 }
+        ]
+    },
+    umcs: {
+        name: "UMCS",
+        fullName: "Uniwersytet Marii Curie-Skłodowskiej",
+        color: "#43a047",
+        locations: [
+            { name: "Rektorat", lat: 51.2455, lng: 22.5409, radius: 100 },
+            { name: "Biblioteka Główna", lat: 51.2464, lng: 22.5411, radius: 70 },
+            { name: "Wydz. Ekonomiczny", lat: 51.2456, lng: 22.5408, radius: 80 },
+            { name: "Wydz. Prawa", lat: 51.2454, lng: 22.5408, radius: 80 },
+            { name: "Wydz. Mat-Fiz-Inf", lat: 51.2458, lng: 22.5422, radius: 90 },
+            { name: "Wydz. Chemii", lat: 51.2447, lng: 22.5424, radius: 80 },
+            { name: "Wydz. Filozofii", lat: 51.2452, lng: 22.5412, radius: 70 },
+            { name: "Wydz. Pedagogiki", lat: 51.2466, lng: 22.5259, radius: 80 },
+            { name: "Wydz. Artystyczny", lat: 51.2480, lng: 22.5222, radius: 70 },
+            { name: "Wydz. Politologii", lat: 51.2470, lng: 22.5243, radius: 80 },
+            { name: "Wydz. Nauk o Ziemi", lat: 51.2478, lng: 22.5235, radius: 70 },
+            { name: "Miasteczko Akad.", lat: 51.2466, lng: 22.5336, radius: 150 }
+        ]
+    },
+    politechnika: {
+        name: "Politechnika",
+        fullName: "Politechnika Lubelska",
+        color: "#ff5722",
+        locations: [
+            { name: "Wydz. Budownictwa", lat: 51.2354, lng: 22.5480, radius: 80 },
+            { name: "Wydz. Zarządzania", lat: 51.2347, lng: 22.5484, radius: 70 },
+            { name: "Wydz. Mechaniczny", lat: 51.2369, lng: 22.5501, radius: 90 },
+            { name: "Wydz. Elektrotechniki", lat: 51.2368, lng: 22.5488, radius: 80 },
+            { name: "Wydz. Inż. Środowiska", lat: 51.2346, lng: 22.5478, radius: 70 },
+            { name: "Wydz. Matematyki", lat: 51.2350, lng: 22.5489, radius: 60 },
+            { name: "Centrum Innowacji", lat: 51.2362, lng: 22.5512, radius: 70 }
+        ]
+    },
+    wspa: {
+        name: "WSPA",
+        fullName: "Wyższa Szkoła Przedsiębiorczości i Administracji",
+        color: "#9c27b0",
+        locations: [
+            { name: "Kampus WSPA", lat: 51.2701, lng: 22.5695, radius: 100 }
+        ]
+    },
+    up: {
+        name: "UP",
+        fullName: "Uniwersytet Przyrodniczy",
+        color: "#009688",
+        locations: [
+            { name: "Rektorat", lat: 51.2437, lng: 22.5401, radius: 90 },
+            { name: "Biblioteka Główna", lat: 51.2435, lng: 22.5414, radius: 60 },
+            { name: "Wydz. Weterynarii", lat: 51.2444, lng: 22.5435, radius: 80 },
+            { name: "Klinika Weteryn.", lat: 51.2414, lng: 22.5424, radius: 90 },
+            { name: "Centrum Innowacji", lat: 51.2408, lng: 22.5450, radius: 70 },
+            { name: "Wydz. Inż. Produkcji", lat: 51.2438, lng: 22.5404, radius: 70 },
+            { name: "Wydz. Żywności", lat: 51.2493, lng: 22.5110, radius: 90 },
+            { name: "Felin (Doświadcz.)", lat: 51.2271, lng: 22.6350, radius: 150 }
+        ]
+    },
+    umed: {
+        name: "UM",
+        fullName: "Uniwersytet Medyczny",
+        color: "#e91e63",
+        locations: [
+            { name: "Rektorat", lat: 51.2482, lng: 22.5488, radius: 80 },
+            { name: "Collegium Medicum", lat: 51.2496, lng: 22.5594, radius: 70 },
+            { name: "Collegium Maximum", lat: 51.2487, lng: 22.5620, radius: 60 },
+            { name: "Szpital SPSK1", lat: 51.2507, lng: 22.5626, radius: 100 },
+            { name: "Collegium Universum", lat: 51.2593, lng: 22.5681, radius: 90 },
+            { name: "Centrum Symulacji", lat: 51.2611, lng: 22.5642, radius: 70 },
+            { name: "Pharmaceuticum", lat: 51.2618, lng: 22.5636, radius: 60 },
+            { name: "Szpital Dziecięcy", lat: 51.2605, lng: 22.5607, radius: 100 }
+        ]
+    },
+    awp: {
+        name: "AWP",
+        fullName: "Akademia Wincentego Pola",
+        color: "#ff9800",
+        locations: [
+            { name: "Kampus AWP", lat: 51.2700, lng: 22.5572, radius: 100 }
+        ]
+    },
+    ansim: {
+        name: "ANSiM",
+        fullName: "Akademia Nauk Społecznych i Medycznych",
+        color: "#795548",
+        locations: [
+            { name: "Kampus ANSiM", lat: 51.2403, lng: 22.5700, radius: 90 }
+        ]
+    }
+};
+
 // LocalStorage dla ogłoszeń oznaczonych jako uszkodzone
 const DAMAGED_KEY = 'sonar_damaged_listings';
 
@@ -54,6 +158,9 @@ function initMap() {
     markerLayers.active.addTo(map);
     markerLayers.inactive.addTo(map);
     // markerLayers.damaged NIE dodajemy - będzie domyślnie ukryta
+    
+    // Tworzenie warstw uczelni
+    createUniversityLayers();
 }
 
 // Wczytanie danych
@@ -711,5 +818,77 @@ function toggleDamagedLayer() {
         // Usuń warstwę z mapy
         map.removeLayer(markerLayers.damaged);
         console.log('⚠️ Warstwa "Uszkodzone" wyłączona');
+    }
+}
+
+// ========== WARSTWY UCZELNI ==========
+
+// Tworzenie warstw uczelni
+function createUniversityLayers() {
+    Object.entries(universities).forEach(([key, uni]) => {
+        const layerGroup = L.layerGroup();
+        
+        uni.locations.forEach(loc => {
+            // Okrąg
+            const circle = L.circle([loc.lat, loc.lng], {
+                radius: loc.radius,
+                color: uni.color,
+                weight: 2,
+                fillColor: uni.color,
+                fillOpacity: 0.4
+            });
+            
+            circle.bindPopup(`
+                <div style="text-align: center; min-width: 150px;">
+                    <strong style="color: ${uni.color}; font-size: 14px;">${uni.name}</strong><br>
+                    <span style="font-size: 12px;">${loc.name}</span><br>
+                    <span style="font-size: 10px; color: #888;">${uni.fullName}</span><br>
+                    <span style="font-size: 10px; color: #666;">Promień: ${loc.radius}m</span>
+                </div>
+            `);
+            
+            layerGroup.addLayer(circle);
+            
+            // Etykieta
+            const label = L.marker([loc.lat, loc.lng], {
+                icon: L.divIcon({
+                    className: 'uni-label',
+                    html: `<span style="color: ${uni.color};">${loc.name}</span>`,
+                    iconSize: [90, 14],
+                    iconAnchor: [45, 7]
+                })
+            });
+            layerGroup.addLayer(label);
+        });
+        
+        // Domyślnie warstwy uczelni są WYŁĄCZONE
+        universityLayers[key] = layerGroup;
+    });
+    
+    console.log('🎓 Warstwy uczelni utworzone');
+}
+
+// Przełączanie warstwy uczelni
+function toggleUniversityLayer(key) {
+    const checkbox = document.getElementById(`layer-uni-${key}`);
+    if (!checkbox) return;
+    
+    if (checkbox.checked) {
+        universityLayers[key].addTo(map);
+    } else {
+        map.removeLayer(universityLayers[key]);
+    }
+}
+
+// Zwijanie/rozwijanie sekcji uczelni
+function toggleUniSection() {
+    const list = document.getElementById('uni-list');
+    const icon = document.getElementById('uni-toggle-icon');
+    if (list.style.display === 'none') {
+        list.style.display = 'block';
+        icon.textContent = '▼';
+    } else {
+        list.style.display = 'none';
+        icon.textContent = '▶';
     }
 }
