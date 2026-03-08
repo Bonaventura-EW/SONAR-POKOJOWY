@@ -66,6 +66,33 @@ class AddressParser:
         if re.search(r'\d+\s*metr[oó]w\s+(od|do)', text, re.IGNORECASE):
             return None
         
+        # FILTR 2: Wykryj fałszywe adresy typu "NAZWA 10 minut" / "NAZWA 5 min"
+        # Przykład: "UMCS 10 minut pieszo" - to NIE jest adres "UMCS 10"
+        false_address_pattern = re.compile(
+            r'\b([A-ZŚĆŁĄĘÓŻŹŃ][A-Za-zśćłąęóżźń]*)\s+(\d+)\s*(minut|min\.?|minuty?|sekund|sek\.?|godzin|godz\.?|metr[oó]w|km|m\b)',
+            re.IGNORECASE | re.UNICODE
+        )
+        # Zapamiętaj fałszywe "adresy" do późniejszego odrzucenia
+        false_addresses = set()
+        for match in false_address_pattern.finditer(text):
+            false_addr = f"{match.group(1)} {match.group(2)}"
+            false_addresses.add(false_addr.lower())
+        
+        # Słowa które NIGDY nie mogą być nazwą ulicy (instytucje, uczelnie, itp.)
+        # Te słowa + numer to prawie zawsze "X minut od", "X metrów od"
+        non_street_names = {
+            'umcs', 'kul', 'politechnika', 'up', 'uniwersytet', 'szkoła', 'szpital',
+            'galeria', 'centrum', 'rondo', 'przystanek', 'dworzec', 'stacja',
+            'sklep', 'biedronka', 'lidl', 'żabka', 'rossmann', 'leclerc', 'auchan', 'kaufland',
+            'park', 'las', 'jezioro', 'rzeka', 'plaża', 'stadion', 'hala', 'basen',
+            'lsm', 'czuby', 'kalinowszczyzna', 'tatary', 'bronowice', 'wieniawa',
+            # Dodatkowe
+            'carrefour', 'tesco', 'empik', 'media', 'saturn', 'decathlon',
+            'poczta', 'urząd', 'sąd', 'kościół', 'cerkiew', 'meczet', 'synagoga',
+            'apteka', 'bank', 'hotel', 'restauracja', 'kawiarnia', 'pub', 'klub',
+            'kino', 'teatr', 'muzeum', 'biblioteka', 'szpital', 'klinika', 'przychodnia'
+        }
+        
         # SPECJALNY PRZYPADEK: znane ulice w Lublinie które mogą zaczynać się małą literą lub nie pasować do wzorca
         # WYMAGA NUMERU! (usunięto fallback bez numeru)
         lowercase_streets = ['zimowa', 'wiosenna', 'letnia', 'jesienna']
@@ -109,7 +136,16 @@ class AddressParser:
             # KRYTYCZNE: pseudo-ulice wyciągnięte z opisów (rachunki, pokoje, itp.)
             'rachunki', 'pokoje', 'około', 'dostępny', 'dostępna', 'dostępne',
             'wynajmę', 'wynajem', 'located', 'gyms', 'available', 'meters',
-            'numer', 'kontaktowy', 'telefon', 'kontakt', 'number'
+            'numer', 'kontaktowy', 'telefon', 'kontakt', 'number',
+            # KRYTYCZNE: Instytucje, sklepy, uczelnie - NIE są ulicami!
+            'umcs', 'kul', 'politechnika', 'up', 'uniwersytet', 'szkoła', 'szpital',
+            'galeria', 'rondo', 'przystanek', 'dworzec', 'stacja',
+            'sklep', 'biedronka', 'lidl', 'żabka', 'rossmann', 'leclerc', 'auchan', 'kaufland',
+            'park', 'las', 'jezioro', 'rzeka', 'plaża', 'stadion', 'hala', 'basen', 'lsm',
+            'carrefour', 'tesco', 'empik', 'media', 'saturn', 'decathlon',
+            'poczta', 'urząd', 'sąd', 'kościół', 'cerkiew', 'meczet', 'synagoga',
+            'apteka', 'bank', 'hotel', 'restauracja', 'kawiarnia', 'pub', 'klub',
+            'kino', 'teatr', 'muzeum', 'biblioteka', 'klinika', 'przychodnia'
         }
         
         # Szukamy WSZYSTKICH dopasowań (prefiks + ulica + numer)
@@ -122,6 +158,17 @@ class AddressParser:
             
             # Sprawdź minimum 4 litery w nazwie ulicy (żeby wykluczyć "dla", "bez" etc)
             if len(street.replace(' ', '')) < 4:
+                continue
+            
+            # NOWY FILTR: Sprawdź czy to nie jest fałszywy adres (np. "UMCS 10" z "UMCS 10 minut")
+            potential_addr = f"{street} {number.split('/')[0].split()[0]}"
+            if potential_addr.lower() in false_addresses:
+                print(f"      ⚠️ Odrzucono fałszywy adres: {potential_addr} (wykryto 'X minut/metrów')")
+                continue
+            
+            # NOWY FILTR: Sprawdź czy nazwa ulicy to nie instytucja/miejsce (nie ulica)
+            if street.lower() in non_street_names:
+                print(f"      ⚠️ Odrzucono: '{street}' to nie jest nazwa ulicy")
                 continue
             
             # Sprawdź czy którekolwiek słowo w nazwie ulicy NIE jest słowem wykluczonym
@@ -250,15 +297,24 @@ if __name__ == "__main__":
     test_cases = [
         ("Narutowicza 5", "Narutowicza 5"),  # Bez 'przy' - powinno działać
         ("ul. Rynek 8, centrum", "Rynek 8"),
-        ("al. Andersa 13 lok. 5", "Andersa 13 lok. 5"),
+        ("al. Andersa 13 lok. 5", "Aleja Andersa 13 lok. 5"),  # Prefiks zachowany
         ("Aleje Racławickie 12/2", "Aleje Racławickie 12/2"),
-        ("Os. Przyjaźni 23", "Przyjaźni 23"),
+        ("Os. Przyjaźni 23", "Osiedle Przyjaźni 23"),  # Prefiks zachowany
         ("Langiewicza 3A", "Langiewicza 3A"),  # Z literą
-        ("zimowa 10", "zimowa 10"),  # Mała litera
+        ("zimowa 10", "Zimowa 10"),  # Kapitalizacja
         ("Czechów okolice", None),  # brak numeru
         ("Przy rondzie Chatki Żaka", None),  # brak numeru
         ("5 minut od centrum", None),  # nie adres
         ("100 metrów od UMCS", None),  # metrów od
+        # NOWE: Fałszywe adresy typu "X minut od"
+        ("UMCS 10 minut pieszo", None),  # UMCS to nie ulica!
+        ("Biedronka 5 min stąd", None),  # Biedronka to nie ulica!
+        ("KUL 15 minut autobusem", None),  # KUL to nie ulica!
+        ("Politechnika 3 min pieszo", None),  # Politechnika to nie ulica!
+        ("LSM 10 minut od centrum", None),  # LSM to dzielnica, nie ulica!
+        ("Galeria 5 minut stąd", None),  # Galeria to nie ulica!
+        # Prawdziwe adresy powinny nadal działać
+        ("ul. Lipowa 10, blisko UMCS", "Lipowa 10"),  # Prawdziwy adres
     ]
     
     print("🧪 Testy Address Parser:\n")
