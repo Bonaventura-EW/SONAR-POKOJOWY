@@ -214,6 +214,245 @@
             color: white;
         }
         
+        /* Lifespan section styles */
+        .stat-box.fast { border-left-color: #10b981; }
+        .stat-box.medium { border-left-color: #f59e0b; }
+        .stat-box.slow { border-left-color: #ef4444; }
+        .stat-box.reactivated { border-left-color: #8b5cf6; }
+        
+        .section-description {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        
+        .filters-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            align-items: flex-start;
+        }
+        
+        .filters-row .filter-group {
+            flex: 1;
+            min-width: 200px;
+            margin-bottom: 0;
+        }
+        
+        /* Price inputs */
+        .price-filter-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .price-input-group {
+            display: flex;
+            align-items: center;
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 6px 12px;
+            transition: border-color 0.2s;
+        }
+        
+        .price-input-group:focus-within {
+            border-color: #667eea;
+        }
+        
+        .price-input-group.small {
+            padding: 4px 8px;
+        }
+        
+        .price-input-group.small .price-input {
+            width: 60px;
+            font-size: 14px;
+        }
+        
+        .price-label {
+            font-size: 13px;
+            color: #666;
+            margin-right: 8px;
+        }
+        
+        .price-input {
+            width: 70px;
+            border: none;
+            outline: none;
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            background: transparent;
+        }
+        
+        .price-input::placeholder {
+            color: #999;
+            font-weight: 400;
+        }
+        
+        .price-input::-webkit-outer-spin-button,
+        .price-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        
+        .price-unit {
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .price-separator {
+            color: #666;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .price-max-buttons {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        
+        .price-btn {
+            padding: 8px 14px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .price-btn:hover {
+            background: #f0f2ff;
+        }
+        
+        .price-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .offer-types-legend {
+            display: flex;
+            gap: 24px;
+            padding: 16px;
+            background: #f0f2ff;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .legend-dot.clean { background: #667eea; }
+        .legend-dot.reactivated { background: #8b5cf6; }
+        
+        .legend-text {
+            font-size: 13px;
+            color: #333;
+        }
+        
+        .median-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            padding: 20px;
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-radius: 8px;
+            margin-bottom: 24px;
+        }
+        
+        .median-indicator .big-number {
+            font-size: 48px;
+            font-weight: 800;
+            color: #92400e;
+        }
+        
+        .median-indicator .median-label {
+            font-size: 14px;
+            color: #78350f;
+            font-weight: 600;
+        }
+        
+        .median-indicator .median-subtext {
+            font-size: 12px;
+            color: #92400e;
+        }
+        
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+        
+        @media (max-width: 900px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .chart-container {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        
+        .chart-container h3 {
+            font-size: 16px;
+            color: #333;
+            margin-bottom: 16px;
+        }
+        
+        .interpretation {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #0ea5e9;
+        }
+        
+        .interpretation h4 {
+            color: #0369a1;
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+        
+        .interpretation ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .interpretation li {
+            padding: 8px 0;
+            color: #333;
+            font-size: 14px;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        
+        .interpretation li::before {
+            content: "💡";
+            flex-shrink: 0;
+        }
+        
         .chart-wrapper {
             position: relative;
             height: 300px;
@@ -458,33 +697,140 @@
             <div id="priceChangesContent"></div>
         </div>
         
-        <!-- 2.1 CZAS ŻYCIA OFERT -->
+        <!-- 2.1 CZAS ŻYCIA OFERT - ROZBUDOWANA ANALIZA -->
         <div class="section">
-            <h2>⏱️ Czas Życia Ofert</h2>
+            <h2>⏱️ Czas Życia Ogłoszeń</h2>
+            <p class="section-description">
+                Jak szybko pokoje są wynajmowane? Ta analiza pokazuje rozkład czasu "życia" ogłoszeń - 
+                od momentu pierwszego wykrycia przez SONAR do dnia, gdy oferta stała się nieaktywna.
+            </p>
             
-            <div class="stats-grid">
-                <div class="stat-box">
-                    <div class="label">Aktywne oferty</div>
-                    <div class="value" id="survivalActive">-</div>
-                </div>
-                <div class="stat-box">
-                    <div class="label">Nieaktywne</div>
-                    <div class="value" id="survivalInactive">-</div>
-                </div>
-                <div class="stat-box">
-                    <div class="label">Średni czas na rynku</div>
-                    <div class="value" id="survivalAvg">-</div>
-                    <div class="subtext">dni</div>
-                </div>
-                <div class="stat-box">
-                    <div class="label">Wskaźnik przetrwania</div>
-                    <div class="value" id="survivalRate">-</div>
-                    <div class="subtext">% aktywnych</div>
+            <!-- Filtry dla tej sekcji -->
+            <div class="filters">
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label>📅 Zakres dat pierwszego wykrycia</label>
+                        <span class="slider-value" id="lifespanDaysValue">90 dni</span>
+                        <div class="slider-container">
+                            <input type="range" class="slider" id="lifespanDaysSlider" min="7" max="180" value="90">
+                        </div>
+                        <div class="slider-labels">
+                            <span>7 dni</span>
+                            <span>180 dni</span>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label>💰 Przedział cenowy</label>
+                        <div class="price-filter-row">
+                            <div class="price-input-group">
+                                <span class="price-label">od</span>
+                                <input type="number" id="lifespanPriceMin" class="price-input" value="0" min="0" max="10000" step="50">
+                                <span class="price-unit">zł</span>
+                            </div>
+                            <span class="price-separator">do</span>
+                            <div class="price-max-buttons">
+                                <button class="price-btn" data-lifespan-max="600">600</button>
+                                <button class="price-btn" data-lifespan-max="700">700</button>
+                                <button class="price-btn" data-lifespan-max="800">800</button>
+                                <button class="price-btn" data-lifespan-max="900">900</button>
+                                <button class="price-btn active" data-lifespan-max="1000">1000</button>
+                                <div class="price-input-group small">
+                                    <input type="number" id="lifespanPriceMaxCustom" class="price-input" placeholder="wpisz" min="0" max="10000" step="50">
+                                    <span class="price-unit">zł</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label>🔄 Typ ofert</label>
+                        <div class="toggle-buttons">
+                            <button class="toggle-btn active" data-lifespan-type="all">Wszystkie</button>
+                            <button class="toggle-btn" data-lifespan-type="clean">Czyste</button>
+                            <button class="toggle-btn" data-lifespan-type="reactivated">Reaktywowane</button>
+                        </div>
+                    </div>
                 </div>
             </div>
             
-            <div class="chart-wrapper">
-                <canvas id="survivalChart"></canvas>
+            <!-- Legenda -->
+            <div class="offer-types-legend">
+                <div class="legend-item">
+                    <div class="legend-dot clean"></div>
+                    <span class="legend-text"><strong>Czyste oferty:</strong> wynajęte raz, bez powrotów na rynek</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot reactivated"></div>
+                    <span class="legend-text"><strong>Reaktywowane:</strong> wróciły na rynek po dezaktywacji</span>
+                </div>
+            </div>
+            
+            <!-- Główna statystyka - mediana -->
+            <div class="median-indicator">
+                <div>
+                    <div class="big-number" id="lifespanMedian">-</div>
+                </div>
+                <div>
+                    <div class="median-label">MEDIANA CZASU ŻYCIA</div>
+                    <div class="median-subtext">50% ofert znika z rynku w ciągu <span id="lifespanMedianText">-</span> dni</div>
+                </div>
+            </div>
+            
+            <!-- Statystyki -->
+            <div class="stats-grid">
+                <div class="stat-box fast">
+                    <div class="label">Błyskawiczne (0-3 dni)</div>
+                    <div class="value" id="lifespanFast">-</div>
+                    <div class="subtext" id="lifespanFastPct">-</div>
+                </div>
+                <div class="stat-box medium">
+                    <div class="label">Szybkie (4-7 dni)</div>
+                    <div class="value" id="lifespanMedium">-</div>
+                    <div class="subtext" id="lifespanMediumPct">-</div>
+                </div>
+                <div class="stat-box slow">
+                    <div class="label">Wolne (8-14 dni)</div>
+                    <div class="value" id="lifespanSlow">-</div>
+                    <div class="subtext" id="lifespanSlowPct">-</div>
+                </div>
+                <div class="stat-box">
+                    <div class="label">Długie (15+ dni)</div>
+                    <div class="value" id="lifespanLong">-</div>
+                    <div class="subtext" id="lifespanLongPct">-</div>
+                </div>
+                <div class="stat-box reactivated">
+                    <div class="label">Reaktywowane</div>
+                    <div class="value" id="lifespanReactivated">-</div>
+                    <div class="subtext">wróciły na rynek</div>
+                </div>
+            </div>
+            
+            <!-- Wykresy -->
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <h3>📊 Histogram rozkładu czasu życia</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="lifespanHistogramChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <h3>📉 Krzywa przeżycia (Kaplan-Meier)</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="lifespanSurvivalChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Interpretacja -->
+            <div class="interpretation">
+                <h4>🎯 Co to oznacza dla szukających?</h4>
+                <ul>
+                    <li><strong>Rynek jest bardzo dynamiczny</strong> - większość pokoi znika w ciągu pierwszych dni</li>
+                    <li><strong>Działaj szybko</strong> - jeśli widzisz interesującą ofertę, kontaktuj się od razu</li>
+                    <li><strong>Reaktywowane oferty</strong> mogą oznaczać problemy lub anulowaną rezerwację</li>
+                    <li><strong>Oferty powyżej 7 dni</strong> mogą być zawyżone cenowo - warto negocjować</li>
+                </ul>
             </div>
         </div>
         
@@ -533,6 +879,14 @@
         let allData = null;
         let currentFilter = 'all';
         let currentDays = 7;
+        
+        // Zmienne dla sekcji Lifespan
+        let lifespanDays = 90;
+        let lifespanPriceMin = 0;
+        let lifespanPriceMax = 1000;
+        let lifespanType = 'all';
+        let lifespanHistogramChart = null;
+        let lifespanSurvivalChart = null;
         
         async function loadData() {
             try {
@@ -665,6 +1019,21 @@
                         velocity: Math.min(100, Math.round((totalNew + totalRemoved) / 2))
                     },
                     daily: last7Days
+                },
+                // Dane dla sekcji Lifespan
+                lifespan: {
+                    offers: inactive.map(o => {
+                        const firstSeen = parseDateString(o.first_seen);
+                        const lastSeen = parseDateString(o.last_seen);
+                        const days = Math.max(0, Math.floor((lastSeen - firstSeen) / (1000 * 60 * 60 * 24)));
+                        return {
+                            days,
+                            price: o.price || 0,
+                            reactivated: o.reactivated || false,  // Użyj pola z backendu
+                            firstSeen,
+                            address: o.address_full || 'Brak adresu'
+                        };
+                    })
                 }
             };
         }
@@ -696,48 +1065,211 @@
         function renderAll() {
             if (!allData) return;
             
-            renderSurvival();
+            renderLifespan();
             renderPriceChanges();
             renderRotation();
         }
         
-        // 2.1 SURVIVAL
-        function renderSurvival() {
-            const data = allData.survival;
+        // 2.1 LIFESPAN - Czas życia ogłoszeń
+        function filterLifespanOffers(offers) {
+            const now = new Date();
+            return offers.filter(o => {
+                // Filtr czasowy - oferty z ostatnich X dni
+                const daysAgo = Math.floor((now - o.firstSeen) / (1000 * 60 * 60 * 24));
+                if (daysAgo > lifespanDays) return false;
+                
+                // Filtr cenowy
+                if (o.price < lifespanPriceMin || o.price > lifespanPriceMax) return false;
+                
+                // Filtr typu
+                if (lifespanType === 'clean' && o.reactivated) return false;
+                if (lifespanType === 'reactivated' && !o.reactivated) return false;
+                
+                return true;
+            });
+        }
+        
+        function renderLifespan() {
+            const offers = allData.lifespan.offers;
+            const filtered = filterLifespanOffers(offers);
             
-            document.getElementById('survivalActive').textContent = data.active;
-            document.getElementById('survivalInactive').textContent = data.inactive;
-            document.getElementById('survivalAvg').textContent = data.avgDays;
+            // Oblicz statystyki
+            const fast = filtered.filter(o => o.days <= 3).length;
+            const medium = filtered.filter(o => o.days >= 4 && o.days <= 7).length;
+            const slow = filtered.filter(o => o.days >= 8 && o.days <= 14).length;
+            const long = filtered.filter(o => o.days > 14).length;
+            const reactivated = filtered.filter(o => o.reactivated).length;
+            const total = filtered.length || 1;
             
-            const total = data.active + data.inactive;
-            const survivalRate = ((data.active / total) * 100).toFixed(1);
-            document.getElementById('survivalRate').textContent = survivalRate + '%';
+            // Mediana
+            const sorted = [...filtered].sort((a, b) => a.days - b.days);
+            const median = sorted.length > 0 ? sorted[Math.floor(sorted.length / 2)].days : 0;
             
-            const ctx = document.getElementById('survivalChart').getContext('2d');
-            new Chart(ctx, {
+            // Aktualizuj UI
+            document.getElementById('lifespanMedian').textContent = median;
+            document.getElementById('lifespanMedianText').textContent = median;
+            
+            document.getElementById('lifespanFast').textContent = fast;
+            document.getElementById('lifespanFastPct').textContent = `${Math.round(fast / total * 100)}% ofert`;
+            
+            document.getElementById('lifespanMedium').textContent = medium;
+            document.getElementById('lifespanMediumPct').textContent = `${Math.round(medium / total * 100)}% ofert`;
+            
+            document.getElementById('lifespanSlow').textContent = slow;
+            document.getElementById('lifespanSlowPct').textContent = `${Math.round(slow / total * 100)}% ofert`;
+            
+            document.getElementById('lifespanLong').textContent = long;
+            document.getElementById('lifespanLongPct').textContent = `${Math.round(long / total * 100)}% ofert`;
+            
+            document.getElementById('lifespanReactivated').textContent = reactivated;
+            
+            // Rysuj wykresy
+            renderLifespanHistogram(filtered);
+            renderLifespanSurvivalCurve(filtered);
+        }
+        
+        function renderLifespanHistogram(filtered) {
+            const ctx = document.getElementById('lifespanHistogramChart').getContext('2d');
+            
+            const clean = filtered.filter(o => !o.reactivated);
+            const reactivated = filtered.filter(o => o.reactivated);
+            
+            const bins = ['0-1', '2-3', '4-5', '6-7', '8-10', '11-14', '15-21', '22+'];
+            const binRanges = [[0,1], [2,3], [4,5], [6,7], [8,10], [11,14], [15,21], [22, 999]];
+            
+            const cleanData = binRanges.map(([min, max]) => 
+                clean.filter(o => o.days >= min && o.days <= max).length
+            );
+            
+            const reactivatedData = binRanges.map(([min, max]) => 
+                reactivated.filter(o => o.days >= min && o.days <= max).length
+            );
+            
+            if (lifespanHistogramChart) lifespanHistogramChart.destroy();
+            
+            lifespanHistogramChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: ['0-6 dni', '7-13 dni', '14-20 dni', '21-27 dni', '28+ dni'],
-                    datasets: [{
-                        label: 'Liczba ofert',
-                        data: [data.distribution[0]?.count || 0, 0, 0, 0, 0],
-                        backgroundColor: '#667eea'
-                    }]
+                    labels: bins.map(b => b + ' dni'),
+                    datasets: [
+                        {
+                            label: 'Czyste oferty',
+                            data: cleanData,
+                            backgroundColor: '#667eea',
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Reaktywowane',
+                            data: reactivatedData,
+                            backgroundColor: '#8b5cf6',
+                            borderRadius: 4
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { display: false },
-                        title: {
-                            display: true,
-                            text: 'Rozkład czasu życia ofert'
+                        legend: { 
+                            display: lifespanType === 'all',
+                            position: 'top' 
                         }
                     },
                     scales: {
+                        x: {
+                            stacked: true,
+                            title: { display: true, text: 'Czas życia (dni)' }
+                        },
                         y: {
+                            stacked: true,
                             beginAtZero: true,
                             title: { display: true, text: 'Liczba ofert' }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function renderLifespanSurvivalCurve(filtered) {
+            const ctx = document.getElementById('lifespanSurvivalChart').getContext('2d');
+            
+            const maxDays = 30;
+            const clean = filtered.filter(o => !o.reactivated);
+            const reactivated = filtered.filter(o => o.reactivated);
+            
+            const cleanSurvival = [];
+            const reactivatedSurvival = [];
+            
+            for (let day = 0; day <= maxDays; day++) {
+                if (clean.length > 0) {
+                    const surviving = clean.filter(o => o.days > day).length;
+                    cleanSurvival.push({ x: day, y: Math.round((surviving / clean.length) * 100) });
+                }
+                if (reactivated.length > 0) {
+                    const surviving = reactivated.filter(o => o.days > day).length;
+                    reactivatedSurvival.push({ x: day, y: Math.round((surviving / reactivated.length) * 100) });
+                }
+            }
+            
+            if (lifespanSurvivalChart) lifespanSurvivalChart.destroy();
+            
+            const datasets = [];
+            
+            if (lifespanType === 'all' || lifespanType === 'clean') {
+                datasets.push({
+                    label: 'Czyste oferty',
+                    data: cleanSurvival,
+                    borderColor: '#667eea',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 0
+                });
+            }
+            
+            if ((lifespanType === 'all' || lifespanType === 'reactivated') && reactivatedSurvival.length > 0) {
+                datasets.push({
+                    label: 'Reaktywowane',
+                    data: reactivatedSurvival,
+                    borderColor: '#8b5cf6',
+                    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 0
+                });
+            }
+            
+            lifespanSurvivalChart = new Chart(ctx, {
+                type: 'line',
+                data: { datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { 
+                            display: lifespanType === 'all' && datasets.length > 1,
+                            position: 'top' 
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `${ctx.parsed.y}% ofert nadal aktywnych`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: { display: true, text: 'Dni od wykrycia' },
+                            min: 0,
+                            max: 30
+                        },
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: { display: true, text: '% ofert nadal aktywnych' },
+                            ticks: {
+                                callback: (v) => v + '%'
+                            }
                         }
                     }
                 }
@@ -879,6 +1411,52 @@
                 document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 renderPriceChanges();
+            });
+        });
+        
+        // === Event listenery dla sekcji Lifespan ===
+        
+        // Suwak dni
+        document.getElementById('lifespanDaysSlider').addEventListener('input', (e) => {
+            lifespanDays = parseInt(e.target.value);
+            document.getElementById('lifespanDaysValue').textContent = lifespanDays + ' dni';
+            renderLifespan();
+        });
+        
+        // Pole "od" ceny
+        document.getElementById('lifespanPriceMin').addEventListener('input', (e) => {
+            lifespanPriceMin = parseInt(e.target.value) || 0;
+            renderLifespan();
+        });
+        
+        // Przyciski "do" ceny
+        document.querySelectorAll('.price-btn[data-lifespan-max]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                lifespanPriceMax = parseInt(btn.dataset.lifespanMax);
+                document.querySelectorAll('.price-btn[data-lifespan-max]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById('lifespanPriceMaxCustom').value = '';
+                renderLifespan();
+            });
+        });
+        
+        // Pole własnej wartości "do" ceny
+        document.getElementById('lifespanPriceMaxCustom').addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            if (val > 0) {
+                lifespanPriceMax = val;
+                document.querySelectorAll('.price-btn[data-lifespan-max]').forEach(b => b.classList.remove('active'));
+                renderLifespan();
+            }
+        });
+        
+        // Przyciski typu ofert
+        document.querySelectorAll('[data-lifespan-type]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                lifespanType = btn.dataset.lifespanType;
+                document.querySelectorAll('[data-lifespan-type]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderLifespan();
             });
         });
         
