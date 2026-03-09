@@ -131,8 +131,10 @@ class AddressParser:
             'od', 'do', 'za', 'na', 'po', 'we', 'ze',
             # NOWE: słowa które parser myli z ulicami
             'stancja', 'mieszkaniu', 'mieszkanie', 'przechowywania', 'powierzchni',
-            'fajna', 'fajny', 'studentki', 'studenta', 'lokalu', 'budynku',
+            'fajna', 'fajny', 'studentki', 'studenta', 'lokalu', 'budynku', 'budynek',
             'pokoju', 'kuchni', 'salonu', 'łazienki', 'sypialni',
+            # KRYTYCZNE: pseudo-adresy (blok, wieżowiec, kamienica)
+            'blok', 'bloku', 'bloków', 'wieżowiec', 'wieżowca', 'kamienica', 'kamienicy',
             # KRYTYCZNE: pseudo-ulice wyciągnięte z opisów (rachunki, pokoje, itp.)
             'rachunki', 'pokoje', 'około', 'dostępny', 'dostępna', 'dostępne',
             'wynajmę', 'wynajem', 'located', 'gyms', 'available', 'meters',
