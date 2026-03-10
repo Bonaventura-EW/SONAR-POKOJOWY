@@ -206,6 +206,8 @@
                         <h3>📅 Pokaż oferty z ostatnich:</h3>
                         <select id="time-filter" class="time-filter-select">
                             <option value="all">Wszystkie</option>
+                            <option value="1">Dzisiaj</option>
+                            <option value="3">3 dni</option>
                             <option value="7">7 dni</option>
                             <option value="30" selected>30 dni</option>
                             <option value="90">90 dni</option>
@@ -235,7 +237,7 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
-    <!-- Custom JS (v7 - EXTREME compact: 200px width + minimal padding) -->
-    <script src="assets/script.js?v=7"></script>
+    <!-- Custom JS (v8 - FIX: poprawione parsowanie dat YYYY + dodano opcje "dzisiaj" i "3 dni") -->
+    <script src="assets/script.js?v=8"></script>
 </body>
 </html>

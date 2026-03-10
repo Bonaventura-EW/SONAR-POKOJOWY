@@ -238,7 +238,7 @@ function calculateFilteredStats() {
             const dateParts = parts[0].split('.');
             const timeParts = parts[1].split(':');
             const offerDate = new Date(
-                parseInt('20' + dateParts[2]), // year
+                parseInt(dateParts[2]),         // year (already full format YYYY)
                 parseInt(dateParts[1]) - 1,     // month (0-indexed)
                 parseInt(dateParts[0]),         // day
                 parseInt(timeParts[0]),         // hour
@@ -653,7 +653,7 @@ function filterMarkers() {
                     const dateParts = parts[0].split('.');
                     const timeParts = parts[1].split(':');
                     const offerDate = new Date(
-                        parseInt('20' + dateParts[2]), // year
+                        parseInt(dateParts[2]),         // year (already full format YYYY)
                         parseInt(dateParts[1]) - 1,     // month (0-indexed)
                         parseInt(dateParts[0]),         // day
                         parseInt(timeParts[0]),         // hour
