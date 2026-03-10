@@ -13,8 +13,8 @@ def generate_monitoring_data():
     """
     logger = ScanLogger(log_file="../data/scan_history.json")
     
-    # Pobierz ostatnie 50 skanów i statystyki
-    recent_scans = logger.get_recent_scans(count=50)
+    # Pobierz ostatnie 100 skanów (dla wykresów ~33 dni) i statystyki
+    recent_scans = logger.get_recent_scans(count=100)
     statistics = logger.get_statistics()
     
     # Przygotuj dane dla wykresów
@@ -60,7 +60,7 @@ def generate_monitoring_data():
     monitoring_data = {
         'generated_at': recent_scans[0]['timestamp'] if recent_scans else None,
         'statistics': statistics,
-        'recent_scans': recent_scans[:20],  # Ostatnie 20 dla tabeli
+        'recent_scans': recent_scans[:84],  # Ostatnie 28 dni (3 skany/dzień)
         'charts': chart_data
     }
     
