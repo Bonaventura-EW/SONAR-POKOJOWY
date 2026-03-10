@@ -608,7 +608,7 @@ class SonarPokojowy:
             print("📡 Krok 1: Scraping OLX...")
             scraping_start = time.time()
             
-            raw_offers = self.scraper.scrape_all_pages(max_pages=20)
+            raw_offers = self.scraper.scrape_all_pages(max_pages=50)
             
             scraping_duration = time.time() - scraping_start
             self.scan_logger.log_phase('scraping', scraping_duration, {
