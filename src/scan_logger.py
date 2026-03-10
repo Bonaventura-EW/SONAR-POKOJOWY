@@ -85,6 +85,11 @@ class ScanLogger:
         if total_duration:
             self.current_scan['total_duration'] = round(total_duration, 2)
         
+        # Oblicz metryki wydajności
+        performance_metrics = self._calculate_performance_metrics()
+        if performance_metrics:
+            self.current_scan['performance'] = performance_metrics
+        
         # Wczytaj istniejącą historię
         history = self._load_history()
         
@@ -99,6 +104,53 @@ class ScanLogger:
         
         # Reset
         self.current_scan = None
+    
+    def _calculate_performance_metrics(self) -> Dict:
+        """
+        Oblicza metryki wydajności na podstawie zebranych danych.
+        
+        Returns:
+            Dict z metrykami: offers_per_second, pages_scanned, geocoding_duration
+        """
+        if not self.current_scan:
+            return {}
+        
+        metrics = {}
+        phases = self.current_scan.get('phases', {})
+        stats = self.current_scan.get('stats', {})
+        
+        # 1. Oferty na sekundę (total)
+        total_duration = self.current_scan.get('total_duration', 0)
+        raw_offers = stats.get('raw_offers', 0)
+        
+        if total_duration > 0 and raw_offers > 0:
+            metrics['offers_per_second'] = round(raw_offers / total_duration, 2)
+        
+        # 2. Strony przeskanowane
+        scraping_phase = phases.get('scraping', {})
+        max_pages = scraping_phase.get('details', {}).get('max_pages', 0)
+        if max_pages > 0:
+            metrics['pages_scanned'] = max_pages
+        
+        # 3. Czas geokodowania
+        geocoding_phase = phases.get('geocoding', {})
+        if geocoding_phase:
+            metrics['geocoding_duration'] = geocoding_phase.get('duration', 0)
+            geocoded = geocoding_phase.get('details', {}).get('geocoded_addresses', 0)
+            if geocoded > 0 and metrics['geocoding_duration'] > 0:
+                metrics['geocoding_per_address'] = round(metrics['geocoding_duration'] / geocoded, 2)
+        
+        # 4. Czas scrapingu na stronę
+        scraping_duration = scraping_phase.get('duration', 0)
+        if scraping_duration > 0 and max_pages > 0:
+            metrics['scraping_per_page'] = round(scraping_duration / max_pages, 2)
+        
+        # 5. Współczynnik przetworzonych ofert (processed / raw)
+        processed = stats.get('processed', 0)
+        if raw_offers > 0:
+            metrics['processing_success_rate'] = round((processed / raw_offers) * 100, 1)
+        
+        return metrics
     
     def _load_history(self) -> List[Dict]:
         """Wczytuje historię skanów z pliku."""

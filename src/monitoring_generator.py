@@ -26,12 +26,17 @@ def generate_monitoring_data():
     
     for scan in reversed(recent_scans):  # Odwróć na chronologiczną kolejność
         timestamp = scan.get('timestamp', '')
+        performance = scan.get('performance', {})
         
-        # Wykres czasu wykonania
+        # Wykres czasu wykonania + metryki wydajności
         if 'total_duration' in scan:
             chart_data['duration_over_time'].append({
                 'timestamp': timestamp,
-                'duration': scan['total_duration']
+                'duration': scan['total_duration'],
+                'offers_per_second': performance.get('offers_per_second', 0),
+                'scraping_per_page': performance.get('scraping_per_page', 0),
+                'geocoding_duration': performance.get('geocoding_duration', 0),
+                'geocoding_per_address': performance.get('geocoding_per_address', 0)
             })
         
         # Wykres liczby ofert

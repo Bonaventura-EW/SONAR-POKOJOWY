@@ -272,6 +272,17 @@
                 <canvas id="successRateChart"></canvas>
             </div>
             
+            <!-- Nowa sekcja: Wydajność skanów -->
+            <div class="chart-container">
+                <h2>⚡ Wydajność skanów</h2>
+                <canvas id="performanceChart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <h2>🌍 Wydajność geokodowania</h2>
+                <canvas id="geocodingChart"></canvas>
+            </div>
+            
             <!-- Tabela ostatnich skanów -->
             <div class="table-container">
                 <h2>🕐 Ostatnie skany</h2>
@@ -511,6 +522,160 @@
                             title: {
                                 display: true,
                                 text: 'Procent sukcesu'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // NOWE WYKRESY WYDAJNOŚCI
+            
+            // Wykres wydajności: Oferty/sekundę
+            const performanceCtx = document.getElementById('performanceChart').getContext('2d');
+            new Chart(performanceCtx, {
+                type: 'line',
+                data: {
+                    labels: chartData.duration_over_time.map(d => {
+                        const date = new Date(d.timestamp);
+                        return date.toLocaleDateString('pl-PL') + ' ' + date.toLocaleTimeString('pl-PL', {hour: '2-digit', minute: '2-digit'});
+                    }),
+                    datasets: [{
+                        label: 'Oferty/sekundę',
+                        data: chartData.duration_over_time.map(d => d.offers_per_second || 0),
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        yAxisID: 'y'
+                    }, {
+                        label: 'Czas scrapingu/stronę (s)',
+                        data: chartData.duration_over_time.map(d => d.scraping_per_page || 0),
+                        borderColor: '#8b5cf6',
+                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        yAxisID: 'y1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            display: true
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    label += context.parsed.y.toFixed(2);
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Oferty/sekundę'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Sekundy/stronę'
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Wykres geokodowania
+            const geocodingCtx = document.getElementById('geocodingChart').getContext('2d');
+            new Chart(geocodingCtx, {
+                type: 'bar',
+                data: {
+                    labels: chartData.duration_over_time.map(d => {
+                        const date = new Date(d.timestamp);
+                        return date.toLocaleDateString('pl-PL') + ' ' + date.toLocaleTimeString('pl-PL', {hour: '2-digit', minute: '2-digit'});
+                    }),
+                    datasets: [{
+                        label: 'Czas geokodowania (s)',
+                        data: chartData.duration_over_time.map(d => d.geocoding_duration || 0),
+                        backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                        yAxisID: 'y'
+                    }, {
+                        label: 'Czas/adres (s)',
+                        data: chartData.duration_over_time.map(d => d.geocoding_per_address || 0),
+                        backgroundColor: 'rgba(16, 185, 129, 0.6)',
+                        yAxisID: 'y1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            display: true
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    label += context.parsed.y.toFixed(2) + 's';
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Całkowity czas geokodowania (s)'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Średni czas/adres (s)'
+                            },
+                            grid: {
+                                drawOnChartArea: false,
                             }
                         }
                     }

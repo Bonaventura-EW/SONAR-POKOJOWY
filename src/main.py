@@ -613,7 +613,7 @@ class SonarPokojowy:
             scraping_duration = time.time() - scraping_start
             self.scan_logger.log_phase('scraping', scraping_duration, {
                 'offers_found': len(raw_offers),
-                'max_pages': 20
+                'max_pages': 50
             })
             
             print(f"✅ Pobrano {len(raw_offers)} surowych ofert\n")
@@ -621,6 +621,7 @@ class SonarPokojowy:
             # 2. Przetwarzanie ofert
             print("🔧 Krok 2: Przetwarzanie ofert...")
             processing_start = time.time()
+            geocoding_time = 0  # Czas geokodowania
             
             processed_offers = []
             skipped_no_address = 0
@@ -641,7 +642,10 @@ class SonarPokojowy:
                     skipped_removed += 1
                     continue
                 
+                # Pomiar czasu geokodowania
+                geo_start = time.time()
                 processed = self._process_offer(raw_offer)
+                geocoding_time += time.time() - geo_start
                 
                 if not processed:
                     # Zlicz powody odrzucenia
@@ -671,6 +675,11 @@ class SonarPokojowy:
                 'skipped_no_coords': skipped_no_coords,
                 'skipped_duplicate': skipped_duplicate,
                 'skipped_removed': skipped_removed
+            })
+            
+            # Dodaj metryki geokodowania
+            self.scan_logger.log_phase('geocoding', geocoding_time, {
+                'geocoded_addresses': len(processed_offers)
             })
             
             print(f"\n✅ Przetworzone oferty: {len(processed_offers)}")
