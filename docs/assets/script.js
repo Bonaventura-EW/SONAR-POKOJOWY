@@ -197,6 +197,7 @@ async function loadData() {
         createMarkers();
         updateStats();  // Wywołaj PO createMarkers(), żeby allMarkers był wypełniony
         setupEventListeners();
+        filterMarkers();  // ✅ Przefiltruj markery zgodnie z początkowymi stanami checkboxów
         
         console.log('🎉 Mapa gotowa!');
         
@@ -671,7 +672,8 @@ function filterMarkers() {
         }
         
         // Filtr zakresów cenowych - wspólny dla obu warstw
-        if (!selectedRanges.includes(item.priceRange)) {
+        // Jeśli selectedRanges jest puste (żaden checkbox), pokaż wszystkie
+        if (selectedRanges.length > 0 && !selectedRanges.includes(item.priceRange)) {
             visible = false;
         }
         
