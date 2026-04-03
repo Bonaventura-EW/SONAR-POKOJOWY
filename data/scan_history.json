@@ -1,32 +1,5 @@
 [
   {
-    "timestamp": "2026-02-28T20:43:36.631711+01:00",
-    "status": "completed",
-    "phases": {
-      "scraping": {
-        "duration": 184.35,
-        "details": {
-          "offers_found": 233,
-          "max_pages": 5
-        }
-      }
-    },
-    "stats": {
-      "raw_offers": 233,
-      "processed": 59,
-      "new": 59,
-      "active": 59,
-      "skipped_no_address": 150,
-      "skipped_no_price": 0,
-      "skipped_no_coords": 17,
-      "skipped_duplicate": 7,
-      "skipped_removed": 0
-    },
-    "errors": [],
-    "end_timestamp": "2026-02-28T20:46:43.812622+01:00",
-    "total_duration": 187.18
-  },
-  {
     "timestamp": "2026-03-01T11:19:51.681955+01:00",
     "status": "completed",
     "phases": {
@@ -5596,6 +5569,68 @@
       "geocoding_per_address": 0.02,
       "scraping_per_page": 5.15,
       "processing_success_rate": 20.4
+    }
+  },
+  {
+    "timestamp": "2026-04-03T10:43:30.207910+02:00",
+    "status": "completed",
+    "phases": {
+      "scraping": {
+        "duration": 278.66,
+        "details": {
+          "offers_found": 405,
+          "max_pages": 50
+        }
+      },
+      "processing": {
+        "duration": 1.12,
+        "details": {
+          "processed": 84,
+          "skipped_no_address": 153,
+          "skipped_no_price": 0,
+          "skipped_no_coords": 162,
+          "skipped_duplicate": 6,
+          "skipped_removed": 0
+        }
+      },
+      "geocoding": {
+        "duration": 0.91,
+        "details": {
+          "geocoded_addresses": 84
+        }
+      }
+    },
+    "stats": {
+      "raw_offers": 405,
+      "processed": 84,
+      "new": 1,
+      "updated": 83,
+      "reactivated": 17,
+      "total_in_db": 213,
+      "active": 107,
+      "inactive": 106,
+      "skipped_no_address": 153,
+      "skipped_no_price": 0,
+      "skipped_no_coords": 162,
+      "skipped_duplicate": 6,
+      "skipped_removed": 0,
+      "verification": {
+        "verified": 50,
+        "reactivated": 17,
+        "confirmed_inactive": 33,
+        "errors": 0
+      }
+    },
+    "errors": [],
+    "end_timestamp": "2026-04-03T10:49:41.888616+02:00",
+    "total_duration": 371.68,
+    "performance": {
+      "offers_per_second": 1.09,
+      "pages_scanned": 50,
+      "geocoding_duration": 0.91,
+      "geocoding_per_address": 0.01,
+      "scraping_per_page": 5.57,
+      "processing_success_rate": 20.7
     }
   }
 ]
