@@ -1141,6 +1141,7 @@
             const totalRemoved = last7Days.reduce((sum, d) => sum + d.removed, 0);
             
             return {
+                offers: offers,  // B3/C2: surowe oferty dla nowych sekcji
                 survival: {
                     active: active.length,
                     inactive: inactive.length,
