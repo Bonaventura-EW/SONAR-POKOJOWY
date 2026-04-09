@@ -870,6 +870,148 @@
             </h3>
             <div class="rotation-bars" id="rotationBars"></div>
         </div>
+        
+        <!-- B3: TIMELINE AKTYWNOŚCI (nowe vs usunięte per dzień) -->
+        <div class="section">
+            <h2>📈 Timeline Aktywności Rynku</h2>
+            <p class="section-description">
+                Dzienny rozkład nowych ofert i usunięć w wybranym okresie. Pozwala zidentyfikować dni największej aktywności rynku.
+            </p>
+            
+            <div class="filters">
+                <div class="filter-group">
+                    <label>Okres analizy:</label>
+                    <div class="toggle-buttons">
+                        <button class="toggle-btn" data-timeline-days="7">7 dni</button>
+                        <button class="toggle-btn active" data-timeline-days="14">14 dni</button>
+                        <button class="toggle-btn" data-timeline-days="30">30 dni</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <h3>📊 Nowe oferty vs usunięte (per dzień)</h3>
+                <div class="chart-wrapper" style="height: 350px;">
+                    <canvas id="timelineChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Statystyki timeline -->
+            <div class="stats-grid" style="margin-top: 20px;">
+                <div class="stat-box fast">
+                    <div class="label">Szczyt nowych ofert</div>
+                    <div class="value" id="timelinePeakNew">-</div>
+                    <div class="subtext" id="timelinePeakNewDate">-</div>
+                </div>
+                <div class="stat-box slow">
+                    <div class="label">Szczyt usunięć</div>
+                    <div class="value" id="timelinePeakRemoved">-</div>
+                    <div class="subtext" id="timelinePeakRemovedDate">-</div>
+                </div>
+                <div class="stat-box">
+                    <div class="label">Średnia dzienna (nowe)</div>
+                    <div class="value" id="timelineAvgNew">-</div>
+                </div>
+                <div class="stat-box">
+                    <div class="label">Średnia dzienna (usunięte)</div>
+                    <div class="value" id="timelineAvgRemoved">-</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- C2-A: ROZKŁAD CEN (histogram + box plot) -->
+        <div class="section">
+            <h2>💹 Rozkład Cen na Rynku</h2>
+            <p class="section-description">
+                Analiza statystyczna cen aktywnych ofert. Histogram pokazuje ile ofert mieści się w każdym przedziale cenowym, 
+                a box plot prezentuje rozkład kwartylowy z medianą.
+            </p>
+            
+            <div class="filters">
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label>🏷️ Typ oferty</label>
+                        <div class="toggle-buttons">
+                            <button class="toggle-btn active" data-price-dist-type="all">Wszystkie</button>
+                            <button class="toggle-btn" data-price-dist-type="pokoj">🛏️ Pokoje</button>
+                            <button class="toggle-btn" data-price-dist-type="kawalerka">🏠 Kawalerki</button>
+                            <button class="toggle-btn" data-price-dist-type="mieszkanie">🏢 Mieszkania</button>
+                        </div>
+                    </div>
+                    <div class="filter-group">
+                        <label>📊 Tylko aktywne</label>
+                        <div class="toggle-buttons">
+                            <button class="toggle-btn active" data-price-dist-active="true">Tak</button>
+                            <button class="toggle-btn" data-price-dist-active="false">Wszystkie</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Główne statystyki cenowe -->
+            <div class="median-indicator" style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);">
+                <div>
+                    <div class="big-number" id="priceDistMedian" style="color: #1e40af;">-</div>
+                </div>
+                <div>
+                    <div class="median-label" style="color: #1e3a8a;">MEDIANA CENY</div>
+                    <div class="median-subtext" style="color: #3b82f6;">Połowa ofert jest tańsza, połowa droższa</div>
+                </div>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-box" style="border-left-color: #10b981;">
+                    <div class="label">Minimum</div>
+                    <div class="value" id="priceDistMin">-</div>
+                </div>
+                <div class="stat-box" style="border-left-color: #3b82f6;">
+                    <div class="label">Q1 (25%)</div>
+                    <div class="value" id="priceDistQ1">-</div>
+                    <div class="subtext">25% ofert poniżej</div>
+                </div>
+                <div class="stat-box" style="border-left-color: #8b5cf6;">
+                    <div class="label">Średnia</div>
+                    <div class="value" id="priceDistAvg">-</div>
+                </div>
+                <div class="stat-box" style="border-left-color: #3b82f6;">
+                    <div class="label">Q3 (75%)</div>
+                    <div class="value" id="priceDistQ3">-</div>
+                    <div class="subtext">75% ofert poniżej</div>
+                </div>
+                <div class="stat-box" style="border-left-color: #ef4444;">
+                    <div class="label">Maksimum</div>
+                    <div class="value" id="priceDistMax">-</div>
+                </div>
+            </div>
+            
+            <!-- Wykresy -->
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <h3>📊 Histogram rozkładu cen</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="priceHistogramChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <h3>📦 Box Plot (rozkład kwartylowy)</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="priceBoxPlotChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Interpretacja -->
+            <div class="interpretation">
+                <h4>🎯 Jak interpretować te dane?</h4>
+                <ul>
+                    <li><strong>Mediana</strong> to "typowa" cena - 50% ofert jest tańszych, 50% droższych</li>
+                    <li><strong>Q1-Q3</strong> to zakres, w którym mieści się 50% wszystkich ofert (środkowa połowa)</li>
+                    <li><strong>Oferty poniżej Q1</strong> to okazje - najtańsze 25% rynku</li>
+                    <li><strong>Oferty powyżej Q3</strong> to segment premium - najdroższe 25%</li>
+                    <li><strong>Różnica między średnią a medianą</strong> wskazuje na asymetrię - duża różnica oznacza outliers (bardzo drogie oferty)</li>
+                </ul>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -1459,6 +1601,380 @@
                 renderLifespan();
             });
         });
+        
+        // ============================================================
+        // B3: TIMELINE AKTYWNOŚCI
+        // ============================================================
+        let timelineDays = 14;
+        let timelineChart = null;
+        
+        function renderTimeline() {
+            if (!allData || !allData.offers) return;
+            
+            const now = new Date();
+            const dayMs = 24 * 60 * 60 * 1000;
+            
+            // Przygotuj dane dla każdego dnia
+            const dailyData = {};
+            for (let i = 0; i < timelineDays; i++) {
+                const date = new Date(now.getTime() - i * dayMs);
+                const dateKey = date.toISOString().split('T')[0];
+                dailyData[dateKey] = { newOffers: 0, removedOffers: 0, label: formatDateShort(date) };
+            }
+            
+            // Zlicz nowe oferty (first_seen w danym dniu)
+            allData.offers.forEach(offer => {
+                if (!offer.first_seen) return;
+                try {
+                    const fsDate = parsePolishDate(offer.first_seen);
+                    if (!fsDate) return;
+                    const dateKey = fsDate.toISOString().split('T')[0];
+                    if (dailyData[dateKey]) {
+                        dailyData[dateKey].newOffers++;
+                    }
+                } catch (e) {}
+            });
+            
+            // Zlicz usunięte oferty (last_seen w danym dniu dla nieaktywnych)
+            allData.offers.filter(o => !o.active).forEach(offer => {
+                if (!offer.last_seen) return;
+                try {
+                    const lsDate = parsePolishDate(offer.last_seen);
+                    if (!lsDate) return;
+                    const dateKey = lsDate.toISOString().split('T')[0];
+                    if (dailyData[dateKey]) {
+                        dailyData[dateKey].removedOffers++;
+                    }
+                } catch (e) {}
+            });
+            
+            // Konwersja do tablic (odwróć kolejność - od najstarszego)
+            const dates = Object.keys(dailyData).sort();
+            const labels = dates.map(d => dailyData[d].label);
+            const newData = dates.map(d => dailyData[d].newOffers);
+            const removedData = dates.map(d => dailyData[d].removedOffers);
+            
+            // Statystyki
+            const maxNew = Math.max(...newData);
+            const maxRemoved = Math.max(...removedData);
+            const avgNew = newData.reduce((a, b) => a + b, 0) / newData.length;
+            const avgRemoved = removedData.reduce((a, b) => a + b, 0) / removedData.length;
+            
+            document.getElementById('timelinePeakNew').textContent = maxNew;
+            document.getElementById('timelinePeakNewDate').textContent = labels[newData.indexOf(maxNew)] || '-';
+            document.getElementById('timelinePeakRemoved').textContent = maxRemoved;
+            document.getElementById('timelinePeakRemovedDate').textContent = labels[removedData.indexOf(maxRemoved)] || '-';
+            document.getElementById('timelineAvgNew').textContent = avgNew.toFixed(1);
+            document.getElementById('timelineAvgRemoved').textContent = avgRemoved.toFixed(1);
+            
+            // Wykres
+            if (timelineChart) timelineChart.destroy();
+            
+            const ctx = document.getElementById('timelineChart').getContext('2d');
+            timelineChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Nowe oferty',
+                            data: newData,
+                            backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                            borderColor: '#10b981',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Usunięte',
+                            data: removedData,
+                            backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                            borderColor: '#ef4444',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top' }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Data' } },
+                        y: { 
+                            beginAtZero: true,
+                            title: { display: true, text: 'Liczba ofert' }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function formatDateShort(date) {
+            return date.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit' });
+        }
+        
+        // Event listeners dla timeline
+        document.querySelectorAll('[data-timeline-days]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                timelineDays = parseInt(btn.dataset.timelineDays);
+                document.querySelectorAll('[data-timeline-days]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderTimeline();
+            });
+        });
+        
+        // ============================================================
+        // C2-A: ROZKŁAD CEN (histogram + box plot)
+        // ============================================================
+        let priceDistType = 'all';
+        let priceDistActiveOnly = true;
+        let priceHistogramChart = null;
+        let priceBoxPlotChart = null;
+        
+        function renderPriceDistribution() {
+            if (!allData || !allData.offers) return;
+            
+            // Filtruj oferty
+            let offers = allData.offers;
+            
+            if (priceDistActiveOnly) {
+                offers = offers.filter(o => o.active);
+            }
+            
+            if (priceDistType !== 'all') {
+                offers = offers.filter(o => {
+                    const primaryTag = o.tags?.primary || 'pokoj';
+                    return primaryTag === priceDistType;
+                });
+            }
+            
+            const prices = offers.map(o => o.price).filter(p => p > 0).sort((a, b) => a - b);
+            
+            if (prices.length === 0) {
+                document.getElementById('priceDistMedian').textContent = '-';
+                document.getElementById('priceDistMin').textContent = '-';
+                document.getElementById('priceDistMax').textContent = '-';
+                document.getElementById('priceDistQ1').textContent = '-';
+                document.getElementById('priceDistQ3').textContent = '-';
+                document.getElementById('priceDistAvg').textContent = '-';
+                return;
+            }
+            
+            // Oblicz statystyki
+            const n = prices.length;
+            const min = prices[0];
+            const max = prices[n - 1];
+            const median = prices[Math.floor(n / 2)];
+            const q1 = prices[Math.floor(n * 0.25)];
+            const q3 = prices[Math.floor(n * 0.75)];
+            const avg = Math.round(prices.reduce((a, b) => a + b, 0) / n);
+            
+            // Aktualizuj UI
+            document.getElementById('priceDistMedian').textContent = median + ' zł';
+            document.getElementById('priceDistMin').textContent = min + ' zł';
+            document.getElementById('priceDistMax').textContent = max + ' zł';
+            document.getElementById('priceDistQ1').textContent = q1 + ' zł';
+            document.getElementById('priceDistQ3').textContent = q3 + ' zł';
+            document.getElementById('priceDistAvg').textContent = avg + ' zł';
+            
+            // Histogram
+            renderPriceHistogram(prices);
+            
+            // Box Plot (symulowany)
+            renderPriceBoxPlot(min, q1, median, q3, max, prices);
+        }
+        
+        function renderPriceHistogram(prices) {
+            // Twórz przedziały (bins)
+            const binSize = 100;
+            const minPrice = Math.floor(prices[0] / binSize) * binSize;
+            const maxPrice = Math.ceil(prices[prices.length - 1] / binSize) * binSize;
+            
+            const bins = {};
+            for (let i = minPrice; i <= maxPrice; i += binSize) {
+                bins[i] = 0;
+            }
+            
+            prices.forEach(p => {
+                const bin = Math.floor(p / binSize) * binSize;
+                if (bins[bin] !== undefined) {
+                    bins[bin]++;
+                }
+            });
+            
+            const labels = Object.keys(bins).map(b => `${b}-${parseInt(b) + binSize}`);
+            const data = Object.values(bins);
+            
+            if (priceHistogramChart) priceHistogramChart.destroy();
+            
+            const ctx = document.getElementById('priceHistogramChart').getContext('2d');
+            priceHistogramChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Liczba ofert',
+                        data: data,
+                        backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                        borderColor: '#3b82f6',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { 
+                            title: { display: true, text: 'Przedział cenowy (zł)' },
+                            ticks: { maxRotation: 45, minRotation: 45 }
+                        },
+                        y: { 
+                            beginAtZero: true,
+                            title: { display: true, text: 'Liczba ofert' }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function renderPriceBoxPlot(min, q1, median, q3, max, prices) {
+            // Symulowany box plot jako wykres słupkowy horyzontalny
+            if (priceBoxPlotChart) priceBoxPlotChart.destroy();
+            
+            const ctx = document.getElementById('priceBoxPlotChart').getContext('2d');
+            
+            // Canvas-based custom box plot
+            const canvas = document.getElementById('priceBoxPlotChart');
+            const parent = canvas.parentElement;
+            
+            // Wstaw SVG zamiast Chart.js dla box plot
+            canvas.style.display = 'none';
+            
+            // Usuń poprzedni SVG jeśli istnieje
+            const oldSvg = parent.querySelector('.boxplot-svg');
+            if (oldSvg) oldSvg.remove();
+            
+            const svgNs = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(svgNs, 'svg');
+            svg.setAttribute('class', 'boxplot-svg');
+            svg.setAttribute('viewBox', '0 0 400 200');
+            svg.setAttribute('width', '100%');
+            svg.setAttribute('height', '100%');
+            svg.style.maxHeight = '280px';
+            
+            const padding = 40;
+            const width = 400 - 2 * padding;
+            const centerY = 100;
+            const boxHeight = 60;
+            
+            // Skala
+            const scale = (val) => padding + ((val - min) / (max - min)) * width;
+            
+            // Whiskers
+            const whiskerLine = document.createElementNS(svgNs, 'line');
+            whiskerLine.setAttribute('x1', scale(min));
+            whiskerLine.setAttribute('x2', scale(max));
+            whiskerLine.setAttribute('y1', centerY);
+            whiskerLine.setAttribute('y2', centerY);
+            whiskerLine.setAttribute('stroke', '#3b82f6');
+            whiskerLine.setAttribute('stroke-width', '2');
+            whiskerLine.setAttribute('stroke-dasharray', '4,2');
+            svg.appendChild(whiskerLine);
+            
+            // Min/Max caps
+            [min, max].forEach(val => {
+                const cap = document.createElementNS(svgNs, 'line');
+                cap.setAttribute('x1', scale(val));
+                cap.setAttribute('x2', scale(val));
+                cap.setAttribute('y1', centerY - 15);
+                cap.setAttribute('y2', centerY + 15);
+                cap.setAttribute('stroke', '#3b82f6');
+                cap.setAttribute('stroke-width', '2');
+                svg.appendChild(cap);
+            });
+            
+            // Box (Q1-Q3)
+            const box = document.createElementNS(svgNs, 'rect');
+            box.setAttribute('x', scale(q1));
+            box.setAttribute('y', centerY - boxHeight / 2);
+            box.setAttribute('width', scale(q3) - scale(q1));
+            box.setAttribute('height', boxHeight);
+            box.setAttribute('fill', 'rgba(59, 130, 246, 0.2)');
+            box.setAttribute('stroke', '#3b82f6');
+            box.setAttribute('stroke-width', '2');
+            box.setAttribute('rx', '4');
+            svg.appendChild(box);
+            
+            // Mediana
+            const medianLine = document.createElementNS(svgNs, 'line');
+            medianLine.setAttribute('x1', scale(median));
+            medianLine.setAttribute('x2', scale(median));
+            medianLine.setAttribute('y1', centerY - boxHeight / 2);
+            medianLine.setAttribute('y2', centerY + boxHeight / 2);
+            medianLine.setAttribute('stroke', '#1e40af');
+            medianLine.setAttribute('stroke-width', '3');
+            svg.appendChild(medianLine);
+            
+            // Etykiety
+            const labels = [
+                { val: min, text: min + ' zł', label: 'min', y: centerY + 55 },
+                { val: q1, text: q1 + ' zł', label: 'Q1', y: centerY + 55 },
+                { val: median, text: median + ' zł', label: 'mediana', y: centerY - 45 },
+                { val: q3, text: q3 + ' zł', label: 'Q3', y: centerY + 55 },
+                { val: max, text: max + ' zł', label: 'max', y: centerY + 55 }
+            ];
+            
+            labels.forEach(l => {
+                const text = document.createElementNS(svgNs, 'text');
+                text.setAttribute('x', scale(l.val));
+                text.setAttribute('y', l.y);
+                text.setAttribute('text-anchor', 'middle');
+                text.setAttribute('font-size', '11');
+                text.setAttribute('fill', l.label === 'mediana' ? '#1e40af' : '#666');
+                text.setAttribute('font-weight', l.label === 'mediana' ? 'bold' : 'normal');
+                text.textContent = l.text;
+                svg.appendChild(text);
+                
+                const labelText = document.createElementNS(svgNs, 'text');
+                labelText.setAttribute('x', scale(l.val));
+                labelText.setAttribute('y', l.y + 14);
+                labelText.setAttribute('text-anchor', 'middle');
+                labelText.setAttribute('font-size', '10');
+                labelText.setAttribute('fill', '#999');
+                labelText.textContent = l.label;
+                svg.appendChild(labelText);
+            });
+            
+            parent.appendChild(svg);
+        }
+        
+        // Event listeners dla rozkładu cen
+        document.querySelectorAll('[data-price-dist-type]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                priceDistType = btn.dataset.priceDistType;
+                document.querySelectorAll('[data-price-dist-type]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderPriceDistribution();
+            });
+        });
+        
+        document.querySelectorAll('[data-price-dist-active]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                priceDistActiveOnly = btn.dataset.priceDistActive === 'true';
+                document.querySelectorAll('[data-price-dist-active]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderPriceDistribution();
+            });
+        });
+        
+        // Rozszerz renderAll o nowe sekcje
+        const originalRenderAll = renderAll;
+        renderAll = function() {
+            originalRenderAll();
+            renderTimeline();
+            renderPriceDistribution();
+        };
         
         // Inicjalizacja
         loadData();

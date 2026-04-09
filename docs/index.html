@@ -129,6 +129,26 @@
                         </label>
                     </div>
                     
+                    <!-- B1: WARSTWY TYPU OFERTY -->
+                    <div class="filter-group" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 1px solid #7dd3fc;">
+                        <h3 style="color: #0369a1;">🏷️ Typ oferty</h3>
+                        <label>
+                            <input type="checkbox" id="layer-tag-pokoj" checked onchange="filterByTags()">
+                            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#3b82f6;margin-right:4px;"></span>
+                            🛏️ <strong>Pokój</strong> <span id="tag-count-pokoj" style="color:#888">(0)</span>
+                        </label>
+                        <label>
+                            <input type="checkbox" id="layer-tag-kawalerka" checked onchange="filterByTags()">
+                            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#10b981;margin-right:4px;"></span>
+                            🏠 <strong>Kawalerka</strong> <span id="tag-count-kawalerka" style="color:#888">(0)</span>
+                        </label>
+                        <label>
+                            <input type="checkbox" id="layer-tag-mieszkanie" checked onchange="filterByTags()">
+                            <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#8b5cf6;margin-right:4px;"></span>
+                            🏢 <strong>Mieszkanie</strong> <span id="tag-count-mieszkanie" style="color:#888">(0)</span>
+                        </label>
+                    </div>
+                    
                     <!-- WARSTWY UCZELNI -->
                     <div class="filter-group" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border: 1px solid #90caf9;">
                         <h3 onclick="toggleUniSection()" style="cursor: pointer; user-select: none; color: #1565c0;">
@@ -237,7 +257,7 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
-    <!-- Custom JS (v8 - FIX: poprawione parsowanie dat YYYY + dodano opcje "dzisiaj" i "3 dni") -->
-    <script src="assets/script.js?v=8"></script>
+    <!-- Custom JS (v9 - B1: tagowanie ofert, filtry warstw) -->
+    <script src="assets/script.js?v=9"></script>
 </body>
 </html>

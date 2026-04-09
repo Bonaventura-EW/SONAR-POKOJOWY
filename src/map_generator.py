@@ -9,6 +9,9 @@ from datetime import datetime
 from collections import defaultdict
 from pathlib import Path
 
+# Import taggera ofert (B1)
+from offer_tagger import tag_offer, TAGS as OFFER_TAGS
+
 # Definicja zakresów cenowych - 12 przedziałów z gradientem
 PRICE_RANGES = {
     'range_0_500': {
@@ -205,6 +208,14 @@ def generate_map_data(input_file, output_file):
         current_price = price_data.get('current', 0)
         offer_price_range = get_price_range(current_price)
         
+        # B1: Tagowanie oferty (kawalerka/pokój/mieszkanie)
+        description_text = offer.get('description', '')
+        # Wyciągnij tytuł z URL (pierwsza część przed CID)
+        url = offer.get('url', '')
+        title_from_url = url.split('/')[-1].split('.')[0].replace('-', ' ') if url else ''
+        
+        tag_result = tag_offer(title_from_url, description_text)
+        
         offer_data = {
             'id': offer.get('id'),
             'url': offer.get('url'),
@@ -222,7 +233,14 @@ def generate_map_data(input_file, output_file):
             'is_new': is_new,  # ✅ Obliczone na podstawie daty
             'description': offer.get('description', ''),  # Pełny opis (frontend się sam obcina)
             'reactivated': offer.get('reactivated_at') is not None,  # Czy była reaktywowana
-            'reactivated_at': format_datetime(offer.get('reactivated_at', '')) if offer.get('reactivated_at') else None
+            'reactivated_at': format_datetime(offer.get('reactivated_at', '')) if offer.get('reactivated_at') else None,
+            # B1: Tagi oferty
+            'tags': {
+                'primary': tag_result['primary'],
+                'secondary': tag_result['secondary'],
+                'all': tag_result['all_tags'],
+                'confidence': tag_result['confidence']
+            }
         }
         
         markers_dict[key].append({
@@ -285,7 +303,8 @@ def generate_map_data(input_file, output_file):
         'markers': markers,
         'stats': stats,
         'scan_info': scan_info,
-        'price_ranges': PRICE_RANGES
+        'price_ranges': PRICE_RANGES,
+        'offer_tags': OFFER_TAGS  # B1: Definicje tagów dla frontendu
     }
     
     # 7. Zapisz do pliku

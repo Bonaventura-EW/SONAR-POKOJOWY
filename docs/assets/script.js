@@ -495,9 +495,13 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
             offers: [offer],
             priceRange: offerPriceRange,  // ✅ Zakres cenowy z oferty
             isActive: isActive,
-            isDamaged: isDamagedOffer
+            isDamaged: isDamagedOffer,
+            primaryTag: offer.tags ? offer.tags.primary : 'pokoj'  // B1: Tag główny
         });
     });
+    
+    // B1: Aktualizuj liczniki tagów
+    updateTagCounts();
 }
 
 // Tworzenie HTML popup
@@ -546,6 +550,21 @@ function createPopupContent(address, offers) {
         
         // Media info
         html += `<div class="media-info">Skład: ${offer.media_info}</div>`;
+        
+        // B1: Tag oferty
+        if (offer.tags && offer.tags.primary) {
+            const tagIcons = { pokoj: '🛏️', kawalerka: '🏠', mieszkanie: '🏢' };
+            const tagLabels = { pokoj: 'Pokój', kawalerka: 'Kawalerka', mieszkanie: 'Mieszkanie' };
+            const tagColors = { pokoj: '#3b82f6', kawalerka: '#10b981', mieszkanie: '#8b5cf6' };
+            
+            const primary = offer.tags.primary;
+            html += `<div class="offer-tag" style="margin: 8px 0; display: inline-block; padding: 4px 10px; background: ${tagColors[primary]}22; border: 1px solid ${tagColors[primary]}; border-radius: 12px; font-size: 12px; color: ${tagColors[primary]}; font-weight: 600;">`;
+            html += `${tagIcons[primary] || ''} ${tagLabels[primary] || primary}`;
+            if (offer.tags.secondary && offer.tags.secondary.length > 0) {
+                html += ` <span style="opacity: 0.7;">+ ${offer.tags.secondary.map(t => tagLabels[t] || t).join(', ')}</span>`;
+            }
+            html += `</div>`;
+        }
         
         // Link
         html += `<a href="${offer.url}" target="_blank" class="offer-link">🔗 Otwórz ogłoszenie</a>`;
@@ -612,6 +631,11 @@ function filterMarkers() {
     const showActive = document.getElementById('layer-active').checked;
     const showInactive = document.getElementById('layer-inactive').checked;
     
+    // B1: Filtry tagów
+    const showPokoj = document.getElementById('layer-tag-pokoj')?.checked ?? true;
+    const showKawalerka = document.getElementById('layer-tag-kawalerka')?.checked ?? true;
+    const showMieszkanie = document.getElementById('layer-tag-mieszkanie')?.checked ?? true;
+    
     // NOWY: Filtr czasowy
     const timeFilter = document.getElementById('time-filter').value;
     const now = new Date();
@@ -643,6 +667,14 @@ function filterMarkers() {
         }
         if (!item.isActive && !showInactive) {
             visible = false;
+        }
+        
+        // B1: Filtr tagów
+        if (visible) {
+            const tag = item.primaryTag || 'pokoj';
+            if (tag === 'pokoj' && !showPokoj) visible = false;
+            if (tag === 'kawalerka' && !showKawalerka) visible = false;
+            if (tag === 'mieszkanie' && !showMieszkanie) visible = false;
         }
         
         // NOWY: Filtr czasowy (sprawdź first_seen każdej oferty)
@@ -903,4 +935,32 @@ function toggleUniSection() {
         list.style.display = 'none';
         icon.textContent = '▶';
     }
+}
+
+// B1: Aktualizacja liczników tagów
+function updateTagCounts() {
+    const counts = { pokoj: 0, kawalerka: 0, mieszkanie: 0 };
+    
+    allMarkers.forEach(item => {
+        if (item.isActive) {
+            const tag = item.primaryTag || 'pokoj';
+            if (counts[tag] !== undefined) {
+                counts[tag]++;
+            }
+        }
+    });
+    
+    // Aktualizuj wyświetlane liczniki
+    const pokojEl = document.getElementById('tag-count-pokoj');
+    const kawalerkaEl = document.getElementById('tag-count-kawalerka');
+    const mieszkanieEl = document.getElementById('tag-count-mieszkanie');
+    
+    if (pokojEl) pokojEl.textContent = `(${counts.pokoj})`;
+    if (kawalerkaEl) kawalerkaEl.textContent = `(${counts.kawalerka})`;
+    if (mieszkanieEl) mieszkanieEl.textContent = `(${counts.mieszkanie})`;
+}
+
+// B1: Filtrowanie po tagach - alias do filterMarkers
+function filterByTags() {
+    filterMarkers();
 }
