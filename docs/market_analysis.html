@@ -1210,6 +1210,8 @@
             renderLifespan();
             renderPriceChanges();
             renderRotation();
+            renderTimeline();        // B3
+            renderPriceDistribution(); // C2-A
         }
         
         // 2.1 LIFESPAN - Czas życia ogłoszeń
@@ -1626,7 +1628,7 @@
             allData.offers.forEach(offer => {
                 if (!offer.first_seen) return;
                 try {
-                    const fsDate = parsePolishDate(offer.first_seen);
+                    const fsDate = parseDateString(offer.first_seen);
                     if (!fsDate) return;
                     const dateKey = fsDate.toISOString().split('T')[0];
                     if (dailyData[dateKey]) {
@@ -1639,7 +1641,7 @@
             allData.offers.filter(o => !o.active).forEach(offer => {
                 if (!offer.last_seen) return;
                 try {
-                    const lsDate = parsePolishDate(offer.last_seen);
+                    const lsDate = parseDateString(offer.last_seen);
                     if (!lsDate) return;
                     const dateKey = lsDate.toISOString().split('T')[0];
                     if (dailyData[dateKey]) {
@@ -1967,14 +1969,6 @@
                 renderPriceDistribution();
             });
         });
-        
-        // Rozszerz renderAll o nowe sekcje
-        const originalRenderAll = renderAll;
-        renderAll = function() {
-            originalRenderAll();
-            renderTimeline();
-            renderPriceDistribution();
-        };
         
         // Inicjalizacja
         loadData();
