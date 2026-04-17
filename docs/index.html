@@ -198,26 +198,34 @@
                         </div>
                     </div>
                     
-                    <!-- Legenda oznaczeń -->
+                    <!-- Legenda oznaczeń - interaktywne filtry -->
                     <div class="filter-group">
                         <h3>📌 Legenda pinezek</h3>
-                        <div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px;">
-                            <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="display: flex; flex-direction: column; gap: 2px; font-size: 13px;">
+                            <label style="display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer;">
+                                <input type="checkbox" id="badge-filter-price-down" checked style="cursor: pointer; margin: 0;">
                                 <span style="background: #28a745; color: white; padding: 2px 6px; border-radius: 8px; font-size: 11px; font-weight: bold; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">💲↓</span>
                                 <span>Cena spadła</span>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span id="badge-count-price-down" style="color: #888; font-size: 12px; margin-left: auto;">(0)</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer;">
+                                <input type="checkbox" id="badge-filter-price-up" checked style="cursor: pointer; margin: 0;">
                                 <span style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 8px; font-size: 11px; font-weight: bold; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">💲↑</span>
                                 <span>Cena wzrosła</span>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span id="badge-count-price-up" style="color: #888; font-size: 12px; margin-left: auto;">(0)</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer;">
+                                <input type="checkbox" id="badge-filter-new" checked style="cursor: pointer; margin: 0;">
                                 <span style="background: #ff0000; color: white; padding: 2px 6px; border-radius: 50%; font-size: 10px; font-weight: bold; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;">N</span>
                                 <span>Nowa oferta</span>
-                            </div>
-                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span id="badge-count-new" style="color: #888; font-size: 12px; margin-left: auto;">(0)</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer;">
+                                <input type="checkbox" id="badge-filter-damaged" checked style="cursor: pointer; margin: 0;">
                                 <span style="background: #ff6600; color: white; padding: 2px 6px; border-radius: 50%; font-size: 11px; font-weight: bold; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;">⚠</span>
                                 <span>Uszkodzone</span>
-                            </div>
+                                <span id="badge-count-damaged" style="color: #888; font-size: 12px; margin-left: auto;">(0)</span>
+                            </label>
                         </div>
                     </div>
                     

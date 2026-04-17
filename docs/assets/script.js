@@ -496,12 +496,18 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
             priceRange: offerPriceRange,  // ✅ Zakres cenowy z oferty
             isActive: isActive,
             isDamaged: isDamagedOffer,
-            primaryTag: offer.tags ? offer.tags.primary : 'pokoj'  // B1: Tag główny
+            primaryTag: offer.tags ? offer.tags.primary : 'pokoj',  // B1: Tag główny
+            // Flagi oznaczeń pinezek (do filtrowania legendy)
+            isNew: isNew,
+            priceDown: hasPriceChange && priceDown && !isDamagedOffer,
+            priceUp: hasPriceChange && priceUp && !isDamagedOffer
         });
     });
     
     // B1: Aktualizuj liczniki tagów
     updateTagCounts();
+    // Aktualizuj liczniki oznaczeń (legenda)
+    updateBadgeCounts();
 }
 
 // Tworzenie HTML popup
@@ -636,6 +642,12 @@ function filterMarkers() {
     const showKawalerka = document.getElementById('layer-tag-kawalerka')?.checked ?? true;
     const showMieszkanie = document.getElementById('layer-tag-mieszkanie')?.checked ?? true;
     
+    // Filtry oznaczeń pinezek (legenda)
+    const showPriceDown = document.getElementById('badge-filter-price-down')?.checked ?? true;
+    const showPriceUp = document.getElementById('badge-filter-price-up')?.checked ?? true;
+    const showNew = document.getElementById('badge-filter-new')?.checked ?? true;
+    const showDamaged = document.getElementById('badge-filter-damaged')?.checked ?? true;
+    
     // NOWY: Filtr czasowy
     const timeFilter = document.getElementById('time-filter').value;
     const now = new Date();
@@ -675,6 +687,20 @@ function filterMarkers() {
             if (tag === 'pokoj' && !showPokoj) visible = false;
             if (tag === 'kawalerka' && !showKawalerka) visible = false;
             if (tag === 'mieszkanie' && !showMieszkanie) visible = false;
+        }
+        
+        // Filtr oznaczeń pinezek (OR) - pinezki bez żadnego oznaczenia zawsze widoczne
+        if (visible) {
+            const hasAnyBadge = item.isDamaged || item.isNew || item.priceDown || item.priceUp;
+            if (hasAnyBadge) {
+                // Pokaż, jeśli CHOĆ JEDNO z oznaczeń pinezki jest zaznaczone w legendzie
+                const passes =
+                    (item.isDamaged && showDamaged) ||
+                    (item.isNew && showNew) ||
+                    (item.priceDown && showPriceDown) ||
+                    (item.priceUp && showPriceUp);
+                if (!passes) visible = false;
+            }
         }
         
         // NOWY: Filtr czasowy (sprawdź first_seen każdej oferty)
@@ -722,13 +748,17 @@ function filterMarkers() {
         
         // Pokaż/ukryj marker
         if (visible) {
-            if (item.isActive) {
+            if (item.isDamaged) {
+                markerLayers.damaged.addLayer(item.marker);
+            } else if (item.isActive) {
                 markerLayers.active.addLayer(item.marker);
             } else {
                 markerLayers.inactive.addLayer(item.marker);
             }
         } else {
-            if (item.isActive) {
+            if (item.isDamaged) {
+                markerLayers.damaged.removeLayer(item.marker);
+            } else if (item.isActive) {
                 markerLayers.active.removeLayer(item.marker);
             } else {
                 markerLayers.inactive.removeLayer(item.marker);
@@ -778,6 +808,13 @@ function setupEventListeners() {
     document.querySelectorAll('.price-range-filter').forEach(cb => {
         cb.addEventListener('change', filterMarkers);
     });
+    
+    // Filtry oznaczeń pinezek (legenda)
+    ['badge-filter-price-down', 'badge-filter-price-up', 'badge-filter-new', 'badge-filter-damaged']
+        .forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('change', filterMarkers);
+        });
     
     // Precyzyjne filtry cen - wspólne dla obu warstw
     document.getElementById('price-min').addEventListener('input', filterMarkers);
@@ -963,4 +1000,26 @@ function updateTagCounts() {
 // B1: Filtrowanie po tagach - alias do filterMarkers
 function filterByTags() {
     filterMarkers();
+}
+
+// Aktualizacja liczników oznaczeń pinezek (legenda)
+function updateBadgeCounts() {
+    const counts = { priceDown: 0, priceUp: 0, isNew: 0, damaged: 0 };
+
+    allMarkers.forEach(item => {
+        if (item.priceDown) counts.priceDown++;
+        if (item.priceUp) counts.priceUp++;
+        if (item.isNew) counts.isNew++;
+        if (item.isDamaged) counts.damaged++;
+    });
+
+    const setText = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = `(${value})`;
+    };
+
+    setText('badge-count-price-down', counts.priceDown);
+    setText('badge-count-price-up', counts.priceUp);
+    setText('badge-count-new', counts.isNew);
+    setText('badge-count-damaged', counts.damaged);
 }
