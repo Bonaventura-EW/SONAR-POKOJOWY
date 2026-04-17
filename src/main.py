@@ -719,7 +719,24 @@ class SonarPokojowy:
                 for offer in raw_offers 
                 if offer.get('skipped', False)
             ]
-            self._mark_inactive_offers(current_offer_ids, skipped_ids)
+
+            # ZABEZPIECZENIE: Ochrona przed masową dezaktywacją przy blokadzie OLX
+            # (Cloudflare, rate limit, pusta odpowiedź, itp.)
+            # Jeśli scraper zwrócił 0 ofert lub podejrzanie mało w stosunku do bazy,
+            # NIE dezaktywuj niczego - to prawie na pewno problem ze scrapem, nie z ofertami.
+            active_in_db = sum(1 for o in self.database['offers'] if o.get('active'))
+            MIN_RATIO = 0.3  # Scrape musi zwrócić co najmniej 30% wcześniejszej liczby aktywnych
+            scraped_count = len(raw_offers)
+
+            if scraped_count == 0 and active_in_db > 0:
+                print(f"   ⚠️  OCHRONA: Scraper zwrócił 0 ofert a baza ma {active_in_db} aktywnych.")
+                print(f"       Pomijam dezaktywację (prawdopodobna blokada OLX).")
+            elif active_in_db >= 10 and scraped_count < active_in_db * MIN_RATIO:
+                print(f"   ⚠️  OCHRONA: Scraper zwrócił tylko {scraped_count} ofert, w bazie jest {active_in_db} aktywnych.")
+                print(f"       Próg bezpieczeństwa: {int(active_in_db * MIN_RATIO)}. Pomijam dezaktywację.")
+                print(f"       Prawdopodobna blokada OLX lub częściowa awaria scrapera.")
+            else:
+                self._mark_inactive_offers(current_offer_ids, skipped_ids)
             
             # Aktualizuj days_active dla WSZYSTKICH ofert
             self._update_days_active()
