@@ -508,3 +508,190 @@ body {
     box-shadow: 0 1px 4px rgba(0,0,0,0.2) !important;
     white-space: nowrap !important;
 }
+
+/* ===== Pasek filtra daty dodania (suwak dni) ===== */
+.date-slider-bar {
+    background: linear-gradient(135deg, #f8fafc 0%, #eef2f7 100%);
+    border-bottom: 1px solid #d6dde5;
+    padding: 10px 20px 8px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: auto auto;
+    grid-template-areas:
+        "toggle slider readout"
+        "histogram histogram histogram";
+    column-gap: 18px;
+    row-gap: 6px;
+    align-items: center;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.date-slider-toggle {
+    grid-area: toggle;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.date-slider-toggle input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: #0ea5e9;
+}
+
+.date-slider-control {
+    grid-area: slider;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 200px;
+    opacity: 0.45;
+    transition: opacity 0.15s ease;
+}
+
+.date-slider-control.enabled {
+    opacity: 1;
+}
+
+.date-slider-bound {
+    font-size: 11px;
+    color: #64748b;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+#date-slider {
+    flex: 1;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: #cbd5e1;
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+}
+
+#date-slider:disabled {
+    cursor: not-allowed;
+}
+
+#date-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: #0ea5e9;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+#date-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: #0ea5e9;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+#date-slider:disabled::-webkit-slider-thumb {
+    background: #94a3b8;
+}
+
+#date-slider:disabled::-moz-range-thumb {
+    background: #94a3b8;
+}
+
+.date-slider-readout {
+    grid-area: readout;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.date-slider-label {
+    color: #64748b;
+}
+
+.date-slider-date {
+    font-weight: 600;
+    color: #94a3b8;
+    font-variant-numeric: tabular-nums;
+}
+
+.date-slider-date.active {
+    color: #0f172a;
+}
+
+.date-slider-count {
+    font-size: 11px;
+    color: #0369a1;
+    background: #e0f2fe;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.date-slider-histogram {
+    grid-area: histogram;
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 22px;
+    padding: 0 2px;
+}
+
+.date-slider-histogram .bar {
+    flex: 1;
+    min-width: 3px;
+    background: #cbd5e1;
+    border-radius: 2px 2px 0 0;
+    cursor: pointer;
+    transition: background 0.1s ease;
+}
+
+.date-slider-histogram .bar.empty {
+    background: #e2e8f0;
+}
+
+.date-slider-histogram .bar.active {
+    background: #0ea5e9;
+}
+
+.date-slider-histogram .bar:hover:not(.disabled) {
+    background: #0284c7;
+}
+
+.date-slider-histogram.disabled .bar {
+    cursor: not-allowed;
+    background: #e2e8f0;
+}
+
+@media (max-width: 768px) {
+    .date-slider-bar {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "toggle"
+            "slider"
+            "readout"
+            "histogram";
+        row-gap: 8px;
+        padding: 10px 12px;
+    }
+    .date-slider-control {
+        min-width: 0;
+    }
+}

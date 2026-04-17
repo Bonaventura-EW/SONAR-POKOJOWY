@@ -29,6 +29,29 @@ let markerLayers = {
     damaged: L.layerGroup()  // Warstwa dla ogłoszeń oznaczonych jako uszkodzone
 };
 
+// ===== Filtr daty dodania (suwak dni) =====
+// Stan: mapowanie "YYYY-MM-DD" -> liczba ofert w tym dniu, lista dni w zakresie
+let dateSliderState = {
+    enabled: false,
+    days: [],            // posortowana tablica Date (północ) od najstarszego do najnowszego
+    countsPerDay: {},    // klucz "YYYY-MM-DD" -> liczba ofert z first_seen tego dnia
+    selectedIndex: -1    // indeks aktualnie wybranego dnia w days[]
+};
+
+function dayKey(date) {
+    // Format klucza "YYYY-MM-DD" niezależny od strefy
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+function formatDayPL(date) {
+    const d = String(date.getDate()).padStart(2, '0');
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    return `${d}.${m}.${date.getFullYear()}`;
+}
+
 // Warstwy uczelni
 let universityLayers = {};
 const universities = {
@@ -215,6 +238,7 @@ async function loadData() {
         createPriceRangeFilters();
         createMarkers();
         updateStats();  // Wywołaj PO createMarkers(), żeby allMarkers był wypełniony
+        initDateSlider();  // Suwak dni - wymaga wypełnionego allMarkers
         setupEventListeners();
         filterMarkers();  // ✅ Przefiltruj markery zgodnie z początkowymi stanami checkboxów
         
@@ -294,7 +318,10 @@ function calculateFilteredStats() {
         item.offers.forEach(offer => {
             // Sprawdź filtr czasowy
             if (!passesTimeFilter(offer)) return;
-            
+
+            // Sprawdź filtr dzienny (suwak dni)
+            if (!passesDaySliderFilter(parsePolishDate(offer.first_seen))) return;
+
             // Oferta przeszła wszystkie filtry - dodaj do listy
             visibleOffers.push(offer);
         });
@@ -734,6 +761,11 @@ function filterMarkers() {
                 visible = false;
             }
         }
+
+        // Filtr dzienny (suwak dni) - oferta widoczna jeśli first_seen = wybrany dzień
+        if (visible && !passesDaySliderFilter(item.firstSeenDate)) {
+            visible = false;
+        }
         
         // Filtr zakresów cenowych - wspólny dla obu warstw
         // Jeśli selectedRanges jest puste (żaden checkbox), pokaż wszystkie
@@ -800,6 +832,179 @@ function searchAndZoom() {
     }
     
     filterMarkers();
+}
+
+// ===== Inicjalizacja suwaka dni =====
+// Buduje zakres dni od najstarszego first_seen do DZISIAJ,
+// zlicza oferty per dzień i renderuje mini-histogram.
+function initDateSlider() {
+    const slider = document.getElementById('date-slider');
+    const enableCb = document.getElementById('date-filter-enable');
+    const control = document.getElementById('date-slider-control');
+    const minLabel = document.getElementById('date-slider-min');
+    const maxLabel = document.getElementById('date-slider-max');
+    const histogram = document.getElementById('date-slider-histogram');
+
+    if (!slider || !enableCb) return;
+
+    // 1. Wyłoń najstarszy first_seen
+    let earliest = null;
+    allMarkers.forEach(item => {
+        if (item.firstSeenDate && (!earliest || item.firstSeenDate < earliest)) {
+            earliest = item.firstSeenDate;
+        }
+    });
+
+    if (!earliest) {
+        // Brak danych z datami - wyłącz filtr
+        enableCb.disabled = true;
+        minLabel.textContent = '—';
+        maxLabel.textContent = '—';
+        return;
+    }
+
+    // 2. Zbuduj tablicę dni: od północy earliest do północy dzisiaj (włącznie)
+    const startDay = new Date(earliest.getFullYear(), earliest.getMonth(), earliest.getDate());
+    const now = new Date();
+    const endDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const days = [];
+    const cursor = new Date(startDay);
+    while (cursor <= endDay) {
+        days.push(new Date(cursor));
+        cursor.setDate(cursor.getDate() + 1);
+    }
+
+    // 3. Zlicz oferty per dzień
+    const counts = {};
+    days.forEach(d => { counts[dayKey(d)] = 0; });
+    allMarkers.forEach(item => {
+        item.offers.forEach(offer => {
+            const fs = parsePolishDate(offer.first_seen);
+            if (!fs) return;
+            const key = dayKey(fs);
+            if (key in counts) {
+                counts[key]++;
+            }
+        });
+    });
+
+    dateSliderState.days = days;
+    dateSliderState.countsPerDay = counts;
+    dateSliderState.selectedIndex = days.length - 1; // start na ostatnim dniu
+
+    // 4. Skonfiguruj suwak
+    slider.min = 0;
+    slider.max = days.length - 1;
+    slider.value = days.length - 1;
+
+    minLabel.textContent = formatDayPL(days[0]);
+    maxLabel.textContent = formatDayPL(days[days.length - 1]);
+
+    // 5. Zbuduj histogram
+    histogram.innerHTML = '';
+    const maxCount = Math.max(1, ...Object.values(counts));
+
+    days.forEach((d, i) => {
+        const c = counts[dayKey(d)];
+        const bar = document.createElement('div');
+        bar.className = 'bar' + (c === 0 ? ' empty' : '');
+        const pct = c === 0 ? 8 : Math.max(15, Math.round((c / maxCount) * 100));
+        bar.style.height = pct + '%';
+        bar.dataset.index = i;
+        bar.title = `${formatDayPL(d)}: ${c} ofert`;
+        bar.addEventListener('click', () => {
+            if (!dateSliderState.enabled) return;
+            slider.value = i;
+            dateSliderState.selectedIndex = i;
+            updateDateSliderReadout();
+            filterMarkers();
+        });
+        histogram.appendChild(bar);
+    });
+
+    // 6. Listenery (tylko raz)
+    enableCb.addEventListener('change', () => {
+        dateSliderState.enabled = enableCb.checked;
+        if (enableCb.checked) {
+            control.classList.add('enabled');
+            slider.disabled = false;
+            histogram.classList.remove('disabled');
+            // Użyj aktualnej pozycji suwaka
+            dateSliderState.selectedIndex = parseInt(slider.value);
+        } else {
+            control.classList.remove('enabled');
+            slider.disabled = true;
+            histogram.classList.add('disabled');
+        }
+        updateDateSliderReadout();
+        filterMarkers();
+    });
+
+    slider.addEventListener('input', () => {
+        dateSliderState.selectedIndex = parseInt(slider.value);
+        updateDateSliderReadout();
+        filterMarkers();
+    });
+
+    // 7. Stan początkowy - wyłączony
+    control.classList.remove('enabled');
+    histogram.classList.add('disabled');
+    updateDateSliderReadout();
+}
+
+// Aktualizuje wyświetlaną datę i licznik po zmianie suwaka / checkboxa
+function updateDateSliderReadout() {
+    const dateEl = document.getElementById('date-slider-current');
+    const countEl = document.getElementById('date-slider-count');
+    const histogram = document.getElementById('date-slider-histogram');
+    if (!dateEl || !countEl) return;
+
+    const idx = dateSliderState.selectedIndex;
+    const days = dateSliderState.days;
+
+    // Podświetl aktywny słupek
+    if (histogram) {
+        Array.from(histogram.children).forEach((bar, i) => {
+            bar.classList.toggle('active', dateSliderState.enabled && i === idx);
+        });
+    }
+
+    if (!dateSliderState.enabled || idx < 0 || idx >= days.length) {
+        dateEl.textContent = '—';
+        dateEl.classList.remove('active');
+        countEl.textContent = '— ofert';
+        return;
+    }
+
+    const day = days[idx];
+    const count = dateSliderState.countsPerDay[dayKey(day)] || 0;
+    dateEl.textContent = formatDayPL(day);
+    dateEl.classList.add('active');
+    countEl.textContent = `${count} ${pluralOffers(count)}`;
+}
+
+// Polska deklinacja dla "oferta"
+function pluralOffers(n) {
+    if (n === 1) return 'oferta';
+    const mod10 = n % 10;
+    const mod100 = n % 100;
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'oferty';
+    return 'ofert';
+}
+
+// Czy oferta/marker pasuje do wybranego dnia w suwaku dni
+// Używane wspólnie przez filterMarkers, calculateFilteredStats, updateBadgeCounts
+function passesDaySliderFilter(firstSeenDate) {
+    if (!dateSliderState.enabled) return true;
+    if (!firstSeenDate) return false;
+    const idx = dateSliderState.selectedIndex;
+    const days = dateSliderState.days;
+    if (idx < 0 || idx >= days.length) return true;
+    const selected = days[idx];
+    return firstSeenDate.getFullYear() === selected.getFullYear() &&
+           firstSeenDate.getMonth() === selected.getMonth() &&
+           firstSeenDate.getDate() === selected.getDate();
 }
 
 // Setup event listeners
@@ -1029,6 +1234,10 @@ function updateBadgeCounts() {
         // Dla "nowa oferta" używamy first_seen
         const firstSeenInRange = !cutoffDate ||
             (item.firstSeenDate && item.firstSeenDate >= cutoffDate);
+
+        // Filtr suwaka dni - dotyczy first_seen markera
+        const daySliderOk = passesDaySliderFilter(item.firstSeenDate);
+        if (!daySliderOk) return;
 
         if (item.priceDown && priceChangeInRange) counts.priceDown++;
         if (item.priceUp && priceChangeInRange) counts.priceUp++;
