@@ -1,6 +1,25 @@
 // SONAR POKOJOWY - JavaScript
 // Interaktywna mapa z filtrami, wyszukiwaniem i warstwami
 
+// Helper: parsowanie daty z formatu polskiego "DD.MM.YYYY HH:MM"
+function parsePolishDate(str) {
+    if (!str) return null;
+    try {
+        const parts = str.split(' ');
+        const d = parts[0].split('.');
+        const t = (parts[1] || '00:00').split(':');
+        return new Date(
+            parseInt(d[2]),
+            parseInt(d[1]) - 1,
+            parseInt(d[0]),
+            parseInt(t[0]),
+            parseInt(t[1])
+        );
+    } catch (e) {
+        return null;
+    }
+}
+
 let map;
 let mapData;
 let allMarkers = [];
@@ -500,7 +519,10 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
             // Flagi oznaczeń pinezek (do filtrowania legendy)
             isNew: isNew,
             priceDown: hasPriceChange && priceDown && !isDamagedOffer,
-            priceUp: hasPriceChange && priceUp && !isDamagedOffer
+            priceUp: hasPriceChange && priceUp && !isDamagedOffer,
+            // Daty do filtrowania zakresem dat
+            firstSeenDate: parsePolishDate(offer.first_seen),
+            priceChangedAtDate: parsePolishDate(offer.price_changed_at)
         });
     });
     
@@ -703,28 +725,12 @@ function filterMarkers() {
             }
         }
         
-        // NOWY: Filtr czasowy (sprawdź first_seen każdej oferty)
-        if (visible && cutoffDate && item.offers) {
-            const hasRecentOffer = item.offers.some(offer => {
-                try {
-                    // Parse first_seen date (format: "28.02.2026 19:57")
-                    const parts = offer.first_seen.split(' ');
-                    const dateParts = parts[0].split('.');
-                    const timeParts = parts[1].split(':');
-                    const offerDate = new Date(
-                        parseInt(dateParts[2]),         // year (already full format YYYY)
-                        parseInt(dateParts[1]) - 1,     // month (0-indexed)
-                        parseInt(dateParts[0]),         // day
-                        parseInt(timeParts[0]),         // hour
-                        parseInt(timeParts[1])          // minute
-                    );
-                    return offerDate >= cutoffDate;
-                } catch (e) {
-                    return true; // Jeśli błąd parsowania, pokaż ofertę
-                }
-            });
-            
-            if (!hasRecentOffer) {
+        // Filtr czasowy - uwzględnia first_seen ORAZ price_changed_at
+        // Oferta przechodzi gdy KTÓRAKOLWIEK z dat mieści się w zakresie
+        if (visible && cutoffDate) {
+            const firstSeenOk = item.firstSeenDate && item.firstSeenDate >= cutoffDate;
+            const priceChangedOk = item.priceChangedAtDate && item.priceChangedAtDate >= cutoffDate;
+            if (!firstSeenOk && !priceChangedOk) {
                 visible = false;
             }
         }
@@ -768,6 +774,8 @@ function filterMarkers() {
     
     // Przelicz i zaktualizuj statystyki po filtrowaniu
     updateStats();
+    // Zaktualizuj liczniki oznaczeń (respektują aktualny zakres dat)
+    updateBadgeCounts();
 }
 
 // Wyszukiwanie z zoomem
@@ -1003,13 +1011,29 @@ function filterByTags() {
 }
 
 // Aktualizacja liczników oznaczeń pinezek (legenda)
+// Respektuje aktywny zakres dat (filtr "Pokaż oferty z ostatnich")
 function updateBadgeCounts() {
+    const timeFilter = document.getElementById('time-filter')?.value || 'all';
+    let cutoffDate = null;
+    if (timeFilter !== 'all') {
+        const daysAgo = parseInt(timeFilter);
+        cutoffDate = new Date(Date.now() - (daysAgo * 24 * 60 * 60 * 1000));
+    }
+
     const counts = { priceDown: 0, priceUp: 0, isNew: 0, damaged: 0 };
 
     allMarkers.forEach(item => {
-        if (item.priceDown) counts.priceDown++;
-        if (item.priceUp) counts.priceUp++;
-        if (item.isNew) counts.isNew++;
+        // Dla zmian ceny używamy price_changed_at
+        const priceChangeInRange = !cutoffDate ||
+            (item.priceChangedAtDate && item.priceChangedAtDate >= cutoffDate);
+        // Dla "nowa oferta" używamy first_seen
+        const firstSeenInRange = !cutoffDate ||
+            (item.firstSeenDate && item.firstSeenDate >= cutoffDate);
+
+        if (item.priceDown && priceChangeInRange) counts.priceDown++;
+        if (item.priceUp && priceChangeInRange) counts.priceUp++;
+        if (item.isNew && firstSeenInRange) counts.isNew++;
+        // Uszkodzone - bez filtra daty
         if (item.isDamaged) counts.damaged++;
     });
 
