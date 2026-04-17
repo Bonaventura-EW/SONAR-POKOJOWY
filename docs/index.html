@@ -72,7 +72,29 @@
                 </a>
             </div>
         </header>
-        
+
+        <!-- Pasek filtra daty dodania (suwak dni) -->
+        <div class="date-slider-bar">
+            <label class="date-slider-toggle">
+                <input type="checkbox" id="date-filter-enable">
+                <span>Filtruj po dacie dodania</span>
+            </label>
+
+            <div class="date-slider-control" id="date-slider-control">
+                <span class="date-slider-bound" id="date-slider-min">—</span>
+                <input type="range" id="date-slider" min="0" max="0" value="0" step="1" disabled>
+                <span class="date-slider-bound" id="date-slider-max">—</span>
+            </div>
+
+            <div class="date-slider-readout">
+                <span class="date-slider-label">Wybrany dzień:</span>
+                <span class="date-slider-date" id="date-slider-current">—</span>
+                <span class="date-slider-count" id="date-slider-count">— ofert</span>
+            </div>
+
+            <div class="date-slider-histogram" id="date-slider-histogram"></div>
+        </div>
+
         <!-- Main content: mapa + sidebar -->
         <div class="main-container">
             <!-- Map Container -->
