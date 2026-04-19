@@ -2,11 +2,10 @@ name: SONAR POKOJOWY Scanner
 
 on:
   schedule:
-    # 3 scany dziennie: 9:00, 15:00, 21:00 CET (UTC = CET - 1h zimą, - 2h latem)
-    # W zimie (standard time): 8:00, 14:00, 20:00 UTC
-    # W lecie (daylight saving): 7:00, 13:00, 19:00 UTC
-    # GitHub Actions używa UTC, więc podajemy czas zimowy (standard)
-    - cron: '0 8,14,20 * * *'  # 9:00, 15:00, 21:00 CET (zimowy)
+    # 3 scany dziennie: 9:00, 15:00, 21:00 CET/CEST
+    # W zimie (CET = UTC+1): 8:00, 14:00, 20:00 UTC
+    # W lecie (CEST = UTC+2): 7:00, 13:00, 19:00 UTC
+    - cron: '0 7,13,19 * * *'  # 9:00, 15:00, 21:00 CEST (letni)
     
   # Możliwość manualnego uruchomienia
   workflow_dispatch:
