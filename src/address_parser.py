@@ -78,6 +78,24 @@ class AddressParser:
             false_addr = f"{match.group(1)} {match.group(2)}"
             false_addresses.add(false_addr.lower())
         
+        # FILTR 3: Wykryj metraż/powierzchnię typu "ma ok 9m", "około 15m2", "powierzchnia 20m"
+        # Przykład: "Pokój ma ok 9m2" - to NIE jest adres "ma ok 9m"
+        area_pattern = re.compile(
+            r'\b(ma|około|ok\.?|posiada|powierzchni[aę]?|metraż[u]?)\s+(ok\.?\s+)?(\d+)\s*m[²2]?\b',
+            re.IGNORECASE | re.UNICODE
+        )
+        for match in area_pattern.finditer(text):
+            # Dodaj różne warianty tego samego metrażu
+            false_addr_variants = [
+                f"{match.group(1)} {match.group(3)}",  # "ma 9"
+                f"{match.group(1)} ok {match.group(3)}",  # "ma ok 9"
+            ]
+            if match.group(2):  # jeśli było "ok" w środku
+                false_addr_variants.append(f"{match.group(1)} {match.group(2).strip()} {match.group(3)}")
+            
+            for variant in false_addr_variants:
+                false_addresses.add(variant.lower().replace('.', '').strip())
+        
         # Słowa które NIGDY nie mogą być nazwą ulicy (instytucje, uczelnie, itp.)
         # Te słowa + numer to prawie zawsze "X minut od", "X metrów od"
         non_street_names = {
@@ -147,11 +165,16 @@ class AddressParser:
             'carrefour', 'tesco', 'empik', 'media', 'saturn', 'decathlon',
             'poczta', 'urząd', 'sąd', 'kościół', 'cerkiew', 'meczet', 'synagoga',
             'apteka', 'bank', 'hotel', 'restauracja', 'kawiarnia', 'pub', 'klub',
-            'kino', 'teatr', 'muzeum', 'biblioteka', 'klinika', 'przychodnia'
+            'kino', 'teatr', 'muzeum', 'biblioteka', 'klinika', 'przychodnia',
+            # KRYTYCZNE: Słowa z opisów metrażu/powierzchni
+            'ma', 'ok', 'około', 'posiada', 'powierzchnia', 'powierzchni', 'metraż', 'metrażu'
         }
         
         # Szukamy WSZYSTKICH dopasowań (prefiks + ulica + numer)
         matches = self.ADDRESS_PATTERN.finditer(text)
+        
+        # Zbierz wszystkie kandydaty
+        candidates = []
         
         for match in matches:
             prefix = match.group(1)  # może być None
@@ -211,7 +234,9 @@ class AddressParser:
             
             # NOWE: Buduj pełny adres z prefixem (jeśli jest)
             full_address = street
+            has_prefix = False
             if prefix:
+                has_prefix = True
                 prefix_lower = prefix.lower().rstrip('.')
                 # Mapuj prefiks na pełną nazwę
                 if prefix_lower in ['al', 'aleja']:
@@ -224,10 +249,30 @@ class AddressParser:
                     full_address = f"Osiedle {street}"
                 # ul./ulica - pomijamy, zostawiamy samą nazwę ulicy
             
-            return {
+            # Dodaj do listy kandydatów z priorytetem
+            # Priorytet: 
+            # 1. Ma prefiks ul./al./pl. (najbardziej pewne)
+            # 2. Długość nazwy ulicy (dłuższa nazwa = bardziej specyficzna)
+            priority = 0
+            if has_prefix:
+                priority += 100  # Prefiks daje wysoką pewność
+            priority += len(street)  # Dłuższa nazwa = wyższy priorytet
+            
+            candidates.append({
                 'street': street,
                 'number': number,
-                'full': f"{full_address} {number}"
+                'full': f"{full_address} {number}",
+                'priority': priority,
+                'has_prefix': has_prefix
+            })
+        
+        # Jeśli znaleziono kandydatów, wybierz najlepszego (najwyższy priorytet)
+        if candidates:
+            best = max(candidates, key=lambda x: x['priority'])
+            return {
+                'street': best['street'],
+                'number': best['number'],
+                'full': best['full']
             }
         
         # NOWY FALLBACK: Wzorzec dla polskich nazwisk w dopełniaczu
