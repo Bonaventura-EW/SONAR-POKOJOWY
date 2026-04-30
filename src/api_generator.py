@@ -37,8 +37,61 @@ class APIGenerator:
         self._generate_status()
         self._generate_history()
         self._generate_health()
+        self._generate_scan_status()
         
         print(f"✅ API wygenerowane w: {self.output_dir}")
+
+    def _generate_scan_status(self):
+        """
+        Generuje /api/scan_status.json
+
+        Uproszczony endpoint dedykowany dla aplikacji Android (SZPERACZ).
+        Zawiera:
+        - Wynik ostatniego skanu (success/failed) z powodem niepowodzenia
+        - Liczba nowych ofert z ostatniego skanu
+        - Historia 3 ostatnich skanów
+        """
+        recent_scans = self.logger.get_recent_scans(count=3)
+        now = datetime.now(self.tz)
+
+        def _format(scan: Dict) -> Dict:
+            if not scan:
+                return None
+            stats = scan.get('stats', {})
+            errors = scan.get('errors', [])
+            status = scan.get('status', 'unknown')
+
+            success = status == 'completed' and not errors
+            failure_reason = None
+            if status != 'completed':
+                failure_reason = f"Skan zakończył się statusem: {status}"
+            elif errors:
+                failure_reason = errors[0].get('message', 'Nieznany błąd')
+
+            return {
+                "id": scan.get('timestamp', '')[:19].replace(':', '-'),
+                "timestamp": scan.get('timestamp'),
+                "durationFormatted": self._format_duration(scan.get('total_duration')),
+                "success": success,
+                "failureReason": failure_reason,
+                "newOffers": stats.get('new', 0),
+                "activeOffers": stats.get('active', 0),
+                "foundOffers": stats.get('raw_offers', 0),
+            }
+
+        last = _format(recent_scans[0]) if recent_scans else None
+
+        data = {
+            "generatedAt": now.isoformat(),
+            "lastScan": last,
+            "recentScans": [_format(s) for s in recent_scans],
+            "nextScanAt": (self._calculate_next_scan_time().isoformat()
+                           if self._calculate_next_scan_time() else None),
+        }
+
+        self._save_json("scan_status.json", data)
+        status_label = "✅ success" if (last and last["success"]) else "❌ failed"
+        print(f"   📱 scan_status.json - ostatni skan: {status_label}")
     
     def _generate_status(self):
         """
