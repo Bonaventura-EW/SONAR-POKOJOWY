@@ -1,14 +1,76 @@
 {
-  "generated_at": "2026-05-03T10:29:41.301448+02:00",
+  "generated_at": "2026-05-03T16:06:39.764894+02:00",
   "statistics": {
     "total_scans": 100,
     "successful": 100,
     "failed": 0,
     "success_rate": 100.0,
-    "avg_duration": 346.92,
-    "avg_offers_found": 401.7
+    "avg_duration": 346.5,
+    "avg_offers_found": 401.4
   },
   "recent_scans": [
+    {
+      "timestamp": "2026-05-03T16:06:39.764894+02:00",
+      "status": "completed",
+      "phases": {
+        "scraping": {
+          "duration": 255.6,
+          "details": {
+            "offers_found": 405,
+            "max_pages": 50
+          }
+        },
+        "processing": {
+          "duration": 0.78,
+          "details": {
+            "processed": 80,
+            "skipped_no_address": 161,
+            "skipped_no_price": 0,
+            "skipped_no_coords": 159,
+            "skipped_duplicate": 5,
+            "skipped_removed": 0
+          }
+        },
+        "geocoding": {
+          "duration": 0.48,
+          "details": {
+            "geocoded_addresses": 80
+          }
+        }
+      },
+      "stats": {
+        "raw_offers": 405,
+        "processed": 80,
+        "new": 0,
+        "updated": 80,
+        "reactivated": 12,
+        "total_in_db": 275,
+        "active": 102,
+        "inactive": 173,
+        "skipped_no_address": 161,
+        "skipped_no_price": 0,
+        "skipped_no_coords": 159,
+        "skipped_duplicate": 5,
+        "skipped_removed": 0,
+        "verification": {
+          "verified": 50,
+          "reactivated": 12,
+          "confirmed_inactive": 38,
+          "errors": 0
+        }
+      },
+      "errors": [],
+      "end_timestamp": "2026-05-03T16:12:06.851579+02:00",
+      "total_duration": 327.09,
+      "performance": {
+        "offers_per_second": 1.24,
+        "pages_scanned": 50,
+        "geocoding_duration": 0.48,
+        "geocoding_per_address": 0.01,
+        "scraping_per_page": 5.11,
+        "processing_success_rate": 19.8
+      }
+    },
     {
       "timestamp": "2026-05-03T10:29:41.301448+02:00",
       "status": "completed",
@@ -5151,80 +5213,10 @@
         "scraping_per_page": 4.74,
         "processing_success_rate": 20.6
       }
-    },
-    {
-      "timestamp": "2026-04-06T16:40:57.789494+02:00",
-      "status": "completed",
-      "phases": {
-        "scraping": {
-          "duration": 238.27,
-          "details": {
-            "offers_found": 372,
-            "max_pages": 50
-          }
-        },
-        "processing": {
-          "duration": 1.15,
-          "details": {
-            "processed": 77,
-            "skipped_no_address": 133,
-            "skipped_no_price": 0,
-            "skipped_no_coords": 160,
-            "skipped_duplicate": 2,
-            "skipped_removed": 0
-          }
-        },
-        "geocoding": {
-          "duration": 0.97,
-          "details": {
-            "geocoded_addresses": 77
-          }
-        }
-      },
-      "stats": {
-        "raw_offers": 372,
-        "processed": 77,
-        "new": 1,
-        "updated": 76,
-        "reactivated": 13,
-        "total_in_db": 216,
-        "active": 96,
-        "inactive": 120,
-        "skipped_no_address": 133,
-        "skipped_no_price": 0,
-        "skipped_no_coords": 160,
-        "skipped_duplicate": 2,
-        "skipped_removed": 0,
-        "verification": {
-          "verified": 50,
-          "reactivated": 13,
-          "confirmed_inactive": 37,
-          "errors": 0
-        }
-      },
-      "errors": [],
-      "end_timestamp": "2026-04-06T16:46:09.990503+02:00",
-      "total_duration": 312.2,
-      "performance": {
-        "offers_per_second": 1.19,
-        "pages_scanned": 50,
-        "geocoding_duration": 0.97,
-        "geocoding_per_address": 0.01,
-        "scraping_per_page": 4.77,
-        "processing_success_rate": 20.7
-      }
     }
   ],
   "charts": {
     "duration_over_time": [
-      {
-        "timestamp": "2026-04-01T10:56:04.722946+02:00",
-        "duration": 369.6,
-        "offers_per_second": 1.16,
-        "scraping_per_page": 5.51,
-        "geocoding_duration": 0.66,
-        "geocoding_per_address": 0.01
-      },
       {
         "timestamp": "2026-04-01T16:58:04.304659+02:00",
         "duration": 345.23,
@@ -6016,15 +6008,17 @@
         "scraping_per_page": 5.15,
         "geocoding_duration": 1.47,
         "geocoding_per_address": 0.02
+      },
+      {
+        "timestamp": "2026-05-03T16:06:39.764894+02:00",
+        "duration": 327.09,
+        "offers_per_second": 1.24,
+        "scraping_per_page": 5.11,
+        "geocoding_duration": 0.48,
+        "geocoding_per_address": 0.01
       }
     ],
     "offers_over_time": [
-      {
-        "timestamp": "2026-04-01T10:56:04.722946+02:00",
-        "raw_offers": 430,
-        "processed": 84,
-        "new": 1
-      },
       {
         "timestamp": "2026-04-01T16:58:04.304659+02:00",
         "raw_offers": 426,
@@ -6618,14 +6612,15 @@
         "raw_offers": 410,
         "processed": 81,
         "new": 0
+      },
+      {
+        "timestamp": "2026-05-03T16:06:39.764894+02:00",
+        "raw_offers": 405,
+        "processed": 80,
+        "new": 0
       }
     ],
     "success_rate": [
-      {
-        "timestamp": "2026-04-01T10:56:04.722946+02:00",
-        "success": 100,
-        "status": "completed"
-      },
       {
         "timestamp": "2026-04-01T16:58:04.304659+02:00",
         "success": 100,
@@ -7118,6 +7113,11 @@
       },
       {
         "timestamp": "2026-05-03T10:29:41.301448+02:00",
+        "success": 100,
+        "status": "completed"
+      },
+      {
+        "timestamp": "2026-05-03T16:06:39.764894+02:00",
         "success": 100,
         "status": "completed"
       }
