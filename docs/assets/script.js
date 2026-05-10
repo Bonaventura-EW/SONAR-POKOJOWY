@@ -374,7 +374,8 @@ function createPriceRangeFilters() {
         label.innerHTML = `
             <input type="checkbox" class="price-range-filter" data-range="${key}" checked>
             <span style="display:inline-block; width:15px; height:15px; background:${range.color}; margin-right:5px; vertical-align:middle; border-radius:50%;"></span>
-            ${range.label}
+            <span class="price-range-label-text">${range.label}</span>
+            <span id="price-range-count-${key}" class="badge-count">(0)</span>
         `;
         container.appendChild(label);
     });
@@ -557,6 +558,8 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
     updateTagCounts();
     // Aktualizuj liczniki oznaczeń (legenda)
     updateBadgeCounts();
+    // Aktualizuj liczniki w zakresach cenowych (legenda)
+    updatePriceRangeCounts();
 }
 
 // Tworzenie HTML popup
@@ -808,6 +811,8 @@ function filterMarkers() {
     updateStats();
     // Zaktualizuj liczniki oznaczeń (respektują aktualny zakres dat)
     updateBadgeCounts();
+    // Zaktualizuj liczniki w zakresach cenowych (respektują wszystkie filtry oprócz samych zakresów)
+    updatePriceRangeCounts();
 }
 
 // Wyszukiwanie z zoomem
@@ -1208,6 +1213,96 @@ function updateTagCounts() {
     if (pokojEl) pokojEl.textContent = `(${counts.pokoj})`;
     if (kawalerkaEl) kawalerkaEl.textContent = `(${counts.kawalerka})`;
     if (mieszkanieEl) mieszkanieEl.textContent = `(${counts.mieszkanie})`;
+}
+
+// Aktualizacja liczników w zakresach cenowych (legenda)
+// Respektuje WSZYSTKIE aktywne filtry OPRÓCZ samych zakresów cenowych
+// (analogicznie jak updateBadgeCounts dla pinezek)
+function updatePriceRangeCounts() {
+    if (!mapData || !mapData.price_ranges) return;
+    
+    // Pobierz aktualne ustawienia filtrów (oprócz zakresów cenowych)
+    const showActive = document.getElementById('layer-active')?.checked ?? true;
+    const showInactive = document.getElementById('layer-inactive')?.checked ?? true;
+    
+    const showPokoj = document.getElementById('layer-tag-pokoj')?.checked ?? true;
+    const showKawalerka = document.getElementById('layer-tag-kawalerka')?.checked ?? true;
+    const showMieszkanie = document.getElementById('layer-tag-mieszkanie')?.checked ?? true;
+    
+    const showPriceDown = document.getElementById('badge-filter-price-down')?.checked ?? true;
+    const showPriceUp = document.getElementById('badge-filter-price-up')?.checked ?? true;
+    const showNew = document.getElementById('badge-filter-new')?.checked ?? true;
+    const showDamaged = document.getElementById('badge-filter-damaged')?.checked ?? true;
+    
+    const timeFilter = document.getElementById('time-filter')?.value || 'all';
+    let cutoffDate = null;
+    if (timeFilter !== 'all') {
+        const daysAgo = parseInt(timeFilter);
+        cutoffDate = new Date(Date.now() - (daysAgo * 24 * 60 * 60 * 1000));
+    }
+    
+    const priceMin = parseInt(document.getElementById('price-min')?.value) || 0;
+    const priceMax = parseInt(document.getElementById('price-max')?.value) || 999999;
+    
+    const searchTerm = (document.getElementById('search-input')?.value || '').toLowerCase();
+    
+    // Inicjalizuj liczniki dla każdego zakresu
+    const counts = {};
+    Object.keys(mapData.price_ranges).forEach(key => { counts[key] = 0; });
+    
+    // Iteruj po wszystkich ofertach (allMarkers = oferty 1:1)
+    allMarkers.forEach(item => {
+        // Filtr aktywne/nieaktywne
+        if (item.isActive && !showActive) return;
+        if (!item.isActive && !showInactive) return;
+        
+        // Filtr tagów
+        const tag = item.primaryTag || 'pokoj';
+        if (tag === 'pokoj' && !showPokoj) return;
+        if (tag === 'kawalerka' && !showKawalerka) return;
+        if (tag === 'mieszkanie' && !showMieszkanie) return;
+        
+        // Filtr oznaczeń pinezek (OR)
+        const hasAnyBadge = item.isDamaged || item.isNew || item.priceDown || item.priceUp;
+        if (hasAnyBadge) {
+            const passes =
+                (item.isDamaged && showDamaged) ||
+                (item.isNew && showNew) ||
+                (item.priceDown && showPriceDown) ||
+                (item.priceUp && showPriceUp);
+            if (!passes) return;
+        }
+        
+        // Filtr czasowy (first_seen LUB price_changed_at)
+        if (cutoffDate) {
+            const firstSeenOk = item.firstSeenDate && item.firstSeenDate >= cutoffDate;
+            const priceChangedOk = item.priceChangedAtDate && item.priceChangedAtDate >= cutoffDate;
+            if (!firstSeenOk && !priceChangedOk) return;
+        }
+        
+        // Filtr suwaka dni
+        if (!passesDaySliderFilter(item.firstSeenDate)) return;
+        
+        // Precyzyjny filtr cen
+        const price = item.offers[0].price;
+        if (price < priceMin || price > priceMax) return;
+        
+        // Wyszukiwanie
+        if (searchTerm && !item.address.toLowerCase().includes(searchTerm)) return;
+        
+        // CELOWO POMIJAMY filtr selectedRanges - bo to jego liczniki właśnie wyliczamy
+        
+        // Zlicz po zakresie cenowym
+        if (item.priceRange && counts.hasOwnProperty(item.priceRange)) {
+            counts[item.priceRange]++;
+        }
+    });
+    
+    // Zaktualizuj UI
+    Object.entries(counts).forEach(([key, value]) => {
+        const el = document.getElementById(`price-range-count-${key}`);
+        if (el) el.textContent = `(${value})`;
+    });
 }
 
 // B1: Filtrowanie po tagach - alias do filterMarkers
