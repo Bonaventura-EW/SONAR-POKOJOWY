@@ -26,6 +26,8 @@ let allMarkers = [];
 let markerLayers = {
     active: L.layerGroup(),
     inactive: L.layerGroup(),
+    activeApprox: L.layerGroup(),   // NOWE: aktywne przybliżone (precision: street_only)
+    inactiveApprox: L.layerGroup(), // NOWE: nieaktywne przybliżone
     damaged: L.layerGroup()  // Warstwa dla ogłoszeń oznaczonych jako uszkodzone
 };
 
@@ -200,6 +202,7 @@ function initMap() {
     markerLayers.active.addTo(map);
     markerLayers.inactive.addTo(map);
     // markerLayers.damaged NIE dodajemy - będzie domyślnie ukryta
+    // markerLayers.activeApprox / inactiveApprox NIE dodajemy - domyślnie wyłączone (decyzja 3c)
     
     // Tworzenie warstw uczelni
     createUniversityLayers();
@@ -255,6 +258,8 @@ function calculateFilteredStats() {
     // Pobierz ustawienia filtrów
     const showActive = document.getElementById('layer-active').checked;
     const showInactive = document.getElementById('layer-inactive').checked;
+    const showActiveApprox = document.getElementById('layer-active-approx')?.checked ?? false;
+    const showInactiveApprox = document.getElementById('layer-inactive-approx')?.checked ?? false;
     
     // Filtr czasowy
     const timeFilter = document.getElementById('time-filter').value;
@@ -298,13 +303,24 @@ function calculateFilteredStats() {
     const visibleOffers = [];
     
     allMarkers.forEach(item => {
-        // Sprawdź filtr warstwy
-        if (item.isActive && !showActive) return;
-        if (!item.isActive && !showInactive) return;
+        // Sprawdź filtr warstwy - osobne checkboxy dla exact i approx
+        if (item.isApprox) {
+            if (item.isActive && !showActiveApprox) return;
+            if (!item.isActive && !showInactiveApprox) return;
+        } else {
+            if (item.isActive && !showActive) return;
+            if (!item.isActive && !showInactive) return;
+        }
         
         // Sprawdź czy marker jest widoczny (jest w odpowiedniej warstwie na mapie)
-        const isOnMap = (item.isActive && markerLayers.active.hasLayer(item.marker)) ||
-                        (!item.isActive && markerLayers.inactive.hasLayer(item.marker));
+        let isOnMap;
+        if (item.isApprox) {
+            isOnMap = (item.isActive && markerLayers.activeApprox.hasLayer(item.marker)) ||
+                      (!item.isActive && markerLayers.inactiveApprox.hasLayer(item.marker));
+        } else {
+            isOnMap = (item.isActive && markerLayers.active.hasLayer(item.marker)) ||
+                      (!item.isActive && markerLayers.inactive.hasLayer(item.marker));
+        }
         
         if (!isOnMap) return;
         
@@ -465,7 +481,10 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
         const strokeColor = isDamagedOffer ? '#ff6600' : (isNew ? '#ff0000' : 'white');
         const strokeWidth = isDamagedOffer ? '4' : (isNew ? '3' : '2');
         const markerColor = isDamagedOffer ? '#ff9933' : color;  // Pomarańczowy dla uszkodzonych
-        
+
+        // Czy oferta to "przybliżony adres" (sama ulica, bez numeru)?
+        const isApprox = offer.precision === 'street_only';
+
         // Badge zmiany ceny - ikona dolara ze strzałką
         let priceChangeBadge = '';
         if (hasPriceChange && !isDamagedOffer) {
@@ -473,19 +492,19 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
             const arrow = priceDown ? '↓' : '↑';
             priceChangeBadge = `
                 <div style="
-                    position: absolute; 
-                    top: -8px; 
-                    right: -8px; 
-                    background: ${badgeColor}; 
-                    color: white; 
-                    border-radius: 10px; 
-                    min-width: 28px; 
-                    height: 20px; 
-                    font-size: 11px; 
-                    font-weight: bold; 
-                    display: flex; 
-                    align-items: center; 
-                    justify-content: center; 
+                    position: absolute;
+                    top: -8px;
+                    right: -8px;
+                    background: ${badgeColor};
+                    color: white;
+                    border-radius: 10px;
+                    min-width: 28px;
+                    height: 20px;
+                    font-size: 11px;
+                    font-weight: bold;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
                     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
                     padding: 0 4px;
                     border: 2px solid white;
@@ -493,48 +512,91 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
                 ">💲${arrow}</div>
             `;
         }
-        
-        const icon = L.divIcon({
-            className: 'pin-marker',
-            html: `
-                <div style="position: relative; width: 40px; height: 50px;" title="${tooltipText}">
-                    <svg width="40" height="50" viewBox="0 0 40 50" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
-                        <path d="M20 0 C9 0 0 9 0 20 C0 35 20 50 20 50 C20 50 40 35 40 20 C40 9 31 0 20 0 Z" 
-                              fill="${markerColor}" 
-                              stroke="${strokeColor}" 
-                              stroke-width="${strokeWidth}"/>
-                        <circle cx="20" cy="18" r="8" fill="white" opacity="0.9"/>
-                    </svg>
-                    ${!isActive ? '<div style="position: absolute; top: 8px; left: 50%; transform: translateX(-50%); font-size: 24px;">×</div>' : ''}
-                    ${isNew && !hasPriceChange ? '<div style="position: absolute; top: -5px; right: -5px; background: #ff0000; color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">N</div>' : ''}
-                    ${priceChangeBadge}
-                    ${isDamagedOffer ? '<div style="position: absolute; top: -5px; left: -5px; background: #ff6600; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">⚠</div>' : ''}
-                </div>
-            `,
-            iconSize: [40, 50],
-            iconAnchor: [20, 50],
-            popupAnchor: [0, -50]
-        });
-        
+
+        // ===== IKONA =====
+        // Dwa warianty: pinezka (precision: exact) lub kwadrat (precision: street_only).
+        // Krzyżyk × dla nieaktywnych: dla pinezki = czarny tekst w białym kole (środek)
+        //                            dla kwadratu = biały tekst z cieniem na środku kwadratu
+        let icon;
+        if (isApprox) {
+            // KWADRAT 34x34 z przerywaną obwódką - decyzja 2b
+            // Anchor w środku (nie u dołu jak pinezka)
+            const squareSize = 34;
+            // Krzyżyk × dla nieaktywnych - biały tekst z cieniem (czytelny na każdym kolorze)
+            const inactiveCross = !isActive
+                ? `<text x="17" y="17" text-anchor="middle" dominant-baseline="central" font-size="22" font-weight="700" fill="white" font-family="-apple-system, sans-serif" style="paint-order: stroke; stroke: rgba(0,0,0,0.5); stroke-width: 2px;">×</text>`
+                : '';
+            icon = L.divIcon({
+                className: 'square-marker',
+                html: `
+                    <div style="position: relative; width: ${squareSize}px; height: ${squareSize}px;" title="${tooltipText}">
+                        <svg width="${squareSize}" height="${squareSize}" viewBox="0 0 ${squareSize} ${squareSize}" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+                            <rect x="3" y="3" width="${squareSize - 6}" height="${squareSize - 6}"
+                                  fill="${markerColor}"
+                                  stroke="${isNew ? '#ff0000' : 'white'}"
+                                  stroke-width="3"
+                                  stroke-dasharray="4 3"/>
+                            ${inactiveCross}
+                        </svg>
+                        ${isNew && !hasPriceChange ? '<div style="position: absolute; top: -5px; right: -5px; background: #ff0000; color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">N</div>' : ''}
+                        ${priceChangeBadge}
+                        ${isDamagedOffer ? '<div style="position: absolute; top: -5px; left: -5px; background: #ff6600; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">⚠</div>' : ''}
+                    </div>
+                `,
+                iconSize: [squareSize, squareSize],
+                iconAnchor: [squareSize / 2, squareSize / 2],  // środek
+                popupAnchor: [0, -squareSize / 2]
+            });
+        } else {
+            // PINEZKA (standard, precision: exact)
+            // Krzyżyk × dla nieaktywnych: czarny tekst w białym kole wewnątrz SVG (zgodnie z mockupem v2)
+            const inactiveMarker = !isActive
+                ? `<circle cx="20" cy="18" r="9" fill="white"/><text x="20" y="18" text-anchor="middle" dominant-baseline="central" font-size="16" font-weight="700" fill="#1f2937" font-family="-apple-system, sans-serif">×</text>`
+                : `<circle cx="20" cy="18" r="8" fill="white" opacity="0.9"/>`;
+            icon = L.divIcon({
+                className: 'pin-marker',
+                html: `
+                    <div style="position: relative; width: 40px; height: 50px;" title="${tooltipText}">
+                        <svg width="40" height="50" viewBox="0 0 40 50" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+                            <path d="M20 0 C9 0 0 9 0 20 C0 35 20 50 20 50 C20 50 40 35 40 20 C40 9 31 0 20 0 Z"
+                                  fill="${markerColor}"
+                                  stroke="${strokeColor}"
+                                  stroke-width="${strokeWidth}"/>
+                            ${inactiveMarker}
+                        </svg>
+                        ${isNew && !hasPriceChange ? '<div style="position: absolute; top: -5px; right: -5px; background: #ff0000; color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">N</div>' : ''}
+                        ${priceChangeBadge}
+                        ${isDamagedOffer ? '<div style="position: absolute; top: -5px; left: -5px; background: #ff6600; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">⚠</div>' : ''}
+                    </div>
+                `,
+                iconSize: [40, 50],
+                iconAnchor: [20, 50],
+                popupAnchor: [0, -50]
+            });
+        }
+
         // Popup content
         const popupContent = createPopupContent(address, [offer]);
-        
+
         // Tworzenie markera z tooltip
-        const markerObj = L.marker(coords, { 
+        const markerObj = L.marker(coords, {
             icon: icon,
             title: tooltipText  // Tooltip przy hover
         })
             .bindPopup(popupContent, { maxWidth: 400 });
-        
+
         // Dodaj do odpowiedniej warstwy
+        // Priorytet: damaged > approx > exact
         if (isDamagedOffer) {
             markerObj.addTo(markerLayers.damaged);
+        } else if (isApprox) {
+            markerObj.addTo(isActive ? markerLayers.activeApprox : markerLayers.inactiveApprox);
         } else if (isActive) {
             markerObj.addTo(markerLayers.active);
         } else {
             markerObj.addTo(markerLayers.inactive);
         }
-        
+
         // Zapisz referencję - używamy price_range z oferty
         allMarkers.push({
             marker: markerObj,
@@ -543,6 +605,7 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
             priceRange: offerPriceRange,  // ✅ Zakres cenowy z oferty
             isActive: isActive,
             isDamaged: isDamagedOffer,
+            isApprox: isApprox,  // NOWE: czy to przybliżona lokalizacja (street_only)
             primaryTag: offer.tags ? offer.tags.primary : 'pokoj',  // B1: Tag główny
             // Flagi oznaczeń pinezek (do filtrowania legendy)
             isNew: isNew,
@@ -688,6 +751,8 @@ function filterMarkers() {
     // Pobierz ustawienia filtrów
     const showActive = document.getElementById('layer-active').checked;
     const showInactive = document.getElementById('layer-inactive').checked;
+    const showActiveApprox = document.getElementById('layer-active-approx')?.checked ?? false;
+    const showInactiveApprox = document.getElementById('layer-inactive-approx')?.checked ?? false;
     
     // B1: Filtry tagów
     const showPokoj = document.getElementById('layer-tag-pokoj')?.checked ?? true;
@@ -725,12 +790,13 @@ function filterMarkers() {
     allMarkers.forEach(item => {
         let visible = true;
         
-        // Filtr aktywne/nieaktywne
-        if (item.isActive && !showActive) {
-            visible = false;
-        }
-        if (!item.isActive && !showInactive) {
-            visible = false;
+        // Filtr aktywne/nieaktywne - osobne checkboxy dla exact i approx
+        if (item.isApprox) {
+            if (item.isActive && !showActiveApprox) visible = false;
+            if (!item.isActive && !showInactiveApprox) visible = false;
+        } else {
+            if (item.isActive && !showActive) visible = false;
+            if (!item.isActive && !showInactive) visible = false;
         }
         
         // B1: Filtr tagów
@@ -788,9 +854,12 @@ function filterMarkers() {
         }
         
         // Pokaż/ukryj marker
+        // Priorytet warstw: damaged > approx > exact (zgodnie z createMarkerGroup)
         if (visible) {
             if (item.isDamaged) {
                 markerLayers.damaged.addLayer(item.marker);
+            } else if (item.isApprox) {
+                (item.isActive ? markerLayers.activeApprox : markerLayers.inactiveApprox).addLayer(item.marker);
             } else if (item.isActive) {
                 markerLayers.active.addLayer(item.marker);
             } else {
@@ -799,6 +868,8 @@ function filterMarkers() {
         } else {
             if (item.isDamaged) {
                 markerLayers.damaged.removeLayer(item.marker);
+            } else if (item.isApprox) {
+                (item.isActive ? markerLayers.activeApprox : markerLayers.inactiveApprox).removeLayer(item.marker);
             } else if (item.isActive) {
                 markerLayers.active.removeLayer(item.marker);
             } else {
@@ -824,11 +895,21 @@ function searchAndZoom() {
         return;
     }
     
-    // Znajdź pierwsze dopasowanie
-    const match = allMarkers.find(item => 
-        item.address.toLowerCase().includes(searchTerm) &&
-        (item.isActive ? document.getElementById('layer-active').checked : document.getElementById('layer-inactive').checked)
-    );
+    // Znajdź pierwsze dopasowanie (uwzględnij właściwy checkbox warstwy)
+    const match = allMarkers.find(item => {
+        if (!item.address.toLowerCase().includes(searchTerm)) return false;
+        let layerCheckbox;
+        if (item.isApprox) {
+            layerCheckbox = item.isActive
+                ? document.getElementById('layer-active-approx')
+                : document.getElementById('layer-inactive-approx');
+        } else {
+            layerCheckbox = item.isActive
+                ? document.getElementById('layer-active')
+                : document.getElementById('layer-inactive');
+        }
+        return layerCheckbox && layerCheckbox.checked;
+    });
     
     if (match) {
         const coords = match.marker.getLatLng();
@@ -1018,6 +1099,8 @@ function setupEventListeners() {
     document.getElementById('layer-active').addEventListener('change', filterMarkers);
     document.getElementById('layer-inactive').addEventListener('change', filterMarkers);
     document.getElementById('layer-damaged').addEventListener('change', toggleDamagedLayer);
+    document.getElementById('layer-active-approx').addEventListener('change', toggleActiveApproxLayer);
+    document.getElementById('layer-inactive-approx').addEventListener('change', toggleInactiveApproxLayer);
     
     // NOWY: Filtr czasowy
     document.getElementById('time-filter').addEventListener('change', filterMarkers);
@@ -1117,6 +1200,30 @@ function toggleDamagedLayer() {
         // Usuń warstwę z mapy
         map.removeLayer(markerLayers.damaged);
         console.log('⚠️ Warstwa "Uszkodzone" wyłączona');
+    }
+}
+
+// Włączanie/wyłączanie warstwy "Przybliżone aktywne"
+function toggleActiveApproxLayer() {
+    const isChecked = document.getElementById('layer-active-approx').checked;
+    if (isChecked) {
+        markerLayers.activeApprox.addTo(map);
+        console.log('✅ Warstwa "Przybliżone aktywne" włączona');
+    } else {
+        map.removeLayer(markerLayers.activeApprox);
+        console.log('⚠️ Warstwa "Przybliżone aktywne" wyłączona');
+    }
+}
+
+// Włączanie/wyłączanie warstwy "Przybliżone nieaktywne"
+function toggleInactiveApproxLayer() {
+    const isChecked = document.getElementById('layer-inactive-approx').checked;
+    if (isChecked) {
+        markerLayers.inactiveApprox.addTo(map);
+        console.log('✅ Warstwa "Przybliżone nieaktywne" włączona');
+    } else {
+        map.removeLayer(markerLayers.inactiveApprox);
+        console.log('⚠️ Warstwa "Przybliżone nieaktywne" wyłączona');
     }
 }
 
@@ -1224,6 +1331,8 @@ function updatePriceRangeCounts() {
     // Pobierz aktualne ustawienia filtrów (oprócz zakresów cenowych)
     const showActive = document.getElementById('layer-active')?.checked ?? true;
     const showInactive = document.getElementById('layer-inactive')?.checked ?? true;
+    const showActiveApprox = document.getElementById('layer-active-approx')?.checked ?? false;
+    const showInactiveApprox = document.getElementById('layer-inactive-approx')?.checked ?? false;
     
     const showPokoj = document.getElementById('layer-tag-pokoj')?.checked ?? true;
     const showKawalerka = document.getElementById('layer-tag-kawalerka')?.checked ?? true;
@@ -1252,9 +1361,14 @@ function updatePriceRangeCounts() {
     
     // Iteruj po wszystkich ofertach (allMarkers = oferty 1:1)
     allMarkers.forEach(item => {
-        // Filtr aktywne/nieaktywne
-        if (item.isActive && !showActive) return;
-        if (!item.isActive && !showInactive) return;
+        // Filtr aktywne/nieaktywne - osobne checkboxy dla exact i approx
+        if (item.isApprox) {
+            if (item.isActive && !showActiveApprox) return;
+            if (!item.isActive && !showInactiveApprox) return;
+        } else {
+            if (item.isActive && !showActive) return;
+            if (!item.isActive && !showInactive) return;
+        }
         
         // Filtr tagów
         const tag = item.primaryTag || 'pokoj';

@@ -179,12 +179,13 @@ class SonarPokojowy:
         
         # 2. Parsuj adres z pełnego tekstu (tytuł + opis)
         address_data = self.address_parser.extract_address(full_text)
-        
+        address_precision = 'exact'  # domyślnie: dokładny adres z numerem
+
         # Jeśli nie znaleziono adresu w tytule, spróbuj w samym opisie
         if not address_data and raw_offer.get('description'):
             print(f"      🔍 Brak adresu w tytule, szukam w opisie...")
             address_data = self.address_parser.extract_address(raw_offer['description'])
-        
+
         # REAKTYWACJA: Jeśli brak adresu ale mamy cache (oferta była nieaktywna)
         use_cached_coords = False
         cached_coords = None
@@ -195,7 +196,26 @@ class SonarPokojowy:
             if raw_offer.get('cached_coordinates'):
                 cached_coords = raw_offer['cached_coordinates']
                 use_cached_coords = True
-        
+            # Sprawdź czy cache pochodzi od oferty z precision=street_only
+            # (cached_address może być dict-em z indeksu — wtedy ma pole 'precision')
+            cached_addr_raw = raw_offer.get('cached_address')
+            if isinstance(cached_addr_raw, dict):
+                cached_precision = cached_addr_raw.get('precision', 'exact')
+            else:
+                cached_precision = 'exact'
+            address_precision = cached_precision
+
+        # FALLBACK: spróbuj wyciągnąć samą ulicę (bez numeru) → marker "przybliżony"
+        # Decyzja 1a: tylko jawny prefiks (ul./al./pl./os./aleja/aleje/ulica)
+        if not address_data:
+            street_only = self.address_parser.extract_street_only(full_text)
+            if not street_only and raw_offer.get('description'):
+                street_only = self.address_parser.extract_street_only(raw_offer['description'])
+            if street_only:
+                print(f"      📍 Brak numeru, używam przybliżonego adresu: {street_only['full']}")
+                address_data = street_only
+                address_precision = 'street_only'
+
         if not address_data:
             return None  # Brak adresu → ignoruj
         
@@ -268,9 +288,10 @@ class SonarPokojowy:
             'url': raw_offer['url'],
             'address': {
                 'full': address_data['full'],
-                'street': address_data['street'],
-                'number': address_data['number'],
-                'coords': coords
+                'street': address_data.get('street'),
+                'number': address_data.get('number'),
+                'coords': coords,
+                'precision': address_precision  # 'exact' lub 'street_only'
             },
             'price': {
                 'current': price,

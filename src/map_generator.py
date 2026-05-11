@@ -234,6 +234,8 @@ def generate_map_data(input_file, output_file):
             'description': offer.get('description', ''),  # Pełny opis (frontend się sam obcina)
             'reactivated': offer.get('reactivated_at') is not None,  # Czy była reaktywowana
             'reactivated_at': format_datetime(offer.get('reactivated_at', '')) if offer.get('reactivated_at') else None,
+            # Precyzja adresu: 'exact' (z numerem) lub 'street_only' (środek ulicy)
+            'precision': offer.get('address', {}).get('precision', 'exact'),
             # B1: Tagi oferty
             'tags': {
                 'primary': tag_result['primary'],
@@ -257,18 +259,28 @@ def generate_map_data(input_file, output_file):
     for address, items in markers_dict.items():
         # Weź współrzędne z pierwszej oferty
         coords = items[0]['coords']
-        
+
         # Zbierz wszystkie oferty dla tego adresu
         offers_list = [item['offer'] for item in items]
-        
+
         # Sprawdź czy są aktywne oferty
         has_active = any(o['active'] for o in offers_list)
-        
+
+        # Flagi dla nowych warstw przybliżonych (precision == 'street_only')
+        has_active_approx = any(
+            o['active'] and o.get('precision') == 'street_only' for o in offers_list
+        )
+        has_inactive_approx = any(
+            (not o['active']) and o.get('precision') == 'street_only' for o in offers_list
+        )
+
         markers.append({
             'coords': coords,
             'address': address,
             'offers': offers_list,
-            'has_active': has_active
+            'has_active': has_active,
+            'has_active_approx': has_active_approx,
+            'has_inactive_approx': has_inactive_approx
         })
     
     # 4. Oblicz statystyki (tylko dla aktywnych ofert)

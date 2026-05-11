@@ -45,7 +45,55 @@ class AddressParser:
         'os.': 'Osiedle',
         'osiedle': 'Osiedle'
     }
-    
+
+    # Słowa które NIE mogą być nazwą ulicy (class-level, używane przez extract_address i extract_street_only)
+    # KRYTYCZNE: używaj lower()! Wszystkie wpisy muszą być małymi literami.
+    EXCLUDED_WORDS = {
+        'pokój', 'przy', 'obok', 'blisko', 'centrum', 'okolice', 'minut', 'minutę', 'rok', 'lata',
+        'jednoosobowy', 'dwuosobowy', 'trzoosobowy', 'osobowy',
+        'dla', 'bez', 'lub', 'osób', 'osoby',
+        # Dzielnice Lublina (nie są ulicami)
+        'wieniawa', 'śródmieście', 'bronowice', 'czuby', 'kalinowszczyzna', 'tatary',
+        'czechów', 'sławinek', 'sławin', 'abramowice', 'konstantynów', 'ponikwoda',
+        'głusk', 'węglin', 'felin', 'hajdów',
+        # Słowa z ogłoszeń które nie są ulicami
+        'net', 'ciepło', 'internet', 'wifi', 'balkon', 'ogród', 'parking',
+        'od', 'do', 'za', 'na', 'po', 'we', 'ze',
+        # Słowa które parser myli z ulicami
+        'stancja', 'mieszkaniu', 'mieszkanie', 'przechowywania', 'powierzchni',
+        'fajna', 'fajny', 'studentki', 'studenta', 'lokalu', 'budynku', 'budynek',
+        'pokoju', 'kuchni', 'salonu', 'łazienki', 'sypialni',
+        # Pseudo-adresy
+        'blok', 'bloku', 'bloków', 'wieżowiec', 'wieżowca', 'kamienica', 'kamienicy',
+        # Pseudo-ulice wyciągnięte z opisów
+        'rachunki', 'pokoje', 'około', 'dostępny', 'dostępna', 'dostępne',
+        'wynajmę', 'wynajem', 'located', 'gyms', 'available', 'meters',
+        'numer', 'kontaktowy', 'telefon', 'kontakt', 'number',
+        # Instytucje, sklepy, uczelnie - NIE są ulicami
+        'umcs', 'kul', 'politechnika', 'up', 'uniwersytet', 'szkoła', 'szpital',
+        'galeria', 'rondo', 'przystanek', 'dworzec', 'stacja',
+        'sklep', 'biedronka', 'lidl', 'żabka', 'rossmann', 'leclerc', 'auchan', 'kaufland',
+        'park', 'las', 'jezioro', 'rzeka', 'plaża', 'stadion', 'hala', 'basen', 'lsm',
+        'carrefour', 'tesco', 'empik', 'media', 'saturn', 'decathlon',
+        'poczta', 'urząd', 'sąd', 'kościół', 'cerkiew', 'meczet', 'synagoga',
+        'apteka', 'bank', 'hotel', 'restauracja', 'kawiarnia', 'pub', 'klub',
+        'kino', 'teatr', 'muzeum', 'biblioteka', 'klinika', 'przychodnia',
+        # Słowa z opisów metrażu/powierzchni
+        'ma', 'ok', 'około', 'posiada', 'powierzchnia', 'powierzchni', 'metraż', 'metrażu'
+    }
+
+    # Pattern dla ekstrakcji ulicy BEZ numeru (decyzja 1a — tylko z jawnym prefiksem)
+    # Wymaga: prefiks + nazwa ulicy (1-3 słowa)
+    # Prefiks: case-insensitive (przez inline flag (?i:...))
+    # Pierwsze słowo nazwy: musi zaczynać się WIELKĄ literą (lub być znaną small-case ulicą — zimowa, etc.)
+    # Słowa dodatkowe: MUSZĄ zaczynać się WIELKĄ literą (chroni przed "Racławickie centrum")
+    STREET_ONLY_PATTERN = re.compile(
+        r'\b(?i:(ulica|ul\.|ul|aleja|aleje|al\.|al|plac|pl\.|pl|osiedle|os\.|os))\s+'
+        r'([A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]{2,}'
+        r'(?:\s+[A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]{2,}){0,2})',
+        re.UNICODE
+    )
+
     def __init__(self):
         pass
     
@@ -135,40 +183,8 @@ class AddressParser:
                 except ValueError:
                     pass
         
-        # Słowa które NIE mogą być nazwą ulicy
-        excluded_words_lower = {
-            'pokój', 'przy', 'obok', 'blisko', 'centrum', 'okolice', 'minut', 'minutę', 'rok', 'lata',
-            'jednoosobowy', 'dwuosobowy', 'trzoosobowy', 'osobowy',
-            'dla', 'bez', 'lub', 'osób', 'osoby',
-            # NOWE: nazwy dzielnic Lublina (nie są ulicami)
-            'wieniawa', 'śródmieście', 'bronowice', 'czuby', 'kalinowszczyzna', 'tatary',
-            'czechów', 'sławinek', 'sławin', 'abramowice', 'konstantynów', 'ponikwoda',
-            'głusk', 'węglin', 'felin', 'hajdów',
-            # NOWE: słowa z ogłoszeń które nie są ulicami
-            'net', 'ciepło', 'internet', 'wifi', 'balkon', 'ogród', 'parking',
-            'od', 'do', 'za', 'na', 'po', 'we', 'ze',
-            # NOWE: słowa które parser myli z ulicami
-            'stancja', 'mieszkaniu', 'mieszkanie', 'przechowywania', 'powierzchni',
-            'fajna', 'fajny', 'studentki', 'studenta', 'lokalu', 'budynku', 'budynek',
-            'pokoju', 'kuchni', 'salonu', 'łazienki', 'sypialni',
-            # KRYTYCZNE: pseudo-adresy (blok, wieżowiec, kamienica)
-            'blok', 'bloku', 'bloków', 'wieżowiec', 'wieżowca', 'kamienica', 'kamienicy',
-            # KRYTYCZNE: pseudo-ulice wyciągnięte z opisów (rachunki, pokoje, itp.)
-            'rachunki', 'pokoje', 'około', 'dostępny', 'dostępna', 'dostępne',
-            'wynajmę', 'wynajem', 'located', 'gyms', 'available', 'meters',
-            'numer', 'kontaktowy', 'telefon', 'kontakt', 'number',
-            # KRYTYCZNE: Instytucje, sklepy, uczelnie - NIE są ulicami!
-            'umcs', 'kul', 'politechnika', 'up', 'uniwersytet', 'szkoła', 'szpital',
-            'galeria', 'rondo', 'przystanek', 'dworzec', 'stacja',
-            'sklep', 'biedronka', 'lidl', 'żabka', 'rossmann', 'leclerc', 'auchan', 'kaufland',
-            'park', 'las', 'jezioro', 'rzeka', 'plaża', 'stadion', 'hala', 'basen', 'lsm',
-            'carrefour', 'tesco', 'empik', 'media', 'saturn', 'decathlon',
-            'poczta', 'urząd', 'sąd', 'kościół', 'cerkiew', 'meczet', 'synagoga',
-            'apteka', 'bank', 'hotel', 'restauracja', 'kawiarnia', 'pub', 'klub',
-            'kino', 'teatr', 'muzeum', 'biblioteka', 'klinika', 'przychodnia',
-            # KRYTYCZNE: Słowa z opisów metrażu/powierzchni
-            'ma', 'ok', 'około', 'posiada', 'powierzchnia', 'powierzchni', 'metraż', 'metrażu'
-        }
+        # Słowa które NIE mogą być nazwą ulicy (definicja na poziomie klasy - patrz EXCLUDED_WORDS)
+        excluded_words_lower = self.EXCLUDED_WORDS
         
         # Szukamy WSZYSTKICH dopasowań (prefiks + ulica + numer)
         matches = self.ADDRESS_PATTERN.finditer(text)
@@ -308,6 +324,85 @@ class AddressParser:
         # BRAK FALLBACK - Wymagamy NUMERU domu!
         # Adresy bez numeru (np. "ul. Niecała") są zbyt nieprecyzyjne dla mapy
         return None
+
+    def extract_street_only(self, text: str) -> Optional[Dict[str, str]]:
+        """
+        Ekstrakcja samej nazwy ulicy (BEZ numeru domu) z opisu.
+        Używana TYLKO gdy extract_address() zwróciło None — daje przybliżoną lokalizację.
+
+        Decyzja 1a: wymaga JAWNEGO prefiksu (ul./ulica/al./aleja/aleje/pl./plac/os./osiedle).
+        Bez prefiksu zwraca None — to chroni przed fałszywymi trafieniami typu "blisko Lipowej".
+
+        Args:
+            text: Tekst opisu oferty
+
+        Returns:
+            Dict z kluczami: street, number=None, full lub None jeśli nie znaleziono
+        """
+        if not text:
+            return None
+
+        candidates = []
+
+        for match in self.STREET_ONLY_PATTERN.finditer(text):
+            prefix_raw = match.group(1)
+            street_raw = match.group(2).strip()
+
+            # Normalizacja: pierwsze słowo z dużej litery
+            street_words = street_raw.split()
+
+            # Walidacja: każde słowo musi mieć min 3 znaki
+            if any(len(w) < 3 for w in street_words):
+                continue
+
+            # Walidacja: pierwsze słowo nie może być na czarnej liście (lowercase comparison)
+            first_word_lower = street_words[0].lower()
+            if first_word_lower in self.EXCLUDED_WORDS:
+                continue
+
+            # Walidacja: żadne ze słów nie może być na czarnej liście
+            if any(w.lower() in self.EXCLUDED_WORDS for w in street_words):
+                continue
+
+            # Normalizacja kapitalizacji — każde słowo z dużej litery
+            street = ' '.join(w.capitalize() for w in street_words)
+
+            # Mapowanie prefiksu na formę używaną przez geocoder
+            prefix_lower = prefix_raw.lower().rstrip('.')
+            prefix_full = self.PREFIX_MAP.get(prefix_raw.lower(), '')
+            # PREFIX_MAP nie zawiera 'ul' (tylko 'ul.' i 'ulica'), dodaj fallback
+            if prefix_lower in ('ul', 'ulica'):
+                prefix_full = ''
+            elif prefix_lower in ('al', 'aleja'):
+                prefix_full = 'Aleja'
+            elif prefix_lower == 'aleje':
+                prefix_full = 'Aleje'
+            elif prefix_lower in ('pl', 'plac'):
+                prefix_full = 'Plac'
+            elif prefix_lower in ('os', 'osiedle'):
+                prefix_full = 'Osiedle'
+
+            full_address = f"{prefix_full} {street}".strip() if prefix_full else street
+
+            # Priorytet: dłuższa nazwa ulicy = wyższy priorytet (jak w extract_address)
+            priority = len(street)
+
+            candidates.append({
+                'street': street,
+                'full': full_address,
+                'priority': priority
+            })
+
+        if not candidates:
+            return None
+
+        # Wybierz najdłuższą nazwę (najbardziej specyficzną)
+        best = max(candidates, key=lambda x: x['priority'])
+        return {
+            'street': best['street'],
+            'number': None,
+            'full': best['full']
+        }
     
     def validate_lublin_address(self, address: str) -> bool:
         """
@@ -372,3 +467,50 @@ if __name__ == "__main__":
         print(f"{status} '{text}' → {extracted}")
         if extracted != expected:
             print(f"   Oczekiwano: {expected}")
+
+    # ===== Testy extract_street_only =====
+    print("\n🧪 Testy extract_street_only (ulica bez numeru):\n")
+    street_only_cases = [
+        # ZŁAPIE — jest prefiks, brak numeru
+        ("pokój przy ul. Narutowicza", "Narutowicza"),
+        ("ul. Lipowa, blisko centrum", "Lipowa"),
+        ("al. Racławickie, blisko UMCS", "Aleja Racławickie"),
+        ("pl. Litewski samo serce miasta", "Plac Litewski"),
+        ("os. Kalinowszczyzna", None),  # Kalinowszczyzna jest w czarnej liście (dzielnica)
+        ("aleja Kraśnicka super lokalizacja", "Aleja Kraśnicka"),
+        ("ulica Lubartowska", "Lubartowska"),
+        ("os. Przyjaźni", "Osiedle Przyjaźni"),
+        ("Aleje Racławickie centrum", "Aleje Racławickie"),
+        # Ulica wieloczłonowa
+        ("ul. Krakowskie Przedmieście", "Krakowskie Przedmieście"),
+        # NIE ZŁAPIE — brak prefiksu (decyzja 1a)
+        ("blisko Narutowicza", None),
+        ("okolice Lipowej", None),
+        ("przy parku", None),
+        ("Narutowicza super", None),  # bez prefiksu
+        # NIE ZŁAPIE — czarna lista
+        ("ul. blisko centrum", None),
+        ("ul. UMCS", None),
+        ("al. centrum", None),
+        ("ul. Biedronka", None),
+        ("os. Czuby", None),  # Czuby = dzielnica
+        # Pierwszeństwo extract_address — gdy jest numer, ta metoda nie powinna być wołana,
+        # ale jeśli zostanie wołana, to złapie ulicę (na poziomie main.py używamy fallback)
+        ("ul. Narutowicza 5", "Narutowicza"),  # ta metoda nie sprawdza obecności numeru
+    ]
+
+    pass_count = 0
+    fail_count = 0
+    for text, expected in street_only_cases:
+        result = parser.extract_street_only(text)
+        extracted = result['full'] if result else None
+        status = "✅" if extracted == expected else "❌"
+        if extracted == expected:
+            pass_count += 1
+        else:
+            fail_count += 1
+        print(f"{status} '{text}' → {extracted}")
+        if extracted != expected:
+            print(f"   Oczekiwano: {expected}")
+
+    print(f"\n📊 extract_street_only: {pass_count} OK / {fail_count} FAIL")
