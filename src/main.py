@@ -497,12 +497,39 @@ class SonarPokojowy:
         # Wszystkie oferty które powinny być aktywne = przetworzone + pominięte
         all_active_ids = set(current_offer_ids + skipped_offer_ids)
         skipped_set = set(skipped_offer_ids)
+        # Set ofert które przeszły pełen _process_offer (nie tylko skipped)
+        processed_set = set(current_offer_ids)
+        
+        # Fix #4.5 (2026-05-11): Oferty z bogus address w bazie nie powinny być
+        # chronione przez skipped_ids - jeśli _process_offer ich nie zwrócił
+        # (np. bogus + reparse fail), to powinny być dezaktywowane.
+        BOGUS_ADDRESSES = {'Pokoje', 'UMCS', 'Kul', 'KUL', 'Apteka', 'Park', 'Stadion',
+                          'Lublin', 'Centrum', 'Witam', 'Oferuję'}
+        BOGUS_PREFIXES = ('Lublin Studio', 'Lublin Witam', 'Lublin Oferuję',
+                         'Lublin Duży', 'Lublin Pokoje', 'Witam ', 'Oferuję ',
+                         'Kaucja', 'Depozyt')
+        
+        def is_bogus_offer(offer):
+            addr_full = offer.get('address', {}).get('full', '')
+            return (addr_full in BOGUS_ADDRESSES
+                   or any(addr_full.startswith(p) for p in BOGUS_PREFIXES))
         
         now = datetime.now(self.tz).isoformat()
         deactivated_count = 0
+        deactivated_bogus_count = 0
         reactivated_from_skipped = 0
         
         for offer in self.database['offers']:
+            # Sprawdź czy oferta ma bogus address i NIE przeszła pełnego _process_offer w tym scanie
+            # (była tylko skipped) - wtedy DEZAKTYWUJ ją zamiast chronić.
+            if (is_bogus_offer(offer) 
+                and offer['id'] in skipped_set 
+                and offer['id'] not in processed_set):
+                if offer.get('active', True):
+                    offer['active'] = False
+                    deactivated_bogus_count += 1
+                continue
+            
             if offer['id'] in all_active_ids:
                 # Oferta jest aktywna - upewnij się że ma active=True
                 # i zaktualizuj last_seen dla pominiętych ofert
@@ -521,6 +548,8 @@ class SonarPokojowy:
         
         if deactivated_count > 0:
             print(f"   ⏸️  Oznaczono jako nieaktywne: {deactivated_count}")
+        if deactivated_bogus_count > 0:
+            print(f"   🧹 Dezaktywowano oferty z bogus address: {deactivated_bogus_count}")
         if reactivated_from_skipped > 0:
             print(f"   🔄 Reaktywowano (skipped): {reactivated_from_skipped}")
     
