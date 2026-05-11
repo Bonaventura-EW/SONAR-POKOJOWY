@@ -1213,6 +1213,8 @@ function toggleActiveApproxLayer() {
         map.removeLayer(markerLayers.activeApprox);
         console.log('⚠️ Warstwa "Przybliżone aktywne" wyłączona');
     }
+    // Przelicz markery aby uwzględnić zmianę widoczności warstwy
+    filterMarkers();
 }
 
 // Włączanie/wyłączanie warstwy "Przybliżone nieaktywne"
@@ -1225,6 +1227,7 @@ function toggleInactiveApproxLayer() {
         map.removeLayer(markerLayers.inactiveApprox);
         console.log('⚠️ Warstwa "Przybliżone nieaktywne" wyłączona');
     }
+    filterMarkers();
 }
 
 // ========== WARSTWY UCZELNI ==========
