@@ -190,20 +190,38 @@ class SonarPokojowy:
         use_cached_coords = False
         cached_coords = None
         if not address_data and raw_offer.get('cached_address'):
-            print(f"      🔄 Brak adresu w tekście, używam z cache: {raw_offer['cached_address']}")
-            address_data = {'full': raw_offer['cached_address']}
-            # Jeśli mamy też współrzędne w cache, użyjemy ich zamiast geokodowania
-            if raw_offer.get('cached_coordinates'):
-                cached_coords = raw_offer['cached_coordinates']
-                use_cached_coords = True
-            # Sprawdź czy cache pochodzi od oferty z precision=street_only
-            # (cached_address może być dict-em z indeksu — wtedy ma pole 'precision')
             cached_addr_raw = raw_offer.get('cached_address')
+
+            # NORMALIZACJA: cached_address może być dictem (nowy schema z address dict)
+            # lub stringiem (legacy). Geocoder.geocode_address() oczekuje stringa,
+            # a używanie dict-a jako klucza cache crashuje z 'unhashable type: dict'.
             if isinstance(cached_addr_raw, dict):
+                cached_full = cached_addr_raw.get('full', '')
+                cached_street = cached_addr_raw.get('street')
+                cached_number = cached_addr_raw.get('number')
                 cached_precision = cached_addr_raw.get('precision', 'exact')
             else:
+                # legacy: string
+                cached_full = str(cached_addr_raw)
+                cached_street = None
+                cached_number = None
                 cached_precision = 'exact'
-            address_precision = cached_precision
+
+            if not cached_full:
+                # Cache puste — nie używaj
+                print(f"      ⚠️ cached_address bez 'full', pomijam reaktywację z cache")
+            else:
+                print(f"      🔄 Brak adresu w tekście, używam z cache: {cached_full}")
+                address_data = {
+                    'full': cached_full,
+                    'street': cached_street,
+                    'number': cached_number
+                }
+                # Jeśli mamy też współrzędne w cache, użyjemy ich zamiast geokodowania
+                if raw_offer.get('cached_coordinates'):
+                    cached_coords = raw_offer['cached_coordinates']
+                    use_cached_coords = True
+                address_precision = cached_precision
 
         # FALLBACK: spróbuj wyciągnąć samą ulicę (bez numeru) → marker "przybliżony"
         # Decyzja 1a: tylko jawny prefiks (ul./al./pl./os./aleja/aleje/ulica)
@@ -650,7 +668,16 @@ class SonarPokojowy:
             skipped_no_coords = 0
             skipped_duplicate = 0
             skipped_removed = 0
-            
+
+            # Zbieram próbki odrzuconych ofert do analizy (max 50 per kategorię)
+            skipped_samples = {
+                'no_address': [],
+                'no_price': [],
+                'no_coords': [],
+                'duplicate': []
+            }
+            SAMPLE_LIMIT = 50
+
             for i, raw_offer in enumerate(raw_offers, 1):
                 print(f"   [{i}/{len(raw_offers)}] Przetwarzam: {raw_offer['title'][:50]}...")
                 
@@ -667,26 +694,68 @@ class SonarPokojowy:
                 geo_start = time.time()
                 processed = self._process_offer(raw_offer)
                 geocoding_time += time.time() - geo_start
-                
+
                 if not processed:
-                    # Zlicz powody odrzucenia
+                    # Zlicz powody odrzucenia + zachowaj próbkę do analizy
                     full_text = raw_offer['title'] + " " + raw_offer.get('description', '')
+                    sample = {
+                        'url': raw_offer.get('url', ''),
+                        'title': raw_offer.get('title', '')[:200],
+                        'description_preview': (raw_offer.get('description', '') or '')[:500]
+                    }
                     if not self.address_parser.extract_address(full_text):
+                        # Może parser znalazł ulicę bez numeru — sprawdź
+                        street_only = self.address_parser.extract_street_only(full_text)
+                        if street_only:
+                            sample['note'] = f"extract_street_only znalazłby: {street_only['full']}"
                         skipped_no_address += 1
+                        if len(skipped_samples['no_address']) < SAMPLE_LIMIT:
+                            skipped_samples['no_address'].append(sample)
                     elif not self.price_parser.extract_price(full_text) and not raw_offer.get('official_price'):
                         skipped_no_price += 1
+                        if len(skipped_samples['no_price']) < SAMPLE_LIMIT:
+                            skipped_samples['no_price'].append(sample)
                     else:
                         skipped_no_coords += 1
+                        if len(skipped_samples['no_coords']) < SAMPLE_LIMIT:
+                            # Dodaj info o adresie który nie dał się zgeokodować
+                            addr = self.address_parser.extract_address(full_text)
+                            sample['address_parsed'] = addr['full'] if addr else None
+                            skipped_samples['no_coords'].append(sample)
                     continue
                 
                 # Sprawdź duplikaty
                 if self.duplicate_detector.filter_duplicates(processed, processed_offers):
                     skipped_duplicate += 1
                     print(f"      ⚠️ Duplikat - ignoruję")
+                    if len(skipped_samples['duplicate']) < SAMPLE_LIMIT:
+                        skipped_samples['duplicate'].append({
+                            'url': raw_offer.get('url', ''),
+                            'title': raw_offer.get('title', '')[:200],
+                            'address_parsed': processed['address']['full']
+                        })
                     continue
                 
                 processed_offers.append(processed)
                 print(f"      ✅ {processed['address']['full']} - {processed['price']['current']} zł")
+
+            # Zapisz próbki odrzuconych do analizy (nadpisuje przy każdym scanie)
+            try:
+                samples_path = self.data_file.parent / 'skipped_offers_sample.json'
+                with open(samples_path, 'w', encoding='utf-8') as f:
+                    json.dump({
+                        'scan_timestamp': datetime.now(self.tz).isoformat(),
+                        'counts': {
+                            'no_address': skipped_no_address,
+                            'no_price': skipped_no_price,
+                            'no_coords': skipped_no_coords,
+                            'duplicate': skipped_duplicate
+                        },
+                        'samples': skipped_samples
+                    }, f, ensure_ascii=False, indent=2)
+                print(f"   📊 Zapisano próbki odrzuconych do {samples_path.name}")
+            except Exception as e:
+                print(f"   ⚠️ Nie udało się zapisać skipped_offers_sample.json: {e}")
             
             processing_duration = time.time() - processing_start
             self.scan_logger.log_phase('processing', processing_duration, {
