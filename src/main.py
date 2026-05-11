@@ -207,18 +207,50 @@ class SonarPokojowy:
                 cached_number = None
                 cached_precision = 'exact'
 
+            # Fix #4.4 (2026-05-11): Jeśli cached_address jest bogus (artefakt
+            # starego parsera), IGNORUJ cache - wymuś re-parsowanie z aktualnym kodem.
+            # Bez tego oferty z bogus address utknęłyby na zawsze, bo scraper omija
+            # je przy same_price i nie wywołuje extract_address na świeżym opisie.
+            BOGUS_ADDRESSES = {'Pokoje', 'UMCS', 'Kul', 'KUL', 'Apteka', 'Park', 'Stadion',
+                              'Lublin', 'Centrum', 'Witam', 'Oferuję'}
+            BOGUS_PREFIXES = ('Lublin Studio', 'Lublin Witam', 'Lublin Oferuję',
+                             'Lublin Duży', 'Lublin Pokoje', 'Witam ', 'Oferuję ',
+                             'Kaucja', 'Depozyt')
+            is_bogus = (cached_full in BOGUS_ADDRESSES
+                       or any(cached_full.startswith(p) for p in BOGUS_PREFIXES))
+            
+            if is_bogus:
+                print(f"      🔍 cached_address '{cached_full}' wygląda na bogus, próbuję re-parsować z opisu...")
+                # Przeparsuj opis od nowa
+                full_text = raw_offer.get('title', '') + ' ' + raw_offer.get('description', '')
+                reparsed = (self.address_parser.extract_address(full_text)
+                          or self.address_parser.extract_street_only(full_text)
+                          or self.address_parser.extract_from_whitelist(full_text))
+                if reparsed:
+                    cached_full = reparsed['full']
+                    cached_street = reparsed.get('street')
+                    cached_number = reparsed.get('number')
+                    cached_precision = 'exact' if reparsed.get('number') else 'street_only'
+                    print(f"      ✅ Re-parsing: '{cached_full}' (precision={cached_precision})")
+                    # NIE używamy starych cached_coordinates - są dla bogus adresu
+                else:
+                    print(f"      ❌ Re-parsing nieudany - oferta zostanie pominięta")
+                    cached_full = ''  # pusta wartość → poniżej zostanie odrzucone
+
             if not cached_full:
-                # Cache puste — nie używaj
+                # Cache puste lub bogus i re-parse się nie udał — nie używaj
                 print(f"      ⚠️ cached_address bez 'full', pomijam reaktywację z cache")
             else:
-                print(f"      🔄 Brak adresu w tekście, używam z cache: {cached_full}")
+                if not is_bogus:
+                    print(f"      🔄 Brak adresu w tekście, używam z cache: {cached_full}")
                 address_data = {
                     'full': cached_full,
                     'street': cached_street,
                     'number': cached_number
                 }
                 # Jeśli mamy też współrzędne w cache, użyjemy ich zamiast geokodowania
-                if raw_offer.get('cached_coordinates'):
+                # (TYLKO jeśli nie był to bogus address - dla bogus chcemy świeżego geokodowania)
+                if not is_bogus and raw_offer.get('cached_coordinates'):
                     cached_coords = raw_offer['cached_coordinates']
                     use_cached_coords = True
                 address_precision = cached_precision

@@ -531,9 +531,21 @@ class AddressParser:
             if first_word_lower in self.EXCLUDED_WORDS:
                 continue
 
-            # Walidacja: żadne ze słów nie może być na czarnej liście
-            if any(w.lower() in self.EXCLUDED_WORDS for w in street_words):
-                continue
+            # Fix #4.3 (2026-05-11): jeśli któreś ze słów PO pierwszym jest na blackliście,
+            # OBETNIJ nazwę do prefiksu zamiast odrzucać cały kandydat.
+            # Przykład: "ul. Weteranów Lublin" → przed: None, po: "Weteranów"
+            #          "ul. Krakowskie Przedmieście" → bez zmian (oba słowa OK)
+            #          "ul. Aleja Racławickie centrum" → "Aleja Racławickie" (ucięte "centrum")
+            valid_words = []
+            for w in street_words:
+                if w.lower() in self.EXCLUDED_WORDS:
+                    break  # przerwij na pierwszym blacklisted słowie
+                valid_words.append(w)
+            
+            if not valid_words:
+                continue  # nic nie zostało (nie powinno się stać bo first_word już sprawdzony)
+            
+            street_words = valid_words
 
             # Normalizacja kapitalizacji — każde słowo z dużej litery
             street = ' '.join(w.capitalize() for w in street_words)
@@ -689,11 +701,13 @@ if __name__ == "__main__":
     # ===== FIX #1: Testy regresji "Lublin Witam/Oferuję" =====
     print("\n🧪 FIX #1 — blokada wzorca '[Ulica] Lublin Witam/Oferuję':\n")
     fix1_cases = [
-        # NIE ZŁAPIE — śmieci z logów scanu #249
-        ("pokój ul. Biskupińska Lublin Witam zapraszamy", None),
-        ("pokój ul. Wyścigowa Lublin Witam wszystkich", None),
-        ("pokój ul. Środkowa Lublin Witam", None),
-        ("ul. Czeremchowa Lublin Oferuję ofertę", None),
+        # Fix #4.3 (2026-05-11): parser teraz OBCINA "Lublin Witam/Oferuję" zamiast 
+        # odrzucać cały kandydat - więc dla "ul. Biskupińska Lublin Witam" zwraca "Biskupińska"
+        # (lepszy wynik niż wcześniejszy None!)
+        ("pokój ul. Biskupińska Lublin Witam zapraszamy", "Biskupińska"),
+        ("pokój ul. Wyścigowa Lublin Witam wszystkich", "Wyścigowa"),
+        ("pokój ul. Środkowa Lublin Witam", "Środkowa"),
+        ("ul. Czeremchowa Lublin Oferuję ofertę", "Czeremchowa"),
         # POZYTYW: kontrolny — nazwa bez "Lublin" działa
         ("pokój ul. Biskupińska zapraszamy", "Biskupińska"),
         ("ul. Wyścigowa blisko centrum", "Wyścigowa"),
@@ -764,7 +778,8 @@ if __name__ == "__main__":
     
     fix4_cases = [
         # POZYTYW - znana ulica w dopełniaczu w opisie OLX
-        ("pokój przy Głębokiej, blisko centrum", "Głęboka"),
+        # Akceptujemy oba warianty (cache ma OBIE formy po Fix #3, identyczne coords)
+        ("pokój przy Głębokiej, blisko centrum", ["Głęboka", "Głębokiej"]),
         ("blisko Lipowej", "Lipowa"),
         # Dla "Puławskiej" oba warianty (Puławska/Puławskiej) są akceptowalne
         # bo cache ma OBA wpisy z identycznymi coords po Fix #3
