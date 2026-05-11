@@ -786,17 +786,32 @@ function filterMarkers() {
     // Wyszukiwanie
     const searchTerm = document.getElementById('search-input').value.toLowerCase();
     
+    // Liczniki warstw - liczone PO wszystkich filtrach OPRÓCZ checkboxa danej warstwy
+    // Odpowiadają na pytanie: "ile ofert pojawi się na mapie, gdy włączę tę warstwę?"
+    const layerCounts = {
+        active: 0,
+        inactive: 0,
+        activeApprox: 0,
+        inactiveApprox: 0,
+        damaged: 0
+    };
+    
     // Filtruj markery
     allMarkers.forEach(item => {
         let visible = true;
         
         // Filtr aktywne/nieaktywne - osobne checkboxy dla exact i approx
-        if (item.isApprox) {
-            if (item.isActive && !showActiveApprox) visible = false;
-            if (!item.isActive && !showInactiveApprox) visible = false;
+        // (sprawdzane PÓŹNIEJ - na końcu, po policzeniu warstw)
+        let passesLayerFilter = true;
+        if (item.isDamaged) {
+            // Uszkodzone mają własny checkbox - traktowane osobno
+            passesLayerFilter = showDamaged;
+        } else if (item.isApprox) {
+            if (item.isActive) passesLayerFilter = showActiveApprox;
+            else passesLayerFilter = showInactiveApprox;
         } else {
-            if (item.isActive && !showActive) visible = false;
-            if (!item.isActive && !showInactive) visible = false;
+            if (item.isActive) passesLayerFilter = showActive;
+            else passesLayerFilter = showInactive;
         }
         
         // B1: Filtr tagów
@@ -853,6 +868,24 @@ function filterMarkers() {
             visible = false;
         }
         
+        // ZLICZANIE WARSTW: oferta przechodzi wszystkie pozostałe filtry,
+        // więc liczymy ją w odpowiedniej warstwie (niezależnie od checkboxa warstwy)
+        if (visible) {
+            if (item.isDamaged) {
+                layerCounts.damaged++;
+            } else if (item.isApprox) {
+                if (item.isActive) layerCounts.activeApprox++;
+                else layerCounts.inactiveApprox++;
+            } else if (item.isActive) {
+                layerCounts.active++;
+            } else {
+                layerCounts.inactive++;
+            }
+        }
+        
+        // Zastosuj filtr warstwy DOPIERO TERAZ (po policzeniu)
+        if (!passesLayerFilter) visible = false;
+        
         // Pokaż/ukryj marker
         // Priorytet warstw: damaged > approx > exact (zgodnie z createMarkerGroup)
         if (visible) {
@@ -877,6 +910,17 @@ function filterMarkers() {
             }
         }
     });
+    
+    // Aktualizuj liczniki warstw w DOM
+    const setLayerCount = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = `(${value})`;
+    };
+    setLayerCount('layer-count-active', layerCounts.active);
+    setLayerCount('layer-count-inactive', layerCounts.inactive);
+    setLayerCount('layer-count-active-approx', layerCounts.activeApprox);
+    setLayerCount('layer-count-inactive-approx', layerCounts.inactiveApprox);
+    setLayerCount('layer-count-damaged', layerCounts.damaged);
     
     // Przelicz i zaktualizuj statystyki po filtrowaniu
     updateStats();
