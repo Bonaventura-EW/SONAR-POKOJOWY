@@ -79,7 +79,31 @@ class AddressParser:
         'apteka', 'bank', 'hotel', 'restauracja', 'kawiarnia', 'pub', 'klub',
         'kino', 'teatr', 'muzeum', 'biblioteka', 'klinika', 'przychodnia',
         # Słowa z opisów metrażu/powierzchni
-        'ma', 'ok', 'około', 'posiada', 'powierzchnia', 'powierzchni', 'metraż', 'metrażu'
+        'ma', 'ok', 'około', 'posiada', 'powierzchnia', 'powierzchni', 'metraż', 'metrażu',
+        # === FIX #1 (2026-05-11): blokada wzorca "[Ulica] Lublin Witam/Oferuję" ===
+        'lublin', 'witam', 'oferuję',
+        # === FIX #2 (2026-05-11): słowa z analizy 105 false-positives w logach ===
+        # Płatności/koszty
+        'kaucja', 'depozyt', 'zaliczka', 'kwocie', 'opłaty', 'opłat', 'cenie', 'obowiązuje',
+        'płatne', 'płatność', 'czynszu',
+        # Opisowe rzeczowniki
+        'piętro', 'piętrze', 'kawalerka', 'apartamencie', 'telewizor', 'łóżko', 'przedpokój',
+        # Transport publiczny
+        'whatsapp', 'mpk', 'linia', 'linie', 'autobus', 'autobusowe', 'autobusowego', 'tramwaj',
+        # Ludzie / status
+        'obecnie', 'aktualnie', 'mieszka', 'mieszkają', 'mieszkaja', 'zamieszkują',
+        'dziewczyna', 'student',
+        # Czasowniki/spójniki
+        'są', 'jest', 'się', 'znajdują', 'dyspozycji',
+        # Przymiotniki opisowe (sprawdzone: nie istnieją jako nazwy ulic w Lublinie)
+        'duży', 'mały', 'jasny', 'nowoczesny', 'samodzielny', 'pozostałe',
+        # Angielskie słowa z opisów
+        'contact', 'rent', 'detached',
+        # Inne wzorce z logów
+        'wieku', 'wymiarach', 'wysokości', 'zasięgu', 'odległości',
+        'czas', 'umowa', 'najmu',
+        # Liczebniki słownie
+        'dwieście', 'pięć',
     }
 
     # Pattern dla ekstrakcji ulicy BEZ numeru (decyzja 1a — tylko z jawnym prefiksem)
@@ -514,3 +538,83 @@ if __name__ == "__main__":
             print(f"   Oczekiwano: {expected}")
 
     print(f"\n📊 extract_street_only: {pass_count} OK / {fail_count} FAIL")
+
+    # ===== FIX #1: Testy regresji "Lublin Witam/Oferuję" =====
+    print("\n🧪 FIX #1 — blokada wzorca '[Ulica] Lublin Witam/Oferuję':\n")
+    fix1_cases = [
+        # NIE ZŁAPIE — śmieci z logów scanu #249
+        ("pokój ul. Biskupińska Lublin Witam zapraszamy", None),
+        ("pokój ul. Wyścigowa Lublin Witam wszystkich", None),
+        ("pokój ul. Środkowa Lublin Witam", None),
+        ("ul. Czeremchowa Lublin Oferuję ofertę", None),
+        # POZYTYW: kontrolny — nazwa bez "Lublin" działa
+        ("pokój ul. Biskupińska zapraszamy", "Biskupińska"),
+        ("ul. Wyścigowa blisko centrum", "Wyścigowa"),
+    ]
+    fix1_pass = 0
+    fix1_fail = 0
+    for text, expected in fix1_cases:
+        result = parser.extract_street_only(text)
+        extracted = result['full'] if result else None
+        status = "✅" if extracted == expected else "❌"
+        if extracted == expected:
+            fix1_pass += 1
+        else:
+            fix1_fail += 1
+        print(f"{status} '{text}' → {extracted}")
+        if extracted != expected:
+            print(f"   Oczekiwano: {expected}")
+    print(f"\n📊 FIX #1: {fix1_pass} OK / {fix1_fail} FAIL")
+
+    # ===== FIX #2: Testy regresji extract_address dla false-positives =====
+    print("\n🧪 FIX #2 — blokada false-positives w extract_address (śmieci z logów):\n")
+    fix2_cases = [
+        # NEGATYW: śmieci które przeciekały — powinny być None
+        ("Kaucja 250 zł zwrotna", None),
+        ("Depozyt 200 zł", None),
+        ("WhatsApp 79 12 345", None),
+        ("Piętro 6 z balkonem", None),
+        ("Kawalerka 25 m kwadratowych", None),
+        ("wieku 20 lat", None),
+        ("Lublin duży 16 m kwadratowych", None),
+        ("MPK i 10m od centrum", None),
+        ("linia nr 2", None),
+        ("Pozostałe 2 pokoje", None),
+        ("autobusowego jest 5 min", None),
+        ("apartamencie Gleboka 18", "Gleboka 18"),  # parser pomija "apartamencie" i znajduje realną ulicę Głęboka
+        ("contact 53 12 345", None),
+        ("DWIEŚCIE 8 osób", None),
+        ("telewizor 42 cale", None),
+
+        # POZYTYW: prawdziwe adresy — muszą nadal przechodzić
+        ("ul. Narutowicza 5, pokój 12 m²", "Narutowicza 5"),
+        ("Wynajmę pokój Lublin, Lipowa 14, kaucja 250 zł", "Lipowa 14"),
+        ("al. Racławickie 10, blisko UMCS", "Aleja Racławickie 10"),
+        ("ul. Krakowskie Przedmieście 5", "Krakowskie Przedmieście 5"),
+        ("Pokój przy ul. Żelazowej Woli 7, piętro 3", "Żelazowej Woli 7"),
+    ]
+    fix2_pass = 0
+    fix2_fail = 0
+    for text, expected in fix2_cases:
+        result = parser.extract_address(text)
+        extracted = result['full'] if result else None
+        status = "✅" if extracted == expected else "❌"
+        if extracted == expected:
+            fix2_pass += 1
+        else:
+            fix2_fail += 1
+        # Krótszy print dla negatywnych
+        if expected is None:
+            print(f"{status} '{text[:50]}' → {extracted}")
+        else:
+            print(f"{status} '{text[:50]}' → {extracted}")
+        if extracted != expected:
+            print(f"   Oczekiwano: {expected}")
+    print(f"\n📊 FIX #2: {fix2_pass} OK / {fix2_fail} FAIL")
+
+    # Total summary
+    total_pass = pass_count + fix1_pass + fix2_pass
+    total_fail = fail_count + fix1_fail + fix2_fail
+    print(f"\n{'='*60}")
+    print(f"📊 ŁĄCZNIE: {total_pass} OK / {total_fail} FAIL")
+    print(f"{'='*60}")
