@@ -1,36 +1,43 @@
 {
   "system": "sonar",
   "version": "1.0.0",
-  "generatedAt": "2026-05-11T12:34:08.745857+02:00",
+  "generatedAt": "2026-05-11T12:52:15.402102+02:00",
   "status": {
-    "current": "operational",
-    "isHealthy": true,
-    "hasErrors": false,
-    "errorMessages": []
+    "current": "down",
+    "isHealthy": false,
+    "hasErrors": true,
+    "errorMessages": [
+      "unhashable type: 'dict'"
+    ]
   },
   "lastScan": {
-    "id": "2026-05-11T12-28-46",
-    "timestamp": "2026-05-11T12:28:46.132852+02:00",
-    "endTimestamp": "2026-05-11T12:34:08.211765+02:00",
-    "durationSeconds": 322.08,
-    "durationFormatted": "5m 22s",
-    "uiStatus": "success",
-    "rawStatus": "completed",
+    "id": "2026-05-11T12-48-03",
+    "timestamp": "2026-05-11T12:48:03.828243+02:00",
+    "endTimestamp": "2026-05-11T12:52:14.885815+02:00",
+    "durationSeconds": 251.06,
+    "durationFormatted": "4m 11s",
+    "uiStatus": "failed",
+    "rawStatus": "failed",
     "offers": {
-      "found": 432,
-      "processed": 109,
-      "new": 24,
-      "updated": 85,
-      "active": 117,
-      "inactive": 198
+      "found": 0,
+      "processed": 0,
+      "new": 0,
+      "updated": 0,
+      "active": 0,
+      "inactive": 0
     },
     "skipped": {
-      "noAddress": 183,
-      "noCoords": 120,
-      "duplicates": 12
+      "noAddress": 0,
+      "noCoords": 0,
+      "duplicates": 0
     },
-    "errors": [],
-    "hasErrors": false
+    "errors": [
+      {
+        "message": "unhashable type: 'dict'",
+        "timestamp": "2026-05-11T12:52:14.885803+02:00"
+      }
+    ],
+    "hasErrors": true
   },
   "schedule": {
     "times": [
@@ -43,8 +50,8 @@
   },
   "statistics": {
     "totalScans": 100,
-    "successRate": 100.0,
-    "avgDurationSeconds": 346.83,
-    "avgOffersFound": 407.5
+    "successRate": 99.0,
+    "avgDurationSeconds": 345.91,
+    "avgOffersFound": 403.6
   }
 }

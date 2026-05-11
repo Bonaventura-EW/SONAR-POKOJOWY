@@ -1,67 +1,5 @@
 [
   {
-    "timestamp": "2026-04-08T22:36:02.816681+02:00",
-    "status": "completed",
-    "phases": {
-      "scraping": {
-        "duration": 259.15,
-        "details": {
-          "offers_found": 395,
-          "max_pages": 50
-        }
-      },
-      "processing": {
-        "duration": 2.45,
-        "details": {
-          "processed": 79,
-          "skipped_no_address": 149,
-          "skipped_no_price": 0,
-          "skipped_no_coords": 160,
-          "skipped_duplicate": 7,
-          "skipped_removed": 0
-        }
-      },
-      "geocoding": {
-        "duration": 2.25,
-        "details": {
-          "geocoded_addresses": 79
-        }
-      }
-    },
-    "stats": {
-      "raw_offers": 395,
-      "processed": 79,
-      "new": 1,
-      "updated": 78,
-      "reactivated": 12,
-      "total_in_db": 222,
-      "active": 98,
-      "inactive": 124,
-      "skipped_no_address": 149,
-      "skipped_no_price": 0,
-      "skipped_no_coords": 160,
-      "skipped_duplicate": 7,
-      "skipped_removed": 0,
-      "verification": {
-        "verified": 50,
-        "reactivated": 12,
-        "confirmed_inactive": 38,
-        "errors": 0
-      }
-    },
-    "errors": [],
-    "end_timestamp": "2026-04-08T22:41:45.326078+02:00",
-    "total_duration": 342.51,
-    "performance": {
-      "offers_per_second": 1.15,
-      "pages_scanned": 50,
-      "geocoding_duration": 2.25,
-      "geocoding_per_address": 0.03,
-      "scraping_per_page": 5.18,
-      "processing_success_rate": 20.0
-    }
-  },
-  {
     "timestamp": "2026-04-09T11:00:17.120317+02:00",
     "status": "completed",
     "phases": {
@@ -6194,6 +6132,32 @@
       "geocoding_per_address": 0.22,
       "scraping_per_page": 5.46,
       "processing_success_rate": 25.2
+    }
+  },
+  {
+    "timestamp": "2026-05-11T12:48:03.828243+02:00",
+    "status": "failed",
+    "phases": {
+      "scraping": {
+        "duration": 251.03,
+        "details": {
+          "offers_found": 434,
+          "max_pages": 50
+        }
+      }
+    },
+    "stats": {},
+    "errors": [
+      {
+        "timestamp": "2026-05-11T12:52:14.885803+02:00",
+        "message": "unhashable type: 'dict'"
+      }
+    ],
+    "end_timestamp": "2026-05-11T12:52:14.885815+02:00",
+    "total_duration": 251.06,
+    "performance": {
+      "pages_scanned": 50,
+      "scraping_per_page": 5.02
     }
   }
 ]
