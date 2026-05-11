@@ -127,14 +127,21 @@ class AddressParser:
         # === FIX #4 (2026-05-11): whitelist znanych ulic Lublina z geocoding_cache ===
         # Wczytuje 148+ znanych nazw ulic które już raz geokodowaliśmy.
         # Używane jako TRZECI fallback po extract_address i extract_street_only.
-        self._known_streets = self._load_known_streets(geocoding_cache_path)
+        # Fix #4.1: filtrujemy słowa z EXCLUDED_WORDS (np. "umcs", "pokoje", "kawalerka")
+        self._known_streets = self._load_known_streets(geocoding_cache_path, self.EXCLUDED_WORDS)
     
     @staticmethod
-    def _load_known_streets(cache_path: str) -> set:
+    def _load_known_streets(cache_path: str, excluded_words: set = None) -> set:
         """
         Ekstraktuje unikalne nazwy ulic z geocoding_cache.json.
         Zwraca set z nazwami w lowercase dla szybkiego matching case-insensitive.
+        
+        Args:
+            cache_path: ścieżka do geocoding_cache.json
+            excluded_words: zbiór słów które NIE mogą być nazwą ulicy (z EXCLUDED_WORDS).
+                            Wszystkie wpisy w whitelist są filtrowane przeciwko tej liście.
         """
+        excluded_words = excluded_words or set()
         try:
             import json as _json
             from pathlib import Path as _Path
@@ -167,6 +174,13 @@ class AddressParser:
                 # (artefakty z parsera) - jeśli zawiera "Mieszkanie"/"Pokój"/"Opis" w środku, skip
                 if any(noise in street_name for noise in ['Mieszkanie', 'OpisPokój', 'Lublin', 'Witam', 'Oferuję']):
                     continue
+                
+                # KRYTYCZNE (Fix #4.1, 2026-05-11): odrzuć jeśli którekolwiek słowo
+                # nazwy ulicy jest w EXCLUDED_WORDS (blackliście słów-szumów)
+                street_words_lower = [w.lower() for w in street_name.split()]
+                if any(w in excluded_words for w in street_words_lower):
+                    continue
+                
                 streets.add(street_name.lower())
             return streets
         except Exception as e:
@@ -179,11 +193,12 @@ class AddressParser:
         Wyszukuje w tekście jakiekolwiek znane nazwy ulic Lublina (z geocoding_cache).
         Używany TYLKO gdy extract_address i extract_street_only zwróciły None.
         
-        Kluczowa transformacja: każde słowo w tekście przekształca się do mianownika
-        przed porównaniem z whitelistą - inaczej "Lipowej" nie matchowałoby "Lipowa".
-        
-        Wymaga dopasowania całych słów (case-insensitive) żeby uniknąć false-positives
-        typu "Glinianej" matchującego "Glina" wewnątrz innego słowa.
+        Strategia matchingu (Fix #4.2 - 2026-05-11):
+        1. EXACT match: szukamy znanych ulic w oryginalnym tekście (lowercase).
+           Łapie przypadki gdy ulica w opisie jest w tej samej formie co w cache
+           (np. cache="Paganiniego" + tekst="ul. Paganiniego").
+        2. NOMINATIVE match: jeśli exact nie znalazł, transformujemy słowa tekstu
+           do mianownika i próbujemy ponownie (łapie "Lipowej" → "Lipowa").
         
         Returns:
             Dict z 'street', 'number'=None, 'full' lub None jeśli nie znaleziono.
@@ -192,42 +207,35 @@ class AddressParser:
         if not self._known_streets or not text:
             return None
         
-        # Lazy import to_nominative z geocodera (uniknięcie circular import na poziomie modułu)
-        try:
-            from geocoder import to_nominative
-        except ImportError:
-            to_nominative = lambda x: x  # fallback - brak transformacji
+        # Normalizacja tekstu: znaki interpunkcyjne na spacje
+        normalized_raw = re.sub(r'[^\w\sśćłąęóżźńŚĆŁĄĘÓŻŹŃ]', ' ', text).lower()
+        words_raw = normalized_raw.split()
+        words_set_raw = set(words_raw)
         
-        # Normalizacja tekstu: zamień znaki interpunkcyjne na spacje
-        normalized = re.sub(r'[^\w\sśćłąęóżźńŚĆŁĄĘÓŻŹŃ]', ' ', text)
+        # === KROK 1: EXACT MATCH (bez transformacji) ===
+        # Najczęstszy przypadek: cache i tekst mają tę samą formę nazwy.
+        candidates = self._find_in_text(words_set_raw, normalized_raw)
         
-        # KLUCZ: każde słowo z tekstu zamieniamy do mianownika (Lipowej → Lipowa)
-        # Pomijamy słowa krótsze niż 4 znaki (nie mogą być nazwami ulic)
-        words = normalized.split()
-        nominative_words = []
-        for w in words:
-            if len(w) >= 4 and w[0].isalpha():
-                nm = to_nominative(w).lower()
-                nominative_words.append(nm)
-            else:
-                nominative_words.append(w.lower())
-        
-        # Zrekonstruuj tekst z mianownikami dla matchingu wieloczłonowych nazw
-        text_nominative = ' '.join(nominative_words)
-        words_set = set(nominative_words)
-        
-        candidates = []
-        for street_lower in self._known_streets:
-            street_words = street_lower.split()
-            if len(street_words) == 1:
-                # Pojedyncze słowo - sprawdź obecność w secie słów
-                if street_lower in words_set:
-                    candidates.append((street_lower, len(street_lower)))
-            else:
-                # Wieloczłonowa nazwa - sprawdź dopasowanie do granic słów
-                pattern = r'\b' + re.escape(street_lower) + r'\b'
-                if re.search(pattern, text_nominative):
-                    candidates.append((street_lower, len(street_lower)))
+        # === KROK 2: NOMINATIVE MATCH (z transformacją do mianownika) ===
+        # Jeśli exact nic nie znalazł, próbujemy z mianownikiem ('Lipowej' → 'Lipowa').
+        if not candidates:
+            try:
+                from geocoder import to_nominative
+            except ImportError:
+                to_nominative = lambda x: x
+            
+            # Transformacja per-word (tylko dla słów ≥4 znaków)
+            nominative_words = []
+            for w in words_raw:
+                if len(w) >= 4 and w[0].isalpha():
+                    nominative_words.append(to_nominative(w).lower())
+                else:
+                    nominative_words.append(w)
+            
+            normalized_nom = ' '.join(nominative_words)
+            words_set_nom = set(nominative_words)
+            
+            candidates = self._find_in_text(words_set_nom, normalized_nom)
         
         if not candidates:
             return None
@@ -242,6 +250,23 @@ class AddressParser:
             'number': None,
             'full': best_street
         }
+    
+    def _find_in_text(self, words_set: set, text: str) -> list:
+        """
+        Pomocnicza: szuka znanych ulic w danym tekście.
+        Zwraca listę kandydatów (street_lower, score=length).
+        """
+        candidates = []
+        for street_lower in self._known_streets:
+            street_words = street_lower.split()
+            if len(street_words) == 1:
+                if street_lower in words_set:
+                    candidates.append((street_lower, len(street_lower)))
+            else:
+                pattern = r'\b' + re.escape(street_lower) + r'\b'
+                if re.search(pattern, text):
+                    candidates.append((street_lower, len(street_lower)))
+        return candidates
     
     def extract_address(self, text: str) -> Optional[Dict[str, str]]:
         """
@@ -741,15 +766,23 @@ if __name__ == "__main__":
         # POZYTYW - znana ulica w dopełniaczu w opisie OLX
         ("pokój przy Głębokiej, blisko centrum", "Głęboka"),
         ("blisko Lipowej", "Lipowa"),
-        ("okolice Puławskiej", "Puławska"),
+        # Dla "Puławskiej" oba warianty (Puławska/Puławskiej) są akceptowalne
+        # bo cache ma OBA wpisy z identycznymi coords po Fix #3
+        ("okolice Puławskiej", ["Puławska", "Puławskiej"]),
         # POZYTYW - znana ulica w mianowniku
         ("Lipowa 14", "Lipowa"),
+        # POZYTYW - kluczowy case z reportu użytkownika (oferta ID1aoyWG)
+        # "Paganiniego" jest w cache - exact match musi go znaleźć
+        ("Pokój przy ul. Paganiniego w Lublinie blisko UMCS, KUL", "Paganiniego"),
         # NEGATYW - brak znanej ulicy
         ("pokój w spokojnym miejscu", None),
         ("kaucja 250 zł", None),
         ("blisko Stadionu", None),
         # NEGATYW - dzielnica (nie ulica)
         ("Pokój w Wieniawej", None),  # Wieniawa to dzielnica, nie w whitelist jako ulica
+        # NEGATYW - UMCS i Pokoje muszą być odfiltrowane z whitelist (Fix #4.1)
+        ("Pokój blisko UMCS i KUL", None),
+        ("Pokoje wynajmę 5 sztuk", None),
         # Edge cases
         ("", None),
         ("ma od 10 do 20", None),  # tylko krótkie słowa
@@ -759,13 +792,18 @@ if __name__ == "__main__":
     for text, expected in fix4_cases:
         r = parser.extract_from_whitelist(text)
         actual = r['full'] if r else None
-        status = "✅" if actual == expected else "❌"
-        if actual == expected:
+        # Obsługa listy oczekiwanych (akceptowalne warianty)
+        if isinstance(expected, list):
+            ok = actual in expected
+        else:
+            ok = actual == expected
+        status = "✅" if ok else "❌"
+        if ok:
             fix4_pass += 1
         else:
             fix4_fail += 1
         print(f"{status} '{text}' → {actual}")
-        if actual != expected:
+        if not ok:
             print(f"   Oczekiwano: {expected}")
     print(f"\n📊 FIX #4: {fix4_pass} OK / {fix4_fail} FAIL")
 
