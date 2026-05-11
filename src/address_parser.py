@@ -118,8 +118,130 @@ class AddressParser:
         re.UNICODE
     )
 
-    def __init__(self):
-        pass
+    def __init__(self, geocoding_cache_path: str = "../data/geocoding_cache.json"):
+        """
+        Args:
+            geocoding_cache_path: ścieżka do JSON z geocoding cache (do whitelist Fix #4).
+                Jeśli plik nie istnieje, whitelist pozostaje pusty (parser działa bez fallbacku #4).
+        """
+        # === FIX #4 (2026-05-11): whitelist znanych ulic Lublina z geocoding_cache ===
+        # Wczytuje 148+ znanych nazw ulic które już raz geokodowaliśmy.
+        # Używane jako TRZECI fallback po extract_address i extract_street_only.
+        self._known_streets = self._load_known_streets(geocoding_cache_path)
+    
+    @staticmethod
+    def _load_known_streets(cache_path: str) -> set:
+        """
+        Ekstraktuje unikalne nazwy ulic z geocoding_cache.json.
+        Zwraca set z nazwami w lowercase dla szybkiego matching case-insensitive.
+        """
+        try:
+            import json as _json
+            from pathlib import Path as _Path
+            p = _Path(cache_path)
+            if not p.exists():
+                return set()
+            with open(p, 'r', encoding='utf-8') as f:
+                cache = _json.load(f)
+            streets = set()
+            # Wzorzec: "Nazwa Ulicy 5" lub "Nazwa Ulicy" - wyciągamy część PRZED numerem
+            addr_pattern = re.compile(r'^([\w\sśćłąęóżźńŚĆŁĄĘÓŻŹŃ\.]+?)(?:\s+\d+[a-zA-Z]?(?:/\d+)?)?$')
+            prefix_pattern = re.compile(r'^(Aleja|Aleje|Plac|Osiedle)\s+', re.UNICODE)
+            
+            for addr, coords in cache.items():
+                # Bierzemy tylko wpisy z poprawnymi współrzędnymi
+                if coords is None:
+                    continue
+                m = addr_pattern.match(addr.strip())
+                if not m:
+                    continue
+                street_name = m.group(1).strip()
+                # Usuń prefiks ("Aleja Racławickie" → "Racławickie")
+                street_name = prefix_pattern.sub('', street_name)
+                # Filtruj: min 3 znaki, pierwsza wielka, brak whitespace artefaktów
+                if len(street_name) < 3 or not street_name[0].isalpha():
+                    continue
+                if not street_name[0].isupper():
+                    continue
+                # Filtr dodatkowy: nazwa nie może zawierać dziwnych słów typu "Mieszkanie", "OpisPokój"
+                # (artefakty z parsera) - jeśli zawiera "Mieszkanie"/"Pokój"/"Opis" w środku, skip
+                if any(noise in street_name for noise in ['Mieszkanie', 'OpisPokój', 'Lublin', 'Witam', 'Oferuję']):
+                    continue
+                streets.add(street_name.lower())
+            return streets
+        except Exception as e:
+            print(f"⚠️ Nie udało się załadować whitelist z {cache_path}: {e}")
+            return set()
+    
+    def extract_from_whitelist(self, text: str) -> Optional[Dict[str, Optional[str]]]:
+        """
+        Fix #4 (2026-05-11): trzeci fallback parsera.
+        Wyszukuje w tekście jakiekolwiek znane nazwy ulic Lublina (z geocoding_cache).
+        Używany TYLKO gdy extract_address i extract_street_only zwróciły None.
+        
+        Kluczowa transformacja: każde słowo w tekście przekształca się do mianownika
+        przed porównaniem z whitelistą - inaczej "Lipowej" nie matchowałoby "Lipowa".
+        
+        Wymaga dopasowania całych słów (case-insensitive) żeby uniknąć false-positives
+        typu "Glinianej" matchującego "Glina" wewnątrz innego słowa.
+        
+        Returns:
+            Dict z 'street', 'number'=None, 'full' lub None jeśli nie znaleziono.
+            Adres jest precyzji street_only (brak numeru).
+        """
+        if not self._known_streets or not text:
+            return None
+        
+        # Lazy import to_nominative z geocodera (uniknięcie circular import na poziomie modułu)
+        try:
+            from geocoder import to_nominative
+        except ImportError:
+            to_nominative = lambda x: x  # fallback - brak transformacji
+        
+        # Normalizacja tekstu: zamień znaki interpunkcyjne na spacje
+        normalized = re.sub(r'[^\w\sśćłąęóżźńŚĆŁĄĘÓŻŹŃ]', ' ', text)
+        
+        # KLUCZ: każde słowo z tekstu zamieniamy do mianownika (Lipowej → Lipowa)
+        # Pomijamy słowa krótsze niż 4 znaki (nie mogą być nazwami ulic)
+        words = normalized.split()
+        nominative_words = []
+        for w in words:
+            if len(w) >= 4 and w[0].isalpha():
+                nm = to_nominative(w).lower()
+                nominative_words.append(nm)
+            else:
+                nominative_words.append(w.lower())
+        
+        # Zrekonstruuj tekst z mianownikami dla matchingu wieloczłonowych nazw
+        text_nominative = ' '.join(nominative_words)
+        words_set = set(nominative_words)
+        
+        candidates = []
+        for street_lower in self._known_streets:
+            street_words = street_lower.split()
+            if len(street_words) == 1:
+                # Pojedyncze słowo - sprawdź obecność w secie słów
+                if street_lower in words_set:
+                    candidates.append((street_lower, len(street_lower)))
+            else:
+                # Wieloczłonowa nazwa - sprawdź dopasowanie do granic słów
+                pattern = r'\b' + re.escape(street_lower) + r'\b'
+                if re.search(pattern, text_nominative):
+                    candidates.append((street_lower, len(street_lower)))
+        
+        if not candidates:
+            return None
+        
+        # Wybierz najdłuższego kandydata (najbardziej specyficzny)
+        best_street_lower, _ = max(candidates, key=lambda x: x[1])
+        # Kapitalizacja zgodnie z polską normą (każde słowo z dużej litery)
+        best_street = ' '.join(w.capitalize() for w in best_street_lower.split())
+        
+        return {
+            'street': best_street,
+            'number': None,
+            'full': best_street
+        }
     
     def extract_address(self, text: str) -> Optional[Dict[str, str]]:
         """
@@ -612,9 +734,44 @@ if __name__ == "__main__":
             print(f"   Oczekiwano: {expected}")
     print(f"\n📊 FIX #2: {fix2_pass} OK / {fix2_fail} FAIL")
 
+    # ===== FIX #4: Testy extract_from_whitelist =====
+    print("\n🧪 FIX #4 — extract_from_whitelist (znane ulice z geocoding_cache):\n")
+    
+    fix4_cases = [
+        # POZYTYW - znana ulica w dopełniaczu w opisie OLX
+        ("pokój przy Głębokiej, blisko centrum", "Głęboka"),
+        ("blisko Lipowej", "Lipowa"),
+        ("okolice Puławskiej", "Puławska"),
+        # POZYTYW - znana ulica w mianowniku
+        ("Lipowa 14", "Lipowa"),
+        # NEGATYW - brak znanej ulicy
+        ("pokój w spokojnym miejscu", None),
+        ("kaucja 250 zł", None),
+        ("blisko Stadionu", None),
+        # NEGATYW - dzielnica (nie ulica)
+        ("Pokój w Wieniawej", None),  # Wieniawa to dzielnica, nie w whitelist jako ulica
+        # Edge cases
+        ("", None),
+        ("ma od 10 do 20", None),  # tylko krótkie słowa
+    ]
+    fix4_pass = 0
+    fix4_fail = 0
+    for text, expected in fix4_cases:
+        r = parser.extract_from_whitelist(text)
+        actual = r['full'] if r else None
+        status = "✅" if actual == expected else "❌"
+        if actual == expected:
+            fix4_pass += 1
+        else:
+            fix4_fail += 1
+        print(f"{status} '{text}' → {actual}")
+        if actual != expected:
+            print(f"   Oczekiwano: {expected}")
+    print(f"\n📊 FIX #4: {fix4_pass} OK / {fix4_fail} FAIL")
+
     # Total summary
-    total_pass = pass_count + fix1_pass + fix2_pass
-    total_fail = fail_count + fix1_fail + fix2_fail
+    total_pass = pass_count + fix1_pass + fix2_pass + fix4_pass
+    total_fail = fail_count + fix1_fail + fix2_fail + fix4_fail
     print(f"\n{'='*60}")
     print(f"📊 ŁĄCZNIE: {total_pass} OK / {total_fail} FAIL")
     print(f"{'='*60}")

@@ -2,9 +2,11 @@
 Geocoder - zamiana adresów na współrzędne GPS
 Używa Nominatim API (OpenStreetMap) + cache w JSON
 + walidacja czy adres jest w Lublinie (bounding box)
++ Fix #3 (2026-05-11): retry z transformacją do mianownika
 """
 
 import json
+import re
 import time
 from pathlib import Path
 from typing import Optional, Dict
@@ -20,11 +22,75 @@ LUBLIN_BBOX = {
     'max_lon': 22.68    # Wschodnia granica
 }
 
+# === FIX #3 (2026-05-11): Transformacja dopełniacz → mianownik ===
+# Polskie nazwy ulic w ogłoszeniach często są w dopełniaczu ("przy Puławskiej")
+# Nominatim szuka mianowników ("Puławska") - bez tej transformacji geokoder odrzuca
+# ~40% prawdziwych ulic. Kolejność reguł istotna: dłuższe wzorce PRZED krótszymi.
+NOMINATIVE_RULES = [
+    # Końcówki -skiej / -ckiej i pochodne (Puławskiej → Puławska)
+    (re.compile(r'owskiej$', re.IGNORECASE), 'owska'),
+    (re.compile(r'ińskiej$', re.IGNORECASE), 'ińska'),
+    (re.compile(r'yńskiej$', re.IGNORECASE), 'yńska'),
+    (re.compile(r'eńskiej$', re.IGNORECASE), 'eńska'),
+    # Specjalny przypadek: -dniej → -dnia (Zachodniej → Zachodnia, NIE → Zachodna)
+    (re.compile(r'dniej$', re.IGNORECASE), 'dnia'),
+    (re.compile(r'skiej$', re.IGNORECASE), 'ska'),
+    (re.compile(r'ckiej$', re.IGNORECASE), 'cka'),
+    (re.compile(r'kiej$', re.IGNORECASE), 'ka'),
+    # Końcówki -owej / -nej (Spadowej → Spadowa, Pogodnej → Pogodna)
+    (re.compile(r'owej$', re.IGNORECASE), 'owa'),
+    (re.compile(r'nej$', re.IGNORECASE), 'na'),
+    # Nazwiska męskie -ego (Wołodyjowskiego → Wołodyjowski, Dubieckiego → Dubiecki)
+    (re.compile(r'wskiego$', re.IGNORECASE), 'wski'),
+    (re.compile(r'ńskiego$', re.IGNORECASE), 'ński'),
+    (re.compile(r'skiego$', re.IGNORECASE), 'ski'),
+    (re.compile(r'ckiego$', re.IGNORECASE), 'cki'),
+    (re.compile(r'iego$', re.IGNORECASE), 'i'),
+    (re.compile(r'ego$', re.IGNORECASE), 'i'),
+    # Liczba mnoga (Aleja Racławickich → Aleja Racławickie)
+    (re.compile(r'ckich$', re.IGNORECASE), 'ckie'),
+    (re.compile(r'skich$', re.IGNORECASE), 'skie'),
+    (re.compile(r'ich$', re.IGNORECASE), 'ie'),
+    # Generic -ej (Sympatycznej → Sympatyczna, Liliowej już złapane wyżej)
+    (re.compile(r'ej$', re.IGNORECASE), 'a'),
+]
+
+def to_nominative(address: str) -> str:
+    """
+    Transformuje polską nazwę ulicy z dopełniacza/innego przypadka do mianownika.
+    Działa per-word - obsługuje też dwuczłonowe ("Aleja Racławickich" → "Aleja Racławickie")
+    oraz adresy z numerem ("Puławskiej 10" → "Puławska 10").
+    
+    Każdy word jest transformowany niezależnie pierwszą pasującą regułą.
+    """
+    if not address:
+        return address
+    
+    tokens = address.split()
+    result = []
+    for token in tokens:
+        # Pomiń tokeny które są same cyframi/numerem domu (np. "10", "5a", "1/2")
+        if re.match(r'^\d+[a-zA-Z]?(/\d+)?$', token):
+            result.append(token)
+            continue
+        
+        new_token = token
+        for pattern, replacement in NOMINATIVE_RULES:
+            if pattern.search(token):
+                new_token = pattern.sub(replacement, token)
+                break  # Pierwsza pasująca reguła wygrywa
+        result.append(new_token)
+    
+    return ' '.join(result)
+
+
 class Geocoder:
     def __init__(self, cache_file: str = "data/geocoding_cache.json"):
         self.cache_file = Path(cache_file)
         self.cache = self._load_cache()
         self.geolocator = Nominatim(user_agent="sonar-pokojowy-lublin/1.0")
+        # Stats dla Fix #3
+        self._stats_nominative_hits = 0
         
     def _load_cache(self) -> Dict:
         """Ładuje cache z pliku JSON."""
@@ -64,9 +130,15 @@ class Geocoder:
         """
         Geokoduje adres na współrzędne GPS.
         
+        Strategia (Fix #3):
+        1. Sprawdź cache pod oryginalnym kluczem
+        2. Spróbuj Nominatim z oryginalnym adresem
+        3. Jeśli fail, przekształć do mianownika ("Puławskiej" → "Puławska") i ponów
+        4. Cache zapisuje wynik pod ORYGINALNYM kluczem (żeby był idempotentny)
+        
         Args:
-            address: Adres do geokodowania (np. "Narutowicza 5")
-            max_retries: Maksymalna liczba prób
+            address: Adres do geokodowania (np. "Narutowicza 5" lub "Puławskiej")
+            max_retries: Maksymalna liczba prób per query
             
         Returns:
             Dict z lat, lon lub None jeśli nie znaleziono
@@ -74,14 +146,55 @@ class Geocoder:
         if not address:
             return None
         
-        # Sprawdzamy cache
+        # Sprawdzamy cache - oryginalny klucz
         if address in self.cache:
             return self.cache[address]
         
+        # === KROK 1: Próba z oryginalnym adresem ===
+        coords = self._try_nominatim(address, max_retries=max_retries)
+        if coords is not None:
+            self.cache[address] = coords
+            self._save_cache()
+            return coords
+        
+        # === KROK 2 (Fix #3): Retry z transformacją do mianownika ===
+        nominative = to_nominative(address)
+        if nominative != address:
+            # Tylko jeśli transformacja faktycznie coś zmieniła
+            print(f"      🔄 Retry z mianownikiem: '{address}' → '{nominative}'")
+            
+            # Sprawdź czy mianownik jest w cache (możliwe że już go geokodowaliśmy)
+            if nominative in self.cache and self.cache[nominative] is not None:
+                coords = self.cache[nominative]
+                print(f"      ✅ Trafiony cache mianownika: {nominative}")
+                self.cache[address] = coords  # Zapisz pod oryginalnym też
+                self._save_cache()
+                self._stats_nominative_hits += 1
+                return coords
+            
+            coords = self._try_nominatim(nominative, max_retries=max_retries)
+            if coords is not None:
+                print(f"      ✅ Mianownik znaleziony: {nominative}")
+                # Cache pod OBA klucze
+                self.cache[address] = coords
+                self.cache[nominative] = coords
+                self._save_cache()
+                self._stats_nominative_hits += 1
+                return coords
+        
+        # Oba podejścia zawiodły - cache pod oryginalnym kluczem jako None
+        self.cache[address] = None
+        self._save_cache()
+        return None
+    
+    def _try_nominatim(self, address: str, max_retries: int = 3) -> Optional[Dict[str, float]]:
+        """
+        Pojedyncza próba zapytania do Nominatim (bez logiki retry mianownikiem).
+        Zwraca coords lub None.
+        """
         # Pełny adres z miastem
         full_address = f"{address}, Lublin, Poland"
         
-        # Próbujemy geokodować
         for attempt in range(max_retries):
             try:
                 location = self.geolocator.geocode(
@@ -98,21 +211,12 @@ class Geocoder:
                     
                     # WALIDACJA: Sprawdź czy adres jest w Lublinie
                     if not self.is_in_lublin(coords):
-                        print(f"⚠️ Odrzucono {address} - poza Lublinem (lat={coords['lat']:.4f}, lon={coords['lon']:.4f})")
-                        # Zapisujemy do cache jako None (nie próbujemy ponownie)
-                        self.cache[address] = None
-                        self._save_cache()
+                        print(f"      ⚠️ Odrzucono {address} - poza Lublinem (lat={coords['lat']:.4f}, lon={coords['lon']:.4f})")
                         return None
-                    
-                    # Zapisujemy do cache
-                    self.cache[address] = coords
-                    self._save_cache()
                     
                     return coords
                 else:
-                    # Nie znaleziono - zapisujemy jako None
-                    self.cache[address] = None
-                    self._save_cache()
+                    # Nie znaleziono
                     return None
                     
             except GeocoderTimedOut:

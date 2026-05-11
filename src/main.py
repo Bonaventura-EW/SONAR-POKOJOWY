@@ -24,7 +24,7 @@ class SonarPokojowy:
     def __init__(self, data_file: str = "../data/offers.json", removed_file: str = "../data/removed_listings.json"):
         self.data_file = Path(data_file)
         self.removed_file = Path(removed_file)
-        self.address_parser = AddressParser()
+        self.address_parser = AddressParser(geocoding_cache_path="../data/geocoding_cache.json")
         self.price_parser = PriceParser()
         self.geocoder = Geocoder(cache_file="../data/geocoding_cache.json")
         self.duplicate_detector = DuplicateDetector(similarity_threshold=0.95)
@@ -232,6 +232,18 @@ class SonarPokojowy:
             if street_only:
                 print(f"      📍 Brak numeru, używam przybliżonego adresu: {street_only['full']}")
                 address_data = street_only
+                address_precision = 'street_only'
+        
+        # FIX #4 (2026-05-11): Whitelist znanych ulic z geocoding_cache
+        # Trzeci fallback - jeśli żaden z poprzednich parserów nic nie złapał,
+        # szukamy w tekście jakiejkolwiek znanej nazwy ulicy z bazy.
+        if not address_data:
+            whitelist_match = self.address_parser.extract_from_whitelist(full_text)
+            if not whitelist_match and raw_offer.get('description'):
+                whitelist_match = self.address_parser.extract_from_whitelist(raw_offer['description'])
+            if whitelist_match:
+                print(f"      📚 Znaleziono w whitelist: {whitelist_match['full']}")
+                address_data = whitelist_match
                 address_precision = 'street_only'
 
         if not address_data:
