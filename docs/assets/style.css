@@ -231,6 +231,22 @@ body {
 .badge-green  { color: #1a9e3f; }
 .badge-red    { color: #cc1a2a; }
 .badge-crimson{ color: #cc0000; }
+.badge-dot-gray {
+    width: 28px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.badge-dot-gray::before {
+    content: "";
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #888780;
+    border: 1.5px solid #5F5E5A;
+}
 .badge-count {
     color: #aaa;
     font-size: 10px;

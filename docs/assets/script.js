@@ -712,6 +712,7 @@ function filterMarkers() {
     const showPriceDown = document.getElementById('badge-filter-price-down')?.checked ?? true;
     const showPriceUp = document.getElementById('badge-filter-price-up')?.checked ?? true;
     const showNew = document.getElementById('badge-filter-new')?.checked ?? true;
+    const showUnchanged = document.getElementById('badge-filter-unchanged')?.checked ?? true;
     
     // NOWY: Filtr czasowy
     const timeFilter = document.getElementById('time-filter').value;
@@ -766,7 +767,7 @@ function filterMarkers() {
             if (tag === 'mieszkanie' && !showMieszkanie) visible = false;
         }
         
-        // Filtr oznaczeń pinezek (OR) - pinezki bez żadnego oznaczenia zawsze widoczne
+        // Filtr oznaczeń pinezek (OR) - oferty bez badge'a filtrowane przez "Bez zmian"
         if (visible) {
             const hasAnyBadge = item.isNew || item.priceDown || item.priceUp;
             if (hasAnyBadge) {
@@ -776,6 +777,9 @@ function filterMarkers() {
                     (item.priceDown && showPriceDown) ||
                     (item.priceUp && showPriceUp);
                 if (!passes) visible = false;
+            } else {
+                // Oferta bez żadnego badge'a - widoczna tylko gdy "Bez zmian" jest zaznaczone
+                if (!showUnchanged) visible = false;
             }
         }
         
@@ -1090,7 +1094,7 @@ function setupEventListeners() {
     });
     
     // Filtry oznaczeń pinezek (legenda)
-    ['badge-filter-price-down', 'badge-filter-price-up', 'badge-filter-new']
+    ['badge-filter-price-down', 'badge-filter-price-up', 'badge-filter-new', 'badge-filter-unchanged']
         .forEach(id => {
             const el = document.getElementById(id);
             if (el) el.addEventListener('change', filterMarkers);
@@ -1275,6 +1279,7 @@ function updatePriceRangeCounts() {
     const showPriceDown = document.getElementById('badge-filter-price-down')?.checked ?? true;
     const showPriceUp = document.getElementById('badge-filter-price-up')?.checked ?? true;
     const showNew = document.getElementById('badge-filter-new')?.checked ?? true;
+    const showUnchanged = document.getElementById('badge-filter-unchanged')?.checked ?? true;
     
     const timeFilter = document.getElementById('time-filter')?.value || 'all';
     let cutoffDate = null;
@@ -1309,7 +1314,7 @@ function updatePriceRangeCounts() {
         if (tag === 'kawalerka' && !showKawalerka) return;
         if (tag === 'mieszkanie' && !showMieszkanie) return;
         
-        // Filtr oznaczeń pinezek (OR)
+        // Filtr oznaczeń pinezek (OR) - oferty bez badge'a filtrowane przez "Bez zmian"
         const hasAnyBadge = item.isNew || item.priceDown || item.priceUp;
         if (hasAnyBadge) {
             const passes =
@@ -1317,6 +1322,8 @@ function updatePriceRangeCounts() {
                 (item.priceDown && showPriceDown) ||
                 (item.priceUp && showPriceUp);
             if (!passes) return;
+        } else {
+            if (!showUnchanged) return;
         }
         
         // Filtr czasowy (first_seen LUB price_changed_at)
@@ -1357,40 +1364,107 @@ function filterByTags() {
 }
 
 // Aktualizacja liczników oznaczeń pinezek (legenda)
-// Respektuje aktywny zakres dat (filtr "Pokaż oferty z ostatnich")
+// Każdy licznik pokazuje: "ile ofert pojawi się na mapie, gdy włączę ten checkbox?"
+// Respektuje WSZYSTKIE aktywne filtry OPRÓCZ checkboxa danej kategorii.
 function updateBadgeCounts() {
+    if (!allMarkers || allMarkers.length === 0) {
+        ['badge-count-price-down', 'badge-count-price-up', 'badge-count-new', 'badge-count-unchanged']
+            .forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = '(0)';
+            });
+        return;
+    }
+    
+    // Pobierz aktualne ustawienia wszystkich filtrów (oprócz samych checkboxów legendy)
+    const showActive = document.getElementById('layer-active')?.checked ?? true;
+    const showInactive = document.getElementById('layer-inactive')?.checked ?? true;
+    const showActiveApprox = document.getElementById('layer-active-approx')?.checked ?? false;
+    const showInactiveApprox = document.getElementById('layer-inactive-approx')?.checked ?? false;
+    
+    const showPokoj = document.getElementById('layer-tag-pokoj')?.checked ?? true;
+    const showKawalerka = document.getElementById('layer-tag-kawalerka')?.checked ?? true;
+    const showMieszkanie = document.getElementById('layer-tag-mieszkanie')?.checked ?? true;
+    
     const timeFilter = document.getElementById('time-filter')?.value || 'all';
     let cutoffDate = null;
     if (timeFilter !== 'all') {
         const daysAgo = parseInt(timeFilter);
         cutoffDate = new Date(Date.now() - (daysAgo * 24 * 60 * 60 * 1000));
     }
-
-    const counts = { priceDown: 0, priceUp: 0, isNew: 0 };
-
+    
+    const selectedRanges = Array.from(document.querySelectorAll('.price-range-filter:checked'))
+        .map(cb => cb.dataset.range);
+    
+    const priceMin = parseInt(document.getElementById('price-min')?.value) || 0;
+    const priceMax = parseInt(document.getElementById('price-max')?.value) || 999999;
+    
+    const searchTerm = (document.getElementById('search-input')?.value || '').toLowerCase();
+    
+    const counts = { priceDown: 0, priceUp: 0, isNew: 0, unchanged: 0 };
+    
     allMarkers.forEach(item => {
-        // Dla zmian ceny używamy price_changed_at
+        // Filtr aktywne/nieaktywne
+        if (item.isApprox) {
+            if (item.isActive && !showActiveApprox) return;
+            if (!item.isActive && !showInactiveApprox) return;
+        } else {
+            if (item.isActive && !showActive) return;
+            if (!item.isActive && !showInactive) return;
+        }
+        
+        // Filtr tagów
+        const tag = item.primaryTag || 'pokoj';
+        if (tag === 'pokoj' && !showPokoj) return;
+        if (tag === 'kawalerka' && !showKawalerka) return;
+        if (tag === 'mieszkanie' && !showMieszkanie) return;
+        
+        // Filtr czasowy (first_seen LUB price_changed_at)
+        if (cutoffDate) {
+            const firstSeenOk = item.firstSeenDate && item.firstSeenDate >= cutoffDate;
+            const priceChangedOk = item.priceChangedAtDate && item.priceChangedAtDate >= cutoffDate;
+            if (!firstSeenOk && !priceChangedOk) return;
+        }
+        
+        // Filtr suwaka dni
+        if (!passesDaySliderFilter(item.firstSeenDate)) return;
+        
+        // Filtr zakresów cenowych
+        if (selectedRanges.length > 0 && !selectedRanges.includes(item.priceRange)) return;
+        
+        // Precyzyjny filtr cen
+        const price = item.offers[0].price;
+        if (price < priceMin || price > priceMax) return;
+        
+        // Wyszukiwanie
+        if (searchTerm && !item.address.toLowerCase().includes(searchTerm)) return;
+        
+        // CELOWO POMIJAMY filtry checkboxów legendy - to ich liczniki właśnie wyliczamy
+        
+        // Zlicz kategorie. Oferta może mieć jednocześnie wiele oznaczeń
+        // (np. isNew + priceDown), więc liczona jest w każdej pasującej kategorii.
+        // Dla zmian ceny dodatkowo wymagamy, by data zmiany ceny była w zakresie czasowym.
         const priceChangeInRange = !cutoffDate ||
             (item.priceChangedAtDate && item.priceChangedAtDate >= cutoffDate);
-        // Dla "nowa oferta" używamy first_seen
         const firstSeenInRange = !cutoffDate ||
             (item.firstSeenDate && item.firstSeenDate >= cutoffDate);
-
-        // Filtr suwaka dni - dotyczy first_seen markera
-        const daySliderOk = passesDaySliderFilter(item.firstSeenDate);
-        if (!daySliderOk) return;
-
+        
         if (item.priceDown && priceChangeInRange) counts.priceDown++;
         if (item.priceUp && priceChangeInRange) counts.priceUp++;
         if (item.isNew && firstSeenInRange) counts.isNew++;
+        
+        // "Bez zmian" - oferta nie ma żadnego z trzech badge'y
+        const hasAnyBadge = item.isNew || item.priceDown || item.priceUp;
+        if (!hasAnyBadge) counts.unchanged++;
     });
-
+    
     const setText = (id, value) => {
         const el = document.getElementById(id);
         if (el) el.textContent = `(${value})`;
     };
-
+    
     setText('badge-count-price-down', counts.priceDown);
     setText('badge-count-price-up', counts.priceUp);
     setText('badge-count-new', counts.isNew);
+    setText('badge-count-unchanged', counts.unchanged);
 }
