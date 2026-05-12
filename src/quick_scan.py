@@ -47,17 +47,10 @@ class QuickSonar(SonarPokojowy):
             skipped_no_price = 0
             skipped_no_coords = 0
             skipped_duplicate = 0
-            skipped_removed = 0
             
             for i, raw_offer in enumerate(raw_offers, 1):
                 if i % 10 == 0:
                     print(f"   [{i}/{len(raw_offers)}]...")
-                
-                offer_id = raw_offer['url'].split('/')[-1].split('.')[0]
-                
-                if offer_id in self.removed_listings:
-                    skipped_removed += 1
-                    continue
                 
                 processed = self._process_offer(raw_offer)
                 
@@ -83,8 +76,7 @@ class QuickSonar(SonarPokojowy):
             print(f"   Pominięte - brak adresu: {skipped_no_address}")
             print(f"   Pominięte - brak ceny: {skipped_no_price}")
             print(f"   Pominięte - brak coords: {skipped_no_coords}")
-            print(f"   Pominięte - duplikaty: {skipped_duplicate}")
-            print(f"   Pominięte - usunięte: {skipped_removed}\n")
+            print(f"   Pominięte - duplikaty: {skipped_duplicate}\n")
             
             # 4. Zapisz do bazy
             print("💾 Zapisywanie do bazy...")
@@ -106,8 +98,7 @@ class QuickSonar(SonarPokojowy):
                 'skipped_no_address': skipped_no_address,
                 'skipped_no_price': skipped_no_price,
                 'skipped_no_coords': skipped_no_coords,
-                'skipped_duplicate': skipped_duplicate,
-                'skipped_removed': skipped_removed
+                'skipped_duplicate': skipped_duplicate
             })
             
             self.scan_logger.end_scan('completed', total_duration)

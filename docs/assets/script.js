@@ -27,8 +27,7 @@ let markerLayers = {
     active: L.layerGroup(),
     inactive: L.layerGroup(),
     activeApprox: L.layerGroup(),   // NOWE: aktywne przybliżone (precision: street_only)
-    inactiveApprox: L.layerGroup(), // NOWE: nieaktywne przybliżone
-    damaged: L.layerGroup()  // Warstwa dla ogłoszeń oznaczonych jako uszkodzone
+    inactiveApprox: L.layerGroup()  // NOWE: nieaktywne przybliżone
 };
 
 // ===== Filtr daty dodania (suwak dni) =====
@@ -158,35 +157,6 @@ const universities = {
     }
 };
 
-// LocalStorage dla ogłoszeń oznaczonych jako uszkodzone
-const DAMAGED_KEY = 'sonar_damaged_listings';
-
-// Pomocnicze funkcje dla damaged listings
-function getDamagedListings() {
-    const stored = localStorage.getItem(DAMAGED_KEY);
-    return stored ? JSON.parse(stored) : [];
-}
-
-function addToDamaged(offerId) {
-    const damaged = getDamagedListings();
-    if (!damaged.includes(offerId)) {
-        damaged.push(offerId);
-        localStorage.setItem(DAMAGED_KEY, JSON.stringify(damaged));
-        return true;
-    }
-    return false;
-}
-
-function removeFromDamaged(offerId) {
-    let damaged = getDamagedListings();
-    damaged = damaged.filter(id => id !== offerId);
-    localStorage.setItem(DAMAGED_KEY, JSON.stringify(damaged));
-}
-
-function isDamaged(offerId) {
-    return getDamagedListings().includes(offerId);
-}
-
 // Inicjalizacja mapy
 function initMap() {
     // Centrum Lublina
@@ -201,7 +171,6 @@ function initMap() {
     // Dodaj warstwy do mapy
     markerLayers.active.addTo(map);
     markerLayers.inactive.addTo(map);
-    // markerLayers.damaged NIE dodajemy - będzie domyślnie ukryta
     // markerLayers.activeApprox / inactiveApprox NIE dodajemy - domyślnie wyłączone (decyzja 3c)
     
     // Tworzenie warstw uczelni
@@ -433,9 +402,6 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
         const offerPriceRange = offer.price_range;
         const color = mapData.price_ranges[offerPriceRange]?.color || '#808080';
         
-        // Sprawdź czy oferta jest oznaczona jako uszkodzona
-        const isDamagedOffer = isDamaged(offer.id);
-        
         // Oblicz offset w kole (rozsunięcie)
         // Każda oferta na innym kącie, promień rośnie z ilością ofert
         const totalOffers = offers.length;
@@ -459,9 +425,7 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
         
         // Tooltip (pojawia się przy hover)
         const price = offer.price;
-        const tooltipText = isDamagedOffer 
-            ? `⚠️ USZKODZONE: ${address} - ${price} zł`
-            : `${address} - ${price} zł`;
+        const tooltipText = `${address} - ${price} zł`;
         
         // Sprawdź czy oferta jest nowa (z ostatniego skanu)
         const isNew = offer.is_new === true;
@@ -477,17 +441,17 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
         }
         
         // Ikona markera - pinezka z kolorem
-        // Jeśli uszkodzone - pomarańczowy, jeśli nowa - czerwona obwódka, inaczej - biała
-        const strokeColor = isDamagedOffer ? '#ff6600' : (isNew ? '#ff0000' : 'white');
-        const strokeWidth = isDamagedOffer ? '4' : (isNew ? '3' : '2');
-        const markerColor = isDamagedOffer ? '#ff9933' : color;  // Pomarańczowy dla uszkodzonych
+        // Jeśli nowa - czerwona obwódka, inaczej - biała
+        const strokeColor = isNew ? '#ff0000' : 'white';
+        const strokeWidth = isNew ? '3' : '2';
+        const markerColor = color;
 
         // Czy oferta to "przybliżony adres" (sama ulica, bez numeru)?
         const isApprox = offer.precision === 'street_only';
 
         // Badge zmiany ceny - ikona dolara ze strzałką
         let priceChangeBadge = '';
-        if (hasPriceChange && !isDamagedOffer) {
+        if (hasPriceChange) {
             const badgeColor = priceDown ? '#28a745' : '#dc3545';  // Zielony=spadek, Czerwony=wzrost
             const arrow = priceDown ? '↓' : '↑';
             priceChangeBadge = `
@@ -540,7 +504,6 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
                         </svg>
                         ${isNew && !hasPriceChange ? '<div style="position: absolute; top: -5px; right: -5px; background: #ff0000; color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">N</div>' : ''}
                         ${priceChangeBadge}
-                        ${isDamagedOffer ? '<div style="position: absolute; top: -5px; left: -5px; background: #ff6600; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">⚠</div>' : ''}
                     </div>
                 `,
                 iconSize: [squareSize, squareSize],
@@ -566,7 +529,6 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
                         </svg>
                         ${isNew && !hasPriceChange ? '<div style="position: absolute; top: -5px; right: -5px; background: #ff0000; color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">N</div>' : ''}
                         ${priceChangeBadge}
-                        ${isDamagedOffer ? '<div style="position: absolute; top: -5px; left: -5px; background: #ff6600; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">⚠</div>' : ''}
                     </div>
                 `,
                 iconSize: [40, 50],
@@ -586,10 +548,8 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
             .bindPopup(popupContent, { maxWidth: 400 });
 
         // Dodaj do odpowiedniej warstwy
-        // Priorytet: damaged > approx > exact
-        if (isDamagedOffer) {
-            markerObj.addTo(markerLayers.damaged);
-        } else if (isApprox) {
+        // Priorytet: approx > exact
+        if (isApprox) {
             markerObj.addTo(isActive ? markerLayers.activeApprox : markerLayers.inactiveApprox);
         } else if (isActive) {
             markerObj.addTo(markerLayers.active);
@@ -604,13 +564,12 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
             offers: [offer],
             priceRange: offerPriceRange,  // ✅ Zakres cenowy z oferty
             isActive: isActive,
-            isDamaged: isDamagedOffer,
             isApprox: isApprox,  // NOWE: czy to przybliżona lokalizacja (street_only)
             primaryTag: offer.tags ? offer.tags.primary : 'pokoj',  // B1: Tag główny
             // Flagi oznaczeń pinezek (do filtrowania legendy)
             isNew: isNew,
-            priceDown: hasPriceChange && priceDown && !isDamagedOffer,
-            priceUp: hasPriceChange && priceUp && !isDamagedOffer,
+            priceDown: hasPriceChange && priceDown,
+            priceUp: hasPriceChange && priceUp,
             // Daty do filtrowania zakresem dat
             firstSeenDate: parsePolishDate(offer.first_seen),
             priceChangedAtDate: parsePolishDate(offer.price_changed_at)
@@ -690,13 +649,6 @@ function createPopupContent(address, offers) {
         // Link
         html += `<a href="${offer.url}" target="_blank" class="offer-link">🔗 Otwórz ogłoszenie</a>`;
         
-        // Przycisk: Oznacz jako uszkodzone / Przywróć
-        if (isDamaged(offer.id)) {
-            html += `<button class="restore-listing-btn" onclick="restoreListing('${offer.id}')" style="margin-top: 10px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">✅ Przywróć ogłoszenie</button>`;
-        } else {
-            html += `<button class="mark-damaged-btn" onclick="markAsDamaged('${offer.id}')" style="margin-top: 10px; padding: 5px 10px; background: #ff6600; color: white; border: none; border-radius: 4px; cursor: pointer;">⚠️ Oznacz jako uszkodzone</button>`;
-        }
-        
         // Opis - z funkcją zwijania/rozwijania
         const maxChars = 100; // Maksymalna długość podglądu (~1-2 linie)
         const needsTruncate = offer.description.length > maxChars;
@@ -736,9 +688,6 @@ function createPopupContent(address, offers) {
             html += `</div>`;
         }
         
-        // Przycisk usuwania
-        html += `<button class="delete-offer-btn" onclick="deleteOffer('${offer.id}', '${address}')">🗑️ Usuń z mapy</button>`;
-        
         html += `</div>`;
     });
     
@@ -763,7 +712,6 @@ function filterMarkers() {
     const showPriceDown = document.getElementById('badge-filter-price-down')?.checked ?? true;
     const showPriceUp = document.getElementById('badge-filter-price-up')?.checked ?? true;
     const showNew = document.getElementById('badge-filter-new')?.checked ?? true;
-    const showDamaged = document.getElementById('badge-filter-damaged')?.checked ?? true;
     
     // NOWY: Filtr czasowy
     const timeFilter = document.getElementById('time-filter').value;
@@ -792,8 +740,7 @@ function filterMarkers() {
         active: 0,
         inactive: 0,
         activeApprox: 0,
-        inactiveApprox: 0,
-        damaged: 0
+        inactiveApprox: 0
     };
     
     // Filtruj markery
@@ -803,10 +750,7 @@ function filterMarkers() {
         // Filtr aktywne/nieaktywne - osobne checkboxy dla exact i approx
         // (sprawdzane PÓŹNIEJ - na końcu, po policzeniu warstw)
         let passesLayerFilter = true;
-        if (item.isDamaged) {
-            // Uszkodzone mają własny checkbox - traktowane osobno
-            passesLayerFilter = showDamaged;
-        } else if (item.isApprox) {
+        if (item.isApprox) {
             if (item.isActive) passesLayerFilter = showActiveApprox;
             else passesLayerFilter = showInactiveApprox;
         } else {
@@ -824,11 +768,10 @@ function filterMarkers() {
         
         // Filtr oznaczeń pinezek (OR) - pinezki bez żadnego oznaczenia zawsze widoczne
         if (visible) {
-            const hasAnyBadge = item.isDamaged || item.isNew || item.priceDown || item.priceUp;
+            const hasAnyBadge = item.isNew || item.priceDown || item.priceUp;
             if (hasAnyBadge) {
                 // Pokaż, jeśli CHOĆ JEDNO z oznaczeń pinezki jest zaznaczone w legendzie
                 const passes =
-                    (item.isDamaged && showDamaged) ||
                     (item.isNew && showNew) ||
                     (item.priceDown && showPriceDown) ||
                     (item.priceUp && showPriceUp);
@@ -871,9 +814,7 @@ function filterMarkers() {
         // ZLICZANIE WARSTW: oferta przechodzi wszystkie pozostałe filtry,
         // więc liczymy ją w odpowiedniej warstwie (niezależnie od checkboxa warstwy)
         if (visible) {
-            if (item.isDamaged) {
-                layerCounts.damaged++;
-            } else if (item.isApprox) {
+            if (item.isApprox) {
                 if (item.isActive) layerCounts.activeApprox++;
                 else layerCounts.inactiveApprox++;
             } else if (item.isActive) {
@@ -887,11 +828,9 @@ function filterMarkers() {
         if (!passesLayerFilter) visible = false;
         
         // Pokaż/ukryj marker
-        // Priorytet warstw: damaged > approx > exact (zgodnie z createMarkerGroup)
+        // Priorytet warstw: approx > exact (zgodnie z createMarkerGroup)
         if (visible) {
-            if (item.isDamaged) {
-                markerLayers.damaged.addLayer(item.marker);
-            } else if (item.isApprox) {
+            if (item.isApprox) {
                 (item.isActive ? markerLayers.activeApprox : markerLayers.inactiveApprox).addLayer(item.marker);
             } else if (item.isActive) {
                 markerLayers.active.addLayer(item.marker);
@@ -899,9 +838,7 @@ function filterMarkers() {
                 markerLayers.inactive.addLayer(item.marker);
             }
         } else {
-            if (item.isDamaged) {
-                markerLayers.damaged.removeLayer(item.marker);
-            } else if (item.isApprox) {
+            if (item.isApprox) {
                 (item.isActive ? markerLayers.activeApprox : markerLayers.inactiveApprox).removeLayer(item.marker);
             } else if (item.isActive) {
                 markerLayers.active.removeLayer(item.marker);
@@ -920,7 +857,6 @@ function filterMarkers() {
     setLayerCount('layer-count-inactive', layerCounts.inactive);
     setLayerCount('layer-count-active-approx', layerCounts.activeApprox);
     setLayerCount('layer-count-inactive-approx', layerCounts.inactiveApprox);
-    setLayerCount('layer-count-damaged', layerCounts.damaged);
     
     // Przelicz i zaktualizuj statystyki po filtrowaniu
     updateStats();
@@ -1142,7 +1078,6 @@ function setupEventListeners() {
     // Warstwy
     document.getElementById('layer-active').addEventListener('change', filterMarkers);
     document.getElementById('layer-inactive').addEventListener('change', filterMarkers);
-    document.getElementById('layer-damaged').addEventListener('change', toggleDamagedLayer);
     document.getElementById('layer-active-approx').addEventListener('change', toggleActiveApproxLayer);
     document.getElementById('layer-inactive-approx').addEventListener('change', toggleInactiveApproxLayer);
     
@@ -1155,7 +1090,7 @@ function setupEventListeners() {
     });
     
     // Filtry oznaczeń pinezek (legenda)
-    ['badge-filter-price-down', 'badge-filter-price-up', 'badge-filter-new', 'badge-filter-damaged']
+    ['badge-filter-price-down', 'badge-filter-price-up', 'badge-filter-new']
         .forEach(id => {
             const el = document.getElementById(id);
             if (el) el.addEventListener('change', filterMarkers);
@@ -1181,39 +1116,6 @@ document.addEventListener('DOMContentLoaded', function() {
     loadData();
 });
 
-// NOWA funkcja: Oznaczanie ogłoszenia jako uszkodzone
-function markAsDamaged(offerId) {
-    if (!confirm('⚠️ Oznaczyć to ogłoszenie jako uszkodzone?\n\nOgłoszenie trafi do warstwy "Uszkodzone" (domyślnie ukrytej).\nMożesz je przywrócić w każdej chwili.')) {
-        return;
-    }
-    
-    if (addToDamaged(offerId)) {
-        console.log('⚠️ Oznaczono jako uszkodzone:', offerId);
-        alert('✅ Ogłoszenie oznaczone jako uszkodzone!\n\nOdśwież stronę (F5) aby zobaczyć zmiany.');
-        
-        // Opcjonalnie: odśwież automatycznie
-        setTimeout(() => {
-            location.reload();
-        }, 1000);
-    }
-}
-
-// NOWA funkcja: Przywracanie ogłoszenia z warstwy uszkodzone
-function restoreListing(offerId) {
-    if (!confirm('✅ Przywrócić to ogłoszenie?\n\nOgłoszenie wróci do normalnej warstwy.')) {
-        return;
-    }
-    
-    removeFromDamaged(offerId);
-    console.log('✅ Przywrócono ogłoszenie:', offerId);
-    alert('✅ Ogłoszenie przywrócone!\n\nOdśwież stronę (F5) aby zobaczyć zmiany.');
-    
-    // Opcjonalnie: odśwież automatycznie
-    setTimeout(() => {
-        location.reload();
-    }, 1000);
-}
-
 // NOWA funkcja: Przełączanie widoku opisu (pokaż całość / zwiń)
 function toggleDescription(uniqueId) {
     const shortDiv = document.getElementById(`${uniqueId}-short`);
@@ -1229,21 +1131,6 @@ function toggleDescription(uniqueId) {
             shortDiv.style.display = 'none';
             fullDiv.style.display = 'block';
         }
-    }
-}
-
-// NOWA funkcja: Włączanie/wyłączanie warstwy "Uszkodzone"
-function toggleDamagedLayer() {
-    const isChecked = document.getElementById('layer-damaged').checked;
-    
-    if (isChecked) {
-        // Dodaj warstwę do mapy
-        markerLayers.damaged.addTo(map);
-        console.log('✅ Warstwa "Uszkodzone" włączona');
-    } else {
-        // Usuń warstwę z mapy
-        map.removeLayer(markerLayers.damaged);
-        console.log('⚠️ Warstwa "Uszkodzone" wyłączona');
     }
 }
 
@@ -1388,7 +1275,6 @@ function updatePriceRangeCounts() {
     const showPriceDown = document.getElementById('badge-filter-price-down')?.checked ?? true;
     const showPriceUp = document.getElementById('badge-filter-price-up')?.checked ?? true;
     const showNew = document.getElementById('badge-filter-new')?.checked ?? true;
-    const showDamaged = document.getElementById('badge-filter-damaged')?.checked ?? true;
     
     const timeFilter = document.getElementById('time-filter')?.value || 'all';
     let cutoffDate = null;
@@ -1424,10 +1310,9 @@ function updatePriceRangeCounts() {
         if (tag === 'mieszkanie' && !showMieszkanie) return;
         
         // Filtr oznaczeń pinezek (OR)
-        const hasAnyBadge = item.isDamaged || item.isNew || item.priceDown || item.priceUp;
+        const hasAnyBadge = item.isNew || item.priceDown || item.priceUp;
         if (hasAnyBadge) {
             const passes =
-                (item.isDamaged && showDamaged) ||
                 (item.isNew && showNew) ||
                 (item.priceDown && showPriceDown) ||
                 (item.priceUp && showPriceUp);
@@ -1481,7 +1366,7 @@ function updateBadgeCounts() {
         cutoffDate = new Date(Date.now() - (daysAgo * 24 * 60 * 60 * 1000));
     }
 
-    const counts = { priceDown: 0, priceUp: 0, isNew: 0, damaged: 0 };
+    const counts = { priceDown: 0, priceUp: 0, isNew: 0 };
 
     allMarkers.forEach(item => {
         // Dla zmian ceny używamy price_changed_at
@@ -1498,8 +1383,6 @@ function updateBadgeCounts() {
         if (item.priceDown && priceChangeInRange) counts.priceDown++;
         if (item.priceUp && priceChangeInRange) counts.priceUp++;
         if (item.isNew && firstSeenInRange) counts.isNew++;
-        // Uszkodzone - bez filtra daty
-        if (item.isDamaged) counts.damaged++;
     });
 
     const setText = (id, value) => {
@@ -1510,5 +1393,4 @@ function updateBadgeCounts() {
     setText('badge-count-price-down', counts.priceDown);
     setText('badge-count-price-up', counts.priceUp);
     setText('badge-count-new', counts.isNew);
-    setText('badge-count-damaged', counts.damaged);
 }

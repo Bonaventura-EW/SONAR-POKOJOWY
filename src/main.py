@@ -21,9 +21,8 @@ from duplicate_detector import DuplicateDetector
 from scan_logger import ScanLogger
 
 class SonarPokojowy:
-    def __init__(self, data_file: str = "../data/offers.json", removed_file: str = "../data/removed_listings.json"):
+    def __init__(self, data_file: str = "../data/offers.json"):
         self.data_file = Path(data_file)
-        self.removed_file = Path(removed_file)
         self.address_parser = AddressParser(geocoding_cache_path="../data/geocoding_cache.json")
         self.price_parser = PriceParser()
         self.geocoder = Geocoder(cache_file="../data/geocoding_cache.json")
@@ -35,9 +34,6 @@ class SonarPokojowy:
         
         # Wczytaj istniejącą bazę
         self.database = self._load_database()
-        
-        # Wczytaj listę usuniętych ogłoszeń
-        self.removed_listings = self._load_removed_listings()
         
         # Inicjalizuj scraper Z istniejącymi ofertami (inteligentne pomijanie)
         existing_offers = self._build_existing_offers_index()
@@ -96,28 +92,6 @@ class SonarPokojowy:
                 return self._create_empty_database()
         else:
             return self._create_empty_database()
-    
-    def _load_removed_listings(self) -> set:
-        """Wczytuje listę usuniętych ogłoszeń."""
-        if self.removed_file.exists():
-            try:
-                with open(self.removed_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    return set(data.get('removed_ids', []))
-            except json.JSONDecodeError:
-                print("⚠️ Uszkodzony plik usuniętych ogłoszeń, tworzę nowy")
-                return set()
-        else:
-            return set()
-    
-    def _save_removed_listings(self):
-        """Zapisuje listę usuniętych ogłoszeń."""
-        self.removed_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.removed_file, 'w', encoding='utf-8') as f:
-            json.dump({
-                'removed_ids': list(self.removed_listings),
-                'last_updated': datetime.now(self.tz).isoformat()
-            }, f, ensure_ascii=False, indent=2)
     
     def _create_empty_database(self) -> Dict:
         """Tworzy pustą strukturę bazy danych."""
@@ -740,7 +714,6 @@ class SonarPokojowy:
             skipped_no_price = 0
             skipped_no_coords = 0
             skipped_duplicate = 0
-            skipped_removed = 0
 
             # Zbieram próbki odrzuconych ofert do analizy (max 50 per kategorię)
             skipped_samples = {
@@ -756,12 +729,6 @@ class SonarPokojowy:
                 
                 # Stwórz ID z URL
                 offer_id = raw_offer['url'].split('/')[-1].split('.')[0]
-                
-                # FILTR: Pomiń usunięte ogłoszenia
-                if offer_id in self.removed_listings:
-                    print(f"      🚫 Pominięto - ogłoszenie usunięte przez użytkownika")
-                    skipped_removed += 1
-                    continue
                 
                 # Pomiar czasu geokodowania
                 geo_start = time.time()
@@ -836,8 +803,7 @@ class SonarPokojowy:
                 'skipped_no_address': skipped_no_address,
                 'skipped_no_price': skipped_no_price,
                 'skipped_no_coords': skipped_no_coords,
-                'skipped_duplicate': skipped_duplicate,
-                'skipped_removed': skipped_removed
+                'skipped_duplicate': skipped_duplicate
             })
             
             # Dodaj metryki geokodowania
@@ -849,8 +815,7 @@ class SonarPokojowy:
             print(f"   Pominięte - brak adresu: {skipped_no_address}")
             print(f"   Pominięte - brak ceny: {skipped_no_price}")
             print(f"   Pominięte - brak współrzędnych: {skipped_no_coords}")
-            print(f"   Pominięte - duplikaty: {skipped_duplicate}")
-            print(f"   Pominięte - usunięte przez użytkownika: {skipped_removed}\n")
+            print(f"   Pominięte - duplikaty: {skipped_duplicate}\n")
             
             # 3. Aktualizacja bazy danych
             print("💾 Krok 3: Aktualizacja bazy danych...")
@@ -945,7 +910,6 @@ class SonarPokojowy:
                 'skipped_no_price': skipped_no_price,
                 'skipped_no_coords': skipped_no_coords,
                 'skipped_duplicate': skipped_duplicate,
-                'skipped_removed': skipped_removed,
                 'verification': verification_stats
             })
             
