@@ -148,7 +148,33 @@ class Geocoder:
         
         # Sprawdzamy cache - oryginalny klucz
         if address in self.cache:
-            return self.cache[address]
+            cached_value = self.cache[address]
+            
+            # === FIX #6 (2026-05-13): cache-poisoning bypass ===
+            # Jeśli w cache mamy None ale transformacja mianownika daje inny string,
+            # NIE zwracaj None z cache - spróbuj mianownik (może być w cache jako koordynaty,
+            # albo Nominatim go znajdzie). Bez tego cache zatruty przed Fix #3 pozostaje
+            # martwy mimo że mianownik działa.
+            if cached_value is None:
+                nominative_check = to_nominative(address)
+                if nominative_check != address:
+                    # Mianownik się różni - spróbuj go (może już w cache, może Nominatim)
+                    if nominative_check in self.cache and self.cache[nominative_check] is not None:
+                        coords = self.cache[nominative_check]
+                        print(f"      ♻️  Bypass zatrutego cache '{address}' → mianownik '{nominative_check}' jest w cache")
+                        # Zaktualizuj cache oryginału żeby następnym razem hit był natychmiastowy
+                        self.cache[address] = coords
+                        self._save_cache()
+                        self._stats_nominative_hits += 1
+                        return coords
+                    # Nie ma w cache - kontynuuj normalny flow (KROK 2 niżej spróbuje Nominatim)
+                    # Usuwamy zatruty wpis żeby logika niżej mogła zapisać świeży wynik
+                else:
+                    # Brak transformacji - zwróć None z cache (genuinie nieznany adres)
+                    return cached_value
+            else:
+                # Cache ma koordynaty - zwróć je
+                return cached_value
         
         # === KROK 1: Próba z oryginalnym adresem ===
         coords = self._try_nominatim(address, max_retries=max_retries)
