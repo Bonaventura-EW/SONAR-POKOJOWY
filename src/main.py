@@ -811,14 +811,28 @@ class SonarPokojowy:
                     continue
                 
                 # Sprawdź duplikaty
-                if self.duplicate_detector.filter_duplicates(processed, processed_offers):
+                original_dup = self.duplicate_detector.find_duplicate(processed, processed_offers)
+                if original_dup is not None:
                     skipped_duplicate += 1
                     print(f"      ⚠️ Duplikat - ignoruję")
                     if len(skipped_samples['duplicate']) < SAMPLE_LIMIT:
+                        # Oblicz podobieństwo opisów dla diagnostyki
+                        similarity = self.duplicate_detector.calculate_similarity(
+                            processed.get('description', ''),
+                            original_dup.get('description', '')
+                        )
                         skipped_samples['duplicate'].append({
                             'url': raw_offer.get('url', ''),
                             'title': raw_offer.get('title', '')[:200],
-                            'address_parsed': processed['address']['full']
+                            'address_parsed': processed['address']['full'],
+                            # NOWE: referencja do oryginału, żeby user mógł porównać oba
+                            'duplicate_of': {
+                                'url': original_dup.get('url', ''),
+                                'id': original_dup.get('id', ''),
+                                'address': original_dup.get('address', {}).get('full', ''),
+                                'price': original_dup.get('price', {}).get('current')
+                            },
+                            'similarity': round(similarity, 4)
                         })
                     continue
                 

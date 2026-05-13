@@ -100,6 +100,24 @@ class DuplicateDetector:
                 return True  # Znaleziono duplikat
         
         return False  # Unikalne ogłoszenie
+    
+    def find_duplicate(self, new_offer: Dict, existing_offers: List[Dict]) -> Dict:
+        """
+        Znajduje oryginalną ofertę z którą koliduje new_offer.
+        Wariant filter_duplicates który zwraca referencję do oryginału (do logowania/debug),
+        zamiast samego bool.
+        
+        Args:
+            new_offer: Nowe ogłoszenie do sprawdzenia
+            existing_offers: Lista istniejących ogłoszeń
+            
+        Returns:
+            Oryginalna oferta (Dict) jeśli new_offer jest duplikatem, None jeśli unikalne.
+        """
+        for existing in existing_offers:
+            if self.is_duplicate(new_offer, existing):
+                return existing
+        return None
 
 
 # Testy jednostkowe

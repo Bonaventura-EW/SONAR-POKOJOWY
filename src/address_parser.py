@@ -104,6 +104,40 @@ class AddressParser:
         'czas', 'umowa', 'najmu',
         # Liczebniki słownie
         'dwieście', 'pięć',
+        # === FIX #5 (2026-05-13): noise z analizy skipped_offers_sample.json ===
+        # Rzeczowniki/przymiotniki które parser łapie z numerami z opisu jako "adres + nr"
+        'oddzielnej', 'oddzielną', 'oddzielne', 'oddzielny',
+        'telefonu', 'telefoniczny', 'telefoniczne', 'telefonicznego',
+        'kondygnacji', 'kondygnacja',
+        'dnia', 'dni',
+        'pozostałych', 'pozostałe', 'pozostały', 'pozostałymi', 'zostały',
+        'zajmie', 'zajmuje',
+        'preferably', 'attractive', 'uniwercity', 'gyms', 'rent', 'monthly',
+        'montly', 'within', 'choose', 'from', 'march', 'detached',
+        'wg', 'oraz', 'tel',
+        'miesięcznego', 'średnio', 'miesięcznie',
+        'oznaczony', 'nr',
+        'samodzielnym',
+        'nowoczesnym',
+        'użytku',
+        'linii', 'linia',
+        'częścią', 'częściej',
+        'ochronę',
+        'numerze', 'numerem',
+        'cenie', 'cena',
+        'wolne', 'wolny',
+        'okolica',
+        'odjeżdżają',
+        'lokalu', 'lokal',
+        'lubelski', 'lubelska', 'lubelskiej', 'lubelskie',
+        'kontaktu',
+        'również',
+        'materacem',
+        'spacer',
+        'zaliczka',
+        'opisduży', 'opisdwuosobowy', 'opispokój', 'opisstudio',
+        # Słowa angielskie z opisów (powtórki dla pewności)
+        'gyms', 'within', 'choose', 'monthly', 'attractive',
     }
 
     # Pattern dla ekstrakcji ulicy BEZ numeru (decyzja 1a — tylko z jawnym prefiksem)
