@@ -825,6 +825,7 @@ class SonarPokojowy:
                             'url': raw_offer.get('url', ''),
                             'title': raw_offer.get('title', '')[:200],
                             'address_parsed': processed['address']['full'],
+                            'price': processed.get('price', {}).get('current'),
                             # NOWE: referencja do oryginału, żeby user mógł porównać oba
                             'duplicate_of': {
                                 'url': original_dup.get('url', ''),
