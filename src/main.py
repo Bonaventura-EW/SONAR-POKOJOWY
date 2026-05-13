@@ -37,7 +37,7 @@ class SonarPokojowy:
         
         # Inicjalizuj scraper Z istniejącymi ofertami (inteligentne pomijanie)
         existing_offers = self._build_existing_offers_index()
-        self.scraper = OLXScraper(delay_range=(0.5, 1), max_workers=5, existing_offers=existing_offers)
+        self.scraper = OLXScraper(delay_range=(0.2, 0.5), max_workers=10, existing_offers=existing_offers)
     
     def _build_existing_offers_index(self) -> Dict:
         """
@@ -531,6 +531,7 @@ class SonarPokojowy:
         """
         Weryfikuje nieaktywne oferty sprawdzając bezpośrednio ich URL na OLX.
         Reaktywuje oferty które nadal istnieją na OLX.
+        WERSJA 2.0: Równoległa weryfikacja (ThreadPoolExecutor)
         
         Args:
             max_to_verify: Maksymalna liczba ofert do zweryfikowania na jeden skan
@@ -540,6 +541,8 @@ class SonarPokojowy:
         """
         import requests
         from bs4 import BeautifulSoup
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        import threading
         
         stats = {
             'verified': 0,
@@ -547,6 +550,7 @@ class SonarPokojowy:
             'confirmed_inactive': 0,
             'errors': 0
         }
+        stats_lock = threading.Lock()
         
         # Pobierz nieaktywne oferty, posortowane od najnowszych (ostatnio dezaktywowane)
         inactive_offers = [
@@ -567,9 +571,9 @@ class SonarPokojowy:
         # Ogranicz do max_to_verify
         to_verify = inactive_offers[:max_to_verify]
         
-        print(f"   🔍 Weryfikuję {len(to_verify)} nieaktywnych ofert (z {len(inactive_offers)} łącznie)...")
+        print(f"   🔍 Weryfikuję {len(to_verify)} nieaktywnych ofert (z {len(inactive_offers)} łącznie) [10 wątków]...")
         
-        # Użyj sesji scrapera z odpowiednimi headerami
+        # Użyj sesji scrapera z odpowiednimi headerami (Session jest thread-safe dla GET)
         session = requests.Session()
         session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -578,31 +582,39 @@ class SonarPokojowy:
         })
         
         now = datetime.now(self.tz).isoformat()
+        # Per-thread rate limiter dla weryfikacji (delay 0.2-0.5s per wątek)
+        thread_local = threading.local()
         
-        for i, offer in enumerate(to_verify, 1):
+        def verify_single(offer: Dict) -> tuple:
+            """
+            Weryfikuje pojedynczą ofertę. Zwraca (offer, result_type, reactivation_data)
+            result_type: 'reactivated' | 'confirmed_inactive' | 'error'
+            """
             url = offer.get('url', '')
             offer_id = offer.get('id', 'unknown')
             
             if not url:
-                continue
-                
+                return (offer, 'error', None)
+            
+            # Per-thread delay (0.2-0.5s między requestami tego samego wątku)
+            last_req = getattr(thread_local, 'last_request', 0)
+            elapsed = time.time() - last_req
+            if elapsed < 0.2:
+                time.sleep(0.2 - elapsed + random.uniform(0, 0.3))
+            
             try:
-                # Opóźnienie między requestami (anti-throttling)
-                if i > 1:
-                    time.sleep(random.uniform(0.3, 0.7))
-                
                 response = session.get(url, timeout=15)
-                stats['verified'] += 1
+                thread_local.last_request = time.time()
+                
+                with stats_lock:
+                    stats['verified'] += 1
                 
                 # Sprawdź czy oferta istnieje
                 if response.status_code in (404, 410):
-                    # 404 = Not Found, 410 = Gone - oferta usunięta
-                    stats['confirmed_inactive'] += 1
-                    continue
+                    return (offer, 'confirmed_inactive', None)
                 
                 if response.status_code != 200:
-                    stats['errors'] += 1
-                    continue
+                    return (offer, 'error', None)
                 
                 soup = BeautifulSoup(response.text, 'lxml')
                 
@@ -619,38 +631,72 @@ class SonarPokojowy:
                             if 'InStock' in availability:
                                 is_active = True
                             break
-                    except:
+                    except (json.JSONDecodeError, AttributeError, TypeError):
                         pass
                 
                 # Jeśli nie ma JSON-LD, sprawdź elementy HTML
                 if not is_active:
-                    # Sprawdź czy jest cena (znak aktywnej oferty)
                     price_element = soup.select_one('[data-testid="ad-price-container"]')
-                    # Sprawdź czy są przyciski kontaktu
                     contact_btns = soup.select('[data-testid*="phone"], [data-testid*="contact"]')
                     
                     if price_element and len(contact_btns) > 0:
                         is_active = True
                 
                 if is_active:
-                    # Oferta AKTYWNA - reaktywuj!
-                    offer['active'] = True
-                    offer['last_seen'] = now
-                    offer['reactivated_at'] = now
-                    offer['reactivation_source'] = 'verification'
-                    stats['reactivated'] += 1
-                    print(f"      ✅ Reaktywowano: {offer_id[:50]}...")
+                    return (offer, 'reactivated', {'last_seen': now, 'reactivated_at': now})
                 else:
-                    # Oferta nieaktywna - potwierdzone
-                    stats['confirmed_inactive'] += 1
+                    return (offer, 'confirmed_inactive', None)
                     
-            except requests.RequestException as e:
-                stats['errors'] += 1
-            except Exception as e:
-                stats['errors'] += 1
+            except requests.RequestException:
+                return (offer, 'error', None)
+            except Exception:
+                return (offer, 'error', None)
+        
+        # Równoległa weryfikacja (10 wątków - tak samo jak scraper)
+        verify_start = time.time()
+        reactivated_ids = []
+        
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = {executor.submit(verify_single, offer): offer for offer in to_verify}
+            
+            completed = 0
+            total = len(to_verify)
+            for future in as_completed(futures):
+                completed += 1
+                try:
+                    offer, result_type, reactivation_data = future.result()
+                    
+                    if result_type == 'reactivated':
+                        offer['active'] = True
+                        offer['last_seen'] = reactivation_data['last_seen']
+                        offer['reactivated_at'] = reactivation_data['reactivated_at']
+                        offer['reactivation_source'] = 'verification'
+                        with stats_lock:
+                            stats['reactivated'] += 1
+                        reactivated_ids.append(offer.get('id', 'unknown'))
+                    elif result_type == 'confirmed_inactive':
+                        with stats_lock:
+                            stats['confirmed_inactive'] += 1
+                    else:  # error
+                        with stats_lock:
+                            stats['errors'] += 1
+                    
+                    if completed % 10 == 0 or completed == total:
+                        print(f"      Postęp: [{completed}/{total}]", flush=True)
+                except Exception as e:
+                    with stats_lock:
+                        stats['errors'] += 1
+        
+        verify_elapsed = time.time() - verify_start
+        
+        # Wyświetl reaktywowane
+        for rid in reactivated_ids[:10]:  # max 10 żeby nie spamować
+            print(f"      ✅ Reaktywowano: {rid[:50]}...")
+        if len(reactivated_ids) > 10:
+            print(f"      ... i {len(reactivated_ids) - 10} więcej")
         
         # Podsumowanie
-        print(f"   📊 Weryfikacja zakończona:")
+        print(f"   📊 Weryfikacja zakończona w {verify_elapsed:.1f}s:")
         print(f"      Sprawdzono: {stats['verified']}")
         print(f"      Reaktywowano: {stats['reactivated']}")
         print(f"      Potwierdzone nieaktywne: {stats['confirmed_inactive']}")
