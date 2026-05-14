@@ -17,12 +17,16 @@ class AddressParser:
     # Grupa 2: nazwa ulicy
     # Grupa 3: numer
     # UWAGA: Dłuższe prefiksy MUSZĄ być przed krótszymi
-    PREFIX_PATTERN = r'(ulica|ul\.|ul|aleja|aleje|al\.|al|plac|pl\.|pl|osiedle|os\.|os)?\s*'
+    # FIX (2026-05-13): dodano 'ulicy' (forma dopełniacza: "na ulicy Foo"),
+    #   'ulicą' (narzędnik: "ulicą Foo"), 'alei' (dopełniacz: "na alei Foo"),
+    #   bez tych form parser brał formę gramatyczną jako część nazwy ulicy
+    #   (np. "ulicy Kryształowej 29" zamiast "Kryształowej 29")
+    PREFIX_PATTERN = r'(ulica|ulicy|ulicą|ul\.|ul|aleja|aleje|alei|alejami|al\.|al|plac|placu|pl\.|pl|osiedle|osiedlu|os\.|os)?\s*'
     
     # Główny pattern adresu - z prefixem jako opcjonalną grupą
     # UWAGA: Dłuższe prefiksy MUSZĄ być przed krótszymi (ulica przed ul, aleja przed al, itd.)
     ADDRESS_PATTERN = re.compile(
-        rf'(ulica|ul\.|ul|aleja|aleje|al\.|al|plac|pl\.|pl|osiedle|os\.|os)?\s*([A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]+(?:\s+[A-ZŚĆŁĄĘÓŻŹŃ]?[a-zśćłąęóżźń]+)?)\s+(\d+[a-zA-Z]?(?:/\d+)?(?:\s+lok\.\s+\d+)?)',
+        rf'(ulica|ulicy|ulicą|ul\.|ul|aleja|aleje|alei|alejami|al\.|al|plac|placu|pl\.|pl|osiedle|osiedlu|os\.|os)?\s*([A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]+(?:\s+[A-ZŚĆŁĄĘÓŻŹŃ]?[a-zśćłąęóżźń]+)?)\s+(\d+[a-zA-Z]?(?:/\d+)?(?:\s+lok\.\s+\d+)?)',
         re.UNICODE | re.IGNORECASE
     )
     
@@ -36,14 +40,24 @@ class AddressParser:
     # Mapowanie prefiksów do pełnych nazw (dla geokodowania)
     PREFIX_MAP = {
         'ul.': '',  # ul. usuwamy
+        'ul': '',
         'ulica': '',
+        'ulicy': '',   # FIX 2026-05-13: dopełniacz "na ulicy Foo"
+        'ulicą': '',   # narzędnik "ulicą Foo"
         'al.': 'Aleja',  # al. zamieniamy na Aleja
+        'al': 'Aleja',
         'aleja': 'Aleja',
         'aleje': 'Aleje',
+        'alei': 'Aleja',     # dopełniacz "na alei Foo"
+        'alejami': 'Aleja',  # narzędnik
         'pl.': 'Plac',
+        'pl': 'Plac',
         'plac': 'Plac',
+        'placu': 'Plac',     # dopełniacz "na placu Foo"
         'os.': 'Osiedle',
-        'osiedle': 'Osiedle'
+        'os': 'Osiedle',
+        'osiedle': 'Osiedle',
+        'osiedlu': 'Osiedle',  # miejscownik "na osiedlu Foo"
     }
 
     # Słowa które NIE mogą być nazwą ulicy (class-level, używane przez extract_address i extract_street_only)
@@ -145,8 +159,9 @@ class AddressParser:
     # Prefiks: case-insensitive (przez inline flag (?i:...))
     # Pierwsze słowo nazwy: musi zaczynać się WIELKĄ literą (lub być znaną small-case ulicą — zimowa, etc.)
     # Słowa dodatkowe: MUSZĄ zaczynać się WIELKĄ literą (chroni przed "Racławickie centrum")
+    # FIX (2026-05-13): dodano formy gramatyczne 'ulicy/ulicą/alei/placu/osiedlu'
     STREET_ONLY_PATTERN = re.compile(
-        r'\b(?i:(ulica|ul\.|ul|aleja|aleje|al\.|al|plac|pl\.|pl|osiedle|os\.|os))\s+'
+        r'\b(?i:(ulica|ulicy|ulicą|ul\.|ul|aleja|aleje|alei|alejami|al\.|al|plac|placu|pl\.|pl|osiedle|osiedlu|os\.|os))\s+'
         r'([A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]{2,}'
         r'(?:\s+[A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]{2,}){0,2})',
         re.UNICODE
@@ -402,6 +417,24 @@ class AddressParser:
             street = match.group(2).strip()
             number = match.group(3).strip()
             
+            # FIX 2026-05-13: jeśli prefix jest None ale street zaczyna się od formy prefiksu
+            # (np. 'ulicy Kryształowej'), oddziel prefiks od nazwy ulicy.
+            # Dzieje się tak gdy regex matchuje bez prefiksu (opcjonalnego) i pochłania
+            # prefiks-słowo jako pierwszy token nazwy (z IGNORECASE).
+            PREFIX_FORMS = {
+                'ulica', 'ulicy', 'ulicą', 'ul.', 'ul',
+                'aleja', 'aleje', 'alei', 'alejami', 'al.', 'al',
+                'plac', 'placu', 'pl.', 'pl',
+                'osiedle', 'osiedlu', 'os.', 'os'
+            }
+            if prefix is None and street:
+                first_word = street.split()[0].lower().rstrip('.')
+                if first_word in PREFIX_FORMS or (first_word + '.') in PREFIX_FORMS:
+                    parts = street.split(maxsplit=1)
+                    if len(parts) == 2:
+                        prefix = parts[0]
+                        street = parts[1].strip()
+            
             # Sprawdź minimum 4 litery w nazwie ulicy (żeby wykluczyć "dla", "bez" etc)
             if len(street.replace(' ', '')) < 4:
                 continue
@@ -459,16 +492,16 @@ class AddressParser:
             if prefix:
                 has_prefix = True
                 prefix_lower = prefix.lower().rstrip('.')
-                # Mapuj prefiks na pełną nazwę
-                if prefix_lower in ['al', 'aleja']:
+                # Mapuj prefiks na pełną nazwę (FIX 2026-05-13: dodano formy gramatyczne)
+                if prefix_lower in ['al', 'aleja', 'alei', 'alejami']:
                     full_address = f"Aleja {street}"
                 elif prefix_lower in ['aleje']:
                     full_address = f"Aleje {street}"
-                elif prefix_lower in ['pl', 'plac']:
+                elif prefix_lower in ['pl', 'plac', 'placu']:
                     full_address = f"Plac {street}"
-                elif prefix_lower in ['os', 'osiedle']:
+                elif prefix_lower in ['os', 'osiedle', 'osiedlu']:
                     full_address = f"Osiedle {street}"
-                # ul./ulica - pomijamy, zostawiamy samą nazwę ulicy
+                # ul./ulica/ulicy/ulicą - pomijamy, zostawiamy samą nazwę ulicy
             
             # Dodaj do listy kandydatów z priorytetem
             # Priorytet: 
@@ -588,15 +621,16 @@ class AddressParser:
             prefix_lower = prefix_raw.lower().rstrip('.')
             prefix_full = self.PREFIX_MAP.get(prefix_raw.lower(), '')
             # PREFIX_MAP nie zawiera 'ul' (tylko 'ul.' i 'ulica'), dodaj fallback
-            if prefix_lower in ('ul', 'ulica'):
+            # FIX 2026-05-13: dodano formy gramatyczne (ulicy/ulicą/alei/placu/osiedlu)
+            if prefix_lower in ('ul', 'ulica', 'ulicy', 'ulicą'):
                 prefix_full = ''
-            elif prefix_lower in ('al', 'aleja'):
+            elif prefix_lower in ('al', 'aleja', 'alei', 'alejami'):
                 prefix_full = 'Aleja'
             elif prefix_lower == 'aleje':
                 prefix_full = 'Aleje'
-            elif prefix_lower in ('pl', 'plac'):
+            elif prefix_lower in ('pl', 'plac', 'placu'):
                 prefix_full = 'Plac'
-            elif prefix_lower in ('os', 'osiedle'):
+            elif prefix_lower in ('os', 'osiedle', 'osiedlu'):
                 prefix_full = 'Osiedle'
 
             full_address = f"{prefix_full} {street}".strip() if prefix_full else street

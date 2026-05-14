@@ -12,6 +12,11 @@ from pathlib import Path
 from typing import Optional, Dict
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError
+# GeocoderRateLimited istnieje w nowszych geopy; fallback gdyby ktoś używał starszej wersji
+try:
+    from geopy.exc import GeocoderRateLimited
+except ImportError:
+    GeocoderRateLimited = None  # type: ignore
 
 # Bounding box Lublina (~20x25 km z marginesem)
 # Pokrywa centrum + wszystkie dzielnice + przedmieścia
@@ -177,7 +182,13 @@ class Geocoder:
                 return cached_value
         
         # === KROK 1: Próba z oryginalnym adresem ===
-        coords = self._try_nominatim(address, max_retries=max_retries)
+        try:
+            coords = self._try_nominatim(address, max_retries=max_retries)
+        except (GeocoderTimedOut, GeocoderServiceError) as e:
+            # Tymczasowy błąd (rate-limit, timeout, 5xx) - NIE zapisuj None do cache
+            print(f"      ⏸️  Tymczasowy błąd Nominatim dla '{address}': {type(e).__name__}")
+            return None
+        
         if coords is not None:
             self.cache[address] = coords
             self._save_cache()
@@ -198,7 +209,13 @@ class Geocoder:
                 self._stats_nominative_hits += 1
                 return coords
             
-            coords = self._try_nominatim(nominative, max_retries=max_retries)
+            try:
+                coords = self._try_nominatim(nominative, max_retries=max_retries)
+            except (GeocoderTimedOut, GeocoderServiceError) as e:
+                # Tymczasowy błąd przy mianowniku - NIE zapisuj None do cache
+                print(f"      ⏸️  Tymczasowy błąd Nominatim dla mianownika '{nominative}': {type(e).__name__}")
+                return None
+            
             if coords is not None:
                 print(f"      ✅ Mianownik znaleziony: {nominative}")
                 # Cache pod OBA klucze
@@ -208,7 +225,7 @@ class Geocoder:
                 self._stats_nominative_hits += 1
                 return coords
         
-        # Oba podejścia zawiodły - cache pod oryginalnym kluczem jako None
+        # Oba podejścia zawiodły (faktyczne None od Nominatim) - cache jako None
         self.cache[address] = None
         self._save_cache()
         return None
@@ -217,6 +234,10 @@ class Geocoder:
         """
         Pojedyncza próba zapytania do Nominatim (bez logiki retry mianownikiem).
         Zwraca coords lub None.
+        
+        Raises:
+            GeocoderRateLimited / GeocoderServiceError (429): tymczasowy błąd serwera,
+                NIE zapisuj wyniku do cache - propagujemy żeby caller obsłużył.
         """
         # Pełny adres z miastem
         full_address = f"{address}, Lublin, Poland"
@@ -242,7 +263,7 @@ class Geocoder:
                     
                     return coords
                 else:
-                    # Nie znaleziono
+                    # Nie znaleziono - prawdziwy negatywny wynik
                     return None
                     
             except GeocoderTimedOut:
@@ -250,10 +271,25 @@ class Geocoder:
                     time.sleep(2 ** attempt)  # Exponential backoff
                     continue
                 else:
-                    return None
+                    # Timeout - traktuj jak tymczasowy błąd, NIE zapisuj None do cache
+                    raise
                     
-            except GeocoderServiceError:
-                return None
+            except GeocoderServiceError as e:
+                # FIX 2026-05-13: rozróżnij rate-limit (429) od innych błędów serwera
+                # Rate-limit jest TYMCZASOWY - nie zapisuj wyniku do cache.
+                # Innych błędów serwera też nie cachuj - mogą minąć przy następnym scanie.
+                err_str = str(e).lower()
+                is_rate_limit = (
+                    '429' in err_str
+                    or 'rate' in err_str
+                    or 'quota' in err_str
+                    or (GeocoderRateLimited is not None and isinstance(e, GeocoderRateLimited))
+                )
+                if is_rate_limit:
+                    print(f"      ⏸️  Rate limit Nominatim dla '{address}' - nie cachuję None")
+                    raise  # Propaguj, caller obsłuży
+                # Inne błędy serwera też propaguj - lepiej None than cache-poisoning
+                raise
         
         return None
     
