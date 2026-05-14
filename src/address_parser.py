@@ -189,8 +189,16 @@ class AddressParser:
     # Pierwsze słowo nazwy: musi zaczynać się WIELKĄ literą (lub być znaną small-case ulicą — zimowa, etc.)
     # Słowa dodatkowe: MUSZĄ zaczynać się WIELKĄ literą (chroni przed "Racławickie centrum")
     # FIX (2026-05-13): dodano formy gramatyczne 'ulicy/ulicą/alei/placu/osiedlu'
+    # FIX 2026-05-14 (P2a): prefiks z kropką (ul./al./pl./os.) może być BEZ spacji przed
+    #   nazwą ulicy (np. "ul.Furmańska" — typowe na OLX). Inne prefiksy nadal wymagają \s+.
     STREET_ONLY_PATTERN = re.compile(
-        r'\b(?i:(ulica|ulicy|ulicą|ul\.|ul|aleja|aleje|alei|alejami|al\.|al|plac|placu|pl\.|pl|osiedle|osiedlu|os\.|os))\s+'
+        r'\b(?i:'
+            # Wariant 1: prefiks z kropką + opcjonalna spacja  
+            r'(?:(ul\.|al\.|pl\.|os\.)\s*'
+            r'|'
+            # Wariant 2: prefiks BEZ kropki + wymagana spacja
+            r'(ulica|ulicy|ulicą|ul|aleja|aleje|alei|alejami|al|plac|placu|pl|osiedle|osiedlu|os)\s+)'
+        r')'
         r'([A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]{2,}'
         r'(?:\s+[A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]{2,}){0,2})',
         re.UNICODE
@@ -695,8 +703,12 @@ class AddressParser:
         candidates = []
 
         for match in self.STREET_ONLY_PATTERN.finditer(text):
-            prefix_raw = match.group(1)
-            street_raw = match.group(2).strip()
+            # FIX 2026-05-14 (P2a): pattern ma teraz 3 grupy
+            # - grupa 1: prefiks z kropką (ul./al./pl./os.) lub None
+            # - grupa 2: prefiks bez kropki (ul/aleja/...) lub None
+            # - grupa 3: nazwa ulicy
+            prefix_raw = match.group(1) or match.group(2)
+            street_raw = match.group(3).strip()
 
             # Normalizacja: pierwsze słowo z dużej litery
             street_words = street_raw.split()
@@ -860,6 +872,17 @@ if __name__ == "__main__":
         # Pierwszeństwo extract_address — gdy jest numer, ta metoda nie powinna być wołana,
         # ale jeśli zostanie wołana, to złapie ulicę (na poziomie main.py używamy fallback)
         ("ul. Narutowicza 5", "Narutowicza"),  # ta metoda nie sprawdza obecności numeru
+        # === FIX 2026-05-14 (P2a): prefiks z kropką BEZ spacji ===
+        # Typowe sklejone prefiksy na OLX: "ul.Foo", "al.Foo" - powinny matchować
+        ("Wynajmę pokój ul.Nałkowskich Lublin", "Nałkowskich"),
+        ("Do wynajęcia studio ul.Furmańska", "Furmańska"),
+        ("ul.Kiepury blisko centrum", "Kiepury"),
+        ("al.Racławickie świetna okolica", "Aleja Racławickie"),
+        ("pl.Litewski blisko", "Plac Litewski"),
+        ("os.Sienkiewicza spokojnie", "Osiedle Sienkiewicza"),
+        # NEGATYW — prefiks bez kropki i bez spacji NIE powinien matchować
+        # (UWAGA: preprocessing wstawia spację dla CamelCase, więc to mimo wszystko
+        # zachowuje się jak "al Foo" - znany istniejący artefakt, nie regresja P2a)
     ]
 
     pass_count = 0
