@@ -123,6 +123,45 @@ class SonarPokojowy:
         next_time = tomorrow.replace(hour=9, minute=0, second=0, microsecond=0)
         return next_time.isoformat()
     
+    def _is_bogus_address(self, address_full: str) -> bool:
+        """
+        Sprawdza czy adres jest "bogus" - artefakt starego parsera, słowa
+        z opisu które nie są ulicami (np. "Pokoje", "UMCS", "Lublin Studio").
+        
+        Heurystyka łączona (Fix 2026-05-14):
+        1. Statyczna lista BOGUS_ADDRESSES (dla wzorców złożonych typu "Lublin Studio")
+        2. DYNAMIC: pierwsze słowo (lower) w EXCLUDED_WORDS parsera
+           - to łapie wszystko co parser by ODRZUCIŁ przy świeżym parsowaniu
+           - więc jest spójne z aktualną logiką parsera (jeden source of truth)
+        
+        Args:
+            address_full: string z address.full w bazie
+        
+        Returns:
+            True jeśli adres wygląda na artefakt, False jeśli wygląda na prawdziwy adres
+        """
+        if not address_full:
+            return True  # pusty/None = bogus
+        
+        # Lista wzorców złożonych (multi-word prefixów) - musi pozostać statyczna
+        BOGUS_PREFIXES = (
+            'Lublin Studio', 'Lublin Witam', 'Lublin Oferuję',
+            'Lublin Duży', 'Lublin Pokoje', 'Witam ', 'Oferuję ',
+            'Kaucja', 'Depozyt'
+        )
+        if any(address_full.startswith(p) for p in BOGUS_PREFIXES):
+            return True
+        
+        # Dynamiczna heurystyka: pierwsze słowo (case-insensitive) w EXCLUDED_WORDS parsera
+        tokens = address_full.split()
+        if not tokens:
+            return True
+        first_word = tokens[0].lower().rstrip('.,;:')
+        if first_word in self.address_parser.EXCLUDED_WORDS:
+            return True
+        
+        return False
+    
     def _process_offer(self, raw_offer: Dict) -> Dict:
         """
         Przetwarza surowe ogłoszenie: parsuje adres, cenę, geokoduje.
@@ -185,13 +224,8 @@ class SonarPokojowy:
             # starego parsera), IGNORUJ cache - wymuś re-parsowanie z aktualnym kodem.
             # Bez tego oferty z bogus address utknęłyby na zawsze, bo scraper omija
             # je przy same_price i nie wywołuje extract_address na świeżym opisie.
-            BOGUS_ADDRESSES = {'Pokoje', 'UMCS', 'Kul', 'KUL', 'Apteka', 'Park', 'Stadion',
-                              'Lublin', 'Centrum', 'Witam', 'Oferuję'}
-            BOGUS_PREFIXES = ('Lublin Studio', 'Lublin Witam', 'Lublin Oferuję',
-                             'Lublin Duży', 'Lublin Pokoje', 'Witam ', 'Oferuję ',
-                             'Kaucja', 'Depozyt')
-            is_bogus = (cached_full in BOGUS_ADDRESSES
-                       or any(cached_full.startswith(p) for p in BOGUS_PREFIXES))
+            # FIX 2026-05-14: używa wspólnej metody _is_bogus_address (dynamic heurystyka)
+            is_bogus = self._is_bogus_address(cached_full)
             
             if is_bogus:
                 print(f"      🔍 cached_address '{cached_full}' wygląda na bogus, próbuję re-parsować z opisu...")
@@ -433,6 +467,32 @@ class SonarPokojowy:
         
         # Zawsze aktualizuj media_info (może się zmienić niezależnie)
         existing['price']['media_info'] = new_data['price']['media_info']
+        
+        # === FIX 2026-05-14: napraw bogus address w istniejących ofertach ===
+        # Jeśli existing.address jest "bogus" (artefakt starego parsera, np. 'Pokoje'),
+        # a nowy świeży _process_offer wyciągnął prawdziwy adres - podmień.
+        # Bez tego stare oferty z buggy address pozostają na mapie wieczyście,
+        # bo update_existing_offer normalnie NIE aktualizuje pola address.
+        existing_addr_full = existing.get('address', {}).get('full', '')
+        new_addr = new_data.get('address', {})
+        new_addr_full = new_addr.get('full', '')
+        
+        if (existing_addr_full and new_addr_full
+                and existing_addr_full != new_addr_full
+                and self._is_bogus_address(existing_addr_full)
+                and not self._is_bogus_address(new_addr_full)):
+            print(f"      🔧 Naprawiam bogus address: '{existing_addr_full}' → '{new_addr_full}'")
+            # Zachowaj poprzedni adres do historii diagnostycznej
+            existing['address']['previous_bogus'] = existing_addr_full
+            existing['address']['fixed_at'] = now
+            # Podmień adres + współrzędne + precision
+            existing['address']['full'] = new_addr_full
+            existing['address']['street'] = new_addr.get('street')
+            existing['address']['number'] = new_addr.get('number')
+            if new_addr.get('coords'):
+                existing['address']['coords'] = new_addr['coords']
+            if new_addr.get('precision'):
+                existing['address']['precision'] = new_addr['precision']
         
         # Upewnij się że jest aktywne (REAKTYWACJA nieaktywnych ofert)
         was_inactive = not existing.get('active', True)
