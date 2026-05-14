@@ -103,7 +103,7 @@ class AddressParser:
         # Opisowe rzeczowniki
         'piętro', 'piętrze', 'kawalerka', 'apartamencie', 'telewizor', 'łóżko', 'przedpokój',
         # Transport publiczny
-        'whatsapp', 'mpk', 'linia', 'linie', 'autobus', 'autobusowe', 'autobusowego', 'tramwaj',
+        'whatsapp', 'whats', 'app', 'mpk', 'linia', 'linie', 'autobus', 'autobusowe', 'autobusowego', 'tramwaj',
         # Ludzie / status
         'obecnie', 'aktualnie', 'mieszka', 'mieszkają', 'mieszkaja', 'zamieszkują',
         'dziewczyna', 'student',
@@ -174,6 +174,57 @@ class AddressParser:
         r'(?:\s+[A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]{2,}){0,2})',
         re.UNICODE
     )
+
+    # === FIX 2026-05-14: preprocessing tekstu przed parsowaniem ===
+    # Wzorce do rozdzielania sklejonych tokenów (typowe po HTML-stripping z OLX).
+    # Łapie 2 przypadki kleszczenia:
+    #   1. mała litera + WIELKA litera: "KryształowaMieszkanie" → "Kryształowa Mieszkanie"
+    #   2. cyfra + WIELKA litera + mała litera: "PLN 100Deposit" → "PLN 100 Deposit"
+    #      WAŻNE: wymagamy mała litery PO wielkiej, żeby nie psuć numerów domów typu "80A", "10A/15"
+    # Nie rusza:
+    #   - 1-osobowy, 3-pokojowym (cyfry-myślnik-słowo)
+    #   - 80A, 10A, 15B (numery domów: cyfra + pojedyncza wielka litera)
+    #   - 10A/15 (numer + lokal)
+    #   - Polski Centrum, UMCS KUL (sekwencje słów z wielkich liter)
+    _CAMELCASE_SPLIT = re.compile(r'(?<=[a-ząęćłńóśźż])(?=[A-ZĄĘĆŁŃÓŚŹŻ])')
+    _DIGIT_CAPITAL_SPLIT = re.compile(r'(?<=\d)(?=[A-ZĄĘĆŁŃÓŚŹŻ][a-ząęćłńóśźż])')
+    _MULTIPLE_WHITESPACE = re.compile(r'\s+')
+
+    @classmethod
+    def _normalize_text(cls, text: str) -> str:
+        """
+        Rozdziela kleszczone tokeny i normalizuje białe znaki.
+
+        Naprawia typowe artefakty po HTML-strippingu opisów OLX, gdzie tekst
+        sklejony jest bez spacji w miejscu znaczników HTML.
+
+        Args:
+            text: surowy tekst opisu/tytułu oferty
+
+        Returns:
+            tekst z rozdzielonymi sklejonymi tokenami i znormalizowanymi spacjami.
+            Zwraca pustą wartość dla pustego inputu.
+
+        Przykłady:
+            "Ul.KryształowaMieszkanie 3-pokojowe" → "Ul.Kryształowa Mieszkanie 3-pokojowe"
+            "1100złKaucja w wysokości"            → "1100zł Kaucja w wysokości"
+            "PLN 100Deposit"                       → "PLN 100 Deposit"
+            "Pokój  1-osobowy   w  3-pokojowym"   → "Pokój 1-osobowy w 3-pokojowym"
+
+        Zachowuje (nie zmienia):
+            "Polski Centrum"          → bez zmian (oba słowa z wielkich liter)
+            "M5"                       → bez zmian (po cyfrze nie ma wielkiej litery)
+            "1-osobowy", "10A"        → bez zmian (po cyfrze myślnik lub mała litera)
+        """
+        if not text:
+            return text
+        # Rozdziel CamelCase: małaWielka → mała Wielka
+        text = cls._CAMELCASE_SPLIT.sub(' ', text)
+        # Rozdziel cyfrę od wielkiej litery: 100D → 100 D
+        text = cls._DIGIT_CAPITAL_SPLIT.sub(' ', text)
+        # Normalizacja spacji: deduplikacja podwójnych spacji, taby, newliny
+        text = cls._MULTIPLE_WHITESPACE.sub(' ', text)
+        return text.strip()
 
     def __init__(self, geocoding_cache_path: str = "../data/geocoding_cache.json"):
         """
@@ -264,6 +315,9 @@ class AddressParser:
         if not self._known_streets or not text:
             return None
         
+        # FIX 2026-05-14: preprocessing — rozdziel sklejone tokeny i znormalizuj spacje.
+        text = self._normalize_text(text)
+        
         # Normalizacja tekstu: znaki interpunkcyjne na spacje
         normalized_raw = re.sub(r'[^\w\sśćłąęóżźńŚĆŁĄĘÓŻŹŃ]', ' ', text).lower()
         words_raw = normalized_raw.split()
@@ -337,6 +391,10 @@ class AddressParser:
         """
         if not text:
             return None
+        
+        # FIX 2026-05-14: preprocessing — rozdziel sklejone tokeny (CamelCase, cyfra+wielka)
+        # i znormalizuj spacje. Bez tego parser łapie śmieci typu "of PLN 100D" z "PLN 100Deposit".
+        text = self._normalize_text(text)
         
         # FILTR 1: Sprawdź czy tekst zawiera "X metrów od" - to NIE jest adres
         if re.search(r'\d+\s*metr[oó]w\s+(od|do)', text, re.IGNORECASE):
@@ -609,6 +667,9 @@ class AddressParser:
         """
         if not text:
             return None
+
+        # FIX 2026-05-14: preprocessing — rozdziel sklejone tokeny i znormalizuj spacje.
+        text = self._normalize_text(text)
 
         candidates = []
 
@@ -920,9 +981,81 @@ if __name__ == "__main__":
             print(f"   Oczekiwano: {expected}")
     print(f"\n📊 FIX #4: {fix4_pass} OK / {fix4_fail} FAIL")
 
+    # ===== FIX 2026-05-14: Testy preprocessing (_normalize_text) =====
+    print("\n🧪 FIX 2026-05-14 — preprocessing tekstu (_normalize_text):\n")
+    normalize_cases = [
+        # CamelCase (P1.a): mała → wielka
+        ("Ul.KryształowaMieszkanie 3-pokojowe", "Ul.Kryształowa Mieszkanie 3-pokojowe"),
+        ("1100złKaucja w wysokości", "1100zł Kaucja w wysokości"),
+        ("ulicaNarutowicza Pokój", "ulica Narutowicza Pokój"),
+        # Cyfra → wielka (P1.b)
+        ("PLN 100Deposit", "PLN 100 Deposit"),
+        ("kwota 500Następnie", "kwota 500 Następnie"),
+        ("100zł", "100zł"),  # po cyfrze mała litera — bez zmian
+        # Deduplikacja spacji (P3)
+        ("Pokój  1-osobowy   w   3-pokojowym", "Pokój 1-osobowy w 3-pokojowym"),
+        ("Lublin\n\nul. Lipowa", "Lublin ul. Lipowa"),
+        ("  pokój  ", "pokój"),  # trim
+        # NEGATYW — nie rozbijać legitymnych konstrukcji
+        ("Lublin UMCS KUL", "Lublin UMCS KUL"),
+        ("Polski Centrum", "Polski Centrum"),
+        ("1-osobowy w 3-pokojowym", "1-osobowy w 3-pokojowym"),
+        ("M5", "M5"),  # po cyfrze nie ma wielkiej litery
+        ("80A", "80A"),  # po cyfrze mała litera
+        ("10A/15", "10A/15"),
+        ("ul. Narutowicza 80A", "ul. Narutowicza 80A"),
+        # Edge cases
+        ("", ""),
+        ("    ", ""),
+    ]
+    norm_pass = 0
+    norm_fail = 0
+    for text, expected in normalize_cases:
+        actual = AddressParser._normalize_text(text)
+        ok = actual == expected
+        status = "✅" if ok else "❌"
+        if ok:
+            norm_pass += 1
+        else:
+            norm_fail += 1
+        print(f"{status} {text!r} → {actual!r}")
+        if not ok:
+            print(f"   Oczekiwano: {expected!r}")
+    print(f"\n📊 _normalize_text: {norm_pass} OK / {norm_fail} FAIL")
+
+    # ===== FIX 2026-05-14: integracyjne testy preprocessing → extract_address =====
+    # Sprawdzenie czy preprocessing rozwiązuje konkretne case-y z skipped_debug
+    print("\n🧪 FIX 2026-05-14 — integracja preprocessing + extract_address:\n")
+    integration_cases = [
+        # Przypadki "brak współrzędnych" z bezsensownym parsed-adresem
+        # PRZED preprocessing parser wyciągał śmieci, PO powinien znaleźć adres albo None
+        # Case "of PLN 100D" — w opisie "amount of PLN 100Deposit", po preprocessing nic sensownego
+        ("ogrzewanie w wysokości 100 złKaucja w wysokości jednomiesięcznego czynszu", None),
+        # Case "KryształowaMieszkanie 3" — po preprocessing "Kryształowa Mieszkanie", a numer 3 to liczba pokoi
+        ("Ul.KryształowaMieszkanie 3-pokojowe", None),  # "Mieszkanie" + cyfra-myślnik, brak adresu z numerem
+        # NEGATYW (regresja): poprawny adres po preprocessing nadal działa
+        ("ul. Narutowicza 80A", "Narutowicza 80A"),
+        ("Wynajmę pokój ul. Lipowa 14, kaucja 250 zł", "Lipowa 14"),
+    ]
+    int_pass = 0
+    int_fail = 0
+    for text, expected in integration_cases:
+        result = parser.extract_address(text)
+        actual = result['full'] if result else None
+        ok = actual == expected
+        status = "✅" if ok else "❌"
+        if ok:
+            int_pass += 1
+        else:
+            int_fail += 1
+        print(f"{status} {text!r} → {actual}")
+        if not ok:
+            print(f"   Oczekiwano: {expected}")
+    print(f"\n📊 Integracja: {int_pass} OK / {int_fail} FAIL")
+
     # Total summary
-    total_pass = pass_count + fix1_pass + fix2_pass + fix4_pass
-    total_fail = fail_count + fix1_fail + fix2_fail + fix4_fail
+    total_pass = pass_count + fix1_pass + fix2_pass + fix4_pass + norm_pass + int_pass
+    total_fail = fail_count + fix1_fail + fix2_fail + fix4_fail + norm_fail + int_fail
     print(f"\n{'='*60}")
     print(f"📊 ŁĄCZNIE: {total_pass} OK / {total_fail} FAIL")
     print(f"{'='*60}")
