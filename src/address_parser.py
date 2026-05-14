@@ -160,6 +160,26 @@ class AddressParser:
         'opisduży', 'opisdwuosobowy', 'opispokój', 'opisstudio',
         # Słowa angielskie z opisów (powtórki dla pewności)
         'gyms', 'within', 'choose', 'monthly', 'attractive',
+        # === FIX 2026-05-14 (fix 2): słowa z analizy skipped_debug po preprocessing ===
+        # Bezsensowne "adresy" wyciągane przez parser z opisów
+        'of',              # angielskie "amount of PLN 100Deposit" → "Of PLN 100"
+        'floor',           # "floor 2.Fees" — angielski opis OLX
+        'lokalizacja',     # "Lokalizacja 100m od Krwiodawców" — nazwa sekcji opisu
+        'ostatnim',        # "na oddzielnym, ostatnim 3 piętrze" — przymiotnik opisowy
+        'przestronne', 'przestronny', 'przestronna',  # "Przestronne 65m mieszkanie"
+        'vpustreet',       # OLX/skrót w angielskich opisach
+        'obowy',           # quick fix dla bugu regexu: "1-osobowy" → prefiks "os" + "obowy"
+                           # (regex łapie 'os' w środku słowa — naprawa w osobnym fixie)
+        # Inne częste słowa-szumy z analizy
+        'street',          # "Nadbystrzycka Street" — ang. duplikat polskiej nazwy
+        'large',           # "Large room with a balcony"
+        'medical',         # "Medical University"
+        'fees',            # "Fees and Internet included"
+        'deposit',         # "deposit 1000PLN"
+        'rent',            # już jest, ale duplikat dla pewności
+        # Warianty "pokojowy" (mieszkanie 3-pokojowe / 1-pokojowym itp.)
+        # Bez tego parser łapie "pokojowym 75m" jako adres
+        'pokojowy', 'pokojowa', 'pokojowe', 'pokojowym', 'pokojowej', 'pokojowych',
     }
 
     # Pattern dla ekstrakcji ulicy BEZ numeru (decyzja 1a — tylko z jawnym prefiksem)
@@ -1053,9 +1073,48 @@ if __name__ == "__main__":
             print(f"   Oczekiwano: {expected}")
     print(f"\n📊 Integracja: {int_pass} OK / {int_fail} FAIL")
 
+    # ===== FIX 2026-05-14 (fix 2): Testy nowych EXCLUDED_WORDS =====
+    print("\n🧪 FIX 2026-05-14 (fix 2) — nowe EXCLUDED_WORDS:\n")
+    fix2b_cases = [
+        # Konkretne przypadki z skipped_debug które wciąż dawały śmieci po fix 1
+        # "of PLN 100Deposit" → po preprocessing "of PLN 100 Deposit" → "of" w blackliście
+        ("amount of PLN 100Deposit", None),
+        # "floor 2.Fees" → po preprocessing "floor 2 Fees" → "floor" w blackliście
+        ("on departure, floor 2.Fees and Internet", None),
+        # "Lokalizacja 100m od Krwiodawców"
+        ("Lokalizacja 100m od Ronda Krwiodawców", None),
+        # "ostatnim 3 piętrze"
+        ("na oddzielnym, ostatnim 3 piętrze są pokoje", None),
+        # "Przestronne 65m mieszkanie"
+        ("LUX po remoncie Przestronne 65m mieszkanie", None),
+        # "VPUstreet Paganini 4If interested"
+        # ("VPUstreet Paganini 4If interested", None),  # → "VPUstreet" odpada, ale "Paganini 4" może zostać
+        # "1-osobowy w 3 pokojowym" → "Osiedle obowy w 3" — quick fix przez blacklist
+        ("Pokój 1-osobowy w 3 pokojowym 75m mieszkaniu", None),
+        # POZYTYW — sprawdzenie regresji: prawdziwe adresy nadal działają
+        ("ul. Lipowa 14, blisko centrum", "Lipowa 14"),
+        ("Al. Racławickie 6", "Aleja Racławickie 6"),
+        ("Narutowicza 38, mieszkanie 4-pokojowe", "Narutowicza 38"),
+    ]
+    fix2b_pass = 0
+    fix2b_fail = 0
+    for text, expected in fix2b_cases:
+        result = parser.extract_address(text)
+        actual = result['full'] if result else None
+        ok = actual == expected
+        status = "✅" if ok else "❌"
+        if ok:
+            fix2b_pass += 1
+        else:
+            fix2b_fail += 1
+        print(f"{status} {text!r} → {actual}")
+        if not ok:
+            print(f"   Oczekiwano: {expected}")
+    print(f"\n📊 Fix 2 EXCLUDED_WORDS: {fix2b_pass} OK / {fix2b_fail} FAIL")
+
     # Total summary
-    total_pass = pass_count + fix1_pass + fix2_pass + fix4_pass + norm_pass + int_pass
-    total_fail = fail_count + fix1_fail + fix2_fail + fix4_fail + norm_fail + int_fail
+    total_pass = pass_count + fix1_pass + fix2_pass + fix4_pass + norm_pass + int_pass + fix2b_pass
+    total_fail = fail_count + fix1_fail + fix2_fail + fix4_fail + norm_fail + int_fail + fix2b_fail
     print(f"\n{'='*60}")
     print(f"📊 ŁĄCZNIE: {total_pass} OK / {total_fail} FAIL")
     print(f"{'='*60}")
