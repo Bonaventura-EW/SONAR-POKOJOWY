@@ -104,6 +104,7 @@ class AddressParser:
         'piętro', 'piętrze', 'kawalerka', 'apartamencie', 'telewizor', 'łóżko', 'przedpokój',
         # Transport publiczny
         'whatsapp', 'whats', 'app', 'mpk', 'linia', 'linie', 'autobus', 'autobusowe', 'autobusowego', 'tramwaj',
+        'miejska', 'miejską', 'miejski', 'miejskie', 'miejskiej',  # "komunikacją miejską to 2"
         # Ludzie / status
         'obecnie', 'aktualnie', 'mieszka', 'mieszkają', 'mieszkaja', 'zamieszkują',
         'dziewczyna', 'student',
@@ -1087,10 +1088,10 @@ if __name__ == "__main__":
         ("na oddzielnym, ostatnim 3 piętrze są pokoje", None),
         # "Przestronne 65m mieszkanie"
         ("LUX po remoncie Przestronne 65m mieszkanie", None),
-        # "VPUstreet Paganini 4If interested"
-        # ("VPUstreet Paganini 4If interested", None),  # → "VPUstreet" odpada, ale "Paganini 4" może zostać
         # "1-osobowy w 3 pokojowym" → "Osiedle obowy w 3" — quick fix przez blacklist
         ("Pokój 1-osobowy w 3 pokojowym 75m mieszkaniu", None),
+        # FIX 2026-05-14 hotfix: "komunikacją miejską to 2 przystanki"
+        ("Dojazd komunikacją miejską to 2 przystanki od centrum", None),
         # POZYTYW — sprawdzenie regresji: prawdziwe adresy nadal działają
         ("ul. Lipowa 14, blisko centrum", "Lipowa 14"),
         ("Al. Racławickie 6", "Aleja Racławickie 6"),
