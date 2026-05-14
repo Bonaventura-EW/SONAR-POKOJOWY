@@ -345,10 +345,21 @@ class SonarPokojowy:
             coords = cached_coords
             print(f"      📍 Użyto współrzędnych z cache: {coords['lat']:.4f}, {coords['lon']:.4f}")
         else:
-            coords = self.geocoder.geocode_address(address_data['full'])
+            # FIX 2026-05-14: używamy return_meta=True żeby wiedzieć czy geocoder zrobił
+            # fallback "sama ulica bez numeru". Jeśli tak, obniżamy precision do street_only.
+            coords, geo_meta = self.geocoder.geocode_address(
+                address_data['full'], return_meta=True
+            )
             if not coords:
                 print(f"⚠️ Nie można geokodować: {address_data['full']}")
                 return None  # Nie znaleziono współrzędnych → ignoruj
+            
+            if geo_meta.get('number_fallback'):
+                # Geocoder nie znalazł konkretnego numeru, użył samej ulicy.
+                # Adres na mapie pojawi się jako "przybliżony" (street_only).
+                print(f"      📌 Fallback geocoder: '{address_data['full']}' "
+                      f"→ koordynaty samej ulicy (precision=street_only)")
+                address_precision = 'street_only'
         
         # 5. Stwórz ID z URL (unikalne)
         offer_id = raw_offer['url'].split('/')[-1].split('.')[0]
