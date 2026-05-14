@@ -225,7 +225,44 @@ class Geocoder:
                 self._stats_nominative_hits += 1
                 return coords
         
-        # Oba podejścia zawiodły (faktyczne None od Nominatim) - cache jako None
+        # === KROK 3 (Fix 2026-05-14): retry z liczbą mnogą Aleja ↔ Aleje ===
+        # W Lublinie są ulice w liczbie mnogiej: "Aleje Racławickie", "Aleje 1000-lecia",
+        # "Aleje Solidarności" itd. Parser standardowo robi "Aleja" (liczba poj.), więc
+        # Nominatim nie znajduje. Próbujemy z "Aleje".
+        # Analogicznie odwrotnie - jeśli ktoś napisał "Aleje X" a to jest "Aleja X".
+        plural_variants = []
+        # Wybierz mianownik (jeśli istnieje) albo oryginał
+        candidate = nominative if nominative != address else address
+        if candidate.startswith('Aleja '):
+            plural_variants.append('Aleje ' + candidate[len('Aleja '):])
+        elif candidate.startswith('Aleje '):
+            plural_variants.append('Aleja ' + candidate[len('Aleje '):])
+        
+        for variant in plural_variants:
+            print(f"      🔄 Retry liczba mnoga/poj.: '{address}' → '{variant}'")
+            
+            # Cache hit?
+            if variant in self.cache and self.cache[variant] is not None:
+                coords = self.cache[variant]
+                print(f"      ✅ Trafiony cache wariantu: {variant}")
+                self.cache[address] = coords
+                self._save_cache()
+                return coords
+            
+            try:
+                coords = self._try_nominatim(variant, max_retries=max_retries)
+            except (GeocoderTimedOut, GeocoderServiceError) as e:
+                print(f"      ⏸️  Tymczasowy błąd Nominatim dla '{variant}': {type(e).__name__}")
+                return None
+            
+            if coords is not None:
+                print(f"      ✅ Wariant znaleziony: {variant}")
+                self.cache[address] = coords
+                self.cache[variant] = coords
+                self._save_cache()
+                return coords
+        
+        # Wszystkie podejścia zawiodły (faktyczne None od Nominatim) - cache jako None
         self.cache[address] = None
         self._save_cache()
         return None
