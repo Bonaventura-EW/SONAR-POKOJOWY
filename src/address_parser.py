@@ -122,6 +122,14 @@ class AddressParser:
         # Rzeczowniki/przymiotniki które parser łapie z numerami z opisu jako "adres + nr"
         'oddzielnej', 'oddzielną', 'oddzielne', 'oddzielny',
         'telefonu', 'telefoniczny', 'telefoniczne', 'telefonicznego',
+        # === Słowa z warunków umowy (mogą występować + numer "co najmniej 6 miesięcy") ===
+        'co', 'najmniej', 'minimum', 'maksimum', 'maksymalnie', 'maksymalnym',
+        'umowy', 'umowę', 'okres', 'okresu', 'okresem',
+        'miesięcy', 'miesiące', 'miesiąc', 'miesiącu', 'miesięcznych',
+        'rok', 'roku', 'lat', 'latach',
+        'tydzień', 'tygodnia', 'tygodni',
+        'razy', 'razu',
+        # === noise z analizy (kontynuacja) ===
         'kondygnacji', 'kondygnacja',
         'dnia', 'dni',
         'pozostałych', 'pozostałe', 'pozostały', 'pozostałymi', 'zostały',
@@ -519,6 +527,28 @@ class AddressParser:
                 'priority': priority,
                 'has_prefix': has_prefix
             })
+        
+        # FIX 2026-05-14: Jeśli w tekście WIDZIMY jawny prefiks ulicy (ul./al./ulica/aleja/...)
+        # to wszystkie matche BEZ prefiksu są podejrzane (np. "co najmniej 6" gdy w tekście
+        # jest też "ul. Wigilijnej" bez numeru). W takim wypadku odrzuć kandydatów bez
+        # prefiksu - lepiej zwrócić None (fallback do extract_street_only) niż śmieci.
+        PREFIX_REGEX = re.compile(
+            r'\b(ulica|ulicy|ulicą|ul\.|ul\s|aleja|aleje|alei|alejami|al\.|al\s|'
+            r'plac|placu|pl\.|pl\s|osiedle|osiedlu|os\.|os\s)',
+            re.IGNORECASE
+        )
+        text_has_explicit_prefix = bool(PREFIX_REGEX.search(text))
+        if text_has_explicit_prefix:
+            candidates_with_prefix = [c for c in candidates if c['has_prefix']]
+            if candidates_with_prefix:
+                # Mamy kandydatów z prefiksem - tylko ich rozważamy
+                candidates = candidates_with_prefix
+            else:
+                # Tekst zawiera prefiks (np. "ul. Wigilijnej") ale parser nie znalazł
+                # match z prefiksem (bo nie ma numeru) - odrzuć WSZYSTKICH kandydatów
+                # bez prefiksu. Niech fallback (extract_street_only) zadziała.
+                print(f"      ⚠️ Tekst zawiera 'ul./al./...' ale parser ma tylko matche bez prefiksu - odrzucam (fallback do street_only)")
+                candidates = []
         
         # Jeśli znaleziono kandydatów, wybierz najlepszego (najwyższy priorytet)
         if candidates:
