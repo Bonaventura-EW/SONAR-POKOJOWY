@@ -181,6 +181,18 @@ class AddressParser:
         # Warianty "pokojowy" (mieszkanie 3-pokojowe / 1-pokojowym itp.)
         # Bez tego parser łapie "pokojowym 75m" jako adres
         'pokojowy', 'pokojowa', 'pokojowe', 'pokojowym', 'pokojowej', 'pokojowych',
+        # === FIX 2026-05-14 (fix C - cache cleanup): śmieci znalezione w cache analiza ===
+        # Te słowa-śmieci były wcześniej wyciągane przez parser, trafiały do cache jako None.
+        # Dodaję do blacklisty żeby już więcej nie wychodziły jako adresy.
+        'pokoj',           # literówka "pokój" (bez kreski) — "Pokoj 1", "Pokoj 25m"
+        'wynajme',         # literówka "wynajmę"
+        'dojazd',          # "Dojazd 15" - opis komunikacji
+        'bliskość',        # "Bliskość 3" - opisowe
+        'sześć',           # "SZEŚĆ 5" - liczebnik
+        'czechowie',       # "Czechowie Pokoj 1" - locative dzielnicy
+        'uczelni',         # "Uczelni OpisStudio 2" - lokalizacyjne
+        'obowym',          # "Osiedle obowym 12" - fragment "1-osobowym" po obcięciu cyfry
+        'położony',        # "Dom położony 2"
     }
 
     # Pattern dla ekstrakcji ulicy BEZ numeru (decyzja 1a — tylko z jawnym prefiksem)
