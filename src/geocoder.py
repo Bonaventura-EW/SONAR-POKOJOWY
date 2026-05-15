@@ -60,6 +60,27 @@ NOMINATIVE_RULES = [
     (re.compile(r'ej$', re.IGNORECASE), 'a'),
 ]
 
+# === FIX 2026-05-14 (P2b - fix B): drugorzędne warianty dla liczby mnogiej → pojedynczej ===
+# Niektóre ulice Lublina mają formę kanoniczną w liczbie POJEDYNCZEJ żeńskiej:
+#   - Kraśnicka (nie Kraśnickie)
+#   - Nadbystrzycka (nie Nadbystrzyckie)  
+#   - Nałkowska (nie Nałkowskie)
+# Ale parser czasem wyciąga formę z opisu "okolice Kraśnickich/Nadbystrzyckich" (l.mn. dop.).
+# Standardowy to_nominative transformuje to do l. mnogiej mianownika (Kraśnickie), które
+# Nominatim nie zna. Te reguły dają DRUGI wariant - liczba pojedyncza żeńska.
+# 
+# UWAGA: są ulice z prawdziwą l. mnogą (Aleje Racławickie). Geocoder próbuje OBA warianty.
+NOMINATIVE_VARIANT_RULES = [
+    # Forma z -ckich → -cka (Kraśnickich → Kraśnicka, Nadbystrzyckich → Nadbystrzycka)
+    (re.compile(r'ckich$', re.IGNORECASE), 'cka'),
+    # Forma z -skich → -ska (Nałkowskich → Nałkowska, Lubomelskich → Lubomelska)
+    (re.compile(r'skich$', re.IGNORECASE), 'ska'),
+    # Forma z -ckie → -cka (Nadbystrzyckie → Nadbystrzycka)
+    (re.compile(r'ckie$', re.IGNORECASE), 'cka'),
+    # Forma z -skie → -ska (Wieniawskie → Wieniawska)
+    (re.compile(r'skie$', re.IGNORECASE), 'ska'),
+]
+
 def to_nominative(address: str) -> str:
     """
     Transformuje polską nazwę ulicy z dopełniacza/innego przypadka do mianownika.
@@ -86,6 +107,49 @@ def to_nominative(address: str) -> str:
                 break  # Pierwsza pasująca reguła wygrywa
         result.append(new_token)
     
+    return ' '.join(result)
+
+
+def to_nominative_singular_feminine(address: str) -> str:
+    """
+    Alternatywny mianownik dla nazw ulic w liczbie POJEDYNCZEJ ŻEŃSKIEJ.
+    
+    Stosuje NOMINATIVE_VARIANT_RULES per-word. Zwraca pusty string jeśli żadna
+    reguła nie zadziałała (czyli adres nie ma formy zmieniającej się).
+    
+    Przykłady:
+        "Kraśnickich"      → "Kraśnicka"
+        "Aleja Kraśnickich" → "Aleja Kraśnicka"
+        "Nadbystrzyckie"   → "Nadbystrzycka"
+        "Racławickie"      → "Racławicka"   (UWAGA: ta forma NIE istnieje w Lublinie,
+                                              ale Nominatim odrzuci ją i geocoder
+                                              przejdzie do innych wariantów)
+        "Lipowa"           → ""              (reguła nie zadziałała = brak alt. wariantu)
+    
+    Used by Geocoder jako dodatkowy wariant fallbacku (KROK 3.5).
+    """
+    if not address:
+        return ''
+    
+    tokens = address.split()
+    result = []
+    any_change = False
+    for token in tokens:
+        if re.match(r'^\d+[a-zA-Z]?(/\d+)?$', token):
+            result.append(token)
+            continue
+        
+        new_token = token
+        for pattern, replacement in NOMINATIVE_VARIANT_RULES:
+            if pattern.search(token):
+                new_token = pattern.sub(replacement, token)
+                if new_token != token:
+                    any_change = True
+                break
+        result.append(new_token)
+    
+    if not any_change:
+        return ''  # Brak transformacji = brak alt. wariantu
     return ' '.join(result)
 
 
@@ -292,6 +356,51 @@ class Geocoder:
                 self._save_cache()
                 return coords, meta
         
+        # === KROK 3.5 (Fix 2026-05-14, P2b): wariant liczba pojedyncza żeńska ===
+        # Niektóre ulice Lublina mają formę kanoniczną w liczbie POJEDYNCZEJ żeńskiej:
+        # Kraśnicka, Nadbystrzycka, Nałkowska. Parser z opisów typu "okolice Kraśnickich"
+        # daje "Kraśnickich" (l.mn. dop.), standardowy to_nominative robi "Kraśnickie",
+        # ale Nominatim zna tylko "Kraśnicka". Próbujemy obu form.
+        # Działa też dla "Nadbystrzyckie" → "Nadbystrzycka" (gdy parser wyciągnął już l.mn.
+        # mianownik z opisu typu "ul. Nadbystrzyckie").
+        # 
+        # WAŻNE: jeśli oryginał i nominative już wyczerpały te warianty, pomijamy.
+        singular_fem_variants = []
+        for source in [address, nominative]:
+            variant = to_nominative_singular_feminine(source)
+            if variant and variant not in singular_fem_variants and variant != address and variant != nominative:
+                singular_fem_variants.append(variant)
+        
+        for variant in singular_fem_variants:
+            print(f"      🔄 Retry l. poj. żeńska: '{address}' → '{variant}'")
+            
+            if variant in self.cache and self.cache[variant] is not None:
+                coords = self.cache[variant]
+                print(f"      ✅ Trafiony cache wariantu: {variant}")
+                self.cache[address] = coords
+                self._save_cache()
+                return coords, meta
+            
+            if variant in self.cache and self.cache[variant] is None:
+                continue  # Już wiemy że Nominatim go nie zna
+            
+            try:
+                coords = self._try_nominatim(variant, max_retries=max_retries)
+            except (GeocoderTimedOut, GeocoderServiceError) as e:
+                print(f"      ⏸️  Tymczasowy błąd Nominatim dla '{variant}': {type(e).__name__}")
+                return None, meta
+            
+            if coords is not None:
+                print(f"      ✅ Wariant l. poj. ż. znaleziony: {variant}")
+                self.cache[address] = coords
+                self.cache[variant] = coords
+                self._save_cache()
+                return coords, meta
+            else:
+                # Cache None dla negatywnego wyniku — ale tylko pod kluczem wariantu
+                self.cache[variant] = None
+                self._save_cache()
+        
         # === KROK 4 (Fix 2026-05-14): fallback "sama ulica bez numeru" ===
         # Jeśli adres ma numer i wszystkie powyższe podejścia zawiodły, spróbuj samej ulicy.
         # Nominatim często nie ma konkretnego numeru w bazie (np. "Narutowicza 38" — None,
@@ -307,7 +416,9 @@ class Geocoder:
         # 
         # Strategia: weź WSZYSTKIE warianty (oryginał, mianownik, liczba mnoga/poj.) i dla
         # każdego usuń ostatni token jeśli wygląda na numer domu. Próbuj każdy.
-        street_only_candidates = self._strip_number_variants(address, nominative, plural_variants)
+        # FIX P2b: dorzucamy też singular_fem_variants (np. "Nadbystrzycka 38")
+        all_variant_sources = list(plural_variants) + list(singular_fem_variants)
+        street_only_candidates = self._strip_number_variants(address, nominative, all_variant_sources)
         for street_only in street_only_candidates:
             # Cache hit (z koordynatami)?
             if street_only in self.cache and self.cache[street_only] is not None:
@@ -592,9 +703,76 @@ if __name__ == "__main__":
     
     _os.unlink(cache_path)
 
+    # ===== FIX 2026-05-14 (P2b): Testy to_nominative_singular_feminine =====
+    print("\n🧪 FIX 2026-05-14 (P2b) — to_nominative_singular_feminine:\n")
+    fem_cases = [
+        # Liczba mnoga dop. → liczba pojedyncza ż.
+        ('Kraśnickich', 'Kraśnicka'),
+        ('Aleja Kraśnickich', 'Aleja Kraśnicka'),
+        ('Nadbystrzyckich', 'Nadbystrzycka'),
+        ('Nałkowskich', 'Nałkowska'),
+        ('Osiedle Nałkowskich', 'Osiedle Nałkowska'),
+        # Liczba mnoga mianownik → liczba pojedyncza ż.
+        ('Nadbystrzyckie', 'Nadbystrzycka'),
+        ('Racławickie', 'Racławicka'),  # forma nie istniejąca, ale funkcja zwraca, Nominatim odrzuci
+        # Brak transformacji = pusty string
+        ('Lipowa', ''),
+        ('Narutowicza', ''),
+        ('Plac Litewski', ''),
+        ('', ''),
+        # Z numerem (numer powinien zostać)
+        ('Kraśnickich 5', 'Kraśnicka 5'),
+        ('Nadbystrzyckie 10A', 'Nadbystrzycka 10A'),
+    ]
+    fem_pass = 0
+    fem_fail = 0
+    for inp, expected in fem_cases:
+        actual = to_nominative_singular_feminine(inp)
+        ok = "✅" if actual == expected else "❌"
+        if actual == expected: fem_pass += 1
+        else: fem_fail += 1
+        print(f"{ok} {inp!r} → {actual!r}")
+        if actual != expected:
+            print(f"   Oczekiwano: {expected!r}")
+    print(f"\n📊 to_nominative_singular_feminine: {fem_pass} OK / {fem_fail} FAIL")
+
+    # Test flow: cache-based fallback w geocode_address (bez Nominatim live)
+    print("\n🧪 FIX 2026-05-14 (P2b) — fallback KROK 3.5 przez cache:\n")
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tf:
+        cache_data_p2b = {
+            "Kraśnicka": {"lat": 51.2426, "lon": 22.5068},
+            "Nadbystrzycka": {"lat": 51.2331, "lon": 22.5397},
+            "Aleja Kraśnickich": None,
+            "Aleja Kraśnickie": None,
+            "Aleje Kraśnickie": None,
+            "Nadbystrzyckie": None,
+        }
+        _json.dump(cache_data_p2b, tf)
+        cache_path_p2b = tf.name
+
+    test_geo_p2b = Geocoder(cache_file=cache_path_p2b)
+    
+    p2b_cases = [
+        # (address, expected_has_coords)
+        ('Aleja Kraśnickich', True),   # przez Aleja Kraśnicka
+        ('Nadbystrzyckie', True),       # przez Nadbystrzycka
+    ]
+    p2b_pass = 0
+    p2b_fail = 0
+    for addr, expected_has_coords in p2b_cases:
+        coords = test_geo_p2b.geocode_address(addr)
+        ok = (coords is not None) == expected_has_coords
+        status = "✅" if ok else "❌"
+        if ok: p2b_pass += 1
+        else: p2b_fail += 1
+        print(f"{status} {addr!r} → coords={coords}")
+    print(f"\n📊 KROK 3.5 flow: {p2b_pass} OK / {p2b_fail} FAIL")
+    
+    _os.unlink(cache_path_p2b)
+
     print(f"\n{'='*60}")
-    total_pass = strip_pass + fb_pass
-    total_fail = strip_fail + fb_fail
+    total_pass = strip_pass + fb_pass + fem_pass + p2b_pass
+    total_fail = strip_fail + fb_fail + fem_fail + p2b_fail
     print(f"📊 ŁĄCZNIE Fix 2026-05-14 (geocoder): {total_pass} OK / {total_fail} FAIL")
     print(f"{'='*60}")
 
