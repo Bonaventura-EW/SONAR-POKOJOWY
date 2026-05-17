@@ -1492,54 +1492,101 @@ function focusOfferFromUrl() {
         return;
     }
     
-    // Włącz odpowiednią warstwę jeśli wyłączona
-    let layerCheckboxId = null;
-    if (found.isActive && found.isApprox) layerCheckboxId = 'layer-active-approx';
-    else if (found.isActive) layerCheckboxId = 'layer-active';
-    else if (!found.isActive && found.isApprox) layerCheckboxId = 'layer-inactive-approx';
-    else layerCheckboxId = 'layer-inactive';
+    console.log(`✓ Znaleziono marker: ${found.address} (active=${found.isActive}, approx=${found.isApprox})`);
     
-    const checkbox = document.getElementById(layerCheckboxId);
-    if (checkbox && !checkbox.checked) {
-        checkbox.checked = true;
-        console.log(`✓ Włączono warstwę: ${layerCheckboxId}`);
-        // Trigger zmiany filtrów
-        if (typeof filterMarkers === 'function') {
-            filterMarkers();
+    // KROK 1: Włącz wszystkie checkboxy warstw, tagów, zakresów cenowych
+    // żeby żaden filtr nie ukrywał markera
+    const layerCheckboxIds = [
+        'layer-active', 'layer-inactive', 'layer-active-approx', 'layer-inactive-approx'
+    ];
+    layerCheckboxIds.forEach(id => {
+        const cb = document.getElementById(id);
+        if (cb && !cb.checked) {
+            cb.checked = true;
+            console.log(`  ✓ Włączono: ${id}`);
         }
+    });
+    
+    // Wyłącz filtry tagów/zakresów cenowych żeby nic nie ukrywało
+    document.querySelectorAll('.price-range-filter').forEach(cb => {
+        if (!cb.checked) cb.checked = true;
+    });
+    const tagCheckboxIds = ['layer-tag-pokoj', 'layer-tag-kawalerka', 'layer-tag-mieszkanie'];
+    tagCheckboxIds.forEach(id => {
+        const cb = document.getElementById(id);
+        if (cb && !cb.checked) cb.checked = true;
+    });
+    
+    // Wyczyść wyszukiwarkę
+    const search = document.getElementById('search-input');
+    if (search && search.value) {
+        search.value = '';
     }
     
-    // Wyłącz filtr dat jeśli włączony - mógłby ukrywać marker
+    // Reset zakresów cenowych do pełnego zakresu
+    const priceMin = document.getElementById('price-min');
+    const priceMax = document.getElementById('price-max');
+    if (priceMin) priceMin.value = '';
+    if (priceMax) priceMax.value = '';
+    
+    // Reset filtra czasowego
+    const timeFilter = document.getElementById('time-filter');
+    if (timeFilter && timeFilter.value !== 'all') {
+        timeFilter.value = 'all';
+    }
+    
+    // Wyłącz filtr dat
     const dateEnable = document.getElementById('date-filter-enable');
     if (dateEnable && dateEnable.checked) {
         dateEnable.checked = false;
-        if (typeof filterMarkers === 'function') {
-            filterMarkers();
-        }
-        console.log('✓ Wyłączono filtr daty (mógł ukrywać marker)');
     }
     
-    // Przelot + popup
+    // KROK 2: Przefiltruj markery z nowymi ustawieniami
+    if (typeof filterMarkers === 'function') {
+        filterMarkers();
+    }
+    
+    // KROK 3: SAFETY NET — wymuś dodanie markera do swojej warstwy
+    // (na wypadek gdyby jakiś filtr go usunął)
+    let targetLayer;
+    if (found.isApprox && found.isActive) targetLayer = markerLayers.activeApprox;
+    else if (found.isApprox) targetLayer = markerLayers.inactiveApprox;
+    else if (found.isActive) targetLayer = markerLayers.active;
+    else targetLayer = markerLayers.inactive;
+    
+    if (!targetLayer.hasLayer(found.marker)) {
+        targetLayer.addLayer(found.marker);
+        console.log('  ✓ Wymuszono dodanie markera do warstwy');
+    }
+    // Upewnij się że warstwa jest na mapie
+    if (!map.hasLayer(targetLayer)) {
+        targetLayer.addTo(map);
+        console.log('  ✓ Wymuszono dodanie warstwy na mapę');
+    }
+    
+    // KROK 4: Przelot + popup
     const coords = found.marker.getLatLng();
+    console.log(`  → Lecę do [${coords.lat}, ${coords.lng}]`);
     map.flyTo(coords, 17, { duration: 1.2 });
     
-    // Otwórz popup po zakończeniu przelotu
     setTimeout(() => {
         found.marker.openPopup();
+        console.log('  ✓ Popup otwarty');
         
         // Krótka animacja pulsowania ikony
         const iconEl = found.marker._icon;
         if (iconEl) {
             iconEl.style.transition = 'transform 0.4s ease-in-out';
+            const originalTransform = iconEl.style.transform || '';
             let pulses = 0;
             const pulse = setInterval(() => {
                 iconEl.style.transform = (pulses % 2 === 0)
-                    ? (iconEl.style.transform || '') + ' scale(1.5)'
-                    : iconEl.style.transform.replace(' scale(1.5)', '');
+                    ? originalTransform + ' scale(1.5)'
+                    : originalTransform;
                 pulses++;
                 if (pulses >= 6) {
                     clearInterval(pulse);
-                    iconEl.style.transform = iconEl.style.transform.replace(' scale(1.5)', '');
+                    iconEl.style.transform = originalTransform;
                 }
             }, 400);
         }
