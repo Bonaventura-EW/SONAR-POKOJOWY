@@ -173,15 +173,16 @@ class SonarPokojowy:
         full_text = raw_offer['title'] + " " + raw_offer.get('description', '')
         
         # FILTR: Wykluczamy ogłoszenia które nie są pokojami w mieszkaniach
+        # FIX 2026-05-17: usunięto 'bliźniak', 'dom jednorodzinny', 'w domu jednorodzinnym'
+        # po audycie skipped_offers_sample - generowały ~28% false positives w no_address
+        # (pokoje na oddzielnej kondygnacji w domu są funkcjonalnie identyczne z pokojami
+        # w mieszkaniu i powinny być uwzględniane). Patrz: discussion 2026-05-17.
         excluded_phrases = [
-            'dom jednorodzinny',
-            'w domu jednorodzinnym',
             'domek jednorodzinny',
             'willa',
             'domek',
             'dom w zabudowie',
-            'segment',
-            'bliźniak'
+            'segment'
         ]
         
         full_text_lower = full_text.lower()
