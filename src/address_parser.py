@@ -721,6 +721,7 @@ class AddressParser:
             # - grupa 3: nazwa ulicy
             prefix_raw = match.group(1) or match.group(2)
             street_raw = match.group(3).strip()
+            match_pos = match.start()  # FIX 2026-05-17 (P3b): pozycja w tekście dla tie-breakera
 
             # Normalizacja: pierwsze słowo z dużej litery
             street_words = street_raw.split()
@@ -777,14 +778,9 @@ class AddressParser:
             # → "Skrzatów Super"). Stara heurystyka "najdłuższy wygrywa" wybierała wtedy
             # zły kandydat.
             #
-            # Nowa hierarchia priorytetów:
-            #   1. Kandydat jest znaną ulicą (w whitelist) — najwyższy priorytet
-            #   2. Kandydat można "uciąć" do pierwszego słowa i to słowo JEST znaną ulicą
-            #      — średni priorytet (preferujemy uciętą formę zamiast oryginalnej zbitki)
-            #   3. Kandydat nie jest znany ani nie da się uciąć — niski priorytet
-            #      (zachowanie dla zupełnie nowych ulic)
-            # W ramach tej samej klasy priorytetu: dłuższy wygrywa (zachowuje obsługę
-            # wieloczłonowych nazw typu "Bolesława Prusa", "Krakowskie Przedmieście").
+            # Hierarchia priorytetów (większy = lepiej):
+            #   2 = znana ulica (oryginalna lub ucięta do pierwszego słowa)
+            #   1 = nieznana ulica (zachowanie legacy)
             is_known = street.lower() in self._known_streets
             truncated_to_known = False
             if not is_known and len(street_words) > 1:
@@ -795,9 +791,6 @@ class AddressParser:
                     full_address = f"{prefix_full} {street}".strip() if prefix_full else street
                     truncated_to_known = True
 
-            # Klasy priorytetu (większy = lepiej):
-            #   2 = znana ulica (oryginalna lub ucięta)
-            #   1 = nieznana, nie da się uciąć (zachowanie legacy)
             if is_known or truncated_to_known:
                 priority_class = 2
             else:
@@ -808,13 +801,45 @@ class AddressParser:
                 'full': full_address,
                 'priority_class': priority_class,
                 'length': len(street),
+                'pos': match_pos,
             })
 
         if not candidates:
             return None
 
-        # Wybór: najpierw priority_class, potem długość (dla wieloczłonowych znanych ulic).
-        best = max(candidates, key=lambda x: (x['priority_class'], x['length']))
+        # FIX 2026-05-17 (P3b): w klasie znanych ulic (priority_class=2) decyduje
+        # CZĘSTOTLIWOŚĆ wystąpień, a przy remisie pozycja PIERWSZEGO wystąpienia.
+        # Powód: gdy w tekście jest wiele znanych ulic (np. prawdziwy adres na początku
+        # + orientacyjne "al. Racławickie i Konstantynów" dalej), wybieramy tę
+        # która jest najczęściej wymieniana (typowo prawdziwy adres pojawia się
+        # w tytule i pierwszym akapicie opisu, czyli 2-3 razy, podczas gdy
+        # orientacyjne odniesienia tylko raz).
+        #
+        # W klasie nieznanych (priority_class=1) zachowujemy zachowanie legacy
+        # (długość rozstrzyga) — sytuacja gdy nie ma żadnej znanej ulicy
+        # i polegamy na "im dłuższa nazwa, tym bardziej specyficzna".
+        #
+        # Liczenie wystąpień: per `full` (z prefixem), bo to ono trafi do geocodera.
+        counts = {}
+        first_pos = {}
+        for c in candidates:
+            key = (c['priority_class'], c['full'])
+            counts[key] = counts.get(key, 0) + 1
+            if key not in first_pos:
+                first_pos[key] = c['pos']
+
+        # Dla nieznanych (klasa 1) usuwamy efekt count/pos — używamy tylko długości,
+        # żeby zachować dotychczasowe zachowanie (count=1, pos=0 nieistotne).
+        def sort_key(c):
+            key = (c['priority_class'], c['full'])
+            if c['priority_class'] == 2:
+                # znane: priority_class > count > -pos (wcześniej = lepiej) > length
+                return (c['priority_class'], counts[key], -first_pos[key], c['length'])
+            else:
+                # nieznane: priority_class > length (legacy)
+                return (c['priority_class'], 0, 0, c['length'])
+
+        best = max(candidates, key=sort_key)
         return {
             'street': best['street'],
             'number': None,
