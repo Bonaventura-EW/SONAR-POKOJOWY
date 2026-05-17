@@ -771,20 +771,50 @@ class AddressParser:
 
             full_address = f"{prefix_full} {street}".strip() if prefix_full else street
 
-            # Priorytet: dłuższa nazwa ulicy = wyższy priorytet (jak w extract_address)
-            priority = len(street)
+            # FIX 2026-05-17 (P3): priorytet whitelist + fallback do ucinania.
+            # Problem: regex może złapać przypadkowe sąsiednie słowo z wielkiej litery
+            # jako część wielowyrazowej nazwy ulicy (np. "Skrzatów Super lokalizacja"
+            # → "Skrzatów Super"). Stara heurystyka "najdłuższy wygrywa" wybierała wtedy
+            # zły kandydat.
+            #
+            # Nowa hierarchia priorytetów:
+            #   1. Kandydat jest znaną ulicą (w whitelist) — najwyższy priorytet
+            #   2. Kandydat można "uciąć" do pierwszego słowa i to słowo JEST znaną ulicą
+            #      — średni priorytet (preferujemy uciętą formę zamiast oryginalnej zbitki)
+            #   3. Kandydat nie jest znany ani nie da się uciąć — niski priorytet
+            #      (zachowanie dla zupełnie nowych ulic)
+            # W ramach tej samej klasy priorytetu: dłuższy wygrywa (zachowuje obsługę
+            # wieloczłonowych nazw typu "Bolesława Prusa", "Krakowskie Przedmieście").
+            is_known = street.lower() in self._known_streets
+            truncated_to_known = False
+            if not is_known and len(street_words) > 1:
+                first_word = street_words[0]
+                if first_word.lower() in self._known_streets:
+                    # Ucinamy do pierwszego słowa — to znana ulica
+                    street = first_word
+                    full_address = f"{prefix_full} {street}".strip() if prefix_full else street
+                    truncated_to_known = True
+
+            # Klasy priorytetu (większy = lepiej):
+            #   2 = znana ulica (oryginalna lub ucięta)
+            #   1 = nieznana, nie da się uciąć (zachowanie legacy)
+            if is_known or truncated_to_known:
+                priority_class = 2
+            else:
+                priority_class = 1
 
             candidates.append({
                 'street': street,
                 'full': full_address,
-                'priority': priority
+                'priority_class': priority_class,
+                'length': len(street),
             })
 
         if not candidates:
             return None
 
-        # Wybierz najdłuższą nazwę (najbardziej specyficzną)
-        best = max(candidates, key=lambda x: x['priority'])
+        # Wybór: najpierw priority_class, potem długość (dla wieloczłonowych znanych ulic).
+        best = max(candidates, key=lambda x: (x['priority_class'], x['length']))
         return {
             'street': best['street'],
             'number': None,
