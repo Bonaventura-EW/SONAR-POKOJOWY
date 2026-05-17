@@ -214,6 +214,9 @@ async function loadData() {
         setupEventListeners();
         filterMarkers();  // ✅ Przefiltruj markery zgodnie z początkowymi stanami checkboxów
         
+        // NOWE: jeśli URL ma ?offer=ID, pokaż wskazany marker
+        focusOfferFromUrl();
+        
         console.log('🎉 Mapa gotowa!');
         
     } catch (error) {
@@ -1467,4 +1470,78 @@ function updateBadgeCounts() {
     setText('badge-count-price-up', counts.priceUp);
     setText('badge-count-new', counts.isNew);
     setText('badge-count-unchanged', counts.unchanged);
+}
+
+// ============================================================
+// Linkowanie z innych stron (np. top5.html) — ?offer=ID
+// ============================================================
+function focusOfferFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const targetId = params.get('offer');
+    if (!targetId) return;
+    
+    console.log(`🎯 Szukam markera dla oferty: ${targetId}`);
+    
+    // Znajdź marker który zawiera ofertę o tym ID
+    const found = allMarkers.find(m => 
+        m.offers && m.offers.some(o => o.id === targetId)
+    );
+    
+    if (!found) {
+        console.warn(`⚠️ Nie znaleziono markera dla oferty: ${targetId}`);
+        return;
+    }
+    
+    // Włącz odpowiednią warstwę jeśli wyłączona
+    let layerCheckboxId = null;
+    if (found.isActive && found.isApprox) layerCheckboxId = 'layer-active-approx';
+    else if (found.isActive) layerCheckboxId = 'layer-active';
+    else if (!found.isActive && found.isApprox) layerCheckboxId = 'layer-inactive-approx';
+    else layerCheckboxId = 'layer-inactive';
+    
+    const checkbox = document.getElementById(layerCheckboxId);
+    if (checkbox && !checkbox.checked) {
+        checkbox.checked = true;
+        console.log(`✓ Włączono warstwę: ${layerCheckboxId}`);
+        // Trigger zmiany filtrów
+        if (typeof filterMarkers === 'function') {
+            filterMarkers();
+        }
+    }
+    
+    // Wyłącz filtr dat jeśli włączony - mógłby ukrywać marker
+    const dateEnable = document.getElementById('date-filter-enable');
+    if (dateEnable && dateEnable.checked) {
+        dateEnable.checked = false;
+        if (typeof filterMarkers === 'function') {
+            filterMarkers();
+        }
+        console.log('✓ Wyłączono filtr daty (mógł ukrywać marker)');
+    }
+    
+    // Przelot + popup
+    const coords = found.marker.getLatLng();
+    map.flyTo(coords, 17, { duration: 1.2 });
+    
+    // Otwórz popup po zakończeniu przelotu
+    setTimeout(() => {
+        found.marker.openPopup();
+        
+        // Krótka animacja pulsowania ikony
+        const iconEl = found.marker._icon;
+        if (iconEl) {
+            iconEl.style.transition = 'transform 0.4s ease-in-out';
+            let pulses = 0;
+            const pulse = setInterval(() => {
+                iconEl.style.transform = (pulses % 2 === 0)
+                    ? (iconEl.style.transform || '') + ' scale(1.5)'
+                    : iconEl.style.transform.replace(' scale(1.5)', '');
+                pulses++;
+                if (pulses >= 6) {
+                    clearInterval(pulse);
+                    iconEl.style.transform = iconEl.style.transform.replace(' scale(1.5)', '');
+                }
+            }, 400);
+        }
+    }, 1300);
 }

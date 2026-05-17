@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SONAR POKOJOWY - Top 5 Zmian Cen</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+    color: #333;
+}
+.container { max-width: 1400px; margin: 0 auto; }
+
+header {
+    background: white;
+    padding: 24px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+header h1 { color: #667eea; font-size: 26px; display: flex; align-items: center; gap: 12px; }
+.back-link {
+    color: #667eea; text-decoration: none; padding: 10px 20px;
+    border: 2px solid #667eea; border-radius: 8px; font-weight: 600;
+    transition: all 0.3s;
+}
+.back-link:hover { background: #667eea; color: white; }
+
+/* Filtr dat */
+.filter-bar {
+    background: white; padding: 18px 24px; border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 24px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+}
+.filter-bar label { font-weight: 600; color: #555; font-size: 14px; }
+.filter-bar input[type="date"] {
+    padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 6px;
+    font-size: 14px; color: #333;
+}
+.filter-bar input[type="date"]:focus { outline: none; border-color: #667eea; }
+.preset-btn {
+    padding: 8px 14px; border: 2px solid #667eea; background: white;
+    color: #667eea; border-radius: 6px; cursor: pointer; font-weight: 600;
+    font-size: 13px; transition: all 0.2s;
+}
+.preset-btn:hover, .preset-btn.active { background: #667eea; color: white; }
+.filter-info {
+    margin-left: auto; padding: 6px 12px; background: #f0f0f0; border-radius: 6px;
+    font-size: 13px; color: #666;
+}
+
+/* Sekcje rankingowe */
+.section {
+    background: white; border-radius: 12px; padding: 24px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 24px;
+}
+.section-title {
+    font-size: 22px; margin-bottom: 18px; font-weight: 700;
+    display: flex; align-items: center; gap: 10px;
+}
+.section.drops .section-title { color: #16a34a; }
+.section.rises .section-title { color: #dc2626; }
+
+/* Wiersz rankingu */
+.rank-row {
+    display: grid;
+    grid-template-columns: 50px 1.8fr 1.1fr 180px 1.3fr 80px 50px;
+    gap: 14px;
+    padding: 16px;
+    border-bottom: 1px solid #f0f0f0;
+    align-items: center;
+    transition: background 0.2s;
+}
+.rank-row:hover { background: #fafafa; }
+.rank-row:last-child { border-bottom: none; }
+
+.rank-num {
+    font-size: 28px; font-weight: 800; color: #999; text-align: center;
+}
+.rank-row[data-rank="1"] .rank-num { color: #FFD700; }
+.rank-row[data-rank="2"] .rank-num { color: #C0C0C0; }
+.rank-row[data-rank="3"] .rank-num { color: #CD7F32; }
+
+.col-address { display: flex; flex-direction: column; gap: 4px; }
+.col-address .addr { font-weight: 600; color: #333; font-size: 15px; }
+.col-address .link {
+    color: #667eea; text-decoration: none; font-size: 12px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.col-address .link:hover { text-decoration: underline; }
+
+.col-change { display: flex; flex-direction: column; gap: 4px; }
+.change-percent { font-size: 22px; font-weight: 800; }
+.change-pln { font-size: 13px; color: #666; }
+.change-prices { font-size: 12px; color: #999; }
+.drops .change-percent { color: #16a34a; }
+.rises .change-percent { color: #dc2626; }
+
+.col-chart { height: 60px; position: relative; }
+
+.col-dates { font-size: 12px; color: #555; line-height: 1.6; }
+.col-dates .label { color: #999; font-size: 11px; }
+
+.col-status { text-align: center; }
+.badge {
+    display: inline-block; padding: 4px 10px; border-radius: 12px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+}
+.badge.active { background: #dcfce7; color: #16a34a; }
+.badge.inactive { background: #fef3c7; color: #b45309; }
+
+/* Guzik 'Pokaż na mapie' */
+.map-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 42px; height: 42px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none; border-radius: 50%; color: white;
+    font-size: 20px; cursor: pointer; text-decoration: none;
+    box-shadow: 0 2px 6px rgba(102,126,234,0.4);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.map-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(102,126,234,0.6);
+}
+.map-btn:active { transform: scale(0.95); }
+
+.empty-state {
+    text-align: center; padding: 40px; color: #999; font-style: italic;
+}
+
+.loading {
+    text-align: center; padding: 60px; color: white; font-size: 18px;
+}
+
+@media (max-width: 900px) {
+    .rank-row {
+        grid-template-columns: 40px 1fr 50px;
+        grid-template-areas:
+            "num address map"
+            "num change map"
+            "num chart chart"
+            "num dates dates"
+            "num status status";
+        gap: 8px;
+    }
+    .rank-num { grid-area: num; }
+    .col-address { grid-area: address; }
+    .col-change { grid-area: change; }
+    .col-chart { grid-area: chart; }
+    .col-dates { grid-area: dates; }
+    .col-status { grid-area: status; text-align: left; }
+    .col-map { grid-area: map; align-self: center; }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<header>
+    <h1>📊 Top 5 Zmian Cen</h1>
+    <a href="index.html" class="back-link">← Powrót do mapy</a>
+</header>
+
+<!-- Filtr dat -->
+<div class="filter-bar">
+    <label>Zakres dat:</label>
+    <input type="date" id="date-from">
+    <span style="color:#999;">→</span>
+    <input type="date" id="date-to">
+    <button class="preset-btn" data-preset="all">Wszystko</button>
+    <button class="preset-btn active" data-preset="30">Ostatnie 30 dni</button>
+    <button class="preset-btn" data-preset="7">7 dni</button>
+    <div class="filter-info" id="filter-info">—</div>
+</div>
+
+<!-- TOP 5 OBNIŻEK -->
+<div class="section drops">
+    <h2 class="section-title">📉 Top 5 Obniżek</h2>
+    <div id="drops-list"><div class="loading">Ładowanie…</div></div>
+</div>
+
+<!-- TOP 5 PODWYŻEK -->
+<div class="section rises">
+    <h2 class="section-title">📈 Top 5 Podwyżek</h2>
+    <div id="rises-list"></div>
+</div>
+
+</div>
+
+<script>
+let top5Data = null;
+let charts = []; // referencje do Chart.js do destroy
+
+// Parsowanie ISO 8601 (z offsetem)
+function parseISO(s) {
+    if (!s) return null;
+    try {
+        const d = new Date(s);
+        return isNaN(d.getTime()) ? null : d;
+    } catch (e) { return null; }
+}
+
+function formatDate(d) {
+    if (!d) return '—';
+    return d.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function formatDateInput(d) {
+    // YYYY-MM-DD dla <input type="date">
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+// Czy okres życia oferty [first_seen, last_seen_or_now] zachodzi na zakres [from, to]?
+function lifespanOverlaps(offer, from, to) {
+    const fs = parseISO(offer.first_seen);
+    if (!fs) return false;
+    // Jeśli aktywne, koniec = teraz; jeśli nieaktywne, koniec = last_seen
+    const ls = offer.active ? new Date() : (parseISO(offer.last_seen) || fs);
+    // Overlap: NOT (ls < from OR fs > to)
+    return !(ls < from || fs > to);
+}
+
+function buildSparkline(canvas, historyFull, isDrop) {
+    const prices = historyFull.map(h => h.price);
+    const labels = historyFull.map(h => {
+        const d = parseISO(h.date);
+        return d ? formatDate(d) : '?';
+    });
+    const color = isDrop ? '#16a34a' : '#dc2626';
+    
+    const chart = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: prices,
+                borderColor: color,
+                backgroundColor: color + '20',
+                borderWidth: 2.5,
+                pointRadius: historyFull.map(h => h.approximated ? 2 : 4),
+                pointBackgroundColor: historyFull.map(h => h.approximated ? '#aaa' : color),
+                pointBorderColor: color,
+                tension: 0.3,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title: (items) => labels[items[0].dataIndex],
+                        label: (item) => {
+                            const approx = historyFull[item.dataIndex].approximated;
+                            return `${item.raw} zł${approx ? ' (data przybliżona)' : ''}`;
+                        }
+                    }
+                }
+            },
+            scales: { x: { display: false }, y: { display: false } }
+        }
+    });
+    charts.push(chart);
+}
+
+function renderRow(offer, rank, isDrop) {
+    const row = document.createElement('div');
+    row.className = 'rank-row';
+    row.dataset.rank = rank;
+    
+    const sign = isDrop ? '' : '+';
+    const plnSign = isDrop ? '−' : '+';
+    const plnVal = Math.abs(offer.change_pln);
+    
+    const fs = parseISO(offer.first_seen);
+    const ls = parseISO(offer.last_seen);
+    const fsStr = fs ? formatDate(fs) : '—';
+    const lsStr = offer.active ? 'aktualne' : (ls ? formatDate(ls) : '—');
+    
+    const statusClass = offer.active ? 'active' : 'inactive';
+    const statusText = offer.active ? 'Aktywne' : 'Zniknęło';
+    
+    const urlShort = offer.url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 35) + '…';
+    
+    row.innerHTML = `
+        <div class="rank-num">${rank}</div>
+        <div class="col-address">
+            <div class="addr">${escapeHtml(offer.address)}</div>
+            <a class="link" href="${escapeHtml(offer.url)}" target="_blank" rel="noopener">${escapeHtml(urlShort)}</a>
+        </div>
+        <div class="col-change">
+            <div class="change-percent">${sign}${offer.change_percent.toFixed(1)}%</div>
+            <div class="change-pln">${plnSign}${plnVal} zł</div>
+            <div class="change-prices">${offer.first_price} → ${offer.current_price} zł</div>
+        </div>
+        <div class="col-chart"><canvas></canvas></div>
+        <div class="col-dates">
+            <span class="label">Od:</span> ${fsStr}<br>
+            <span class="label">Do:</span> ${lsStr}
+        </div>
+        <div class="col-status"><span class="badge ${statusClass}">${statusText}</span></div>
+        <div class="col-map">
+            <a class="map-btn" href="index.html?offer=${encodeURIComponent(offer.id)}" target="_blank" title="Pokaż na mapie">📍</a>
+        </div>
+    `;
+    
+    // Sparkline w canvas
+    const canvas = row.querySelector('canvas');
+    buildSparkline(canvas, offer.history_full, isDrop);
+    
+    return row;
+}
+
+function escapeHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
+function render() {
+    // Wyczyść poprzednie wykresy
+    charts.forEach(c => c.destroy());
+    charts = [];
+    
+    const fromVal = document.getElementById('date-from').value;
+    const toVal = document.getElementById('date-to').value;
+    
+    if (!fromVal || !toVal) {
+        document.getElementById('filter-info').textContent = 'Wybierz zakres dat';
+        return;
+    }
+    
+    const from = new Date(fromVal + 'T00:00:00');
+    const to = new Date(toVal + 'T23:59:59');
+    
+    // Filtr po nakładaniu się życia oferty na zakres
+    const filtered = top5Data.offers.filter(o => lifespanOverlaps(o, from, to));
+    
+    const drops = filtered.filter(o => o.change_percent < 0)
+        .sort((a, b) => a.change_percent - b.change_percent)
+        .slice(0, 5);
+    const rises = filtered.filter(o => o.change_percent > 0)
+        .sort((a, b) => b.change_percent - a.change_percent)
+        .slice(0, 5);
+    
+    const dropsList = document.getElementById('drops-list');
+    const risesList = document.getElementById('rises-list');
+    dropsList.innerHTML = '';
+    risesList.innerHTML = '';
+    
+    if (drops.length === 0) {
+        dropsList.innerHTML = '<div class="empty-state">Brak obniżek w wybranym okresie</div>';
+    } else {
+        drops.forEach((o, i) => dropsList.appendChild(renderRow(o, i + 1, true)));
+    }
+    
+    if (rises.length === 0) {
+        risesList.innerHTML = '<div class="empty-state">Brak podwyżek w wybranym okresie</div>';
+    } else {
+        rises.forEach((o, i) => risesList.appendChild(renderRow(o, i + 1, false)));
+    }
+    
+    document.getElementById('filter-info').textContent =
+        `${filtered.length} ogłoszeń ze zmianami cen w okresie`;
+}
+
+function applyPreset(preset) {
+    const to = new Date();
+    let from;
+    if (preset === 'all') {
+        // Najwcześniejsza data wśród wszystkich first_seen
+        let earliest = to;
+        top5Data.offers.forEach(o => {
+            const fs = parseISO(o.first_seen);
+            if (fs && fs < earliest) earliest = fs;
+        });
+        from = earliest;
+    } else if (preset === '30') {
+        from = new Date();
+        from.setDate(from.getDate() - 30);
+    } else if (preset === '7') {
+        from = new Date();
+        from.setDate(from.getDate() - 7);
+    }
+    document.getElementById('date-from').value = formatDateInput(from);
+    document.getElementById('date-to').value = formatDateInput(to);
+    
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('active', b.dataset.preset === preset));
+    render();
+}
+
+async function init() {
+    try {
+        const resp = await fetch('top5_data.json?t=' + Date.now());
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        top5Data = await resp.json();
+        
+        // Domyślnie 30 dni
+        applyPreset('30');
+        
+        // Listeners
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+        });
+        document.getElementById('date-from').addEventListener('change', () => {
+            document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+            render();
+        });
+        document.getElementById('date-to').addEventListener('change', () => {
+            document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+            render();
+        });
+    } catch (e) {
+        console.error('Błąd ładowania top5_data.json:', e);
+        document.getElementById('drops-list').innerHTML =
+            '<div class="empty-state">❌ Nie udało się wczytać danych: ' + escapeHtml(e.message) + '</div>';
+        document.getElementById('rises-list').innerHTML = '';
+    }
+}
+
+init();
+</script>
+
+</body>
+</html>

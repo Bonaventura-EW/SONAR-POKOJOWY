@@ -377,6 +377,7 @@ class SonarPokojowy:
             'price': {
                 'current': price,
                 'history': [price],
+                'history_full': [{'price': price, 'date': datetime.now(self.tz).isoformat(), 'approximated': False}],
                 'media_info': media_info,
                 'source': price_source  # Dodane: JSON-LD / Parser / HTML fallback
             },
@@ -475,6 +476,23 @@ class SonarPokojowy:
             
             # Dodaj do historii
             existing['price']['history'].append(new_price)
+            
+            # NOWE 2026-05-17: zapis pełnej historii z timestampami
+            if 'history_full' not in existing['price']:
+                # Backfill dla starych ofert które jeszcze nie mają history_full
+                existing['price']['history_full'] = []
+                # Pierwsza znana cena = pierwszy wpis history (data first_seen)
+                if existing['price']['history']:
+                    existing['price']['history_full'].append({
+                        'price': existing['price']['history'][0],
+                        'date': existing.get('first_seen', now),
+                        'approximated': False
+                    })
+            existing['price']['history_full'].append({
+                'price': new_price,
+                'date': now,
+                'approximated': False
+            })
         
         # Zawsze aktualizuj media_info (może się zmienić niezależnie)
         existing['price']['media_info'] = new_data['price']['media_info']
