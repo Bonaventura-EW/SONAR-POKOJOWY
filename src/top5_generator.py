@@ -1,31 +1,24 @@
 """
 Top5 Generator — wyciąga ogłoszenia ze zmianami cen do strony top5.html.
 
-Generuje docs/top5_data.json zawierający WSZYSTKIE ogłoszenia z >1 wpisem
-w history_full (filtrowanie zakresu dat odbywa się w frontendzie).
+Generuje docs/top5_data.json w formacie zgodnym z SONAR-MIESZKANIOWY/top5.
 
 Format wyjściowy:
 {
     "generated_at": "ISO",
-    "total_with_price_changes": int,
-    "offers": [
+    "total_offers": int,                  # wszystkie oferty w bazie
+    "offers_with_change": int,            # tylko te ze zmianą ceny (entries)
+    "date_range": {"min": "ISO", "max": "ISO"},
+    "entries": [
         {
-            "id": str,
-            "url": str,
-            "address": str,
-            "first_price": int,           # history_full[0].price
-            "current_price": int,         # price.current
-            "change_pln": int,            # current - first (ujemne = obniżka)
-            "change_percent": float,      # ((current - first) / first) * 100
-            "first_seen": "ISO",
-            "last_seen": "ISO",
-            "active": bool,
-            "history_full": [             # pełna historia z timestampami
-                {"price": int, "date": "ISO", "approximated": bool},
-                ...
-            ]
-        },
-        ...
+            "id", "url", "address",
+            "first_price", "current_price",
+            "total_diff_pln", "total_diff_pct",
+            "trend": "down" | "up",
+            "first_seen", "last_seen", "active",
+            "num_changes", "has_coords",
+            "timeline": [{"date": "ISO", "price": int, "approximated": bool}, ...]
+        }
     ]
 }
 """
@@ -33,7 +26,6 @@ Format wyjściowy:
 import json
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List
 import pytz
 
 
@@ -41,27 +33,42 @@ class Top5Generator:
     def __init__(
         self,
         offers_file: str = "../data/offers.json",
+        map_data_file: str = "../docs/data.json",
         output_file: str = "../docs/top5_data.json"
     ):
         self.offers_file = Path(offers_file)
+        self.map_data_file = Path(map_data_file)
         self.output_file = Path(output_file)
         self.tz = pytz.timezone('Europe/Warsaw')
     
+    def _load_ids_on_map(self) -> set:
+        if not self.map_data_file.exists():
+            print(f"⚠️  Brak pliku mapy: {self.map_data_file} — has_coords ustawione na False dla wszystkich")
+            return set()
+        with open(self.map_data_file, encoding='utf-8') as f:
+            mapdata = json.load(f)
+        ids = set()
+        for marker in mapdata.get('markers', []):
+            for offer in marker.get('offers', []):
+                ids.add(offer['id'])
+        return ids
+    
     def generate(self):
-        """Generuje plik top5_data.json."""
         print("🔄 Generowanie danych dla strony top5...")
         
         with open(self.offers_file, encoding='utf-8') as f:
             data = json.load(f)
         
         offers = data.get('offers', [])
-        eligible = []
+        total_offers = len(offers)
+        ids_on_map = self._load_ids_on_map()
+        
+        entries = []
         
         for offer in offers:
             price_obj = offer.get('price', {})
             history_full = price_obj.get('history_full', [])
             
-            # Musi mieć >= 2 wpisy historii (czyli realna zmiana ceny)
             if not isinstance(history_full, list) or len(history_full) < 2:
                 continue
             
@@ -70,60 +77,84 @@ class Top5Generator:
             
             if not isinstance(first_price, (int, float)) or not isinstance(current_price, (int, float)):
                 continue
-            if first_price <= 0:
-                continue
-            if first_price == current_price:
-                # Brak realnej zmiany (np. cena wróciła do startowej) — pomijamy
+            if first_price <= 0 or first_price == current_price:
                 continue
             
-            change_pln = current_price - first_price
-            change_percent = (change_pln / first_price) * 100
+            diff_pln = current_price - first_price
+            diff_pct = round((diff_pln / first_price) * 100, 2)
+            trend = 'down' if diff_pln < 0 else 'up'
             
             address = offer.get('address', {}).get('full', 'Adres nieznany')
             
-            eligible.append({
+            timeline = [
+                {
+                    'date': h.get('date', ''),
+                    'price': int(h.get('price', 0)),
+                    'approximated': bool(h.get('approximated', False))
+                }
+                for h in history_full
+                if h.get('date')
+            ]
+            
+            entries.append({
                 'id': offer['id'],
                 'url': offer.get('url', ''),
                 'address': address,
                 'first_price': int(first_price),
                 'current_price': int(current_price),
-                'change_pln': int(change_pln),
-                'change_percent': round(change_percent, 2),
+                'total_diff_pln': int(diff_pln),
+                'total_diff_pct': diff_pct,
+                'trend': trend,
                 'first_seen': offer.get('first_seen', ''),
                 'last_seen': offer.get('last_seen', ''),
                 'active': offer.get('active', False),
-                'history_full': history_full
+                'num_changes': len(timeline),
+                'has_coords': offer['id'] in ids_on_map,
+                'timeline': timeline
             })
         
-        # Sortowanie: pierwsze największe obniżki (najbardziej ujemne change_percent)
-        eligible.sort(key=lambda x: x['change_percent'])
+        entries.sort(key=lambda x: x['total_diff_pln'])
+        
+        date_min = None
+        date_max = None
+        for e in entries:
+            for key in ('first_seen', 'last_seen'):
+                v = e.get(key)
+                if not v:
+                    continue
+                if date_min is None or v < date_min:
+                    date_min = v
+                if date_max is None or v > date_max:
+                    date_max = v
         
         result = {
             'generated_at': datetime.now(self.tz).isoformat(),
-            'total_with_price_changes': len(eligible),
-            'offers': eligible
+            'total_offers': total_offers,
+            'offers_with_change': len(entries),
+            'date_range': {'min': date_min or '', 'max': date_max or ''},
+            'entries': entries
         }
         
         self.output_file.parent.mkdir(parents=True, exist_ok=True)
         with open(self.output_file, 'w', encoding='utf-8') as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
         
-        # Statystyki
-        drops = [o for o in eligible if o['change_percent'] < 0]
-        rises = [o for o in eligible if o['change_percent'] > 0]
+        drops = [e for e in entries if e['trend'] == 'down']
+        rises = [e for e in entries if e['trend'] == 'up']
+        without_coords = [e for e in entries if not e['has_coords']]
         
         print(f"✅ Top5 data wygenerowane: {self.output_file}")
-        print(f"   Ogłoszeń ze zmianami cen: {len(eligible)}")
-        print(f"   Obniżki: {len(drops)}, podwyżki: {len(rises)}")
+        print(f"   Wszystkich ofert w bazie: {total_offers}")
+        print(f"   Ofert ze zmianami cen (entries): {len(entries)}")
+        print(f"   Spadki: {len(drops)}, wzrosty: {len(rises)}")
+        print(f"   Bez współrzędnych (pinezka wyłączona): {len(without_coords)}")
         
         if drops:
-            biggest_drop = drops[0]
-            print(f"   Największa obniżka: {biggest_drop['change_percent']:.1f}% ({biggest_drop['change_pln']} zł)")
+            print(f"   Największa obniżka: {drops[0]['total_diff_pct']:.1f}% ({drops[0]['total_diff_pln']} zł)")
         if rises:
-            biggest_rise = rises[-1]
-            print(f"   Największa podwyżka: +{biggest_rise['change_percent']:.1f}% (+{biggest_rise['change_pln']} zł)")
+            biggest_rise = max(rises, key=lambda x: x['total_diff_pln'])
+            print(f"   Największa podwyżka: +{biggest_rise['total_diff_pct']:.1f}% (+{biggest_rise['total_diff_pln']} zł)")
 
 
 if __name__ == '__main__':
-    generator = Top5Generator()
-    generator.generate()
+    Top5Generator().generate()

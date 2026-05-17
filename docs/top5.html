@@ -1,444 +1,562 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SONAR POKOJOWY - Top 5 Zmian Cen</title>
-<link rel="icon" type="image/svg+xml" href="favicon.svg">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    min-height: 100vh;
-    padding: 20px;
-    color: #333;
-}
-.container { max-width: 1400px; margin: 0 auto; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOP 5 zmian cen - SONAR POKOJOWY</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f5f7fa;
+            color: #1a1a1a;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 22px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .nav-links {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            background: rgba(255,255,255,0.2);
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        .nav-links a:hover { background: rgba(255,255,255,0.35); }
+        .nav-links a.active {
+            background: rgba(255,255,255,0.45);
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.4);
+        }
 
-header {
-    background: white;
-    padding: 24px;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    margin-bottom: 24px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 16px;
-}
-header h1 { color: #667eea; font-size: 26px; display: flex; align-items: center; gap: 12px; }
-.back-link {
-    color: #667eea; text-decoration: none; padding: 10px 20px;
-    border: 2px solid #667eea; border-radius: 8px; font-weight: 600;
-    transition: all 0.3s;
-}
-.back-link:hover { background: #667eea; color: white; }
+        main { max-width: 1400px; margin: 0 auto; padding: 24px; }
 
-/* Filtr dat */
-.filter-bar {
-    background: white; padding: 18px 24px; border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 24px;
-    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-}
-.filter-bar label { font-weight: 600; color: #555; font-size: 14px; }
-.filter-bar input[type="date"] {
-    padding: 8px 12px; border: 2px solid #e0e0e0; border-radius: 6px;
-    font-size: 14px; color: #333;
-}
-.filter-bar input[type="date"]:focus { outline: none; border-color: #667eea; }
-.preset-btn {
-    padding: 8px 14px; border: 2px solid #667eea; background: white;
-    color: #667eea; border-radius: 6px; cursor: pointer; font-weight: 600;
-    font-size: 13px; transition: all 0.2s;
-}
-.preset-btn:hover, .preset-btn.active { background: #667eea; color: white; }
-.filter-info {
-    margin-left: auto; padding: 6px 12px; background: #f0f0f0; border-radius: 6px;
-    font-size: 13px; color: #666;
-}
+        .filters {
+            background: white;
+            border-radius: 10px;
+            padding: 20px 24px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            margin-bottom: 24px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: flex-end;
+        }
+        .filter-group { display: flex; flex-direction: column; gap: 6px; }
+        .filter-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .filter-group input[type="date"], .filter-group select {
+            padding: 8px 12px;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+            min-width: 160px;
+        }
+        .btn {
+            padding: 9px 18px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        .btn:active { transform: translateY(1px); }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-primary:hover { opacity: 0.9; }
+        .btn-secondary { background: #eef0f4; color: #333; }
+        .btn-secondary:hover { background: #dde0e7; }
 
-/* Sekcje rankingowe */
-.section {
-    background: white; border-radius: 12px; padding: 24px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 24px;
-}
-.section-title {
-    font-size: 22px; margin-bottom: 18px; font-weight: 700;
-    display: flex; align-items: center; gap: 10px;
-}
-.section.drops .section-title { color: #16a34a; }
-.section.rises .section-title { color: #dc2626; }
+        .info-bar {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            color: #555;
+            font-size: 13px;
+            margin-bottom: 16px;
+            padding: 0 4px;
+        }
+        .info-bar strong { color: #1a1a1a; }
 
-/* Wiersz rankingu */
-.rank-row {
-    display: grid;
-    grid-template-columns: 50px 1.8fr 1.1fr 180px 1.3fr 80px 50px;
-    gap: 14px;
-    padding: 16px;
-    border-bottom: 1px solid #f0f0f0;
-    align-items: center;
-    transition: background 0.2s;
-}
-.rank-row:hover { background: #fafafa; }
-.rank-row:last-child { border-bottom: none; }
+        .sections {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        @media (max-width: 1000px) { .sections { grid-template-columns: 1fr; } }
 
-.rank-num {
-    font-size: 28px; font-weight: 800; color: #999; text-align: center;
-}
-.rank-row[data-rank="1"] .rank-num { color: #FFD700; }
-.rank-row[data-rank="2"] .rank-num { color: #C0C0C0; }
-.rank-row[data-rank="3"] .rank-num { color: #CD7F32; }
+        .section-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px 24px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        }
+        .section-card h2 {
+            margin: 0 0 16px 0;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-card.drops h2 { color: #2e7d32; }
+        .section-card.rises h2 { color: #c62828; }
 
-.col-address { display: flex; flex-direction: column; gap: 4px; }
-.col-address .addr { font-weight: 600; color: #333; font-size: 15px; }
-.col-address .link {
-    color: #667eea; text-decoration: none; font-size: 12px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.col-address .link:hover { text-decoration: underline; }
+        .offer-row {
+            border: 1px solid #eef0f4;
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+            background: #fafbfc;
+            transition: box-shadow 0.2s;
+        }
+        .offer-row:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .offer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+        .offer-title {
+            flex: 1;
+            font-weight: 600;
+            font-size: 15px;
+            color: #1a1a1a;
+        }
+        .offer-title a {
+            color: #1a1a1a;
+            text-decoration: none;
+            border-bottom: 1px dashed #aaa;
+        }
+        .offer-title a:hover { color: #667eea; border-bottom-color: #667eea; }
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+        }
+        .badge-active { background: #e8f5e9; color: #2e7d32; }
+        .badge-inactive { background: #fce4ec; color: #c62828; }
 
-.col-change { display: flex; flex-direction: column; gap: 4px; }
-.change-percent { font-size: 22px; font-weight: 800; }
-.change-pln { font-size: 13px; color: #666; }
-.change-prices { font-size: 12px; color: #999; }
-.drops .change-percent { color: #16a34a; }
-.rises .change-percent { color: #dc2626; }
+        .diff-line {
+            font-size: 14px;
+            color: #444;
+            margin: 6px 0;
+        }
+        .diff-down { color: #2e7d32; font-weight: 700; }
+        .diff-up   { color: #c62828; font-weight: 700; }
+        .price-old { text-decoration: line-through; color: #888; }
+        .price-new { font-weight: 700; }
 
-.col-chart { height: 60px; position: relative; }
+        .meta-line {
+            font-size: 12px;
+            color: #666;
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-top: 6px;
+        }
+        .meta-line span { white-space: nowrap; }
 
-.col-dates { font-size: 12px; color: #555; line-height: 1.6; }
-.col-dates .label { color: #999; font-size: 11px; }
+        .chart-wrapper {
+            margin-top: 10px;
+            background: white;
+            border-radius: 6px;
+            padding: 8px 10px 4px;
+            border: 1px solid #eef0f4;
+            height: 140px;
+        }
 
-.col-status { text-align: center; }
-.badge {
-    display: inline-block; padding: 4px 10px; border-radius: 12px;
-    font-size: 11px; font-weight: 700; text-transform: uppercase;
-}
-.badge.active { background: #dcfce7; color: #16a34a; }
-.badge.inactive { background: #fef3c7; color: #b45309; }
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #888;
+            font-style: italic;
+        }
 
-/* Guzik 'Pokaż na mapie' */
-.map-btn {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 42px; height: 42px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border: none; border-radius: 50%; color: white;
-    font-size: 20px; cursor: pointer; text-decoration: none;
-    box-shadow: 0 2px 6px rgba(102,126,234,0.4);
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-.map-btn:hover {
-    transform: scale(1.1);
-    box-shadow: 0 4px 12px rgba(102,126,234,0.6);
-}
-.map-btn:active { transform: scale(0.95); }
+        .rank-badge {
+            display: inline-block;
+            width: 28px; height: 28px;
+            line-height: 28px;
+            text-align: center;
+            border-radius: 50%;
+            font-weight: 800;
+            font-size: 13px;
+            margin-right: 8px;
+            color: white;
+            background: #999;
+        }
+        .drops .rank-badge { background: #2e7d32; }
+        .rises .rank-badge { background: #c62828; }
 
-.empty-state {
-    text-align: center; padding: 40px; color: #999; font-style: italic;
-}
-
-.loading {
-    text-align: center; padding: 60px; color: white; font-size: 18px;
-}
-
-@media (max-width: 900px) {
-    .rank-row {
-        grid-template-columns: 40px 1fr 50px;
-        grid-template-areas:
-            "num address map"
-            "num change map"
-            "num chart chart"
-            "num dates dates"
-            "num status status";
-        gap: 8px;
-    }
-    .rank-num { grid-area: num; }
-    .col-address { grid-area: address; }
-    .col-change { grid-area: change; }
-    .col-chart { grid-area: chart; }
-    .col-dates { grid-area: dates; }
-    .col-status { grid-area: status; text-align: left; }
-    .col-map { grid-area: map; align-self: center; }
-}
-</style>
+        .pin-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 5px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            font-size: 12px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            white-space: nowrap;
+        }
+        .pin-btn:hover { background: #5566d6; }
+        .pin-btn:active { transform: translateY(1px); }
+        .pin-btn.disabled {
+            background: #d0d4dc;
+            color: #888;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .header-right {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+    </style>
 </head>
 <body>
+    <header class="header">
+        <h1>🏆 TOP 5 zmian cen</h1>
+        <nav class="nav-links">
+            <a href="index.html">🗺️ Mapa</a>
+            <a href="analytics.html">📈 Analityka</a>
+            <a href="monitoring.html">📊 Monitoring</a>
+            <a href="market_analysis.html">🔍 Analiza Rynku</a>
+            <a href="top5.html" class="active">🏆 Top 5</a>
+        </nav>
+    </header>
 
-<div class="container">
+    <main>
+        <div class="filters">
+            <div class="filter-group">
+                <label for="date-from">Data od</label>
+                <input type="date" id="date-from">
+            </div>
+            <div class="filter-group">
+                <label for="date-to">Data do</label>
+                <input type="date" id="date-to">
+            </div>
+            <div class="filter-group">
+                <label for="status-filter">Status oferty</label>
+                <select id="status-filter">
+                    <option value="all">Wszystkie</option>
+                    <option value="active">Tylko aktywne</option>
+                    <option value="inactive">Tylko nieaktywne</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" id="apply-btn">Zastosuj</button>
+            <button class="btn btn-secondary" id="reset-btn">Reset (cały okres)</button>
+        </div>
 
-<header>
-    <h1>📊 Top 5 Zmian Cen</h1>
-    <a href="index.html" class="back-link">← Powrót do mapy</a>
-</header>
+        <div class="info-bar" id="info-bar"></div>
 
-<!-- Filtr dat -->
-<div class="filter-bar">
-    <label>Zakres dat:</label>
-    <input type="date" id="date-from">
-    <span style="color:#999;">→</span>
-    <input type="date" id="date-to">
-    <button class="preset-btn" data-preset="all">Wszystko</button>
-    <button class="preset-btn active" data-preset="30">Ostatnie 30 dni</button>
-    <button class="preset-btn" data-preset="7">7 dni</button>
-    <div class="filter-info" id="filter-info">—</div>
-</div>
+        <div class="sections">
+            <div class="section-card drops">
+                <h2>📉 TOP 5 największych obniżek</h2>
+                <div id="drops-list"></div>
+            </div>
+            <div class="section-card rises">
+                <h2>📈 TOP 5 największych podwyżek</h2>
+                <div id="rises-list"></div>
+            </div>
+        </div>
+    </main>
 
-<!-- TOP 5 OBNIŻEK -->
-<div class="section drops">
-    <h2 class="section-title">📉 Top 5 Obniżek</h2>
-    <div id="drops-list"><div class="loading">Ładowanie…</div></div>
-</div>
+    <script>
+    // ---------- Helpers ----------
+    function fmtPLN(n) {
+        return new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 0 }).format(n) + ' zł';
+    }
+    function fmtSignedPLN(n) {
+        const sign = n > 0 ? '+' : '';
+        return sign + fmtPLN(n);
+    }
+    function fmtDate(iso) {
+        if (!iso) return '?';
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '?';
+        return d.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+    function parseISODate(s) {
+        if (!s) return null;
+        const [y, m, d] = s.split('-').map(Number);
+        return new Date(y, m - 1, d);
+    }
+    function endOfDay(d) {
+        const c = new Date(d);
+        c.setHours(23, 59, 59, 999);
+        return c;
+    }
 
-<!-- TOP 5 PODWYŻEK -->
-<div class="section rises">
-    <h2 class="section-title">📈 Top 5 Podwyżek</h2>
-    <div id="rises-list"></div>
-</div>
+    // ---------- State ----------
+    let DATA = null;
+    let ENTRIES = [];
+    const charts = {};
 
-</div>
+    // ---------- Load ----------
+    async function loadData() {
+        try {
+            const resp = await fetch('top5_data.json?ts=' + Date.now());
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            DATA = await resp.json();
+            ENTRIES = DATA.entries || [];
+            initFilters();
+            applyFilters();
+        } catch (err) {
+            document.getElementById('drops-list').innerHTML =
+                '<div class="empty-state">Błąd ładowania danych: ' + err.message + '</div>';
+            console.error(err);
+        }
+    }
 
-<script>
-let top5Data = null;
-let charts = []; // referencje do Chart.js do destroy
+    function initFilters() {
+        const dr = DATA.date_range || {};
+        const dateFrom = document.getElementById('date-from');
+        const dateTo = document.getElementById('date-to');
 
-// Parsowanie ISO 8601 (z offsetem)
-function parseISO(s) {
-    if (!s) return null;
-    try {
-        const d = new Date(s);
-        return isNaN(d.getTime()) ? null : d;
-    } catch (e) { return null; }
-}
+        if (dr.min) dateFrom.value = dr.min.slice(0, 10);
+        if (dr.max) dateTo.value = dr.max.slice(0, 10);
 
-function formatDate(d) {
-    if (!d) return '—';
-    return d.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
+        document.getElementById('apply-btn').addEventListener('click', applyFilters);
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            if (dr.min) dateFrom.value = dr.min.slice(0, 10);
+            if (dr.max) dateTo.value = dr.max.slice(0, 10);
+            document.getElementById('status-filter').value = 'all';
+            applyFilters();
+        });
+    }
 
-function formatDateInput(d) {
-    // YYYY-MM-DD dla <input type="date">
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-}
+    // Pokaż oferty których życie [first_seen, last_seen|now] zachodzi na zakres [from, to]
+    function overlaps(firstSeen, lastSeen, active, from, to) {
+        const fs = firstSeen ? new Date(firstSeen) : null;
+        // Jeśli aktywne: koniec = teraz; jeśli nieaktywne: koniec = last_seen
+        let ls;
+        if (active) {
+            ls = new Date();
+        } else {
+            ls = lastSeen ? new Date(lastSeen) : fs;
+        }
+        if (!fs || !ls) return false;
+        return fs <= to && ls >= from;
+    }
 
-// Czy okres życia oferty [first_seen, last_seen_or_now] zachodzi na zakres [from, to]?
-function lifespanOverlaps(offer, from, to) {
-    const fs = parseISO(offer.first_seen);
-    if (!fs) return false;
-    // Jeśli aktywne, koniec = teraz; jeśli nieaktywne, koniec = last_seen
-    const ls = offer.active ? new Date() : (parseISO(offer.last_seen) || fs);
-    // Overlap: NOT (ls < from OR fs > to)
-    return !(ls < from || fs > to);
-}
+    function applyFilters() {
+        const fromStr = document.getElementById('date-from').value;
+        const toStr = document.getElementById('date-to').value;
+        const status = document.getElementById('status-filter').value;
 
-function buildSparkline(canvas, historyFull, isDrop) {
-    const prices = historyFull.map(h => h.price);
-    const labels = historyFull.map(h => {
-        const d = parseISO(h.date);
-        return d ? formatDate(d) : '?';
-    });
-    const color = isDrop ? '#16a34a' : '#dc2626';
-    
-    const chart = new Chart(canvas, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                data: prices,
-                borderColor: color,
-                backgroundColor: color + '20',
-                borderWidth: 2.5,
-                pointRadius: historyFull.map(h => h.approximated ? 2 : 4),
-                pointBackgroundColor: historyFull.map(h => h.approximated ? '#aaa' : color),
-                pointBorderColor: color,
-                tension: 0.3,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        title: (items) => labels[items[0].dataIndex],
-                        label: (item) => {
-                            const approx = historyFull[item.dataIndex].approximated;
-                            return `${item.raw} zł${approx ? ' (data przybliżona)' : ''}`;
+        const from = fromStr ? parseISODate(fromStr) : new Date('1970-01-01');
+        const to = toStr ? endOfDay(parseISODate(toStr)) : new Date('2999-12-31');
+
+        let filtered = ENTRIES.filter(e =>
+            overlaps(e.first_seen, e.last_seen, e.active, from, to)
+        );
+
+        if (status === 'active') filtered = filtered.filter(e => e.active);
+        if (status === 'inactive') filtered = filtered.filter(e => !e.active);
+
+        // Ranking PO PROCENCIE (zgodnie z ustaleniem 1c)
+        const drops = filtered.filter(e => e.trend === 'down')
+                              .sort((a, b) => a.total_diff_pct - b.total_diff_pct)
+                              .slice(0, 5);
+        const rises = filtered.filter(e => e.trend === 'up')
+                              .sort((a, b) => b.total_diff_pct - a.total_diff_pct)
+                              .slice(0, 5);
+
+        renderInfoBar(filtered.length, drops.length, rises.length, fromStr, toStr);
+        renderList('drops-list', drops, 'down');
+        renderList('rises-list', rises, 'up');
+    }
+
+    function renderInfoBar(totalInRange, dropsCount, risesCount, fromStr, toStr) {
+        const generated = DATA.generated_at ? new Date(DATA.generated_at).toLocaleString('pl-PL') : '?';
+        document.getElementById('info-bar').innerHTML =
+            `<span>Zakres: <strong>${fromStr || '?'}</strong> → <strong>${toStr || '?'}</strong></span>` +
+            `<span>Ofert ze zmianą w zakresie: <strong>${totalInRange}</strong></span>` +
+            `<span>Spadki: <strong>${dropsCount}</strong></span>` +
+            `<span>Wzrosty: <strong>${risesCount}</strong></span>` +
+            `<span>Łącznie w bazie ze zmianą: <strong>${DATA.offers_with_change}</strong> z ${DATA.total_offers}</span>` +
+            `<span>Wygenerowano: <strong>${generated}</strong></span>`;
+    }
+
+    function renderList(containerId, items, trend) {
+        const container = document.getElementById(containerId);
+
+        Object.keys(charts).forEach(k => {
+            if (k.startsWith(containerId + ':')) {
+                charts[k].destroy();
+                delete charts[k];
+            }
+        });
+
+        if (items.length === 0) {
+            container.innerHTML = '<div class="empty-state">Brak ofert w wybranym zakresie</div>';
+            return;
+        }
+
+        container.innerHTML = items.map((e, idx) => renderRow(e, idx + 1, containerId)).join('');
+
+        items.forEach((e, idx) => {
+            const canvasId = containerId + ':' + idx;
+            const canvas = document.getElementById('chart-' + containerId + '-' + idx);
+            if (canvas) drawChart(canvas, e, canvasId, trend);
+        });
+    }
+
+    function escapeHtml(s) {
+        if (s === null || s === undefined) return '';
+        return String(s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+
+    function renderRow(e, rank, containerId) {
+        const diffClass = e.trend === 'down' ? 'diff-down' : 'diff-up';
+        const statusClass = e.active ? 'badge-active' : 'badge-inactive';
+        const statusText = e.active ? 'Aktywne' : 'Nieaktywne';
+        const safeAddr = escapeHtml(e.address || '?');
+        const safeUrl = escapeHtml(e.url || '#');
+        const idx = rank - 1;
+
+        const pinBtn = e.has_coords
+            ? `<a class="pin-btn" href="index.html?offer=${encodeURIComponent(e.id)}" title="Pokaż na mapie">📍 Mapa</a>`
+            : `<span class="pin-btn disabled" title="Oferta nie ma współrzędnych - geokodowanie nie powiodło się">📍 Brak loc.</span>`;
+
+        const signPct = e.total_diff_pct > 0 ? '+' : '';
+
+        return `
+            <div class="offer-row">
+                <div class="offer-header">
+                    <div class="offer-title">
+                        <span class="rank-badge">${rank}</span>
+                        <a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeAddr}</a>
+                    </div>
+                    <div class="header-right">
+                        ${pinBtn}
+                        <span class="badge ${statusClass}">${statusText}</span>
+                    </div>
+                </div>
+                <div class="diff-line">
+                    <span class="price-old">${fmtPLN(e.first_price)}</span>
+                    →
+                    <span class="price-new">${fmtPLN(e.current_price)}</span>
+                    &nbsp;
+                    <span class="${diffClass}">${fmtSignedPLN(e.total_diff_pln)} (${signPct}${e.total_diff_pct}%)</span>
+                </div>
+                <div class="meta-line">
+                    <span>📅 Od: <strong>${fmtDate(e.first_seen)}</strong></span>
+                    <span>${e.active ? '👁️ Ostatnio widziano' : '❌ Zniknęło'}: <strong>${fmtDate(e.last_seen)}</strong></span>
+                    <span>🔄 Zmian cen: <strong>${e.num_changes}</strong></span>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="chart-${containerId}-${idx}"></canvas>
+                </div>
+            </div>
+        `;
+    }
+
+    function drawChart(canvas, entry, chartKey, trend) {
+        const timeline = entry.timeline || [];
+        if (timeline.length < 2) return;
+
+        const points = timeline.map(p => ({ x: p.date, y: p.price, approximated: p.approximated }));
+        const color = trend === 'down' ? '#2e7d32' : '#c62828';
+        const fillColor = trend === 'down' ? 'rgba(46,125,50,0.12)' : 'rgba(198,40,40,0.12)';
+
+        charts[chartKey] = new Chart(canvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: 'Cena (zł)',
+                    data: points,
+                    borderColor: color,
+                    backgroundColor: fillColor,
+                    fill: true,
+                    tension: 0.15,
+                    pointRadius: points.map(p => p.approximated ? 3 : 4),
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: points.map(p => p.approximated ? '#aaa' : color),
+                    pointBorderColor: color,
+                    borderWidth: 2,
+                    stepped: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            title: (ctx) => fmtDate(ctx[0].parsed.x),
+                            label: (ctx) => {
+                                const p = points[ctx.dataIndex];
+                                return fmtPLN(ctx.parsed.y) + (p.approximated ? ' (data przybliżona)' : '');
+                            },
                         }
                     }
+                },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: { unit: 'day', tooltipFormat: 'dd MMM yyyy', displayFormats: { day: 'dd MMM' } },
+                        ticks: { font: { size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 5 },
+                        grid: { display: false },
+                    },
+                    y: {
+                        ticks: {
+                            font: { size: 10 },
+                            callback: (v) => fmtPLN(v),
+                        },
+                        grid: { color: 'rgba(0,0,0,0.05)' },
+                    }
                 }
-            },
-            scales: { x: { display: false }, y: { display: false } }
-        }
-    });
-    charts.push(chart);
-}
-
-function renderRow(offer, rank, isDrop) {
-    const row = document.createElement('div');
-    row.className = 'rank-row';
-    row.dataset.rank = rank;
-    
-    const sign = isDrop ? '' : '+';
-    const plnSign = isDrop ? '−' : '+';
-    const plnVal = Math.abs(offer.change_pln);
-    
-    const fs = parseISO(offer.first_seen);
-    const ls = parseISO(offer.last_seen);
-    const fsStr = fs ? formatDate(fs) : '—';
-    const lsStr = offer.active ? 'aktualne' : (ls ? formatDate(ls) : '—');
-    
-    const statusClass = offer.active ? 'active' : 'inactive';
-    const statusText = offer.active ? 'Aktywne' : 'Zniknęło';
-    
-    const urlShort = offer.url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 35) + '…';
-    
-    row.innerHTML = `
-        <div class="rank-num">${rank}</div>
-        <div class="col-address">
-            <div class="addr">${escapeHtml(offer.address)}</div>
-            <a class="link" href="${escapeHtml(offer.url)}" target="_blank" rel="noopener">${escapeHtml(urlShort)}</a>
-        </div>
-        <div class="col-change">
-            <div class="change-percent">${sign}${offer.change_percent.toFixed(1)}%</div>
-            <div class="change-pln">${plnSign}${plnVal} zł</div>
-            <div class="change-prices">${offer.first_price} → ${offer.current_price} zł</div>
-        </div>
-        <div class="col-chart"><canvas></canvas></div>
-        <div class="col-dates">
-            <span class="label">Od:</span> ${fsStr}<br>
-            <span class="label">Do:</span> ${lsStr}
-        </div>
-        <div class="col-status"><span class="badge ${statusClass}">${statusText}</span></div>
-        <div class="col-map">
-            <a class="map-btn" href="index.html?offer=${encodeURIComponent(offer.id)}" target="_blank" title="Pokaż na mapie">📍</a>
-        </div>
-    `;
-    
-    // Sparkline w canvas
-    const canvas = row.querySelector('canvas');
-    buildSparkline(canvas, offer.history_full, isDrop);
-    
-    return row;
-}
-
-function escapeHtml(s) {
-    if (s === null || s === undefined) return '';
-    return String(s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-}
-
-function render() {
-    // Wyczyść poprzednie wykresy
-    charts.forEach(c => c.destroy());
-    charts = [];
-    
-    const fromVal = document.getElementById('date-from').value;
-    const toVal = document.getElementById('date-to').value;
-    
-    if (!fromVal || !toVal) {
-        document.getElementById('filter-info').textContent = 'Wybierz zakres dat';
-        return;
-    }
-    
-    const from = new Date(fromVal + 'T00:00:00');
-    const to = new Date(toVal + 'T23:59:59');
-    
-    // Filtr po nakładaniu się życia oferty na zakres
-    const filtered = top5Data.offers.filter(o => lifespanOverlaps(o, from, to));
-    
-    const drops = filtered.filter(o => o.change_percent < 0)
-        .sort((a, b) => a.change_percent - b.change_percent)
-        .slice(0, 5);
-    const rises = filtered.filter(o => o.change_percent > 0)
-        .sort((a, b) => b.change_percent - a.change_percent)
-        .slice(0, 5);
-    
-    const dropsList = document.getElementById('drops-list');
-    const risesList = document.getElementById('rises-list');
-    dropsList.innerHTML = '';
-    risesList.innerHTML = '';
-    
-    if (drops.length === 0) {
-        dropsList.innerHTML = '<div class="empty-state">Brak obniżek w wybranym okresie</div>';
-    } else {
-        drops.forEach((o, i) => dropsList.appendChild(renderRow(o, i + 1, true)));
-    }
-    
-    if (rises.length === 0) {
-        risesList.innerHTML = '<div class="empty-state">Brak podwyżek w wybranym okresie</div>';
-    } else {
-        rises.forEach((o, i) => risesList.appendChild(renderRow(o, i + 1, false)));
-    }
-    
-    document.getElementById('filter-info').textContent =
-        `${filtered.length} ogłoszeń ze zmianami cen w okresie`;
-}
-
-function applyPreset(preset) {
-    const to = new Date();
-    let from;
-    if (preset === 'all') {
-        // Najwcześniejsza data wśród wszystkich first_seen
-        let earliest = to;
-        top5Data.offers.forEach(o => {
-            const fs = parseISO(o.first_seen);
-            if (fs && fs < earliest) earliest = fs;
+            }
         });
-        from = earliest;
-    } else if (preset === '30') {
-        from = new Date();
-        from.setDate(from.getDate() - 30);
-    } else if (preset === '7') {
-        from = new Date();
-        from.setDate(from.getDate() - 7);
     }
-    document.getElementById('date-from').value = formatDateInput(from);
-    document.getElementById('date-to').value = formatDateInput(to);
-    
-    document.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('active', b.dataset.preset === preset));
-    render();
-}
 
-async function init() {
-    try {
-        const resp = await fetch('top5_data.json?t=' + Date.now());
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        top5Data = await resp.json();
-        
-        // Domyślnie 30 dni
-        applyPreset('30');
-        
-        // Listeners
-        document.querySelectorAll('.preset-btn').forEach(btn => {
-            btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
-        });
-        document.getElementById('date-from').addEventListener('change', () => {
-            document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-            render();
-        });
-        document.getElementById('date-to').addEventListener('change', () => {
-            document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-            render();
-        });
-    } catch (e) {
-        console.error('Błąd ładowania top5_data.json:', e);
-        document.getElementById('drops-list').innerHTML =
-            '<div class="empty-state">❌ Nie udało się wczytać danych: ' + escapeHtml(e.message) + '</div>';
-        document.getElementById('rises-list').innerHTML = '';
-    }
-}
-
-init();
-</script>
-
+    loadData();
+    </script>
 </body>
 </html>
