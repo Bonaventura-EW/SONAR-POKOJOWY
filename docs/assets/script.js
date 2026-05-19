@@ -171,7 +171,8 @@ function initMap() {
     // Dodaj warstwy do mapy
     markerLayers.active.addTo(map);
     markerLayers.inactive.addTo(map);
-    // markerLayers.activeApprox / inactiveApprox NIE dodajemy - domyślnie wyłączone (decyzja 3c)
+    markerLayers.activeApprox.addTo(map); // domyślnie włączone
+    // markerLayers.inactiveApprox NIE dodajemy - domyślnie wyłączone
     
     // Tworzenie warstw uczelni
     createUniversityLayers();
