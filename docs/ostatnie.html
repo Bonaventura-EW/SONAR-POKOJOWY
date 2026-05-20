@@ -365,12 +365,27 @@ const PRICE_COLORS = [
 
 const PRICE_RANGES = [500, 600, 700, 800, 900, 1000, 1200, 1400, 1600, 1800, 2000];
 
+const PRICE_TEXT_COLORS = [
+    '#fff',     // do 500
+    '#1a1a1a',  // 501-600
+    '#1a1a1a',  // 601-700
+    '#1a1a1a',  // 701-800
+    '#1a1a1a',  // 801-900
+    '#1a1a1a',  // 901-1000
+    '#1a1a1a',  // 1001-1200
+    '#1a1a1a',  // 1201-1400
+    '#1a1a1a',  // 1401-1600
+    '#fff',     // 1601-1800
+    '#fff',     // 1801-2000
+    '#fff',     // 2000+
+];
+
 function getPriceColor(price) {
-    if (!price) return '#94a3b8';
+    if (!price) return { bg: '#94a3b8', text: '#fff' };
     for (let i = 0; i < PRICE_RANGES.length; i++) {
-        if (price <= PRICE_RANGES[i]) return PRICE_COLORS[i];
+        if (price <= PRICE_RANGES[i]) return { bg: PRICE_COLORS[i], text: PRICE_TEXT_COLORS[i] };
     }
-    return PRICE_COLORS[PRICE_COLORS.length - 1];
+    return { bg: PRICE_COLORS[PRICE_COLORS.length - 1], text: PRICE_TEXT_COLORS[PRICE_TEXT_COLORS.length - 1] };
 }
 
 function parseDate(str) {
@@ -471,7 +486,7 @@ async function loadOffers() {
         const medals = ['🥇','🥈','🥉'];
         const html = top30.map((offer, i) => {
             const rank = i < 3 ? `<span class="offer-rank top3">${medals[i]}</span>` : `<span class="offer-rank">#${i+1}</span>`;
-            const color = getPriceColor(offer.price);
+            const colorObj = getPriceColor(offer.price);
             const priceText = offer.price ? offer.price + ' zł' : '—';
             const tag = getTag(offer);
             const isNew = offer.is_new ? '<span class="offer-new-badge">Nowe</span>' : '';
@@ -490,7 +505,7 @@ async function loadOffers() {
             return `
             <div class="offer-card">
                 ${rank}
-                <div class="offer-price-badge" style="background:${color}">${priceText}</div>
+                <div class="offer-price-badge" style="background:${colorObj.bg};color:${colorObj.text}">${priceText}</div>
                 <div class="offer-info">
                     <div class="offer-address" title="${offer._address}">${offer._address}</div>
                     <div class="offer-meta">
