@@ -399,12 +399,14 @@ function formatDate(str) {
 }
 
 function getTag(offer) {
-    // Próba odczytu tagu z offer_tags lub z opisu
-    const tags = offer.tags || [];
-    if (tags.includes('kawalerka')) return { label: 'Kawalerka', cls: 'tag-kawalerka' };
-    if (tags.includes('mieszkanie')) return { label: 'Mieszkanie', cls: 'tag-mieszkanie' };
-    if (tags.includes('pokoj') || tags.includes('pokój')) return { label: 'Pokój', cls: 'tag-pokoj' };
-    // fallback — tytuł/opis
+    // tags to obiekt {primary, secondary, all, confidence}
+    const primary = offer.tags?.primary || '';
+    const all = offer.tags?.all || [];
+    const tagStr = (primary + ' ' + all.join(' ')).toLowerCase();
+    if (tagStr.includes('kawalerka')) return { label: 'Kawalerka', cls: 'tag-kawalerka' };
+    if (tagStr.includes('mieszkanie')) return { label: 'Mieszkanie', cls: 'tag-mieszkanie' };
+    if (tagStr.includes('pokoj') || tagStr.includes('pokój')) return { label: 'Pokój', cls: 'tag-pokoj' };
+    // fallback z opisu
     const txt = ((offer.description || '') + (offer.id || '')).toLowerCase();
     if (txt.includes('kawalerka')) return { label: 'Kawalerka', cls: 'tag-kawalerka' };
     if (txt.includes('mieszkan')) return { label: 'Mieszkanie', cls: 'tag-mieszkanie' };
