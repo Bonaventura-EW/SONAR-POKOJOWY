@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SONAR POKOJOWY - Ostatnie ogłoszenia</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="assets/style.css?v=2">
+    <style>
+        .ostatnie-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 24px 16px 40px;
+        }
+
+        .ostatnie-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .ostatnie-header h2 {
+            font-size: 22px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .ostatnie-subtitle {
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+
+        .ostatnie-subtitle strong {
+            color: #334155;
+        }
+
+        .offer-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .offer-card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+            transition: box-shadow 0.2s, border-color 0.2s;
+        }
+
+        .offer-card:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.09);
+            border-color: #94a3b8;
+        }
+
+        .offer-rank {
+            font-size: 13px;
+            font-weight: 700;
+            color: #94a3b8;
+            min-width: 28px;
+            text-align: center;
+        }
+
+        .offer-rank.top3 {
+            color: #f59e0b;
+            font-size: 18px;
+        }
+
+        .offer-price-badge {
+            min-width: 80px;
+            text-align: center;
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-weight: 800;
+            font-size: 16px;
+            color: #fff;
+            letter-spacing: -0.5px;
+            flex-shrink: 0;
+        }
+
+        .offer-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .offer-address {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1e293b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .offer-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 4px;
+            flex-wrap: wrap;
+        }
+
+        .offer-date {
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .offer-tag {
+            font-size: 11px;
+            padding: 2px 7px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .tag-pokoj   { background: #dbeafe; color: #1d4ed8; }
+        .tag-kawalerka { background: #d1fae5; color: #065f46; }
+        .tag-mieszkanie { background: #ede9fe; color: #5b21b6; }
+        .tag-inne    { background: #f1f5f9; color: #475569; }
+
+        .offer-new-badge {
+            font-size: 10px;
+            font-weight: 700;
+            background: #22c55e;
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .offer-actions {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .btn-map {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: #3b82f6;
+            color: #fff;
+            border: none;
+            border-radius: 7px;
+            padding: 7px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.2s, transform 0.1s;
+            white-space: nowrap;
+        }
+
+        .btn-map:hover {
+            background: #2563eb;
+            transform: scale(1.04);
+        }
+
+        .btn-olx {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: #f97316;
+            color: #fff;
+            border: none;
+            border-radius: 7px;
+            padding: 7px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.2s, transform 0.1s;
+            white-space: nowrap;
+        }
+
+        .btn-olx:hover {
+            background: #ea580c;
+            transform: scale(1.04);
+        }
+
+        .loading-state, .error-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #64748b;
+            font-size: 16px;
+        }
+
+        .error-state { color: #ef4444; }
+
+        .stats-bar {
+            display: flex;
+            gap: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            padding: 14px 20px;
+            margin-bottom: 20px;
+            color: #fff;
+            flex-wrap: wrap;
+        }
+
+        .stats-bar-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .stats-bar-label {
+            font-size: 11px;
+            opacity: 0.8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stats-bar-value {
+            font-size: 18px;
+            font-weight: 800;
+        }
+
+        @media (max-width: 600px) {
+            .offer-card { flex-wrap: wrap; }
+            .offer-actions { width: 100%; justify-content: flex-end; }
+            .btn-olx { display: none; }
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <!-- Header (identyczny z index.html) -->
+    <header class="header">
+        <h1>
+            <svg width="32" height="32" viewBox="0 0 64 64" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
+                <defs>
+                    <radialGradient id="headerRadarBg" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" style="stop-color:#1a3a1a;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#0a1a0a;stop-opacity:1" />
+                    </radialGradient>
+                    <linearGradient id="headerSweepGradient" x1="50%" y1="50%" x2="100%" y2="50%">
+                        <stop offset="0%" style="stop-color:#00ff00;stop-opacity:0.8" />
+                        <stop offset="50%" style="stop-color:#00ff00;stop-opacity:0.3" />
+                        <stop offset="100%" style="stop-color:#00ff00;stop-opacity:0" />
+                    </linearGradient>
+                    <mask id="headerSweepMask">
+                        <circle cx="32" cy="32" r="28" fill="white"/>
+                    </mask>
+                </defs>
+                <circle cx="32" cy="32" r="32" fill="url(#headerRadarBg)"/>
+                <circle cx="32" cy="32" r="30" fill="none" stroke="#00ff00" stroke-width="0.5" opacity="0.6"/>
+                <circle cx="32" cy="32" r="24" fill="none" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+                <circle cx="32" cy="32" r="18" fill="none" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+                <circle cx="32" cy="32" r="12" fill="none" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+                <line x1="32" y1="4" x2="32" y2="60" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+                <line x1="4" y1="32" x2="60" y2="32" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+                <g transform="translate(32, 32)">
+                    <path d="M0,-6 L-2,-3 L-2,0 C-2,2 -1,3 0,6 C1,3 2,2 2,0 L2,-3 Z" fill="#00ff00" stroke="#003300" stroke-width="0.5" opacity="0.9">
+                        <animateTransform attributeName="transform" type="scale" values="1;1.3;1" dur="2s" repeatCount="indefinite"/>
+                    </path>
+                </g>
+                <g mask="url(#headerSweepMask)">
+                    <path d="M32,32 L32,4 A28,28 0 0,1 60,32 Z" fill="url(#headerSweepGradient)" opacity="0.6">
+                        <animateTransform attributeName="transform" type="rotate" from="0 32 32" to="360 32 32" dur="3s" repeatCount="indefinite"/>
+                    </path>
+                </g>
+                <circle cx="22" cy="18" r="1.5" fill="#00ff00" opacity="0.8">
+                    <animate attributeName="opacity" values="0.8;0.3;0.8" dur="1.5s" repeatCount="indefinite"/>
+                </circle>
+                <circle cx="45" cy="25" r="1.5" fill="#00ff00" opacity="0.8">
+                    <animate attributeName="opacity" values="0.3;0.8;0.3" dur="1.5s" repeatCount="indefinite"/>
+                </circle>
+            </svg>
+            SONAR POKOJOWY
+        </h1>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <a href="index.html" style="color: white; text-decoration: none; background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background 0.3s;">
+                🗺️ Mapa
+            </a>
+            <a href="analytics.html" style="color: white; text-decoration: none; background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background 0.3s;">
+                📈 Analityka
+            </a>
+            <a href="monitoring.html" style="color: white; text-decoration: none; background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background 0.3s;">
+                📊 Monitoring
+            </a>
+            <a href="market_analysis.html" style="color: white; text-decoration: none; background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background 0.3s;">
+                🔍 Analiza Rynku
+            </a>
+            <a href="top5.html" style="color: white; text-decoration: none; background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background 0.3s;">
+                🏆 Top 5
+            </a>
+            <a href="ostatnie.html" style="color: white; text-decoration: none; background: rgba(255,255,255,0.35); padding: 8px 16px; border-radius: 6px; font-weight: 600; border: 1px solid rgba(255,255,255,0.5);">
+                🆕 Ostatnie
+            </a>
+            <a href="skipped_debug.html" style="color: white; text-decoration: none; background: rgba(255,200,0,0.35); padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background 0.3s; border: 1px dashed rgba(255,255,255,0.6);" title="Strona tymczasowa - debug parsera">
+                🐛 Pominięte
+            </a>
+        </div>
+    </header>
+
+    <!-- Treść -->
+    <div style="flex: 1; overflow-y: auto; background: #f8fafc;">
+        <div class="ostatnie-container">
+            <div class="ostatnie-header">
+                <span style="font-size: 28px;">🆕</span>
+                <h2>Ostatnie ogłoszenia</h2>
+            </div>
+            <p class="ostatnie-subtitle" id="subtitle">Ładowanie danych…</p>
+
+            <div id="stats-bar" class="stats-bar" style="display:none;">
+                <div class="stats-bar-item">
+                    <span class="stats-bar-label">Pokazanych</span>
+                    <span class="stats-bar-value" id="stat-count">—</span>
+                </div>
+                <div class="stats-bar-item">
+                    <span class="stats-bar-label">Najnowsze</span>
+                    <span class="stats-bar-value" id="stat-newest">—</span>
+                </div>
+                <div class="stats-bar-item">
+                    <span class="stats-bar-label">Śr. cena</span>
+                    <span class="stats-bar-value" id="stat-avg">—</span>
+                </div>
+                <div class="stats-bar-item">
+                    <span class="stats-bar-label">Min / Max</span>
+                    <span class="stats-bar-value" id="stat-minmax">—</span>
+                </div>
+            </div>
+
+            <div id="offer-list" class="offer-list">
+                <div class="loading-state">⏳ Ładowanie ogłoszeń…</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Paleta kolorów cen (12 kroków) — identyczna z map_generator.py
+const PRICE_COLORS = [
+    '#1a9641', // do 500
+    '#52b74e',
+    '#8acc62',
+    '#b8e186',
+    '#d9ef8b',
+    '#ffffbf',
+    '#fee08b',
+    '#fdae61',
+    '#f46d43',
+    '#d73027',
+    '#a50026',
+    '#6b0020', // ponad 2000
+];
+
+const PRICE_RANGES = [500, 600, 700, 800, 900, 1000, 1200, 1400, 1600, 1800, 2000];
+
+function getPriceColor(price) {
+    if (!price) return '#94a3b8';
+    for (let i = 0; i < PRICE_RANGES.length; i++) {
+        if (price <= PRICE_RANGES[i]) return PRICE_COLORS[i];
+    }
+    return PRICE_COLORS[PRICE_COLORS.length - 1];
+}
+
+function parseDate(str) {
+    // Format: "DD.MM.YYYY HH:MM"
+    if (!str) return new Date(0);
+    const m = str.match(/(\d{2})\.(\d{2})\.(\d{4}) (\d{2}):(\d{2})/);
+    if (!m) return new Date(0);
+    return new Date(+m[3], +m[2]-1, +m[1], +m[4], +m[5]);
+}
+
+function formatDate(str) {
+    if (!str) return '—';
+    const m = str.match(/(\d{2})\.(\d{2})\.(\d{4}) (\d{2}):(\d{2})/);
+    if (!m) return str;
+    const now = new Date();
+    const d = new Date(+m[3], +m[2]-1, +m[1], +m[4], +m[5]);
+    const diffMs = now - d;
+    const diffH = Math.floor(diffMs / 3600000);
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 60) return `${diffMin} min temu`;
+    if (diffH < 24) return `${diffH} godz. temu`;
+    const diffD = Math.floor(diffH / 24);
+    if (diffD === 1) return 'wczoraj';
+    if (diffD < 7) return `${diffD} dni temu`;
+    return `${m[1]}.${m[2]}.${m[3]}`;
+}
+
+function getTag(offer) {
+    // Próba odczytu tagu z offer_tags lub z opisu
+    const tags = offer.tags || [];
+    if (tags.includes('kawalerka')) return { label: 'Kawalerka', cls: 'tag-kawalerka' };
+    if (tags.includes('mieszkanie')) return { label: 'Mieszkanie', cls: 'tag-mieszkanie' };
+    if (tags.includes('pokoj') || tags.includes('pokój')) return { label: 'Pokój', cls: 'tag-pokoj' };
+    // fallback — tytuł/opis
+    const txt = ((offer.description || '') + (offer.id || '')).toLowerCase();
+    if (txt.includes('kawalerka')) return { label: 'Kawalerka', cls: 'tag-kawalerka' };
+    if (txt.includes('mieszkan')) return { label: 'Mieszkanie', cls: 'tag-mieszkanie' };
+    return { label: 'Pokój', cls: 'tag-pokoj' };
+}
+
+function goToMap(lat, lon) {
+    // Przekazuje koordynaty przez URL hash do mapy
+    window.open(`index.html#goto:${lat},${lon}`, '_blank');
+}
+
+async function loadOffers() {
+    const listEl = document.getElementById('offer-list');
+    const subtitleEl = document.getElementById('subtitle');
+    const statsBar = document.getElementById('stats-bar');
+
+    try {
+        const resp = await fetch('data.json?v=' + Date.now());
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+
+        const markers = data.markers || [];
+        const scanInfo = data.scan_info || {};
+
+        // Zbierz wszystkie aktywne oferty z lokalizacją
+        const allOffers = [];
+        for (const marker of markers) {
+            const lat = marker.coords?.lat;
+            const lon = marker.coords?.lon;
+            const address = marker.address || '—';
+            for (const offer of (marker.offers || [])) {
+                if (!offer.active) continue;
+                if (!offer.first_seen) continue;
+                allOffers.push({ ...offer, _lat: lat, _lon: lon, _address: address });
+            }
+        }
+
+        // Sortuj po first_seen malejąco, weź 30
+        allOffers.sort((a, b) => parseDate(b.first_seen) - parseDate(a.first_seen));
+        const top30 = allOffers.slice(0, 30);
+
+        if (top30.length === 0) {
+            listEl.innerHTML = '<div class="error-state">Brak aktywnych ogłoszeń z lokalizacją.</div>';
+            subtitleEl.textContent = 'Brak danych.';
+            return;
+        }
+
+        // Statystyki
+        const prices = top30.map(o => o.price).filter(Boolean);
+        const avg = prices.length ? Math.round(prices.reduce((a,b)=>a+b,0)/prices.length) : null;
+        const minP = prices.length ? Math.min(...prices) : null;
+        const maxP = prices.length ? Math.max(...prices) : null;
+
+        subtitleEl.innerHTML = `Ostatnie <strong>${top30.length}</strong> nowych aktywnych ogłoszeń · kliknij 📍 aby zobaczyć na mapie`;
+        document.getElementById('stat-count').textContent = top30.length;
+        document.getElementById('stat-newest').textContent = formatDate(top30[0].first_seen);
+        document.getElementById('stat-avg').textContent = avg ? avg + ' zł' : '—';
+        document.getElementById('stat-minmax').textContent = (minP && maxP) ? `${minP}–${maxP} zł` : '—';
+        statsBar.style.display = 'flex';
+
+        // Buduj karty
+        const medals = ['🥇','🥈','🥉'];
+        const html = top30.map((offer, i) => {
+            const rank = i < 3 ? `<span class="offer-rank top3">${medals[i]}</span>` : `<span class="offer-rank">#${i+1}</span>`;
+            const color = getPriceColor(offer.price);
+            const priceText = offer.price ? offer.price + ' zł' : '—';
+            const tag = getTag(offer);
+            const isNew = offer.is_new ? '<span class="offer-new-badge">Nowe</span>' : '';
+            const dateStr = formatDate(offer.first_seen);
+            const fullDate = offer.first_seen || '';
+            const hasCoords = offer._lat && offer._lon;
+
+            const mapBtn = hasCoords
+                ? `<button class="btn-map" onclick="goToMap(${offer._lat}, ${offer._lon})" title="Pokaż na mapie">📍 Mapa</button>`
+                : `<button class="btn-map" style="opacity:0.4;cursor:not-allowed" disabled title="Brak lokalizacji">📍 Brak</button>`;
+
+            const olxBtn = offer.url
+                ? `<a class="btn-olx" href="${offer.url}" target="_blank" rel="noopener">🔗 OLX</a>`
+                : '';
+
+            return `
+            <div class="offer-card">
+                ${rank}
+                <div class="offer-price-badge" style="background:${color}">${priceText}</div>
+                <div class="offer-info">
+                    <div class="offer-address" title="${offer._address}">${offer._address}</div>
+                    <div class="offer-meta">
+                        <span class="offer-date" title="${fullDate}">🕐 ${dateStr}</span>
+                        <span class="offer-tag ${tag.cls}">${tag.label}</span>
+                        ${isNew}
+                    </div>
+                </div>
+                <div class="offer-actions">
+                    ${mapBtn}
+                    ${olxBtn}
+                </div>
+            </div>`;
+        }).join('');
+
+        listEl.innerHTML = html;
+
+    } catch (err) {
+        listEl.innerHTML = `<div class="error-state">❌ Błąd ładowania danych: ${err.message}</div>`;
+        subtitleEl.textContent = 'Błąd.';
+        console.error(err);
+    }
+}
+
+loadOffers();
+</script>
+</body>
+</html>

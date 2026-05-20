@@ -1127,7 +1127,29 @@ function setupEventListeners() {
 // Inicjalizacja po załadowaniu DOM
 document.addEventListener('DOMContentLoaded', function() {
     initMap();
-    loadData();
+    loadData().then(() => {
+        // Obsługa linku z ostatnie.html: #goto:lat,lon
+        const hash = window.location.hash;
+        const m = hash.match(/^#goto:([\d.]+),([\d.]+)$/);
+        if (m) {
+            const lat = parseFloat(m[1]);
+            const lon = parseFloat(m[2]);
+            map.setView([lat, lon], 17);
+            // Pulsujący marker wskazujący lokalizację
+            const pulse = L.circleMarker([lat, lon], {
+                radius: 18,
+                color: '#f97316',
+                fillColor: '#f97316',
+                fillOpacity: 0.25,
+                weight: 3,
+                opacity: 0.9
+            }).addTo(map);
+            // Usuń po 4 sekundach
+            setTimeout(() => map.removeLayer(pulse), 4000);
+            // Wyczyść hash bez przeładowania
+            history.replaceState(null, '', window.location.pathname);
+        }
+    });
 });
 
 // NOWA funkcja: Przełączanie widoku opisu (pokaż całość / zwiń)
