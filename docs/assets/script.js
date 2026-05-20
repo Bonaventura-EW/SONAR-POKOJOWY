@@ -703,6 +703,13 @@ function filterMarkers() {
     // Pobierz ustawienia filtrów
     const showActive = document.getElementById('layer-active').checked;
     const showInactive = document.getElementById('layer-inactive').checked;
+
+    // Dodaj/usuń warstwę nieaktywnych z mapy (analogicznie do toggleInactiveApproxLayer)
+    if (showInactive && !map.hasLayer(markerLayers.inactive)) {
+        markerLayers.inactive.addTo(map);
+    } else if (!showInactive && map.hasLayer(markerLayers.inactive)) {
+        map.removeLayer(markerLayers.inactive);
+    }
     const showActiveApprox = document.getElementById('layer-active-approx')?.checked ?? false;
     const showInactiveApprox = document.getElementById('layer-inactive-approx')?.checked ?? false;
     
