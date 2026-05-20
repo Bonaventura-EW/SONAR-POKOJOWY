@@ -7,6 +7,17 @@
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="stylesheet" href="assets/style.css?v=2">
     <style>
+        /* Nadpisz style mapowe które ukrywają treść */
+        #app {
+            height: auto !important;
+            min-height: 100vh;
+            overflow: visible !important;
+        }
+        .main-container {
+            display: block !important;
+            overflow: visible !important;
+            flex: none !important;
+        }
         .ostatnie-container {
             max-width: 900px;
             margin: 0 auto;
