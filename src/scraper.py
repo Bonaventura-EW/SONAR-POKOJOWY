@@ -240,6 +240,168 @@ class OLXScraper:
         next_page_num = current_page + 1
         
         # Sprawdzamy czy następna strona istnieje (nie róbmy requesta, tylko sprawdźmy czy jest link)
+    def scrape_all_pages(self, max_pages: int = 20) -> List[Dict]:
+        """
+        Scrapuje wszystkie strony z ofertami (z limitem max_pages).
+        NOWE: Równoległe pobieranie szczegółów ofert.
+        
+        Args:
+            max_pages: Maksymalna liczba stron do przejrzenia (zabezpieczenie)
+            
+        Returns:
+            Lista wszystkich ofert ze wszystkich stron
+        """
+        all_offers = []
+        current_url = self.BASE_URL
+        page_num = 1
+        
+        print(f"🔍 Rozpoczynam scraping OLX Lublin - Pokoje...")
+        print(f"⚡ Tryb równoległy: {self.max_workers} wątków\n")
+        
+        # FAZA 1: Pobierz wszystkie podstawowe oferty ze stron listingowych
+        while current_url and page_num <= max_pages:
+            print(f"📄 Strona {page_num}: {current_url}")
+            
+            soup = self._fetch_page(current_url)
+            if not soup:
+                print(f"⚠️ Nie udało się pobrać strony {page_num}")
+                break
+            
+            # Wyciągamy oferty z tej strony
+            offers = self._extract_offers_from_page(soup)
+            print(f"   Znaleziono {len(offers)} ofert")
+            
+            if not offers:
+                print("   ⚠️ Brak ofert na stronie - koniec paginacji")
+                break
+            
+            all_offers.extend(offers)
+            
+            # Sprawdzamy czy jest następna strona
+            next_url = self._get_next_page_url(soup, page_num)
+            
+            if not next_url:
+                print(f"✅ Osiągnięto ostatnią stronę")
+                break
+            
+            current_url = next_url
+            page_num += 1
+            
+            # Opóźnienie przed następną stroną
+            if page_num <= max_pages:
+                self._random_delay()
+        
+        print(f"\n✅ Faza 1: Pobrano {len(all_offers)} podstawowych ofert z {page_num} stron")
+        
+        # FAZA 2: Inteligentne pobieranie szczegółów (pomijamy oferty ze stałą ceną)
+        if all_offers:
+            # Rozdziel oferty na: do pobrania vs do pominięcia
+            offers_to_fetch = []
+            offers_to_skip = []
+            
+            for offer in all_offers:
+                offer_id = offer['url'].split('/')[-1].split('.')[0]
+                listing_price = self._extract_price_number(offer['price_raw'])
+                
+                # Sprawdź czy oferta istnieje w bazie
+                if offer_id in self.existing_offers:
+                    existing = self.existing_offers[offer_id]
+                    existing_price = existing.get('price')
+                    
+                    # Porównaj ceny (tylko cyfry)
+                    if listing_price and existing_price and listing_price == existing_price:
+                        # Ta sama cena → pomiń pobieranie szczegółów
+                        offers_to_skip.append({
+                            'offer': offer,
+                            'existing': existing,
+                            'reason': 'same_price'
+                        })
+                        self.stats['skipped_same_price'] += 1
+                    else:
+                        # Cena się zmieniła → pobierz szczegóły
+                        offers_to_fetch.append({
+                            'offer': offer,
+                            'old_price': existing_price,
+                            'new_price': listing_price,
+                            'reason': 'price_changed'
+                        })
+                        self.stats['fetched_price_changed'] += 1
+                else:
+                    # Nowa oferta → pobierz szczegóły
+                    offers_to_fetch.append({
+                        'offer': offer,
+                        'reason': 'new'
+                    })
+                    self.stats['fetched_new'] += 1
+            
+            print(f"\n📊 Inteligentne pobieranie:")
+            print(f"   ⏭️  Pominięto (ta sama cena): {len(offers_to_skip)}")
+            print(f"   🆕 Nowe oferty do pobrania: {self.stats['fetched_new']}")
+            print(f"   💰 Zmieniona cena: {self.stats['fetched_price_changed']}")
+            
+            # Uzupełnij oferty pominięte danymi z istniejącej bazy
+            for item in offers_to_skip:
+                offer = item['offer']
+                existing = item['existing']
+                offer['description'] = existing.get('description', offer['title'])
+                offer['official_price'] = existing.get('price')
+                offer['official_price_raw'] = f"{existing.get('price')} zł (cache)"
+                offer['price_source'] = 'cache'
+                offer['skipped'] = True  # Flaga że pominięto pobieranie
+                
+                # Dodaj adres i współrzędne z cache (dla reaktywacji nieaktywnych ofert)
+                if existing.get('address'):
+                    offer['cached_address'] = existing.get('address')
+                if existing.get('coordinates'):
+                    offer['cached_coordinates'] = existing.get('coordinates')
+                # Oznacz czy oferta była nieaktywna (do potencjalnej reaktywacji)
+                offer['was_inactive'] = not existing.get('was_active', True)
+            
+            # Pobierz szczegóły tylko dla ofert które tego wymagają
+            if offers_to_fetch:
+                print(f"\n⚡ Faza 2: Pobieranie szczegółów dla {len(offers_to_fetch)} ofert ({self.max_workers} wątków)...")
+                start_time = time.time()
+                
+                with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                    # Submit tylko oferty do pobrania
+                    future_to_item = {
+                        executor.submit(self._fetch_single_offer_details, item['offer']): item 
+                        for item in offers_to_fetch
+                    }
+                    
+                    # Zbierz wyniki
+                    completed = 0
+                    total = len(offers_to_fetch)
+                    
+                    for future in as_completed(future_to_item):
+                        completed += 1
+                        item = future_to_item[future]
+                        try:
+                            updated_offer = future.result()
+                            # Dodaj info o poprzedniej cenie jeśli się zmieniła
+                            if item.get('reason') == 'price_changed':
+                                updated_offer['previous_price'] = item.get('old_price')
+                            
+                            # Zaktualizuj w all_offers
+                            for i, o in enumerate(all_offers):
+                                if o['url'] == updated_offer['url']:
+                                    all_offers[i] = updated_offer
+                                    break
+                            
+                            progress = (completed / total) * 100
+                            print(f"\r   Postęp: [{completed}/{total}] {progress:.1f}%", end='', flush=True)
+                        except (requests.RequestException, AttributeError, TypeError) as e:
+                            print(f"\n   ⚠️ Błąd pobierania: {e}")
+                
+                elapsed = time.time() - start_time
+                print(f"\n✅ Szczegóły pobrane w {elapsed:.1f}s (średnio {elapsed/len(offers_to_fetch):.2f}s/oferta)")
+            else:
+                print(f"\n✅ Wszystkie oferty pominięte (brak zmian cen)")
+        
+        print(f"\n✅ Scraping zakończony: {len(all_offers)} ofert z {page_num} stron")
+        print(f"   📈 Zaoszczędzono {self.stats['skipped_same_price']} requestów!")
+        return all_offers
+    
     # ------------------------------------------------------------------
     # PROFILE SCRAPING — via OLX API v1 (user_id parameter)
     # ------------------------------------------------------------------
