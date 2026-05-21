@@ -475,9 +475,15 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
         // Ikona markera - pinezka z kolorem
         // Jeśli nowa - czerwona obwódka; firmowa - złota; inaczej - biała
         const isFirmOffer = offer.is_firm_offer === true;
+        const offerType = offer.offer_type || null;
+        const offerCity = (offer.city || '').toLowerCase();
         const strokeColor = isNew ? '#ff0000' : isFirmOffer ? '#FFD700' : 'white';
         const strokeWidth = isNew ? '3' : isFirmOffer ? '4' : '2';
         const markerColor = color;
+        // Ikona wewnętrzna: M=mieszkanie, P=pokój (dla ofert firmowych)
+        const firmInner = isFirmOffer && offerType === 'mieszkanie' ? 'M'
+                        : isFirmOffer && offerType === 'pokoj' ? 'P'
+                        : '';
 
         // Czy oferta to "przybliżony adres" (sama ulica, bez numeru)?
         const isApprox = offer.precision === 'street_only';
@@ -548,7 +554,7 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
             // Krzyżyk × dla nieaktywnych: czarny tekst w białym kole wewnątrz SVG (zgodnie z mockupem v2)
             const inactiveMarker = !isActive
                 ? `<circle cx="20" cy="18" r="9" fill="white"/><text x="20" y="18" text-anchor="middle" dominant-baseline="central" font-size="16" font-weight="700" fill="#1f2937" font-family="-apple-system, sans-serif">×</text>`
-                : `<circle cx="20" cy="18" r="8" fill="white" opacity="0.9"/>`;
+                : `<circle cx="20" cy="18" r="8" fill="${isFirmOffer && offerType === 'mieszkanie' ? markerColor : 'white'}" opacity="0.9"/>${firmInner ? `<text x="20" y="18" text-anchor="middle" dominant-baseline="central" font-size="9" font-weight="800" fill="${offerType === 'mieszkanie' ? 'white' : markerColor}">${firmInner}</text>` : ''}`;
             icon = L.divIcon({
                 className: 'pin-marker',
                 html: `
@@ -581,8 +587,18 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
 
         // Dodaj do odpowiedniej warstwy
         // Priorytet: firma > approx > exact
-        if (isFirmOffer && isActive) {
+        // Warstwa firm: tylko Lublin + pokoje/mieszkania
+        const offerType = offer.offer_type || null;
+        const offerCity = (offer.city || '').toLowerCase();
+        const isFirmLublin = isFirmOffer && isActive
+            && (offerType === 'pokoj' || offerType === 'mieszkanie')
+            && (!offerCity || offerCity === 'lublin');
+
+        if (isFirmLublin) {
             markerObj.addTo(markerLayers.firm);
+        } else if (isFirmOffer && isActive) {
+            // Firma ale poza Lublinem lub inna kategoria → zwykła warstwa
+            markerObj.addTo(markerLayers.active);
         } else if (isApprox) {
             markerObj.addTo(isActive ? markerLayers.activeApprox : markerLayers.inactiveApprox);
         } else if (isActive) {
@@ -605,6 +621,9 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
             priceDown: hasPriceChange && priceDown,
             priceUp: hasPriceChange && priceUp,
             isFirmOffer: isFirmOffer,
+            isFirmLublin: isFirmLublin,
+            offerType: offerType,
+            offerCity: offerCity,
             // Daty do filtrowania zakresem dat
             firstSeenDate: parsePolishDate(offer.first_seen),
             priceChangedAtDate: parsePolishDate(offer.price_changed_at)

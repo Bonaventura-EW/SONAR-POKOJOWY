@@ -388,7 +388,9 @@ class SonarPokojowy:
             'last_seen': datetime.now(self.tz).isoformat(),
             'active': True,
             'days_active': 0,
-            'profile_name': raw_offer.get('profile_name')  # None lub klucz profilu firmowego
+            'profile_name': raw_offer.get('profile_name'),  # None lub klucz profilu firmowego
+            'offer_type': raw_offer.get('offer_type'),  # 'pokoj'/'mieszkanie'/'inne'
+            'city': raw_offer.get('city', ''),  # miasto z API OLX
         }
     
     def _find_existing_offer(self, offer_id: str) -> Dict:

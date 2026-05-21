@@ -137,6 +137,8 @@ def generate_profile_data(input_file: str, output_file: str):
             'active': is_active,
             'is_new': False,  # obliczone poniżej
             'reactivated': offer.get('reactivated_at') is not None,
+            'offer_type': offer.get('offer_type'),   # 'pokoj'/'mieszkanie'/'inne'
+            'city': offer.get('city', ''),            # miasto ogłoszenia
         }
 
         # Czy nowa (first_seen dzisiaj)

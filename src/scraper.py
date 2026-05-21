@@ -461,13 +461,25 @@ class OLXScraper:
 
                     price_raw = f"{price_value} zł" if price_value else "Zapytaj o cenę"
 
+                    cat_id = api_offer.get('category', {}).get('id')
+                    if cat_id == 11:
+                        offer_type = 'pokoj'
+                    elif cat_id == 15:
+                        offer_type = 'mieszkanie'
+                    else:
+                        offer_type = 'inne'
+
+                    city_name = (api_offer.get('location', {}) or {}).get('city', {}).get('name', '')
+
                     offer = {
                         'title': api_offer.get('title', ''),
                         'url': offer_url,
                         'price_raw': price_raw,
                         'profile_key': profile_key,
                         'profile_name': profile_name,
-                        '_api_data': api_offer,  # zachowaj oryginał do ekstrakcji szczegółów
+                        'offer_type': offer_type,
+                        'city': city_name,
+                        '_api_data': api_offer,
                     }
                     all_offers.append(offer)
 

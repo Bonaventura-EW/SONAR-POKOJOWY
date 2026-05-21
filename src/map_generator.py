@@ -246,7 +246,9 @@ def generate_map_data(input_file, output_file):
             },
             # Profil firmowy
             'profile_name': offer.get('profile_name'),
-            'is_firm_offer': bool(offer.get('profile_name'))
+            'is_firm_offer': bool(offer.get('profile_name')),
+            'offer_type': offer.get('offer_type'),  # 'pokoj'/'mieszkanie'/'inne'/None
+            'city': offer.get('city', ''),
         }
         
         markers_dict[key].append({
@@ -278,8 +280,12 @@ def generate_map_data(input_file, output_file):
             (not o['active']) and o.get('precision') == 'street_only' for o in offers_list
         )
 
+        LUBLIN_VARIANTS = {'lublin', 'Lublin'}
         has_firm_offers = any(
-            o.get('is_firm_offer') and o['active'] for o in offers_list
+            o.get('is_firm_offer') and o['active']
+            and o.get('offer_type') in ('pokoj', 'mieszkanie')
+            and (not o.get('city') or o.get('city') in LUBLIN_VARIANTS)
+            for o in offers_list
         )
 
         markers.append({
