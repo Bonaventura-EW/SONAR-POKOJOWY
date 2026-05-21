@@ -588,8 +588,6 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
         // Dodaj do odpowiedniej warstwy
         // Priorytet: firma > approx > exact
         // Warstwa firm: tylko Lublin + pokoje/mieszkania
-        const offerType = offer.offer_type || null;
-        const offerCity = (offer.city || '').toLowerCase();
         const isFirmLublin = isFirmOffer && isActive
             && (offerType === 'pokoj' || offerType === 'mieszkanie')
             && (!offerCity || offerCity === 'lublin');
