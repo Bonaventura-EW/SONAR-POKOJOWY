@@ -1,65 +1,5 @@
 [
   {
-    "timestamp": "2026-04-26T10:12:34.600807+02:00",
-    "status": "completed",
-    "phases": {
-      "scraping": {
-        "duration": 260.61,
-        "details": {
-          "offers_found": 410,
-          "max_pages": 50
-        }
-      },
-      "processing": {
-        "duration": 0.56,
-        "details": {
-          "processed": 83,
-          "skipped_no_address": 162,
-          "skipped_no_price": 1,
-          "skipped_no_coords": 156,
-          "skipped_duplicate": 8
-        }
-      },
-      "geocoding": {
-        "duration": 0.34,
-        "details": {
-          "geocoded_addresses": 83
-        }
-      }
-    },
-    "stats": {
-      "raw_offers": 410,
-      "processed": 83,
-      "new": 1,
-      "updated": 82,
-      "reactivated": 16,
-      "total_in_db": 259,
-      "active": 102,
-      "inactive": 157,
-      "skipped_no_address": 162,
-      "skipped_no_price": 1,
-      "skipped_no_coords": 156,
-      "skipped_duplicate": 8,
-      "verification": {
-        "verified": 50,
-        "reactivated": 15,
-        "confirmed_inactive": 35,
-        "errors": 0
-      }
-    },
-    "errors": [],
-    "end_timestamp": "2026-04-26T10:18:11.068214+02:00",
-    "total_duration": 336.47,
-    "performance": {
-      "offers_per_second": 1.22,
-      "pages_scanned": 50,
-      "geocoding_duration": 0.34,
-      "geocoding_per_address": 0.0,
-      "scraping_per_page": 5.21,
-      "processing_success_rate": 20.2
-    }
-  },
-  {
     "timestamp": "2026-04-26T15:59:43.536464+02:00",
     "status": "completed",
     "phases": {
@@ -5942,5 +5882,19 @@
       "scraping_per_page": 0.26,
       "processing_success_rate": 71.6
     }
+  },
+  {
+    "timestamp": "2026-05-21T20:50:21.583065+02:00",
+    "status": "failed",
+    "phases": {},
+    "stats": {},
+    "errors": [
+      {
+        "timestamp": "2026-05-21T20:50:21.583084+02:00",
+        "message": "'OLXScraper' object has no attribute 'scrape_all_pages'"
+      }
+    ],
+    "end_timestamp": "2026-05-21T20:50:21.583093+02:00",
+    "total_duration": 0.0
   }
 ]

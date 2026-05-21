@@ -1,36 +1,43 @@
 {
   "system": "sonar",
   "version": "1.0.0",
-  "generatedAt": "2026-05-21T18:12:07.116324+02:00",
+  "generatedAt": "2026-05-21T20:50:22.355606+02:00",
   "status": {
-    "current": "operational",
-    "isHealthy": true,
-    "hasErrors": false,
-    "errorMessages": []
+    "current": "down",
+    "isHealthy": false,
+    "hasErrors": true,
+    "errorMessages": [
+      "'OLXScraper' object has no attribute 'scrape_all_pages'"
+    ]
   },
   "lastScan": {
-    "id": "2026-05-21T18-11-23",
-    "timestamp": "2026-05-21T18:11:23.165766+02:00",
-    "endTimestamp": "2026-05-21T18:12:06.256067+02:00",
-    "durationSeconds": 43.09,
-    "durationFormatted": "43s",
-    "uiStatus": "success",
-    "rawStatus": "completed",
+    "id": "2026-05-21T20-50-21",
+    "timestamp": "2026-05-21T20:50:21.583065+02:00",
+    "endTimestamp": "2026-05-21T20:50:21.583093+02:00",
+    "durationSeconds": 0.0,
+    "durationFormatted": "0s",
+    "uiStatus": "failed",
+    "rawStatus": "failed",
     "offers": {
-      "found": 148,
-      "processed": 106,
-      "new": 3,
-      "updated": 103,
-      "active": 112,
-      "inactive": 530
+      "found": 0,
+      "processed": 0,
+      "new": 0,
+      "updated": 0,
+      "active": 0,
+      "inactive": 0
     },
     "skipped": {
-      "noAddress": 21,
-      "noCoords": 5,
-      "duplicates": 16
+      "noAddress": 0,
+      "noCoords": 0,
+      "duplicates": 0
     },
-    "errors": [],
-    "hasErrors": false
+    "errors": [
+      {
+        "message": "'OLXScraper' object has no attribute 'scrape_all_pages'",
+        "timestamp": "2026-05-21T20:50:21.583084+02:00"
+      }
+    ],
+    "hasErrors": true
   },
   "schedule": {
     "times": [
@@ -43,8 +50,8 @@
   },
   "statistics": {
     "totalScans": 100,
-    "successRate": 98.0,
-    "avgDurationSeconds": 222.62,
-    "avgOffersFound": 379.1
+    "successRate": 97.0,
+    "avgDurationSeconds": 219.26,
+    "avgOffersFound": 375.0
   }
 }
