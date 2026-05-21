@@ -208,15 +208,15 @@ async function loadData() {
         
         updateScanInfo();
         createPriceRangeFilters();
-        createMarkers();
+        await createMarkers();  // async batch - czekamy aż wszystkie markery będą gotowe
         updateStats();  // Wywołaj PO createMarkers(), żeby allMarkers był wypełniony
         initDateSlider();  // Suwak dni - wymaga wypełnionego allMarkers
         setupEventListeners();
         filterMarkers();  // ✅ Przefiltruj markery zgodnie z początkowymi stanami checkboxów
-        
+
         // NOWE: jeśli URL ma ?offer=ID, pokaż wskazany marker
         focusOfferFromUrl();
-        
+
         console.log('🎉 Mapa gotowa!');
         
     } catch (error) {
@@ -369,29 +369,51 @@ function createPriceRangeFilters() {
     });
 }
 
-// Tworzenie markerów
+// Tworzenie markerów (async batch - wsady po 100 z requestIdleCallback,
+// żeby nie blokować głównego wątku przy ~600+ markerach)
 function createMarkers() {
-    allMarkers = [];
-    
-    mapData.markers.forEach(marker => {
-        const coords = marker.coords;
-        const address = marker.address;
-        const offers = marker.offers;
-        const hasActive = marker.has_active;
-        
-        // Grupuj oferty: aktywne osobno, nieaktywne osobno
-        const activeOffers = offers.filter(o => o.active);
-        const inactiveOffers = offers.filter(o => !o.active);
-        
-        // Twórz marker dla aktywnych (jeśli są)
-        if (activeOffers.length > 0) {
-            createMarkerGroup(coords, address, activeOffers, true);
+    return new Promise(resolve => {
+        allMarkers = [];
+        const markers = mapData.markers;
+        const BATCH_SIZE = 100;
+        let i = 0;
+
+        function processBatch() {
+            const end = Math.min(i + BATCH_SIZE, markers.length);
+            for (; i < end; i++) {
+                const marker = markers[i];
+                const coords = marker.coords;
+                const address = marker.address;
+                const offers = marker.offers;
+
+                // Grupuj oferty: aktywne osobno, nieaktywne osobno
+                const activeOffers = offers.filter(o => o.active);
+                const inactiveOffers = offers.filter(o => !o.active);
+
+                // Twórz marker dla aktywnych (jeśli są)
+                if (activeOffers.length > 0) {
+                    createMarkerGroup(coords, address, activeOffers, true);
+                }
+
+                // Twórz marker dla nieaktywnych (jeśli są)
+                if (inactiveOffers.length > 0) {
+                    createMarkerGroup(coords, address, inactiveOffers, false);
+                }
+            }
+
+            if (i < markers.length) {
+                // Następny wsad w bezczynnym slocie - strona pozostaje responsywna
+                if (window.requestIdleCallback) {
+                    requestIdleCallback(processBatch, { timeout: 50 });
+                } else {
+                    setTimeout(processBatch, 0);
+                }
+            } else {
+                resolve();
+            }
         }
-        
-        // Twórz marker dla nieaktywnych (jeśli są)
-        if (inactiveOffers.length > 0) {
-            createMarkerGroup(coords, address, inactiveOffers, false);
-        }
+
+        processBatch();
     });
 }
 
@@ -497,7 +519,7 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
                 className: 'square-marker',
                 html: `
                     <div style="position: relative; width: ${squareSize}px; height: ${squareSize}px;" title="${tooltipText}">
-                        <svg width="${squareSize}" height="${squareSize}" viewBox="0 0 ${squareSize} ${squareSize}" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+                        <svg width="${squareSize}" height="${squareSize}" viewBox="0 0 ${squareSize} ${squareSize}">
                             <rect x="3" y="3" width="${squareSize - 6}" height="${squareSize - 6}"
                                   fill="${markerColor}"
                                   stroke="${isNew ? '#ff0000' : 'white'}"
@@ -523,7 +545,7 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
                 className: 'pin-marker',
                 html: `
                     <div style="position: relative; width: 40px; height: 50px;" title="${tooltipText}">
-                        <svg width="40" height="50" viewBox="0 0 40 50" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+                        <svg width="40" height="50" viewBox="0 0 40 50">
                             <path d="M20 0 C9 0 0 9 0 20 C0 35 20 50 20 50 C20 50 40 35 40 20 C40 9 31 0 20 0 Z"
                                   fill="${markerColor}"
                                   stroke="${strokeColor}"
@@ -540,15 +562,14 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
             });
         }
 
-        // Popup content
-        const popupContent = createPopupContent(address, [offer]);
+        // Popup content - LAZY: HTML generowany dopiero przy kliknięciu (oszczędność ~620 niepotrzebnych konstrukcji przy starcie)
 
         // Tworzenie markera z tooltip
         const markerObj = L.marker(coords, {
             icon: icon,
             title: tooltipText  // Tooltip przy hover
         })
-            .bindPopup(popupContent, { maxWidth: 400 });
+            .bindPopup(() => createPopupContent(address, [offer]), { maxWidth: 400 });
 
         // Dodaj do odpowiedniej warstwy
         // Priorytet: approx > exact
