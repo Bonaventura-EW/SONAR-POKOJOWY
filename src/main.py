@@ -1030,9 +1030,7 @@ class SonarPokojowy:
             verification_stats = self._verify_inactive_offers(max_to_verify=50)
             reactivated_count += verification_stats.get('reactivated', 0)
             
-            # 5. Czyszczenie starych ofert
-            print("\n🗑️ Krok 5: Czyszczenie starych ofert...")
-            self._cleanup_old_offers(max_age_days=548)
+            # 5. Czyszczenie starych ofert - WYŁĄCZONE (historia zbierana bezterminowo)
             
             # 6. Aktualizacja metadanych
             self.database['last_scan'] = now.isoformat()
