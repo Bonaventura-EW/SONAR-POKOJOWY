@@ -173,15 +173,11 @@
         }
         .profile-link-bar a:hover { text-decoration: underline; }
 
-        /* ── LAYOUT: MAP + LIST ────────────────────────── */
+        /* ── LAYOUT: MAP (góra) + LIST (dół) ─────────── */
         .panel-layout {
-            display: grid;
-            grid-template-columns: 1fr 380px;
-            gap: 20px;
-            align-items: start;
-        }
-        @media (max-width: 900px) {
-            .panel-layout { grid-template-columns: 1fr; }
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
         }
 
         /* ── MINI MAP ──────────────────────────────────── */
@@ -201,7 +197,7 @@
             letter-spacing: 0.05em;
         }
         .mini-map {
-            height: 400px;
+            height: 240px;
             width: 100%;
         }
 
@@ -225,8 +221,7 @@
             justify-content: space-between;
         }
         .list-inner {
-            max-height: 400px;
-            overflow-y: auto;
+            max-height: none;
         }
         .list-inner::-webkit-scrollbar { width: 5px; }
         .list-inner::-webkit-scrollbar-track { background: #1e293b; }
@@ -238,8 +233,14 @@
             transition: background 0.15s;
         }
         .offer-row:last-child { border-bottom: none; }
+        .offer-row { cursor: pointer; }
         .offer-row:hover { background: #273348; }
-        .offer-row.inactive { opacity: 0.5; }
+        .offer-row.inactive { opacity: 0.55; }
+        .offer-row.highlighted {
+            background: rgba(255,215,0,0.12);
+            border-left: 3px solid #FFD700;
+            padding-left: 13px;
+        }
         .offer-row-top {
             display: flex;
             align-items: center;
@@ -534,6 +535,10 @@ function render() {
 }
 
 function switchTab(key) {
+    // Resetuj highlight przy zmianie zakładki
+    document.querySelectorAll('.offer-row.highlighted').forEach(r => r.classList.remove('highlighted'));
+    activeHighlight = null;
+
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.key === key));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `panel-${key}`));
 
@@ -594,12 +599,9 @@ function buildPanel(key, p) {
         ${statsHtml}
         ${profileLinkHtml}
         <div class="panel-layout">
-            <div>
-                <div class="map-container">
-                    <h3>📍 Lokalizacje ofert</h3>
-                    <div class="mini-map" id="map-${key}"></div>
-                </div>
-                ${priceChartHtml}
+            <div class="map-container">
+                <h3>📍 Lokalizacje ofert w Lublinie</h3>
+                <div class="mini-map" id="map-${key}"></div>
             </div>
             <div class="list-container">
                 <h3>
@@ -610,6 +612,7 @@ function buildPanel(key, p) {
                     ${offerRows}
                 </div>
             </div>
+            ${priceChartHtml}
         </div>`;
 }
 
@@ -642,8 +645,9 @@ function buildOfferRow(o) {
            </span>`
         : '';
 
+    const offerId = o.id || o.url;
     return `
-        <div class="offer-row ${o.active ? '' : 'inactive'}">
+        <div class="offer-row ${o.active ? '' : 'inactive'}" data-offer-id="${offerId}" onclick="highlightOffer('${offerId}')">
             <div class="offer-row-top">
                 <span class="offer-address" title="${o.address}">${o.address || '—'}</span>
                 <span class="offer-price ${priceClass}">${prev}${o.price} zł${trend}</span>
@@ -719,12 +723,75 @@ function buildPriceChart(offers) {
 }
 
 // ── MINI MAP ───────────────────────────────────────────────────────────
+const offerMarkers = {}; // key → { offerId: { marker, origIcon } }
+let activeHighlight = null; // { key, offerId }
+
+function makeIcon(color, isActive, isHighlighted) {
+    const stroke = isHighlighted ? '#ffffff' : '#FFD700';
+    const sw = isHighlighted ? '4' : '3';
+    const inner = !isActive
+        ? `<circle cx="16" cy="14" r="7" fill="white"/><text x="16" y="14" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="700" fill="#1f2937">×</text>`
+        : isHighlighted
+        ? `<circle cx="16" cy="14" r="7" fill="white"/><text x="16" y="14" text-anchor="middle" dominant-baseline="central" font-size="11" font-weight="800" fill="${color}">★</text>`
+        : `<circle cx="16" cy="14" r="6" fill="white" opacity="0.9"/>`;
+    return L.divIcon({
+        className: '',
+        html: `<svg width="32" height="40" viewBox="0 0 32 40" style="${isHighlighted ? 'filter:drop-shadow(0 0 6px #FFD700)' : ''}">
+            <path d="M16 0 C7 0 0 7 0 16 C0 28 16 40 16 40 C16 40 32 28 32 16 C32 7 25 0 16 0 Z"
+                  fill="${color}" stroke="${stroke}" stroke-width="${sw}"
+                  ${!isActive ? 'opacity="0.45"' : ''}/>
+            ${inner}
+        </svg>`,
+        iconSize: [32, 40],
+        iconAnchor: [16, 40],
+        popupAnchor: [0, -40]
+    });
+}
+
+function highlightOffer(offerId) {
+    // Znajdź aktywną zakładkę
+    const activeTab = document.querySelector('.tab-btn.active');
+    if (!activeTab) return;
+    const key = activeTab.dataset.key;
+
+    // Podświetl wiersz w liście
+    document.querySelectorAll('.offer-row.highlighted').forEach(r => r.classList.remove('highlighted'));
+    const row = document.querySelector(`.offer-row[data-offer-id="${offerId}"]`);
+    if (row) {
+        row.classList.add('highlighted');
+        row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // Resetuj poprzedni highlight na mapie
+    if (activeHighlight && offerMarkers[activeHighlight.key]) {
+        const prev = offerMarkers[activeHighlight.key][activeHighlight.offerId];
+        if (prev) {
+            prev.marker.setIcon(makeIcon(prev.color, prev.isActive, false));
+            prev.marker.setZIndexOffset(0);
+        }
+    }
+
+    // Podświetl marker na mapie
+    const markers = offerMarkers[key];
+    if (markers && markers[offerId]) {
+        const m = markers[offerId];
+        m.marker.setIcon(makeIcon(m.color, m.isActive, true));
+        m.marker.setZIndexOffset(1000);
+        m.marker.openPopup();
+        if (miniMaps[key]) {
+            miniMaps[key].panTo(m.marker.getLatLng(), { animate: true });
+        }
+        activeHighlight = { key, offerId };
+    }
+}
+
 function initMiniMap(key) {
     const el = document.getElementById(`map-${key}`);
     if (!el || miniMaps[key]) return;
 
     const map = L.map(`map-${key}`, { zoomControl: true }).setView([51.2465, 22.5684], 13);
     miniMaps[key] = map;
+    offerMarkers[key] = {};
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OSM',
@@ -737,36 +804,27 @@ function initMiniMap(key) {
     const bounds = [];
 
     p.offers.forEach(o => {
-        if (!o.lat || !o.lon) return;
+        // Pokaż wszystkie z Lublina (pokoje i mieszkania)
+        const city = (o.city || '').toLowerCase();
+        const inLublin = !city || city === 'lublin';
+        if (!o.lat || !o.lon || !inLublin) return;
 
         const color = priceColor(o.price);
         const isActive = o.active;
+        const offerId = o.id || o.url;
 
-        const svgIcon = L.divIcon({
-            className: '',
-            html: `<svg width="32" height="40" viewBox="0 0 32 40">
-                <path d="M16 0 C7 0 0 7 0 16 C0 28 16 40 16 40 C16 40 32 28 32 16 C32 7 25 0 16 0 Z"
-                      fill="${color}"
-                      stroke="#FFD700"
-                      stroke-width="3"
-                      ${!isActive ? 'opacity="0.45"' : ''}/>
-                ${!isActive
-                    ? '<circle cx="16" cy="14" r="7" fill="white"/><text x="16" y="14" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="700" fill="#1f2937">×</text>'
-                    : '<circle cx="16" cy="14" r="6" fill="white" opacity="0.9"/>'}
-            </svg>`,
-            iconSize: [32, 40],
-            iconAnchor: [16, 40],
-            popupAnchor: [0, -40]
-        });
-
-        const marker = L.marker([o.lat, o.lon], { icon: svgIcon });
+        const icon = makeIcon(color, isActive, false);
+        const marker = L.marker([o.lat, o.lon], { icon });
 
         const histHtml = (o.price_history || []).slice(-4).map(h =>
             `<div style="font-size:11px;color:#64748b">${h.date}: <b style="color:${priceColor(h.price)}">${h.price} zł</b></div>`
         ).join('');
 
+        const typeLabel = o.offer_type === 'mieszkanie' ? '🏠 mieszkanie' : o.offer_type === 'pokoj' ? '🛏 pokój' : '';
+
         marker.bindPopup(`
             <div style="min-width:200px;font-family:sans-serif">
+                <div style="font-size:11px;color:#FFD700;margin-bottom:4px">${typeLabel}</div>
                 <div style="font-weight:700;font-size:13px;margin-bottom:6px">${o.address || '—'}</div>
                 <div style="font-size:15px;font-weight:800;color:${color};margin-bottom:6px">${o.price} zł</div>
                 <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">Pierwsze: ${o.first_seen}</div>
@@ -777,7 +835,11 @@ function initMiniMap(key) {
             </div>
         `, { maxWidth: 260 });
 
+        // Klik na marker → highlight wiersza
+        marker.on('click', () => highlightOffer(offerId));
+
         marker.addTo(map);
+        offerMarkers[key][offerId] = { marker, color, isActive };
         bounds.push([o.lat, o.lon]);
     });
 
