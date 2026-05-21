@@ -623,6 +623,16 @@ function buildOfferRow(o) {
         ? `<span style="color:#64748b;text-decoration:line-through;font-size:0.75rem">${o.previous_price} zł</span> `
         : '';
 
+    const typeBadge = o.offer_type === 'mieszkanie'
+        ? '<span class="badge-mieszkanie">🏠 mieszkanie</span>'
+        : o.offer_type === 'pokoj'
+        ? '<span class="badge-pokoj">🛏 pokój</span>'
+        : '';
+
+    const cityLabel = o.city && o.city.toLowerCase() !== 'lublin'
+        ? `<span class="offer-city outside-lublin">📍 ${o.city}</span>`
+        : (o.city ? `<span class="offer-city">📍 ${o.city}</span>` : '');
+
     // Mini price history dots
     const histDots = o.price_history && o.price_history.length > 1
         ? `<span class="price-history-mini">
