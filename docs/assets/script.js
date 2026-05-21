@@ -425,6 +425,17 @@ function createMarkers() {
 }
 
 // Tworzenie grupy markerów (rozsunięcie dla tego samego adresu)
+
+function buildActiveCircle(isFirmOffer, offerType, markerColor, firmInner) {
+    const fill = (isFirmOffer && offerType === 'mieszkanie') ? markerColor : 'white';
+    let html = '<circle cx="20" cy="18" r="8" fill="' + fill + '" opacity="0.9"/>';
+    if (firmInner) {
+        const textFill = (offerType === 'mieszkanie') ? 'white' : markerColor;
+        html += '<text x="20" y="18" text-anchor="middle" dominant-baseline="central" font-size="9" font-weight="800" fill="' + textFill + '">' + firmInner + '</text>';
+    }
+    return html;
+}
+
 function createMarkerGroup(baseCoords, address, offers, isActive) {
     // Oblicz offset bazowy - ~10 metrów między markerami (0.0001 stopnia ≈ 10m)
     const baseOffset = 0.0001;
@@ -554,7 +565,7 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
             // Krzyżyk × dla nieaktywnych: czarny tekst w białym kole wewnątrz SVG (zgodnie z mockupem v2)
             const inactiveMarker = !isActive
                 ? `<circle cx="20" cy="18" r="9" fill="white"/><text x="20" y="18" text-anchor="middle" dominant-baseline="central" font-size="16" font-weight="700" fill="#1f2937" font-family="-apple-system, sans-serif">×</text>`
-                : `<circle cx="20" cy="18" r="8" fill="${isFirmOffer && offerType === 'mieszkanie' ? markerColor : 'white'}" opacity="0.9"/>${firmInner ? `<text x="20" y="18" text-anchor="middle" dominant-baseline="central" font-size="9" font-weight="800" fill="${offerType === 'mieszkanie' ? 'white' : markerColor}">${firmInner}</text>` : ''}`;
+                : buildActiveCircle(isFirmOffer, offerType, markerColor, firmInner);
             icon = L.divIcon({
                 className: 'pin-marker',
                 html: `
