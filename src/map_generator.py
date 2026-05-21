@@ -11,6 +11,7 @@ from pathlib import Path
 
 # Import taggera ofert (B1)
 from offer_tagger import tag_offer, TAGS as OFFER_TAGS
+from profiles_config import TRACKED_PROFILES, FIRM_BORDER_COLOR, FIRM_BORDER_WIDTH
 
 # Definicja zakresów cenowych - 12 przedziałów z gradientem
 PRICE_RANGES = {
@@ -242,7 +243,10 @@ def generate_map_data(input_file, output_file):
                 'secondary': tag_result['secondary'],
                 'all': tag_result['all_tags'],
                 'confidence': tag_result['confidence']
-            }
+            },
+            # Profil firmowy
+            'profile_name': offer.get('profile_name'),
+            'is_firm_offer': bool(offer.get('profile_name'))
         }
         
         markers_dict[key].append({
@@ -274,13 +278,18 @@ def generate_map_data(input_file, output_file):
             (not o['active']) and o.get('precision') == 'street_only' for o in offers_list
         )
 
+        has_firm_offers = any(
+            o.get('is_firm_offer') and o['active'] for o in offers_list
+        )
+
         markers.append({
             'coords': coords,
             'address': address,
             'offers': offers_list,
             'has_active': has_active,
             'has_active_approx': has_active_approx,
-            'has_inactive_approx': has_inactive_approx
+            'has_inactive_approx': has_inactive_approx,
+            'has_firm_offers': has_firm_offers
         })
     
     # 4. Oblicz statystyki (tylko dla aktywnych ofert)
@@ -316,7 +325,13 @@ def generate_map_data(input_file, output_file):
         'stats': stats,
         'scan_info': scan_info,
         'price_ranges': PRICE_RANGES,
-        'offer_tags': OFFER_TAGS  # B1: Definicje tagów dla frontendu
+        'offer_tags': OFFER_TAGS,  # B1: Definicje tagów dla frontendu
+        'tracked_profiles': {k: {'name': v['name'], 'url': v['url']}
+                             for k, v in TRACKED_PROFILES.items()},
+        'firm_style': {
+            'border_color': FIRM_BORDER_COLOR,
+            'border_width': FIRM_BORDER_WIDTH
+        }
     }
     
     # 7. Zapisz do pliku
@@ -346,6 +361,17 @@ if __name__ == '__main__':
     print("\n📊 Generowanie danych monitoringu...")
     from monitoring_generator import generate_monitoring_data
     generate_monitoring_data()
+    
+    # Wygeneruj dane profili firmowych
+    print("\n🏢 Generowanie danych profili firmowych...")
+    try:
+        from profile_generator import generate_profile_data
+        generate_profile_data(
+            input_file=str(base_dir / 'data' / 'offers.json'),
+            output_file=str(base_dir / 'docs' / 'profile_data.json')
+        )
+    except Exception as e:
+        print(f"⚠️  profile_generator nie powiódł się: {e}")
     
     # Wygeneruj stronę debug z pominiętymi ofertami (tymczasowa)
     print("\n🐛 Generowanie strony debug pominiętych ofert...")

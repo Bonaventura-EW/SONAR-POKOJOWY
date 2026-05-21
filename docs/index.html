@@ -76,6 +76,9 @@
                 <a href="ostatnie.html" style="color: white; text-decoration: none; background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background 0.3s;">
                     🆕 Ostatnie
                 </a>
+                <a href="profile_tracker.html" style="color: white; text-decoration: none; background: rgba(255,215,0,0.3); padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background 0.3s; border: 1px solid rgba(255,215,0,0.6);">
+                    🏢 Firmy
+                </a>
                 <a href="skipped_debug.html" style="color: white; text-decoration: none; background: rgba(255,200,0,0.35); padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background 0.3s; border: 1px dashed rgba(255,255,255,0.6);" title="Strona tymczasowa - debug parsera">
                     🐛 Pominięte
                 </a>
@@ -165,6 +168,11 @@
                             <input type="checkbox" id="layer-inactive-approx">
                             <span>Przybliżone nieaktywne</span>
                             <span id="layer-count-inactive-approx" class="badge-count">(0)</span>
+                        </label>
+                        <label style="background: #fffbeb; padding: 5px; border-radius: 4px; margin-top: 5px; border: 2px solid #FFD700;">
+                            <input type="checkbox" id="layer-firm" checked onchange="filterMarkers()">
+                            <span style="font-weight:600;">&#127970; Firmy / Agencje</span>
+                            <span id="layer-count-firm" class="badge-count">(0)</span>
                         </label>
                     </div>
                     

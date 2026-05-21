@@ -26,8 +26,9 @@ let allMarkers = [];
 let markerLayers = {
     active: L.layerGroup(),
     inactive: L.layerGroup(),
-    activeApprox: L.layerGroup(),   // NOWE: aktywne przybliżone (precision: street_only)
-    inactiveApprox: L.layerGroup()  // NOWE: nieaktywne przybliżone
+    activeApprox: L.layerGroup(),   // aktywne przybliżone (precision: street_only)
+    inactiveApprox: L.layerGroup(), // nieaktywne przybliżone
+    firm: L.layerGroup()            // aktywne oferty profili firmowych
 };
 
 // ===== Filtr daty dodania (suwak dni) =====
@@ -171,6 +172,7 @@ function initMap() {
     // Dodaj warstwy do mapy
     markerLayers.active.addTo(map);
     markerLayers.activeApprox.addTo(map); // domyślnie włączone
+    markerLayers.firm.addTo(map);          // firmy domyślnie włączone
     // markerLayers.inactive / inactiveApprox NIE dodajemy - domyślnie wyłączone
     
     // Tworzenie warstw uczelni
@@ -232,6 +234,7 @@ function calculateFilteredStats() {
     const showInactive = document.getElementById('layer-inactive').checked;
     const showActiveApprox = document.getElementById('layer-active-approx')?.checked ?? false;
     const showInactiveApprox = document.getElementById('layer-inactive-approx')?.checked ?? false;
+    const showFirm = document.getElementById('layer-firm')?.checked ?? true;
     
     // Filtr czasowy
     const timeFilter = document.getElementById('time-filter').value;
@@ -275,8 +278,10 @@ function calculateFilteredStats() {
     const visibleOffers = [];
     
     allMarkers.forEach(item => {
-        // Sprawdź filtr warstwy - osobne checkboxy dla exact i approx
-        if (item.isApprox) {
+        // Sprawdź filtr warstwy - osobne checkboxy dla exact i approx i firm
+        if (item.isFirmOffer && item.isActive) {
+            if (!showFirm) return;
+        } else if (item.isApprox) {
             if (item.isActive && !showActiveApprox) return;
             if (!item.isActive && !showInactiveApprox) return;
         } else {
@@ -286,7 +291,9 @@ function calculateFilteredStats() {
         
         // Sprawdź czy marker jest widoczny (jest w odpowiedniej warstwie na mapie)
         let isOnMap;
-        if (item.isApprox) {
+        if (item.isFirmOffer && item.isActive) {
+            isOnMap = markerLayers.firm.hasLayer(item.marker);
+        } else if (item.isApprox) {
             isOnMap = (item.isActive && markerLayers.activeApprox.hasLayer(item.marker)) ||
                       (!item.isActive && markerLayers.inactiveApprox.hasLayer(item.marker));
         } else {
@@ -466,9 +473,10 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
         }
         
         // Ikona markera - pinezka z kolorem
-        // Jeśli nowa - czerwona obwódka, inaczej - biała
-        const strokeColor = isNew ? '#ff0000' : 'white';
-        const strokeWidth = isNew ? '3' : '2';
+        // Jeśli nowa - czerwona obwódka; firmowa - złota; inaczej - biała
+        const isFirmOffer = offer.is_firm_offer === true;
+        const strokeColor = isNew ? '#ff0000' : isFirmOffer ? '#FFD700' : 'white';
+        const strokeWidth = isNew ? '3' : isFirmOffer ? '4' : '2';
         const markerColor = color;
 
         // Czy oferta to "przybliżony adres" (sama ulica, bez numeru)?
@@ -572,8 +580,10 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
             .bindPopup(() => createPopupContent(address, [offer]), { maxWidth: 400 });
 
         // Dodaj do odpowiedniej warstwy
-        // Priorytet: approx > exact
-        if (isApprox) {
+        // Priorytet: firma > approx > exact
+        if (isFirmOffer && isActive) {
+            markerObj.addTo(markerLayers.firm);
+        } else if (isApprox) {
             markerObj.addTo(isActive ? markerLayers.activeApprox : markerLayers.inactiveApprox);
         } else if (isActive) {
             markerObj.addTo(markerLayers.active);
@@ -594,6 +604,7 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
             isNew: isNew,
             priceDown: hasPriceChange && priceDown,
             priceUp: hasPriceChange && priceUp,
+            isFirmOffer: isFirmOffer,
             // Daty do filtrowania zakresem dat
             firstSeenDate: parsePolishDate(offer.first_seen),
             priceChangedAtDate: parsePolishDate(offer.price_changed_at)
@@ -772,7 +783,8 @@ function filterMarkers() {
         active: 0,
         inactive: 0,
         activeApprox: 0,
-        inactiveApprox: 0
+        inactiveApprox: 0,
+        firm: 0
     };
     
     // Filtruj markery
@@ -781,8 +793,11 @@ function filterMarkers() {
         
         // Filtr aktywne/nieaktywne - osobne checkboxy dla exact i approx
         // (sprawdzane PÓŹNIEJ - na końcu, po policzeniu warstw)
+        const showFirm = document.getElementById('layer-firm')?.checked ?? true;
         let passesLayerFilter = true;
-        if (item.isApprox) {
+        if (item.isFirmOffer && item.isActive) {
+            passesLayerFilter = showFirm;
+        } else if (item.isApprox) {
             if (item.isActive) passesLayerFilter = showActiveApprox;
             else passesLayerFilter = showInactiveApprox;
         } else {
@@ -849,7 +864,9 @@ function filterMarkers() {
         // ZLICZANIE WARSTW: oferta przechodzi wszystkie pozostałe filtry,
         // więc liczymy ją w odpowiedniej warstwie (niezależnie od checkboxa warstwy)
         if (visible) {
-            if (item.isApprox) {
+            if (item.isFirmOffer && item.isActive) {
+                layerCounts.firm++;
+            } else if (item.isApprox) {
                 if (item.isActive) layerCounts.activeApprox++;
                 else layerCounts.inactiveApprox++;
             } else if (item.isActive) {
@@ -863,9 +880,11 @@ function filterMarkers() {
         if (!passesLayerFilter) visible = false;
         
         // Pokaż/ukryj marker
-        // Priorytet warstw: approx > exact (zgodnie z createMarkerGroup)
+        // Priorytet warstw: firma > approx > exact (zgodnie z createMarkerGroup)
         if (visible) {
-            if (item.isApprox) {
+            if (item.isFirmOffer && item.isActive) {
+                markerLayers.firm.addLayer(item.marker);
+            } else if (item.isApprox) {
                 (item.isActive ? markerLayers.activeApprox : markerLayers.inactiveApprox).addLayer(item.marker);
             } else if (item.isActive) {
                 markerLayers.active.addLayer(item.marker);
@@ -873,7 +892,9 @@ function filterMarkers() {
                 markerLayers.inactive.addLayer(item.marker);
             }
         } else {
-            if (item.isApprox) {
+            if (item.isFirmOffer && item.isActive) {
+                markerLayers.firm.removeLayer(item.marker);
+            } else if (item.isApprox) {
                 (item.isActive ? markerLayers.activeApprox : markerLayers.inactiveApprox).removeLayer(item.marker);
             } else if (item.isActive) {
                 markerLayers.active.removeLayer(item.marker);
@@ -892,6 +913,7 @@ function filterMarkers() {
     setLayerCount('layer-count-inactive', layerCounts.inactive);
     setLayerCount('layer-count-active-approx', layerCounts.activeApprox);
     setLayerCount('layer-count-inactive-approx', layerCounts.inactiveApprox);
+    setLayerCount('layer-count-firm', layerCounts.firm);
     
     // Przelicz i zaktualizuj statystyki po filtrowaniu
     updateStats();

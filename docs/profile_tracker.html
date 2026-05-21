@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SONAR POKOJOWY – Firmy / Agencje</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+
+        /* ── HEADER ────────────────────────────────────── */
+        header {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            border-bottom: 1px solid #FFD700;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        header h1 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #FFD700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .nav-links { display: flex; gap: 10px; flex-wrap: wrap; }
+        .nav-links a {
+            color: #e2e8f0;
+            text-decoration: none;
+            background: rgba(255,255,255,0.1);
+            padding: 7px 14px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+        .nav-links a:hover { background: rgba(255,255,255,0.2); }
+        .nav-links a.active { background: rgba(255,215,0,0.25); border: 1px solid #FFD700; }
+
+        /* ── LOADING / ERROR ───────────────────────────── */
+        #loading {
+            text-align: center;
+            padding: 80px 20px;
+            font-size: 1.2rem;
+            color: #94a3b8;
+        }
+        #error {
+            text-align: center;
+            padding: 40px;
+            color: #f87171;
+            display: none;
+        }
+
+        /* ── TABS ──────────────────────────────────────── */
+        #main-content { display: none; }
+
+        .tabs-wrapper {
+            padding: 20px 24px 0;
+            border-bottom: 2px solid #334155;
+            overflow-x: auto;
+        }
+        .tabs {
+            display: flex;
+            gap: 4px;
+            min-width: max-content;
+        }
+        .tab-btn {
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #94a3b8;
+            transition: color 0.2s, border-color 0.2s;
+            white-space: nowrap;
+            position: relative;
+        }
+        .tab-btn:hover { color: #e2e8f0; }
+        .tab-btn.active {
+            color: #FFD700;
+            border-bottom-color: #FFD700;
+        }
+        .tab-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #334155;
+            border-radius: 999px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 1px 7px;
+            margin-left: 6px;
+            color: #94a3b8;
+        }
+        .tab-btn.active .tab-badge {
+            background: rgba(255,215,0,0.2);
+            color: #FFD700;
+        }
+
+        /* ── PANEL ─────────────────────────────────────── */
+        .tab-panel {
+            display: none;
+            padding: 24px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .tab-panel.active { display: block; }
+
+        /* ── STATS ROW ─────────────────────────────────── */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+        }
+        .stat-card .stat-value {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: #FFD700;
+            line-height: 1;
+        }
+        .stat-card .stat-label {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .stat-card.green .stat-value { color: #4ade80; }
+        .stat-card.red .stat-value { color: #f87171; }
+
+        /* ── PROFILE LINK ──────────────────────────────── */
+        .profile-link-bar {
+            background: #1e293b;
+            border: 1px solid #FFD700;
+            border-radius: 8px;
+            padding: 10px 16px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .profile-link-bar span { color: #94a3b8; font-size: 0.85rem; }
+        .profile-link-bar a {
+            color: #FFD700;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        .profile-link-bar a:hover { text-decoration: underline; }
+
+        /* ── LAYOUT: MAP + LIST ────────────────────────── */
+        .panel-layout {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 20px;
+            align-items: start;
+        }
+        @media (max-width: 900px) {
+            .panel-layout { grid-template-columns: 1fr; }
+        }
+
+        /* ── MINI MAP ──────────────────────────────────── */
+        .map-container {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .map-container h3 {
+            padding: 12px 16px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #94a3b8;
+            border-bottom: 1px solid #334155;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .mini-map {
+            height: 400px;
+            width: 100%;
+        }
+
+        /* ── OFFER LIST ────────────────────────────────── */
+        .list-container {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .list-container h3 {
+            padding: 12px 16px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #94a3b8;
+            border-bottom: 1px solid #334155;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .list-inner {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .list-inner::-webkit-scrollbar { width: 5px; }
+        .list-inner::-webkit-scrollbar-track { background: #1e293b; }
+        .list-inner::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+
+        .offer-row {
+            border-bottom: 1px solid #334155;
+            padding: 10px 16px;
+            transition: background 0.15s;
+        }
+        .offer-row:last-child { border-bottom: none; }
+        .offer-row:hover { background: #273348; }
+        .offer-row.inactive { opacity: 0.5; }
+        .offer-row-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        .offer-address {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #e2e8f0;
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .offer-price {
+            font-size: 0.9rem;
+            font-weight: 800;
+            color: #FFD700;
+            white-space: nowrap;
+        }
+        .offer-price.price-up { color: #f87171; }
+        .offer-price.price-down { color: #4ade80; }
+        .offer-meta {
+            font-size: 0.72rem;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .badge-new {
+            background: #dc2626;
+            color: white;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 4px;
+        }
+        .badge-inactive {
+            background: #475569;
+            color: #94a3b8;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 4px;
+        }
+        .price-history-mini {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 0.7rem;
+            color: #64748b;
+        }
+        .price-history-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #475569;
+        }
+        .offer-link {
+            font-size: 0.72rem;
+            color: #60a5fa;
+            text-decoration: none;
+        }
+        .offer-link:hover { text-decoration: underline; }
+
+        /* ── PRICE HISTORY CHART ───────────────────────── */
+        .chart-container {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            padding: 16px;
+            margin-top: 20px;
+        }
+        .chart-container h3 {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 12px;
+        }
+        .chart-empty {
+            text-align: center;
+            padding: 30px;
+            color: #475569;
+            font-size: 0.85rem;
+        }
+
+        /* price history bars (CSS-only, no canvas) */
+        .price-bars {
+            display: flex;
+            align-items: flex-end;
+            gap: 3px;
+            height: 80px;
+            padding: 0 4px;
+        }
+        .price-bar-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            gap: 3px;
+            min-width: 0;
+        }
+        .price-bar {
+            width: 100%;
+            border-radius: 3px 3px 0 0;
+            background: linear-gradient(180deg, #FFD700 0%, #b45309 100%);
+            transition: height 0.3s;
+            cursor: default;
+            position: relative;
+        }
+        .price-bar:hover::after {
+            content: attr(data-price);
+            position: absolute;
+            top: -24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #0f172a;
+            border: 1px solid #FFD700;
+            color: #FFD700;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            white-space: nowrap;
+            z-index: 10;
+        }
+        .price-bar.down { background: linear-gradient(180deg, #4ade80 0%, #166534 100%); }
+        .price-bar.up { background: linear-gradient(180deg, #f87171 0%, #991b1b 100%); }
+
+        /* ── EMPTY STATE ───────────────────────────────── */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #475569;
+        }
+        .empty-state .empty-icon { font-size: 3rem; margin-bottom: 12px; }
+        .empty-state p { font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>
+        <svg width="28" height="28" viewBox="0 0 64 64" style="flex-shrink:0">
+            <defs>
+                <radialGradient id="hdrBg" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%" style="stop-color:#2d2000"/>
+                    <stop offset="100%" style="stop-color:#0f0800"/>
+                </radialGradient>
+            </defs>
+            <circle cx="32" cy="32" r="32" fill="url(#hdrBg)"/>
+            <circle cx="32" cy="32" r="29" fill="none" stroke="#FFD700" stroke-width="1" opacity="0.7"/>
+            <path d="M20 40 L20 28 L32 20 L44 28 L44 40 Z" fill="none" stroke="#FFD700" stroke-width="2"/>
+            <rect x="27" y="32" width="10" height="8" fill="#FFD700" opacity="0.9"/>
+        </svg>
+        SONAR POKOJOWY – Firmy / Agencje
+    </h1>
+    <nav class="nav-links">
+        <a href="index.html">🗺️ Mapa</a>
+        <a href="analytics.html">📈 Analityka</a>
+        <a href="monitoring.html">📡 Monitoring</a>
+        <a href="profile_tracker.html" class="active">🏢 Firmy</a>
+    </nav>
+</header>
+
+<div id="loading">⏳ Ładowanie danych profili...</div>
+<div id="error"></div>
+
+<div id="main-content">
+    <div class="tabs-wrapper">
+        <div class="tabs" id="tabs-bar">
+            <!-- generated by JS -->
+        </div>
+    </div>
+
+    <div id="panels-container">
+        <!-- generated by JS -->
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── DATA ───────────────────────────────────────────────────────────────
+let profileData = null;
+const miniMaps = {}; // profileKey → L.Map
+
+// Price color gradient (mirrors script.js)
+const PRICE_RANGES = [
+    { max: 500,  color: '#00c853' },
+    { max: 600,  color: '#64dd17' },
+    { max: 700,  color: '#aeea00' },
+    { max: 800,  color: '#ffd600' },
+    { max: 900,  color: '#ffab00' },
+    { max: 1000, color: '#ff6f00' },
+    { max: 1100, color: '#ff3d00' },
+    { max: 1200, color: '#d50000' },
+    { max: 1300, color: '#c51162' },
+    { max: 1400, color: '#aa00ff' },
+    { max: 1500, color: '#7c4dff' },
+    { max: 999999, color: '#6200ea' },
+];
+
+function priceColor(price) {
+    for (const r of PRICE_RANGES) if (price <= r.max) return r.color;
+    return '#6200ea';
+}
+
+// ── LOAD ───────────────────────────────────────────────────────────────
+async function loadData() {
+    try {
+        const res = await fetch(`profile_data.json?v=${Date.now()}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        profileData = await res.json();
+        render();
+    } catch (e) {
+        document.getElementById('loading').style.display = 'none';
+        const err = document.getElementById('error');
+        err.style.display = 'block';
+        err.innerHTML = `❌ Błąd ładowania profile_data.json: ${e.message}<br>
+            <small>Plik zostanie wygenerowany przy kolejnym skanie lub uruchomieniu map_generator.py</small>`;
+    }
+}
+
+// ── RENDER ─────────────────────────────────────────────────────────────
+function render() {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('main-content').style.display = 'block';
+
+    const profiles = profileData.profiles;
+    const keys = profileData.profile_keys;
+
+    const tabsBar = document.getElementById('tabs-bar');
+    const panelsContainer = document.getElementById('panels-container');
+
+    keys.forEach((key, idx) => {
+        const p = profiles[key];
+        if (!p) return;
+
+        // Tab button
+        const btn = document.createElement('button');
+        btn.className = 'tab-btn' + (idx === 0 ? ' active' : '');
+        btn.dataset.key = key;
+        btn.innerHTML = `${p.name}<span class="tab-badge">${p.stats.active}</span>`;
+        btn.addEventListener('click', () => switchTab(key));
+        tabsBar.appendChild(btn);
+
+        // Panel
+        const panel = document.createElement('div');
+        panel.className = 'tab-panel' + (idx === 0 ? ' active' : '');
+        panel.id = `panel-${key}`;
+        panel.innerHTML = buildPanel(key, p);
+        panelsContainer.appendChild(panel);
+    });
+
+    // Init first map
+    if (keys.length > 0) {
+        setTimeout(() => initMiniMap(keys[0]), 100);
+    }
+}
+
+function switchTab(key) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.key === key));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `panel-${key}`));
+
+    // Init map lazily
+    if (!miniMaps[key]) {
+        setTimeout(() => initMiniMap(key), 50);
+    } else {
+        miniMaps[key].invalidateSize();
+    }
+}
+
+// ── BUILD PANEL HTML ───────────────────────────────────────────────────
+function buildPanel(key, p) {
+    const s = p.stats;
+    const priceStr = n => n != null ? `${n} zł` : '—';
+
+    const statsHtml = `
+        <div class="stats-row">
+            <div class="stat-card green">
+                <div class="stat-value">${s.active}</div>
+                <div class="stat-label">Aktywne</div>
+            </div>
+            <div class="stat-card red">
+                <div class="stat-value">${s.inactive}</div>
+                <div class="stat-label">Nieaktywne</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${s.total}</div>
+                <div class="stat-label">Łącznie</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${priceStr(s.avg_price)}</div>
+                <div class="stat-label">Śr. cena</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${priceStr(s.min_price)}</div>
+                <div class="stat-label">Min cena</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${priceStr(s.max_price)}</div>
+                <div class="stat-label">Max cena</div>
+            </div>
+        </div>`;
+
+    const profileLinkHtml = `
+        <div class="profile-link-bar">
+            <span>Profil OLX:</span>
+            <a href="${p.url}" target="_blank" rel="noopener">${p.url} ↗</a>
+        </div>`;
+
+    const offerRows = p.offers.length > 0
+        ? p.offers.map(o => buildOfferRow(o)).join('')
+        : `<div class="empty-state"><div class="empty-icon">📭</div><p>Brak ofert z tego profilu</p></div>`;
+
+    const priceChartHtml = buildPriceChart(p.offers);
+
+    return `
+        ${statsHtml}
+        ${profileLinkHtml}
+        <div class="panel-layout">
+            <div>
+                <div class="map-container">
+                    <h3>📍 Lokalizacje ofert</h3>
+                    <div class="mini-map" id="map-${key}"></div>
+                </div>
+                ${priceChartHtml}
+            </div>
+            <div class="list-container">
+                <h3>
+                    Ogłoszenia
+                    <span style="color:#FFD700;font-size:0.8rem">${p.stats.active} aktywnych</span>
+                </h3>
+                <div class="list-inner" id="list-${key}">
+                    ${offerRows}
+                </div>
+            </div>
+        </div>`;
+}
+
+function buildOfferRow(o) {
+    const pColor = priceColor(o.price);
+    const isUp = o.price_trend === 'up';
+    const isDown = o.price_trend === 'down';
+    const priceClass = isUp ? 'price-up' : isDown ? 'price-down' : '';
+    const trend = isUp ? ' ↑' : isDown ? ' ↓' : '';
+    const prev = (isUp || isDown) && o.previous_price
+        ? `<span style="color:#64748b;text-decoration:line-through;font-size:0.75rem">${o.previous_price} zł</span> `
+        : '';
+
+    // Mini price history dots
+    const histDots = o.price_history && o.price_history.length > 1
+        ? `<span class="price-history-mini">
+                ${o.price_history.slice(-6).map(h =>
+                    `<span class="price-history-dot" style="background:${priceColor(h.price)}" title="${h.price} zł – ${h.date}"></span>`
+                ).join('')}
+           </span>`
+        : '';
+
+    return `
+        <div class="offer-row ${o.active ? '' : 'inactive'}">
+            <div class="offer-row-top">
+                <span class="offer-address" title="${o.address}">${o.address || '—'}</span>
+                <span class="offer-price ${priceClass}">${prev}${o.price} zł${trend}</span>
+            </div>
+            <div class="offer-meta">
+                ${o.is_new ? '<span class="badge-new">NOWE</span>' : ''}
+                ${!o.active ? '<span class="badge-inactive">NIEAKTYWNE</span>' : ''}
+                <span>📅 ${o.first_seen}</span>
+                <span>⏳ ${o.days_active} dni</span>
+                ${histDots}
+                <a href="${o.url}" target="_blank" rel="noopener" class="offer-link">OLX ↗</a>
+            </div>
+        </div>`;
+}
+
+// ── PRICE CHART ────────────────────────────────────────────────────────
+function buildPriceChart(offers) {
+    // Zebranie wszystkich wpisów historii cen ze wszystkich ofert
+    const pricePoints = [];
+    offers.forEach(o => {
+        (o.price_history || []).forEach(h => {
+            if (h.price && h.date_iso) {
+                pricePoints.push({ price: h.price, date: h.date_iso, offerId: o.id });
+            }
+        });
+        // Zawsze dodaj aktualną cenę jeśli brak historii
+        if ((!o.price_history || o.price_history.length === 0) && o.price) {
+            pricePoints.push({ price: o.price, date: o.first_seen_iso || '', offerId: o.id });
+        }
+    });
+
+    if (pricePoints.length < 2) {
+        return `<div class="chart-container"><h3>💰 Rozkład cen aktywnych ofert</h3>
+            <div class="chart-empty">Brak wystarczających danych historycznych</div></div>`;
+    }
+
+    // Grupuj po miesiącu, weź średnią
+    const byMonth = {};
+    pricePoints.forEach(p => {
+        const d = p.date.substring(0, 7); // YYYY-MM
+        if (!byMonth[d]) byMonth[d] = [];
+        byMonth[d].push(p.price);
+    });
+    const months = Object.keys(byMonth).sort();
+    if (months.length < 1) return '';
+
+    const avgs = months.map(m => Math.round(byMonth[m].reduce((a,b) => a+b, 0) / byMonth[m].length));
+    const maxP = Math.max(...avgs);
+    const minP = Math.min(...avgs);
+    const range = maxP - minP || 1;
+
+    const bars = months.map((m, i) => {
+        const avg = avgs[i];
+        const pct = Math.max(8, Math.round(((avg - minP) / range) * 72) + 8);
+        const trend = i > 0 ? (avgs[i] > avgs[i-1] ? 'up' : avgs[i] < avgs[i-1] ? 'down' : '') : '';
+        const label = m.substring(5); // MM
+        return `<div class="price-bar-wrap">
+            <div class="price-bar ${trend}" style="height:${pct}px" data-price="${avg} zł (${m})"></div>
+            <span style="font-size:0.6rem;color:#475569">${label}</span>
+        </div>`;
+    }).join('');
+
+    return `<div class="chart-container">
+        <h3>💰 Śr. cena wg miesięcy (aktywne + historia)</h3>
+        <div class="price-bars">${bars}</div>
+        <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:0.7rem;color:#475569">
+            <span>Min: ${minP} zł</span>
+            <span>Max: ${maxP} zł</span>
+        </div>
+    </div>`;
+}
+
+// ── MINI MAP ───────────────────────────────────────────────────────────
+function initMiniMap(key) {
+    const el = document.getElementById(`map-${key}`);
+    if (!el || miniMaps[key]) return;
+
+    const map = L.map(`map-${key}`, { zoomControl: true }).setView([51.2465, 22.5684], 13);
+    miniMaps[key] = map;
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OSM',
+        maxZoom: 19
+    }).addTo(map);
+
+    const p = profileData.profiles[key];
+    if (!p || !p.offers.length) return;
+
+    const bounds = [];
+
+    p.offers.forEach(o => {
+        if (!o.lat || !o.lon) return;
+
+        const color = priceColor(o.price);
+        const isActive = o.active;
+
+        const svgIcon = L.divIcon({
+            className: '',
+            html: `<svg width="32" height="40" viewBox="0 0 32 40">
+                <path d="M16 0 C7 0 0 7 0 16 C0 28 16 40 16 40 C16 40 32 28 32 16 C32 7 25 0 16 0 Z"
+                      fill="${color}"
+                      stroke="#FFD700"
+                      stroke-width="3"
+                      ${!isActive ? 'opacity="0.45"' : ''}/>
+                ${!isActive
+                    ? '<circle cx="16" cy="14" r="7" fill="white"/><text x="16" y="14" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="700" fill="#1f2937">×</text>'
+                    : '<circle cx="16" cy="14" r="6" fill="white" opacity="0.9"/>'}
+            </svg>`,
+            iconSize: [32, 40],
+            iconAnchor: [16, 40],
+            popupAnchor: [0, -40]
+        });
+
+        const marker = L.marker([o.lat, o.lon], { icon: svgIcon });
+
+        const histHtml = (o.price_history || []).slice(-4).map(h =>
+            `<div style="font-size:11px;color:#64748b">${h.date}: <b style="color:${priceColor(h.price)}">${h.price} zł</b></div>`
+        ).join('');
+
+        marker.bindPopup(`
+            <div style="min-width:200px;font-family:sans-serif">
+                <div style="font-weight:700;font-size:13px;margin-bottom:6px">${o.address || '—'}</div>
+                <div style="font-size:15px;font-weight:800;color:${color};margin-bottom:6px">${o.price} zł</div>
+                <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">Pierwsze: ${o.first_seen}</div>
+                ${histHtml ? `<div style="margin-top:6px;border-top:1px solid #334155;padding-top:6px"><b style="font-size:11px">Historia cen:</b>${histHtml}</div>` : ''}
+                <div style="margin-top:8px">
+                    <a href="${o.url}" target="_blank" style="color:#60a5fa;font-size:11px">Otwórz na OLX ↗</a>
+                </div>
+            </div>
+        `, { maxWidth: 260 });
+
+        marker.addTo(map);
+        bounds.push([o.lat, o.lon]);
+    });
+
+    if (bounds.length > 0) {
+        try {
+            map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
+        } catch (e) { /* ignore */ }
+    }
+}
+
+// ── BOOT ───────────────────────────────────────────────────────────────
+loadData();
+</script>
+</body>
+</html>

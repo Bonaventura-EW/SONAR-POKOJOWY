@@ -14,6 +14,7 @@ import random
 
 # Import lokalnych modułów
 from scraper import OLXScraper
+from profiles_config import TRACKED_PROFILES
 from address_parser import AddressParser
 from price_parser import PriceParser
 from geocoder import Geocoder
@@ -386,7 +387,8 @@ class SonarPokojowy:
             'first_seen': datetime.now(self.tz).isoformat(),
             'last_seen': datetime.now(self.tz).isoformat(),
             'active': True,
-            'days_active': 0
+            'days_active': 0,
+            'profile_name': raw_offer.get('profile_name')  # None lub klucz profilu firmowego
         }
     
     def _find_existing_offer(self, offer_id: str) -> Dict:
@@ -531,6 +533,13 @@ class SonarPokojowy:
         if was_inactive:
             print(f"      🔄 REAKTYWOWANO ofertę: {existing['id']} (była nieaktywna)")
             existing['reactivated_at'] = now
+        
+        # Aktualizuj profile_name jeśli oferta pojawiła się w scanie profilu
+        # (mogła być wcześniej bez tagu, teraz jest już skoja​rzona z profilem)
+        new_profile = new_data.get('profile_name')
+        if new_profile and not existing.get('profile_name'):
+            existing['profile_name'] = new_profile
+            print(f"      🏢 Przypisano profil: {new_profile}")
     
     def _update_days_active(self):
         """
@@ -839,6 +848,49 @@ class SonarPokojowy:
             })
             
             print(f"✅ Pobrano {len(raw_offers)} surowych ofert\n")
+            
+            # 1b. Scraping profili firmowych
+            print("🏢 Krok 1b: Scraping profili firmowych...")
+            profile_scraping_start = time.time()
+            
+            profile_raw_offers = self.scraper.scrape_all_profiles(
+                TRACKED_PROFILES, max_pages_per_profile=10
+            )
+            
+            profile_scraping_duration = time.time() - profile_scraping_start
+            
+            # Merge: oferty z profili do raw_offers
+            # URL-y już w regular scan → dodaj tylko tag profile_name
+            # URL-y nowe (nie w regular scan) → dodaj do raw_offers
+            regular_urls = {o['url'].split('?')[0] for o in raw_offers}
+            profile_new_count = 0
+            profile_tag_count = 0
+            
+            for p_offer in profile_raw_offers:
+                clean_url = p_offer['url'].split('?')[0]
+                if clean_url in regular_urls:
+                    # Dodaj tag do istniejącej oferty z regular scanu
+                    for r in raw_offers:
+                        if r['url'].split('?')[0] == clean_url:
+                            r['profile_key'] = p_offer['profile_key']
+                            r['profile_name'] = p_offer['profile_name']
+                            profile_tag_count += 1
+                            break
+                else:
+                    # Nowa oferta tylko z profilu - dodaj do puli
+                    raw_offers.append(p_offer)
+                    regular_urls.add(clean_url)
+                    profile_new_count += 1
+            
+            self.scan_logger.log_phase('profile_scraping', profile_scraping_duration, {
+                'profiles': len(TRACKED_PROFILES),
+                'profile_offers': len(profile_raw_offers),
+                'new_from_profiles': profile_new_count,
+                'tagged_existing': profile_tag_count
+            })
+            
+            print(f"✅ Profil: {len(profile_raw_offers)} ofert ({profile_new_count} nowych, ")
+            print(f"         {profile_tag_count} otagowanych w regular scan)\n")
             
             # 2. Przetwarzanie ofert
             print("🔧 Krok 2: Przetwarzanie ofert...")

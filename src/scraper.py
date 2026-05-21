@@ -217,18 +217,24 @@ class OLXScraper:
         
         return offers
     
-    def _get_next_page_url(self, soup: BeautifulSoup, current_page: int) -> Optional[str]:
+    def _get_next_page_url(self, soup: BeautifulSoup, current_page: int,
+                           base_url: str = None) -> Optional[str]:
         """
         Znajduje URL następnej strony.
         
+        Args:
+            base_url: opcjonalny base URL (domyślnie self.BASE_URL) - używany dla profili
+            
         Returns:
             URL następnej strony lub None jeśli to ostatnia
         """
+        _base = base_url or self.BASE_URL
+        
         # Szukamy linku "następna" lub page=X
         next_link = soup.find('a', {'data-testid': 'pagination-forward'})
         
         if next_link and next_link.get('href'):
-            return urljoin(self.BASE_URL, next_link['href'])
+            return urljoin(_base, next_link['href'])
         
         # Alternatywnie: próbujemy page=X+1
         next_page_num = current_page + 1
@@ -239,9 +245,159 @@ class OLXScraper:
             page_links = pagination.find_all('a')
             for link in page_links:
                 if f"page={next_page_num}" in link.get('href', ''):
-                    return urljoin(self.BASE_URL, link['href'])
+                    return urljoin(_base, link['href'])
         
         return None
+
+    # ------------------------------------------------------------------
+    # PROFILE SCRAPING
+    # ------------------------------------------------------------------
+
+    def scrape_profile_pages(self, profile_url: str, profile_key: str,
+                             profile_name: str, max_pages: int = 10) -> List[Dict]:
+        """
+        Scrapuje wszystkie strony profilu użytkownika OLX.
+        Zwraca listę podstawowych ofert z tagiem profile_key/profile_name.
+        """
+        all_offers: List[Dict] = []
+        current_url = profile_url
+        page_num = 1
+
+        print(f"\n👤 Profil \'{profile_name}\': {profile_url}")
+
+        while current_url and page_num <= max_pages:
+            print(f"   📄 Strona {page_num}")
+
+            soup = self._fetch_page(current_url)
+            if not soup:
+                print(f"   ⚠️ Nie udało się pobrać strony {page_num}")
+                break
+
+            offers = self._extract_offers_from_page(soup)
+            print(f"      Znaleziono {len(offers)} ofert")
+
+            if not offers:
+                print("      ⚠️ Brak ofert - koniec paginacji")
+                break
+
+            for offer in offers:
+                offer['profile_key'] = profile_key
+                offer['profile_name'] = profile_name
+
+            all_offers.extend(offers)
+
+            next_url = self._get_next_page_url(soup, page_num, base_url=profile_url)
+            if not next_url:
+                print(f"   ✅ Ostatnia strona profilu")
+                break
+
+            current_url = next_url
+            page_num += 1
+            self._random_delay()
+
+        print(f"   ✅ \'{profile_name}\': {len(all_offers)} ofert z {page_num} stron")
+        return all_offers
+
+    def scrape_all_profiles(self, profiles_config: dict,
+                            max_pages_per_profile: int = 10) -> List[Dict]:
+        """
+        Scrapuje wszystkie profile firmowe i pobiera szczegóły ofert.
+        Zwraca listę ofert z tagiem profile_key/profile_name,
+        deduplikowanych po URL (w ramach profili).
+        """
+        all_raw: List[Dict] = []
+        seen_urls: set = set()
+        profile_keys = list(profiles_config.keys())
+
+        print(f"\n🏢 Scraping {len(profiles_config)} profili firmowych...")
+
+        # Faza 1: zbierz linki ze wszystkich profili
+        for key, cfg in profiles_config.items():
+            profile_offers = self.scrape_profile_pages(
+                profile_url=cfg['url'],
+                profile_key=key,
+                profile_name=cfg['name'],
+                max_pages=max_pages_per_profile
+            )
+            for offer in profile_offers:
+                clean = offer['url'].split('?')[0]
+                if clean not in seen_urls:
+                    seen_urls.add(clean)
+                    all_raw.append(offer)
+
+            if key != profile_keys[-1]:
+                self._random_delay()
+
+        print(f"\n📊 Profil Faza 1: {len(all_raw)} unikalnych ofert ze wszystkich profili")
+
+        if not all_raw:
+            return []
+
+        # Faza 2: inteligentne pobieranie szczegółów
+        offers_to_fetch = []
+        offers_to_skip = []
+
+        for offer in all_raw:
+            offer_id = offer['url'].split('/')[-1].split('.')[0]
+            listing_price = self._extract_price_number(offer['price_raw'])
+
+            if offer_id in self.existing_offers:
+                existing = self.existing_offers[offer_id]
+                existing_price = existing.get('price')
+                if listing_price and existing_price and listing_price == existing_price:
+                    offers_to_skip.append({'offer': offer, 'existing': existing})
+                else:
+                    offers_to_fetch.append({'offer': offer})
+            else:
+                offers_to_fetch.append({'offer': offer})
+
+        print(f"   ⏭️  Pominięto (ta sama cena): {len(offers_to_skip)}")
+        print(f"   🆕 Do pobrania: {len(offers_to_fetch)}")
+
+        # Uzupełnij skip-owane z cache
+        for item in offers_to_skip:
+            offer = item['offer']
+            existing = item['existing']
+            offer['description'] = existing.get('description', offer['title'])
+            offer['official_price'] = existing.get('price')
+            offer['official_price_raw'] = f"{existing.get('price')} zł (cache)"
+            offer['price_source'] = 'cache'
+            offer['skipped'] = True
+            if existing.get('address'):
+                offer['cached_address'] = existing.get('address')
+            if existing.get('coordinates'):
+                offer['cached_coordinates'] = existing.get('coordinates')
+            offer['was_inactive'] = not existing.get('was_active', True)
+
+        # Pobierz szczegóły dla nowych/zmienionych
+        if offers_to_fetch:
+            print(f"   ⚡ Pobieranie szczegółów dla {len(offers_to_fetch)} ofert profili "
+                  f"({self.max_workers} wątków)...")
+
+            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                future_to_item = {
+                    executor.submit(self._fetch_single_offer_details, item['offer']): item
+                    for item in offers_to_fetch
+                }
+                completed = 0
+                total = len(offers_to_fetch)
+                for future in as_completed(future_to_item):
+                    completed += 1
+                    try:
+                        updated_offer = future.result()
+                        for i, o in enumerate(all_raw):
+                            if o['url'] == updated_offer['url']:
+                                all_raw[i] = updated_offer
+                                break
+                        print(f"\r   Postęp: [{completed}/{total}] "
+                              f"{completed/total*100:.1f}%", end='', flush=True)
+                    except (requests.RequestException, AttributeError, TypeError) as e:
+                        print(f"\n   ⚠️ Błąd: {e}")
+
+            print(f"\n   ✅ Szczegóły profili pobrane")
+
+        print(f"\n✅ Profil Faza 2: {len(all_raw)} ofert gotowych do przetworzenia")
+        return all_raw
     
     def scrape_all_pages(self, max_pages: int = 20) -> List[Dict]:
         """
