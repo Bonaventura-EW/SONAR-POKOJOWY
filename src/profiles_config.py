@@ -7,26 +7,32 @@ TRACKED_PROFILES = {
     'villahome': {
         'name': 'VillaHome',
         'url': 'https://www.olx.pl/oferty/uzytkownik/1n7fOJ/',
+        'user_id': 1257717661,
     },
     'mzuri': {
         'name': 'Mzuri',
         'url': 'https://www.olx.pl/oferty/uzytkownik/4avCO/',
+        'user_id': 61614038,
     },
     'pokojewlublinie': {
         'name': 'PokojewLublinie',
         'url': 'https://www.olx.pl/oferty/uzytkownik/3cxbz/',
+        'user_id': 47316513,
     },
     'poqui': {
         'name': 'Poqui',
         'url': 'https://www.olx.pl/oferty/uzytkownik/p8eWV/',
+        'user_id': 371372432,
     },
     'artymiuk': {
         'name': 'Artymiuk',
         'url': 'https://www.olx.pl/oferty/uzytkownik/BAm3j/',
+        'user_id': 555389013,
     },
     'dawny_patron': {
         'name': 'Dawny Patron',
         'url': 'https://www.olx.pl/oferty/uzytkownik/uD2d4/',
+        'user_id': 452593370,
     },
 }
 

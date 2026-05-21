@@ -240,85 +240,118 @@ class OLXScraper:
         next_page_num = current_page + 1
         
         # Sprawdzamy czy następna strona istnieje (nie róbmy requesta, tylko sprawdźmy czy jest link)
-        pagination = soup.find('ul', {'data-testid': 'pagination-list'})
-        if pagination:
-            page_links = pagination.find_all('a')
-            for link in page_links:
-                if f"page={next_page_num}" in link.get('href', ''):
-                    return urljoin(_base, link['href'])
-        
-        return None
-
     # ------------------------------------------------------------------
-    # PROFILE SCRAPING
+    # PROFILE SCRAPING — via OLX API v1 (user_id parameter)
     # ------------------------------------------------------------------
 
-    def scrape_profile_pages(self, profile_url: str, profile_key: str,
-                             profile_name: str, max_pages: int = 10) -> List[Dict]:
+    def _fetch_profile_offers_api(self, user_id: int, profile_key: str,
+                                   profile_name: str, profile_url: str,
+                                   max_pages: int = 10) -> List[Dict]:
         """
-        Scrapuje wszystkie strony profilu użytkownika OLX.
-        Zwraca listę podstawowych ofert z tagiem profile_key/profile_name.
+        Pobiera oferty profilu firmowego przez OLX API v1 (/api/v1/offers/?user_id=X).
+        Zwraca listę surowych ofert w tym samym formacie co _extract_offers_from_page.
         """
         all_offers: List[Dict] = []
-        current_url = profile_url
+        offset = 0
+        limit = 50
         page_num = 1
 
-        print(f"\n👤 Profil \'{profile_name}\': {profile_url}")
+        print(f"\n👤 Profil \'{profile_name}\' (id={user_id}): API v1")
 
-        while current_url and page_num <= max_pages:
-            print(f"   📄 Strona {page_num}")
+        while page_num <= max_pages:
+            url = (f"https://www.olx.pl/api/v1/offers/?offset={offset}"
+                   f"&limit={limit}&user_id={user_id}")
+            try:
+                resp = self.session.get(url, timeout=15)
+                if resp.status_code != 200:
+                    print(f"   ⚠️ API status {resp.status_code} na stronie {page_num}")
+                    break
 
-            soup = self._fetch_page(current_url)
-            if not soup:
-                print(f"   ⚠️ Nie udało się pobrać strony {page_num}")
+                data = resp.json()
+                api_offers = data.get('data', [])
+                total = data.get('metadata', {}).get('total_elements', 0)
+
+                if not api_offers:
+                    if page_num == 1:
+                        print(f"   ℹ️ Profil nie ma aktywnych ogłoszeń")
+                    else:
+                        print(f"   ✅ Koniec wyników na stronie {page_num}")
+                    break
+
+                print(f"   📄 Strona {page_num}: {len(api_offers)} ofert (łącznie w API: {total})")
+
+                for api_offer in api_offers:
+                    # Konwertuj format API do formatu scrapera
+                    offer_url = api_offer.get('url', '')
+                    if not offer_url:
+                        continue
+
+                    params = api_offer.get('params', [])
+                    price_value = None
+                    for p in params:
+                        if p.get('key') == 'price':
+                            price_value = p.get('value', {}).get('value')
+                            break
+
+                    if not price_value:
+                        price_obj = api_offer.get('price', {})
+                        price_value = price_obj.get('value') if price_obj else None
+
+                    price_raw = f"{price_value} zł" if price_value else "Zapytaj o cenę"
+
+                    offer = {
+                        'title': api_offer.get('title', ''),
+                        'url': offer_url,
+                        'price_raw': price_raw,
+                        'profile_key': profile_key,
+                        'profile_name': profile_name,
+                        '_api_data': api_offer,  # zachowaj oryginał do ekstrakcji szczegółów
+                    }
+                    all_offers.append(offer)
+
+                offset += limit
+                page_num += 1
+
+                # Sprawdź czy nie przekraczamy dostępnej liczby
+                if offset >= total:
+                    print(f"   ✅ Pobrano wszystkie {total} ofert")
+                    break
+
+                self._random_delay()
+
+            except (requests.RequestException, ValueError, KeyError) as e:
+                print(f"   ⚠️ Błąd API strona {page_num}: {e}")
                 break
 
-            offers = self._extract_offers_from_page(soup)
-            print(f"      Znaleziono {len(offers)} ofert")
-
-            if not offers:
-                print("      ⚠️ Brak ofert - koniec paginacji")
-                break
-
-            for offer in offers:
-                offer['profile_key'] = profile_key
-                offer['profile_name'] = profile_name
-
-            all_offers.extend(offers)
-
-            next_url = self._get_next_page_url(soup, page_num, base_url=profile_url)
-            if not next_url:
-                print(f"   ✅ Ostatnia strona profilu")
-                break
-
-            current_url = next_url
-            page_num += 1
-            self._random_delay()
-
-        print(f"   ✅ \'{profile_name}\': {len(all_offers)} ofert z {page_num} stron")
+        print(f"   ✅ \'{profile_name}\': {len(all_offers)} ofert z {page_num - 1} stron")
         return all_offers
 
     def scrape_all_profiles(self, profiles_config: dict,
                             max_pages_per_profile: int = 10) -> List[Dict]:
         """
-        Scrapuje wszystkie profile firmowe i pobiera szczegóły ofert.
-        Zwraca listę ofert z tagiem profile_key/profile_name,
-        deduplikowanych po URL (w ramach profili).
+        Scrapuje wszystkie profile firmowe przez OLX API v1.
+        Zwraca listę ofert z tagiem profile_key/profile_name.
         """
         all_raw: List[Dict] = []
         seen_urls: set = set()
         profile_keys = list(profiles_config.keys())
 
-        print(f"\n🏢 Scraping {len(profiles_config)} profili firmowych...")
+        print(f"\n🏢 Scraping {len(profiles_config)} profili firmowych przez API v1...")
 
-        # Faza 1: zbierz linki ze wszystkich profili
         for key, cfg in profiles_config.items():
-            profile_offers = self.scrape_profile_pages(
-                profile_url=cfg['url'],
+            user_id = cfg.get('user_id')
+            if not user_id:
+                print(f"   ⚠️ Brak user_id dla profilu {key} — pomijam")
+                continue
+
+            profile_offers = self._fetch_profile_offers_api(
+                user_id=user_id,
                 profile_key=key,
                 profile_name=cfg['name'],
+                profile_url=cfg['url'],
                 max_pages=max_pages_per_profile
             )
+
             for offer in profile_offers:
                 clean = offer['url'].split('?')[0]
                 if clean not in seen_urls:
@@ -328,19 +361,35 @@ class OLXScraper:
             if key != profile_keys[-1]:
                 self._random_delay()
 
-        print(f"\n📊 Profil Faza 1: {len(all_raw)} unikalnych ofert ze wszystkich profili")
+        print(f"\n📊 Profile Faza 1: {len(all_raw)} unikalnych ofert ze wszystkich profili")
 
         if not all_raw:
             return []
 
-        # Faza 2: inteligentne pobieranie szczegółów
+        # Faza 2: fetch szczegółów dla ofert bez pełnych danych
+        # Oferty z API mają tylko podstawowe dane — potrzebujemy adresu
         offers_to_fetch = []
         offers_to_skip = []
 
         for offer in all_raw:
             offer_id = offer['url'].split('/')[-1].split('.')[0]
-            listing_price = self._extract_price_number(offer['price_raw'])
+            api_data = offer.pop('_api_data', {})
 
+            # Wyciągnij adres z danych API jeśli dostępny
+            loc = api_data.get('map', {}) or {}
+            if loc.get('lat') and loc.get('lon'):
+                offer['cached_coordinates'] = {'lat': loc['lat'], 'lon': loc['lon']}
+
+            location = api_data.get('location', {}) or {}
+            city = location.get('city', {}) or {}
+            district = location.get('district', {}) or {}
+            city_name = city.get('name', '')
+            district_name = district.get('name', '')
+            if city_name:
+                offer['cached_address'] = f"{district_name + ', ' if district_name else ''}{city_name}"
+
+            # Sprawdź cache
+            listing_price = self._extract_price_number(offer['price_raw'])
             if offer_id in self.existing_offers:
                 existing = self.existing_offers[offer_id]
                 existing_price = existing.get('price')
@@ -352,7 +401,7 @@ class OLXScraper:
                 offers_to_fetch.append({'offer': offer})
 
         print(f"   ⏭️  Pominięto (ta sama cena): {len(offers_to_skip)}")
-        print(f"   🆕 Do pobrania: {len(offers_to_fetch)}")
+        print(f"   🆕 Do pobrania szczegółów: {len(offers_to_fetch)}")
 
         # Uzupełnij skip-owane z cache
         for item in offers_to_skip:
@@ -363,15 +412,14 @@ class OLXScraper:
             offer['official_price_raw'] = f"{existing.get('price')} zł (cache)"
             offer['price_source'] = 'cache'
             offer['skipped'] = True
-            if existing.get('address'):
+            if existing.get('address') and 'cached_address' not in offer:
                 offer['cached_address'] = existing.get('address')
             if existing.get('coordinates'):
                 offer['cached_coordinates'] = existing.get('coordinates')
-            offer['was_inactive'] = not existing.get('was_active', True)
 
-        # Pobierz szczegóły dla nowych/zmienionych
+        # Pobierz szczegóły dla nowych
         if offers_to_fetch:
-            print(f"   ⚡ Pobieranie szczegółów dla {len(offers_to_fetch)} ofert profili "
+            print(f"   ⚡ Pobieranie szczegółów dla {len(offers_to_fetch)} ofert "
                   f"({self.max_workers} wątków)...")
 
             with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
@@ -380,7 +428,7 @@ class OLXScraper:
                     for item in offers_to_fetch
                 }
                 completed = 0
-                total = len(offers_to_fetch)
+                total_fetch = len(offers_to_fetch)
                 for future in as_completed(future_to_item):
                     completed += 1
                     try:
@@ -389,177 +437,16 @@ class OLXScraper:
                             if o['url'] == updated_offer['url']:
                                 all_raw[i] = updated_offer
                                 break
-                        print(f"\r   Postęp: [{completed}/{total}] "
-                              f"{completed/total*100:.1f}%", end='', flush=True)
+                        if completed % 10 == 0 or completed == total_fetch:
+                            print(f"\r   Postęp: [{completed}/{total_fetch}] "
+                                  f"{completed/total_fetch*100:.0f}%", end='', flush=True)
                     except (requests.RequestException, AttributeError, TypeError) as e:
                         print(f"\n   ⚠️ Błąd: {e}")
 
             print(f"\n   ✅ Szczegóły profili pobrane")
 
-        print(f"\n✅ Profil Faza 2: {len(all_raw)} ofert gotowych do przetworzenia")
+        print(f"\n✅ Profile Faza 2: {len(all_raw)} ofert gotowych do przetworzenia")
         return all_raw
-    
-    def scrape_all_pages(self, max_pages: int = 20) -> List[Dict]:
-        """
-        Scrapuje wszystkie strony z ofertami (z limitem max_pages).
-        NOWE: Równoległe pobieranie szczegółów ofert.
-        
-        Args:
-            max_pages: Maksymalna liczba stron do przejrzenia (zabezpieczenie)
-            
-        Returns:
-            Lista wszystkich ofert ze wszystkich stron
-        """
-        all_offers = []
-        current_url = self.BASE_URL
-        page_num = 1
-        
-        print(f"🔍 Rozpoczynam scraping OLX Lublin - Pokoje...")
-        print(f"⚡ Tryb równoległy: {self.max_workers} wątków\n")
-        
-        # FAZA 1: Pobierz wszystkie podstawowe oferty ze stron listingowych
-        while current_url and page_num <= max_pages:
-            print(f"📄 Strona {page_num}: {current_url}")
-            
-            soup = self._fetch_page(current_url)
-            if not soup:
-                print(f"⚠️ Nie udało się pobrać strony {page_num}")
-                break
-            
-            # Wyciągamy oferty z tej strony
-            offers = self._extract_offers_from_page(soup)
-            print(f"   Znaleziono {len(offers)} ofert")
-            
-            if not offers:
-                print("   ⚠️ Brak ofert na stronie - koniec paginacji")
-                break
-            
-            all_offers.extend(offers)
-            
-            # Sprawdzamy czy jest następna strona
-            next_url = self._get_next_page_url(soup, page_num)
-            
-            if not next_url:
-                print(f"✅ Osiągnięto ostatnią stronę")
-                break
-            
-            current_url = next_url
-            page_num += 1
-            
-            # Opóźnienie przed następną stroną
-            if page_num <= max_pages:
-                self._random_delay()
-        
-        print(f"\n✅ Faza 1: Pobrano {len(all_offers)} podstawowych ofert z {page_num} stron")
-        
-        # FAZA 2: Inteligentne pobieranie szczegółów (pomijamy oferty ze stałą ceną)
-        if all_offers:
-            # Rozdziel oferty na: do pobrania vs do pominięcia
-            offers_to_fetch = []
-            offers_to_skip = []
-            
-            for offer in all_offers:
-                offer_id = offer['url'].split('/')[-1].split('.')[0]
-                listing_price = self._extract_price_number(offer['price_raw'])
-                
-                # Sprawdź czy oferta istnieje w bazie
-                if offer_id in self.existing_offers:
-                    existing = self.existing_offers[offer_id]
-                    existing_price = existing.get('price')
-                    
-                    # Porównaj ceny (tylko cyfry)
-                    if listing_price and existing_price and listing_price == existing_price:
-                        # Ta sama cena → pomiń pobieranie szczegółów
-                        offers_to_skip.append({
-                            'offer': offer,
-                            'existing': existing,
-                            'reason': 'same_price'
-                        })
-                        self.stats['skipped_same_price'] += 1
-                    else:
-                        # Cena się zmieniła → pobierz szczegóły
-                        offers_to_fetch.append({
-                            'offer': offer,
-                            'old_price': existing_price,
-                            'new_price': listing_price,
-                            'reason': 'price_changed'
-                        })
-                        self.stats['fetched_price_changed'] += 1
-                else:
-                    # Nowa oferta → pobierz szczegóły
-                    offers_to_fetch.append({
-                        'offer': offer,
-                        'reason': 'new'
-                    })
-                    self.stats['fetched_new'] += 1
-            
-            print(f"\n📊 Inteligentne pobieranie:")
-            print(f"   ⏭️  Pominięto (ta sama cena): {len(offers_to_skip)}")
-            print(f"   🆕 Nowe oferty do pobrania: {self.stats['fetched_new']}")
-            print(f"   💰 Zmieniona cena: {self.stats['fetched_price_changed']}")
-            
-            # Uzupełnij oferty pominięte danymi z istniejącej bazy
-            for item in offers_to_skip:
-                offer = item['offer']
-                existing = item['existing']
-                offer['description'] = existing.get('description', offer['title'])
-                offer['official_price'] = existing.get('price')
-                offer['official_price_raw'] = f"{existing.get('price')} zł (cache)"
-                offer['price_source'] = 'cache'
-                offer['skipped'] = True  # Flaga że pominięto pobieranie
-                
-                # Dodaj adres i współrzędne z cache (dla reaktywacji nieaktywnych ofert)
-                if existing.get('address'):
-                    offer['cached_address'] = existing.get('address')
-                if existing.get('coordinates'):
-                    offer['cached_coordinates'] = existing.get('coordinates')
-                # Oznacz czy oferta była nieaktywna (do potencjalnej reaktywacji)
-                offer['was_inactive'] = not existing.get('was_active', True)
-            
-            # Pobierz szczegóły tylko dla ofert które tego wymagają
-            if offers_to_fetch:
-                print(f"\n⚡ Faza 2: Pobieranie szczegółów dla {len(offers_to_fetch)} ofert ({self.max_workers} wątków)...")
-                start_time = time.time()
-                
-                with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-                    # Submit tylko oferty do pobrania
-                    future_to_item = {
-                        executor.submit(self._fetch_single_offer_details, item['offer']): item 
-                        for item in offers_to_fetch
-                    }
-                    
-                    # Zbierz wyniki
-                    completed = 0
-                    total = len(offers_to_fetch)
-                    
-                    for future in as_completed(future_to_item):
-                        completed += 1
-                        item = future_to_item[future]
-                        try:
-                            updated_offer = future.result()
-                            # Dodaj info o poprzedniej cenie jeśli się zmieniła
-                            if item.get('reason') == 'price_changed':
-                                updated_offer['previous_price'] = item.get('old_price')
-                            
-                            # Zaktualizuj w all_offers
-                            for i, o in enumerate(all_offers):
-                                if o['url'] == updated_offer['url']:
-                                    all_offers[i] = updated_offer
-                                    break
-                            
-                            progress = (completed / total) * 100
-                            print(f"\r   Postęp: [{completed}/{total}] {progress:.1f}%", end='', flush=True)
-                        except (requests.RequestException, AttributeError, TypeError) as e:
-                            print(f"\n   ⚠️ Błąd pobierania: {e}")
-                
-                elapsed = time.time() - start_time
-                print(f"\n✅ Szczegóły pobrane w {elapsed:.1f}s (średnio {elapsed/len(offers_to_fetch):.2f}s/oferta)")
-            else:
-                print(f"\n✅ Wszystkie oferty pominięte (brak zmian cen)")
-        
-        print(f"\n✅ Scraping zakończony: {len(all_offers)} ofert z {page_num} stron")
-        print(f"   📈 Zaoszczędzono {self.stats['skipped_same_price']} requestów!")
-        return all_offers
     
     def fetch_offer_details(self, url: str) -> Optional[Dict]:
         """
