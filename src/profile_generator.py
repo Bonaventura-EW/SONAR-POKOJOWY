@@ -51,6 +51,9 @@ def generate_profile_data(input_file: str, output_file: str):
     now = datetime.now(tz)
 
     # Inicjalizuj struktury per-profil
+    # Mapa: nazwa wyświetlana -> klucz profilu
+    name_to_key = {cfg['name']: key for key, cfg in TRACKED_PROFILES.items()}
+
     profile_data = {}
     for key, cfg in TRACKED_PROFILES.items():
         profile_data[key] = {
@@ -73,8 +76,16 @@ def generate_profile_data(input_file: str, output_file: str):
     # Przydziel oferty do profili
     unassigned = 0
     for offer in offers:
-        profile_key = offer.get('profile_name')
-        if not profile_key or profile_key not in profile_data:
+        raw_profile = offer.get('profile_name')
+        if not raw_profile:
+            unassigned += 1
+            continue
+        # profile_name może być kluczem lub nazwą wyświetlaną
+        if raw_profile in profile_data:
+            profile_key = raw_profile
+        elif raw_profile in name_to_key:
+            profile_key = name_to_key[raw_profile]
+        else:
             unassigned += 1
             continue
 
