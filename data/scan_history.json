@@ -1,65 +1,5 @@
 [
   {
-    "timestamp": "2026-04-26T15:59:43.536464+02:00",
-    "status": "completed",
-    "phases": {
-      "scraping": {
-        "duration": 259.23,
-        "details": {
-          "offers_found": 406,
-          "max_pages": 50
-        }
-      },
-      "processing": {
-        "duration": 1.05,
-        "details": {
-          "processed": 82,
-          "skipped_no_address": 162,
-          "skipped_no_price": 1,
-          "skipped_no_coords": 156,
-          "skipped_duplicate": 5
-        }
-      },
-      "geocoding": {
-        "duration": 0.83,
-        "details": {
-          "geocoded_addresses": 82
-        }
-      }
-    },
-    "stats": {
-      "raw_offers": 406,
-      "processed": 82,
-      "new": 0,
-      "updated": 82,
-      "reactivated": 14,
-      "total_in_db": 259,
-      "active": 99,
-      "inactive": 160,
-      "skipped_no_address": 162,
-      "skipped_no_price": 1,
-      "skipped_no_coords": 156,
-      "skipped_duplicate": 5,
-      "verification": {
-        "verified": 50,
-        "reactivated": 13,
-        "confirmed_inactive": 37,
-        "errors": 0
-      }
-    },
-    "errors": [],
-    "end_timestamp": "2026-04-26T16:05:17.646861+02:00",
-    "total_duration": 334.11,
-    "performance": {
-      "offers_per_second": 1.22,
-      "pages_scanned": 50,
-      "geocoding_duration": 0.83,
-      "geocoding_per_address": 0.01,
-      "scraping_per_page": 5.18,
-      "processing_success_rate": 20.2
-    }
-  },
-  {
     "timestamp": "2026-04-26T21:39:27.580047+02:00",
     "status": "completed",
     "phases": {
@@ -5895,6 +5835,20 @@
       }
     ],
     "end_timestamp": "2026-05-21T20:50:21.583093+02:00",
+    "total_duration": 0.0
+  },
+  {
+    "timestamp": "2026-05-21T20:52:09.482476+02:00",
+    "status": "failed",
+    "phases": {},
+    "stats": {},
+    "errors": [
+      {
+        "timestamp": "2026-05-21T20:52:09.482497+02:00",
+        "message": "'OLXScraper' object has no attribute 'scrape_all_pages'"
+      }
+    ],
+    "end_timestamp": "2026-05-21T20:52:09.482506+02:00",
     "total_duration": 0.0
   }
 ]
