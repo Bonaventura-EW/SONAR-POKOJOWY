@@ -173,11 +173,16 @@
         }
         .profile-link-bar a:hover { text-decoration: underline; }
 
-        /* ── LAYOUT: MAP (góra) + LIST (dół) ─────────── */
+        /* ── LAYOUT: MAP | LIST (50/50) ──────────────── */
         .panel-layout {
-            display: flex;
-            flex-direction: column;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
             gap: 16px;
+            align-items: start;
+        }
+        .panel-layout .chart-wrap { grid-column: 1 / -1; }
+        @media (max-width: 800px) {
+            .panel-layout { grid-template-columns: 1fr; }
         }
 
         /* ── MINI MAP ──────────────────────────────────── */
@@ -197,7 +202,8 @@
             letter-spacing: 0.05em;
         }
         .mini-map {
-            height: 240px;
+            height: calc(100vh - 260px);
+            min-height: 400px;
             width: 100%;
         }
 
@@ -221,7 +227,9 @@
             justify-content: space-between;
         }
         .list-inner {
-            max-height: none;
+            max-height: calc(100vh - 320px);
+            min-height: 360px;
+            overflow-y: auto;
         }
         .list-inner::-webkit-scrollbar { width: 5px; }
         .list-inner::-webkit-scrollbar-track { background: #1e293b; }
@@ -612,7 +620,7 @@ function buildPanel(key, p) {
                     ${offerRows}
                 </div>
             </div>
-            ${priceChartHtml}
+            <div class="chart-wrap">${priceChartHtml}</div>
         </div>`;
 }
 
