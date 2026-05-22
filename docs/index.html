@@ -170,10 +170,14 @@
                             <span id="layer-count-inactive-approx" class="badge-count">(0)</span>
                         </label>
                         <label style="background: #fffbeb; padding: 5px; border-radius: 4px; margin-top: 5px; border: 2px solid #FFD700;">
-                            <input type="checkbox" id="layer-firm" checked onchange="filterMarkers()">
+                            <input type="checkbox" id="layer-firm" checked onchange="onFirmLayerToggle()">
                             <span style="font-weight:600;">&#127970; Firmy / Agencje</span>
                             <span id="layer-count-firm" class="badge-count">(0)</span>
                         </label>
+                        <!-- Drzewo profili firmowych -->
+                        <div id="firm-profiles-tree" style="margin-top:4px;padding-left:14px;display:flex;flex-direction:column;gap:2px;">
+                            <!-- generowane dynamicznie przez JS po załadowaniu danych -->
+                        </div>
                     </div>
                     
                     <!-- B1: WARSTWY TYPU OFERTY -->

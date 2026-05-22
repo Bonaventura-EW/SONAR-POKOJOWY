@@ -215,6 +215,7 @@ async function loadData() {
         initDateSlider();  // Suwak dni - wymaga wypełnionego allMarkers
         setupEventListeners();
         filterMarkers();  // ✅ Przefiltruj markery zgodnie z początkowymi stanami checkboxów
+        buildFirmProfilesTree();  // Drzewo profili firmowych w sidebarze
 
         // NOWE: jeśli URL ma ?offer=ID, pokaż wskazany marker
         focusOfferFromUrl();
@@ -624,6 +625,7 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
             isFirmLublin: isFirmLublin,
             offerType: offerType,
             offerCity: offerCity,
+            originalOffer: offer,  // referencja do pełnych danych oferty
             // Daty do filtrowania zakresem dat
             firstSeenDate: parsePolishDate(offer.first_seen),
             priceChangedAtDate: parsePolishDate(offer.price_changed_at)
@@ -764,6 +766,106 @@ function createPopupContent(address, offers) {
 }
 
 // Filtrowanie markerów
+// ── DRZEWO PROFILI FIRMOWYCH ─────────────────────────────────────────
+function buildFirmProfilesTree() {
+    const tree = document.getElementById('firm-profiles-tree');
+    if (!tree || !mapData?.tracked_profiles) return;
+
+    const profiles = mapData.tracked_profiles;
+
+    // Policz oferty per profil z allMarkers
+    const profileCounts = {};
+    Object.keys(profiles).forEach(k => { profileCounts[k] = 0; });
+
+    allMarkers.forEach(item => {
+        if (!item.isFirmOffer || !item.isActive) return;
+        const offer = item.originalOffer || {};
+        if (!offer.profile_name) return;
+        // Znajdź klucz profilu po nazwie
+        const key = Object.keys(profiles).find(k =>
+            profiles[k].name === offer.profile_name || k === offer.profile_name
+        );
+        if (key) profileCounts[key] = (profileCounts[key] || 0) + 1;
+    });
+
+    tree.innerHTML = Object.entries(profiles).map(([key, prof]) => {
+        const count = profileCounts[key] || 0;
+        return `<label style="display:flex;align-items:center;gap:5px;padding:3px 6px;border-radius:4px;cursor:pointer;font-size:12px;background:rgba(255,215,0,0.05);border:1px solid rgba(255,215,0,0.2);">
+            <input type="checkbox" id="firm-profile-${key}" checked
+                onchange="onFirmProfileToggle()"
+                style="accent-color:#d97706;cursor:pointer;">
+            <span style="flex:1;color:#92400e;font-weight:500">${prof.name}</span>
+            <span id="firm-count-${key}" style="background:rgba(255,215,0,0.15);color:#b45309;border-radius:10px;padding:0px 6px;font-size:10px;font-weight:600;">${count}</span>
+        </label>`;
+    }).join('');
+}
+
+function updateFirmProfileCounts() {
+    if (!mapData?.tracked_profiles) return;
+    const profiles = mapData.tracked_profiles;
+
+    const profileCounts = {};
+    Object.keys(profiles).forEach(k => { profileCounts[k] = 0; });
+
+    allMarkers.forEach(item => {
+        if (!item.isFirmOffer || !item.isActive) return;
+        if (!markerLayers.firm.hasLayer(item.marker)) return;
+        const offer = item.originalOffer || {};
+        if (!offer.profile_name) return;
+        const key = Object.keys(profiles).find(k =>
+            profiles[k].name === offer.profile_name || k === offer.profile_name
+        );
+        if (key) profileCounts[key] = (profileCounts[key] || 0) + 1;
+    });
+
+    Object.keys(profiles).forEach(key => {
+        const el = document.getElementById('firm-count-' + key);
+        if (el) el.textContent = profileCounts[key] || 0;
+    });
+}
+
+function getEnabledProfiles() {
+    if (!mapData?.tracked_profiles) return null; // null = all
+    const enabled = new Set();
+    let anyUnchecked = false;
+    Object.keys(mapData.tracked_profiles).forEach(key => {
+        const cb = document.getElementById('firm-profile-' + key);
+        if (cb && cb.checked) enabled.add(key);
+        else anyUnchecked = true;
+    });
+    return anyUnchecked ? enabled : null; // null = wszystkie zaznaczone = brak filtra
+}
+
+function getProfileKeyForOffer(profileName) {
+    if (!mapData?.tracked_profiles || !profileName) return null;
+    return Object.keys(mapData.tracked_profiles).find(k =>
+        mapData.tracked_profiles[k].name === profileName || k === profileName
+    ) || null;
+}
+
+function onFirmLayerToggle() {
+    const showFirm = document.getElementById('layer-firm')?.checked ?? true;
+    // Synchronizuj checkboxy profili
+    if (mapData?.tracked_profiles) {
+        Object.keys(mapData.tracked_profiles).forEach(key => {
+            const cb = document.getElementById('firm-profile-' + key);
+            if (cb) cb.checked = showFirm;
+        });
+    }
+    filterMarkers();
+}
+
+function onFirmProfileToggle() {
+    // Jeśli wszystkie profile odznaczone → odznacz główny checkbox
+    // Jeśli przynajmniej jeden zaznaczony → zaznacz główny
+    const enabled = getEnabledProfiles();
+    const mainCb = document.getElementById('layer-firm');
+    if (mainCb) {
+        mainCb.checked = enabled === null || enabled.size > 0;
+    }
+    filterMarkers();
+}
+
 function filterMarkers() {
     // Pobierz ustawienia filtrów
     const showActive = document.getElementById('layer-active').checked;
@@ -827,9 +929,15 @@ function filterMarkers() {
         // Filtr aktywne/nieaktywne - osobne checkboxy dla exact i approx
         // (sprawdzane PÓŹNIEJ - na końcu, po policzeniu warstw)
         const showFirm = document.getElementById('layer-firm')?.checked ?? true;
+        const enabledProfiles = getEnabledProfiles(); // null = wszystkie
         let passesLayerFilter = true;
         if (item.isFirmOffer && item.isActive) {
-            passesLayerFilter = showFirm;
+            if (!showFirm) {
+                passesLayerFilter = false;
+            } else if (enabledProfiles !== null) {
+                const offerProfile = getProfileKeyForOffer(item.originalOffer?.profile_name);
+                passesLayerFilter = offerProfile ? enabledProfiles.has(offerProfile) : false;
+            }
         } else if (item.isApprox) {
             if (item.isActive) passesLayerFilter = showActiveApprox;
             else passesLayerFilter = showInactiveApprox;
