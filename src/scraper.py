@@ -470,6 +470,10 @@ class OLXScraper:
                         offer_type = 'inne'
 
                     city_name = (api_offer.get('location', {}) or {}).get('city', {}).get('name', '')
+                    
+                    # Filtr: tylko Lublin (profil może mieć oferty z całej Polski)
+                    if city_name and city_name.lower() != 'lublin':
+                        continue
 
                     offer = {
                         'title': api_offer.get('title', ''),
