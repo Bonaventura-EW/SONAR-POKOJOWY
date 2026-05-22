@@ -65,8 +65,11 @@ class DuplicateDetector:
         
         # 2. Cena musi być identyczna lub bardzo podobna (±5%)
         # Różne ceny = różne pokoje/mieszkania w tym samym budynku
-        price1 = offer1.get('price', 0) or 0
-        price2 = offer2.get('price', 0) or 0
+        # Uwaga: offer['price'] może być dict {'current': X} lub liczbą
+        p1_raw = offer1.get('price', 0)
+        p2_raw = offer2.get('price', 0)
+        price1 = p1_raw.get('current', 0) if isinstance(p1_raw, dict) else (p1_raw or 0)
+        price2 = p2_raw.get('current', 0) if isinstance(p2_raw, dict) else (p2_raw or 0)
         if price1 and price2 and abs(price1 - price2) > price1 * 0.05:
             return False
         
