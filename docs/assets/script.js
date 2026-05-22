@@ -426,14 +426,8 @@ function createMarkers() {
 
 // Tworzenie grupy markerów (rozsunięcie dla tego samego adresu)
 
-function buildActiveCircle(isFirmOffer, offerType, markerColor, firmInner) {
-    const fill = (isFirmOffer && offerType === 'mieszkanie') ? markerColor : 'white';
-    let html = '<circle cx="20" cy="18" r="8" fill="' + fill + '" opacity="0.9"/>';
-    if (firmInner) {
-        const textFill = (offerType === 'mieszkanie') ? 'white' : markerColor;
-        html += '<text x="20" y="18" text-anchor="middle" dominant-baseline="central" font-size="9" font-weight="800" fill="' + textFill + '">' + firmInner + '</text>';
-    }
-    return html;
+function buildActiveCircle() {
+    return '<circle cx="20" cy="18" r="8" fill="white" opacity="0.9"/>';
 }
 
 function createMarkerGroup(baseCoords, address, offers, isActive) {
@@ -491,10 +485,7 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
         const strokeColor = isNew ? '#ff0000' : isFirmOffer ? '#FFD700' : 'white';
         const strokeWidth = isNew ? '3' : isFirmOffer ? '4' : '2';
         const markerColor = color;
-        // Ikona wewnętrzna: M=mieszkanie, P=pokój (dla ofert firmowych)
-        const firmInner = isFirmOffer && offerType === 'mieszkanie' ? 'M'
-                        : isFirmOffer && offerType === 'pokoj' ? 'P'
-                        : '';
+
 
         // Czy oferta to "przybliżony adres" (sama ulica, bez numeru)?
         const isApprox = offer.precision === 'street_only';
@@ -565,7 +556,7 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
             // Krzyżyk × dla nieaktywnych: czarny tekst w białym kole wewnątrz SVG (zgodnie z mockupem v2)
             const inactiveMarker = !isActive
                 ? `<circle cx="20" cy="18" r="9" fill="white"/><text x="20" y="18" text-anchor="middle" dominant-baseline="central" font-size="16" font-weight="700" fill="#1f2937" font-family="-apple-system, sans-serif">×</text>`
-                : buildActiveCircle(isFirmOffer, offerType, markerColor, firmInner);
+                : buildActiveCircle();
             icon = L.divIcon({
                 className: 'pin-marker',
                 html: `
