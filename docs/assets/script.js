@@ -40,6 +40,14 @@ let dateSliderState = {
     selectedIndex: -1    // indeks aktualnie wybranego dnia w days[]
 };
 
+// Filtr daty zniknięcia (last_seen nieaktywnych ofert)
+let goneSliderState = {
+    enabled: false,
+    days: [],            // posortowana tablica Date last_seen nieaktywnych
+    countsPerDay: {},    // "YYYY-MM-DD" -> liczba ofert które zniknęły tego dnia
+    selectedIndex: -1
+};
+
 function dayKey(date) {
     // Format klucza "YYYY-MM-DD" niezależny od strefy
     const y = date.getFullYear();
@@ -213,6 +221,7 @@ async function loadData() {
         await createMarkers();  // async batch - czekamy aż wszystkie markery będą gotowe
         updateStats();  // Wywołaj PO createMarkers(), żeby allMarkers był wypełniony
         initDateSlider();  // Suwak dni - wymaga wypełnionego allMarkers
+        initGoneSlider(); // Suwak daty zniknięcia
         setupEventListeners();
         filterMarkers();  // ✅ Przefiltruj markery zgodnie z początkowymi stanami checkboxów
         buildFirmProfilesTree();  // Drzewo profili firmowych w sidebarze
@@ -317,6 +326,7 @@ function calculateFilteredStats() {
 
             // Sprawdź filtr dzienny (suwak dni)
             if (!passesDaySliderFilter(parsePolishDate(offer.first_seen))) return;
+            if (!passesGoneSliderFilter(offer)) return;
 
             // Oferta przeszła wszystkie filtry - dodaj do listy
             visibleOffers.push(offer);
@@ -984,6 +994,14 @@ function filterMarkers() {
         if (visible && !passesDaySliderFilter(item.firstSeenDate)) {
             visible = false;
         }
+
+        // Filtr daty zniknięcia — dotyczy nieaktywnych ofert
+        if (visible && !item.isActive && goneSliderState.enabled) {
+            const lastSeenDate = item.originalOffer ? parsePolishDate(item.originalOffer.last_seen) : null;
+            if (!passesGoneSliderFilter(item.originalOffer || {})) {
+                visible = false;
+            }
+        }
         
         // Filtr zakresów cenowych - wspólny dla obu warstw
         // Jeśli selectedRanges jest puste (żaden checkbox), pokaż wszystkie
@@ -1269,6 +1287,117 @@ function passesDaySliderFilter(firstSeenDate) {
     return firstSeenDate.getFullYear() === selected.getFullYear() &&
            firstSeenDate.getMonth() === selected.getMonth() &&
            firstSeenDate.getDate() === selected.getDate();
+}
+
+// Sprawdź czy oferta (nieaktywna) przeszła przez filtr daty zniknięcia
+function passesGoneSliderFilter(offer) {
+    if (!goneSliderState.enabled) return true;
+    // Filtr dotyczy tylko nieaktywnych
+    if (offer.active) return true;
+    const lastSeenDate = parsePolishDate(offer.last_seen);
+    if (!lastSeenDate) return false;
+    const idx = goneSliderState.selectedIndex;
+    const days = goneSliderState.days;
+    if (idx < 0 || idx >= days.length) return true;
+    const selected = days[idx];
+    return lastSeenDate.getFullYear() === selected.getFullYear() &&
+           lastSeenDate.getMonth() === selected.getMonth() &&
+           lastSeenDate.getDate() === selected.getDate();
+}
+
+// Inicjalizacja suwaka daty zniknięcia
+function initGoneSlider() {
+    const enableCb = document.getElementById('date-gone-enable');
+    const slider = document.getElementById('date-gone-slider');
+    if (!enableCb || !slider) return;
+
+    // Zbierz daty last_seen nieaktywnych ofert
+    const countsPerDay = {};
+    allMarkers.forEach(item => {
+        if (item.isActive) return;
+        const offer = item.originalOffer || {};
+        const d = parsePolishDate(offer.last_seen);
+        if (!d) return;
+        const k = dayKey(d);
+        countsPerDay[k] = (countsPerDay[k] || 0) + 1;
+    });
+
+    if (Object.keys(countsPerDay).length === 0) return;
+
+    // Zakres: od najstarszego do najnowszego last_seen
+    const sortedKeys = Object.keys(countsPerDay).sort();
+    const days = sortedKeys.map(k => {
+        const [y, m, d] = k.split('-').map(Number);
+        return new Date(y, m - 1, d);
+    });
+
+    goneSliderState.days = days;
+    goneSliderState.countsPerDay = countsPerDay;
+    goneSliderState.selectedIndex = days.length - 1;
+
+    slider.min = 0;
+    slider.max = days.length - 1;
+    slider.value = days.length - 1;
+    slider.disabled = false;
+
+    document.getElementById('date-gone-min').textContent = sortedKeys[0].slice(5).replace('-', '.');
+    document.getElementById('date-gone-max').textContent = sortedKeys[sortedKeys.length - 1].slice(5).replace('-', '.');
+
+    updateGoneSliderReadout();
+
+    // Event listeners
+    enableCb.addEventListener('change', () => {
+        goneSliderState.enabled = enableCb.checked;
+        document.getElementById('date-gone-control').style.opacity = enableCb.checked ? '1' : '0.4';
+        filterMarkers();
+        updateGoneSliderReadout();
+    });
+
+    slider.addEventListener('input', () => {
+        goneSliderState.selectedIndex = parseInt(slider.value);
+        filterMarkers();
+        updateGoneSliderReadout();
+    });
+
+    document.getElementById('date-gone-control').style.opacity = '0.4';
+    buildGoneHistogram();
+}
+
+function updateGoneSliderReadout() {
+    const idx = goneSliderState.selectedIndex;
+    const days = goneSliderState.days;
+    const dateEl = document.getElementById('date-gone-current');
+    const countEl = document.getElementById('date-gone-count');
+    if (!dateEl || !countEl) return;
+    if (!goneSliderState.enabled || idx < 0 || idx >= days.length) {
+        dateEl.textContent = '—';
+        countEl.textContent = '— ofert';
+        return;
+    }
+    const day = days[idx];
+    const k = dayKey(day);
+    const count = goneSliderState.countsPerDay[k] || 0;
+    const dd = String(day.getDate()).padStart(2, '0');
+    const mm = String(day.getMonth() + 1).padStart(2, '0');
+    dateEl.textContent = `${dd}.${mm}.${day.getFullYear()}`;
+    countEl.textContent = `${count} ofert`;
+    buildGoneHistogram();
+}
+
+function buildGoneHistogram() {
+    const container = document.getElementById('date-gone-histogram');
+    if (!container) return;
+    const days = goneSliderState.days;
+    if (!days.length) return;
+    const max = Math.max(...days.map(d => goneSliderState.countsPerDay[dayKey(d)] || 0));
+    const idx = goneSliderState.selectedIndex;
+    container.innerHTML = days.map((d, i) => {
+        const k = dayKey(d);
+        const cnt = goneSliderState.countsPerDay[k] || 0;
+        const h = max > 0 ? Math.max(2, Math.round((cnt / max) * 20)) : 2;
+        return `<div class="histogram-bar${i === idx && goneSliderState.enabled ? ' active' : ''}"
+            style="height:${h}px" title="${k}: ${cnt} ofert"></div>`;
+    }).join('');
 }
 
 // Setup event listeners
