@@ -1379,7 +1379,9 @@ function updateGoneSliderReadout() {
     const count = goneSliderState.countsPerDay[k] || 0;
     const dd = String(day.getDate()).padStart(2, '0');
     const mm = String(day.getMonth() + 1).padStart(2, '0');
-    dateEl.textContent = `${dd}.${mm}.${day.getFullYear()}`;
+    const dayNames = ['niedziela', 'poniedziałek', 'wtorek', 'środa', 'czwartek', 'piątek', 'sobota'];
+    const dayName = dayNames[day.getDay()];
+    dateEl.textContent = `${dd}.${mm}.${day.getFullYear()} (${dayName})`;
     countEl.textContent = `${count} ofert`;
     buildGoneHistogram();
 }
