@@ -1,65 +1,5 @@
 [
   {
-    "timestamp": "2026-04-29T17:04:08.449722+02:00",
-    "status": "completed",
-    "phases": {
-      "scraping": {
-        "duration": 271.71,
-        "details": {
-          "offers_found": 418,
-          "max_pages": 50
-        }
-      },
-      "processing": {
-        "duration": 0.81,
-        "details": {
-          "processed": 81,
-          "skipped_no_address": 161,
-          "skipped_no_price": 1,
-          "skipped_no_coords": 167,
-          "skipped_duplicate": 8
-        }
-      },
-      "geocoding": {
-        "duration": 0.59,
-        "details": {
-          "geocoded_addresses": 81
-        }
-      }
-    },
-    "stats": {
-      "raw_offers": 418,
-      "processed": 81,
-      "new": 1,
-      "updated": 80,
-      "reactivated": 13,
-      "total_in_db": 263,
-      "active": 99,
-      "inactive": 164,
-      "skipped_no_address": 161,
-      "skipped_no_price": 1,
-      "skipped_no_coords": 167,
-      "skipped_duplicate": 8,
-      "verification": {
-        "verified": 50,
-        "reactivated": 13,
-        "confirmed_inactive": 37,
-        "errors": 0
-      }
-    },
-    "errors": [],
-    "end_timestamp": "2026-04-29T17:10:06.462675+02:00",
-    "total_duration": 358.01,
-    "performance": {
-      "offers_per_second": 1.17,
-      "pages_scanned": 50,
-      "geocoding_duration": 0.59,
-      "geocoding_per_address": 0.01,
-      "scraping_per_page": 5.43,
-      "processing_success_rate": 19.4
-    }
-  },
-  {
     "timestamp": "2026-04-29T19:16:31.017328+02:00",
     "status": "completed",
     "phases": {
@@ -5921,6 +5861,41 @@
       "geocoding_per_address": 0.01,
       "scraping_per_page": 0.39,
       "processing_success_rate": 71.7
+    }
+  },
+  {
+    "timestamp": "2026-05-22T15:14:07.670936+02:00",
+    "status": "failed",
+    "phases": {
+      "scraping": {
+        "duration": 19.21,
+        "details": {
+          "offers_found": 312,
+          "max_pages": 50
+        }
+      },
+      "profile_scraping": {
+        "duration": 2.4,
+        "details": {
+          "profiles": 6,
+          "profile_offers": 11,
+          "new_from_profiles": 4,
+          "tagged_existing": 7
+        }
+      }
+    },
+    "stats": {},
+    "errors": [
+      {
+        "timestamp": "2026-05-22T15:14:29.323381+02:00",
+        "message": "unsupported operand type(s) for -: 'dict' and 'dict'"
+      }
+    ],
+    "end_timestamp": "2026-05-22T15:14:29.323389+02:00",
+    "total_duration": 21.65,
+    "performance": {
+      "pages_scanned": 50,
+      "scraping_per_page": 0.38
     }
   }
 ]
