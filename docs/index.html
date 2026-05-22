@@ -87,48 +87,52 @@
 
         <!-- Paski filtra dat -->
         <div class="date-slider-bar">
+
             <!-- Filtr daty dodania -->
-            <label class="date-slider-toggle">
-                <input type="checkbox" id="date-filter-enable">
-                <span>Filtruj po dacie dodania</span>
-            </label>
-
-            <div class="date-slider-control" id="date-slider-control">
-                <span class="date-slider-bound" id="date-slider-min">—</span>
-                <input type="range" id="date-slider" min="0" max="0" value="0" step="1" disabled>
-                <span class="date-slider-bound" id="date-slider-max">—</span>
+            <div class="date-filter-group">
+                <div class="date-filter-row">
+                    <label class="date-slider-toggle">
+                        <input type="checkbox" id="date-filter-enable">
+                        <span>Filtruj po dacie dodania</span>
+                    </label>
+                    <div class="date-slider-control" id="date-slider-control">
+                        <span class="date-slider-bound" id="date-slider-min">—</span>
+                        <input type="range" id="date-slider" min="0" max="0" value="0" step="1" disabled>
+                        <span class="date-slider-bound" id="date-slider-max">—</span>
+                    </div>
+                    <div class="date-slider-readout">
+                        <span class="date-slider-label">Wybrany dzień:</span>
+                        <span class="date-slider-date" id="date-slider-current">—</span>
+                        <span class="date-slider-count" id="date-slider-count">— ofert</span>
+                    </div>
+                </div>
+                <div class="date-slider-histogram" id="date-slider-histogram"></div>
             </div>
-
-            <div class="date-slider-readout">
-                <span class="date-slider-label">Wybrany dzień:</span>
-                <span class="date-slider-date" id="date-slider-current">—</span>
-                <span class="date-slider-count" id="date-slider-count">— ofert</span>
-            </div>
-
-            <div class="date-slider-histogram" id="date-slider-histogram"></div>
 
             <!-- Separator -->
-            <div style="width:1px;background:rgba(255,255,255,0.15);margin:0 8px;align-self:stretch;"></div>
+            <div style="width:1px;background:#d6dde5;align-self:stretch;flex-shrink:0;"></div>
 
             <!-- Filtr daty zniknięcia -->
-            <label class="date-slider-toggle">
-                <input type="checkbox" id="date-gone-enable">
-                <span>Filtruj po dacie zniknięcia</span>
-            </label>
-
-            <div class="date-slider-control" id="date-gone-control">
-                <span class="date-slider-bound" id="date-gone-min">—</span>
-                <input type="range" id="date-gone-slider" min="0" max="0" value="0" step="1" disabled>
-                <span class="date-slider-bound" id="date-gone-max">—</span>
+            <div class="date-filter-group">
+                <div class="date-filter-row">
+                    <label class="date-slider-toggle">
+                        <input type="checkbox" id="date-gone-enable">
+                        <span>Filtruj po dacie zniknięcia</span>
+                    </label>
+                    <div class="date-slider-control" id="date-gone-control">
+                        <span class="date-slider-bound" id="date-gone-min">—</span>
+                        <input type="range" id="date-gone-slider" min="0" max="0" value="0" step="1" disabled>
+                        <span class="date-slider-bound" id="date-gone-max">—</span>
+                    </div>
+                    <div class="date-slider-readout">
+                        <span class="date-slider-label">Wybrany dzień:</span>
+                        <span class="date-slider-date" id="date-gone-current">—</span>
+                        <span class="date-slider-count" id="date-gone-count">— ofert</span>
+                    </div>
+                </div>
+                <div class="date-slider-histogram" id="date-gone-histogram"></div>
             </div>
 
-            <div class="date-slider-readout">
-                <span class="date-slider-label">Wybrany dzień:</span>
-                <span class="date-slider-date" id="date-gone-current">—</span>
-                <span class="date-slider-count" id="date-gone-count">— ofert</span>
-            </div>
-
-            <div class="date-slider-histogram" id="date-gone-histogram"></div>
         </div>
 
         <!-- Main content: mapa + sidebar -->

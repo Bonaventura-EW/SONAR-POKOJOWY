@@ -538,21 +538,31 @@ body {
 .date-slider-bar {
     background: linear-gradient(135deg, #f8fafc 0%, #eef2f7 100%);
     border-bottom: 1px solid #d6dde5;
-    padding: 10px 20px 8px;
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    grid-template-rows: auto auto;
-    grid-template-areas:
-        "toggle slider readout"
-        "histogram histogram histogram";
-    column-gap: 18px;
-    row-gap: 6px;
+    padding: 6px 20px;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
     align-items: center;
+    gap: 0 24px;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
+/* Każdy filtr (toggle + control + readout + histogram) grupujemy w .date-filter-group */
+.date-filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+    min-width: 260px;
+}
+
+.date-filter-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
 .date-slider-toggle {
-    grid-area: toggle;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -572,7 +582,6 @@ body {
 }
 
 .date-slider-control {
-    grid-area: slider;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -637,8 +646,38 @@ body {
     background: #94a3b8;
 }
 
+/* Suwak daty zniknięcia - pomarańczowy */
+#date-gone-slider {
+    flex: 1;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: #fde68a;
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+}
+#date-gone-slider:disabled { cursor: not-allowed; }
+#date-gone-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    background: #f59e0b;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+#date-gone-slider::-moz-range-thumb {
+    width: 14px; height: 14px;
+    background: #f59e0b;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    cursor: pointer;
+}
+#date-gone-slider:disabled::-webkit-slider-thumb,
+#date-gone-slider:disabled::-moz-range-thumb { background: #94a3b8; }
+
 .date-slider-readout {
-    grid-area: readout;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -671,7 +710,6 @@ body {
 }
 
 .date-slider-histogram {
-    grid-area: histogram;
     display: flex;
     align-items: flex-end;
     gap: 2px;
