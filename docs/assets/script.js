@@ -1381,7 +1381,7 @@ function updateGoneSliderReadout() {
     const mm = String(day.getMonth() + 1).padStart(2, '0');
     const dayNames = ['niedziela', 'poniedziałek', 'wtorek', 'środa', 'czwartek', 'piątek', 'sobota'];
     const dayName = dayNames[day.getDay()];
-    dateEl.textContent = `${dd}.${mm}.${day.getFullYear()} (${dayName})`;
+    dateEl.innerHTML = `${dd}.${mm}.${day.getFullYear()}<br><span style="font-size:0.8em;opacity:0.7;">${dayName}</span>`;
     countEl.textContent = `${count} ofert`;
     buildGoneHistogram();
 }
