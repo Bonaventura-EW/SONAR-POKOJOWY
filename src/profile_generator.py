@@ -139,6 +139,10 @@ def generate_profile_data(input_file: str, output_file: str):
             'reactivated': offer.get('reactivated_at') is not None,
             'offer_type': offer.get('offer_type'),   # 'pokoj'/'mieszkanie'/'inne'
             'city': offer.get('city', ''),            # miasto ogłoszenia
+            'refresh_count': offer.get('refresh_count', 0),
+            'refresh_dates': offer.get('refresh_dates', []),
+            'last_refresh_date': offer.get('last_refresh_date', ''),
+            'reactivation_count': offer.get('reactivation_count', 0),
         }
 
         # Czy nowa (first_seen dzisiaj)

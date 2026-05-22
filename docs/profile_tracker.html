@@ -8,854 +8,581 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #0f172a;
-            color: #e2e8f0;
-            min-height: 100vh;
-        }
-
-        /* ── HEADER ────────────────────────────────────── */
-        header {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            border-bottom: 1px solid #FFD700;
-            padding: 16px 24px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-        header h1 {
-            font-size: 1.3rem;
-            font-weight: 700;
-            color: #FFD700;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .nav-links { display: flex; gap: 10px; flex-wrap: wrap; }
-        .nav-links a {
-            color: #e2e8f0;
-            text-decoration: none;
-            background: rgba(255,255,255,0.1);
-            padding: 7px 14px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            transition: background 0.2s;
-            white-space: nowrap;
-        }
-        .nav-links a:hover { background: rgba(255,255,255,0.2); }
-        .nav-links a.active { background: rgba(255,215,0,0.25); border: 1px solid #FFD700; }
-
-        /* ── LOADING / ERROR ───────────────────────────── */
-        #loading {
-            text-align: center;
-            padding: 80px 20px;
-            font-size: 1.2rem;
-            color: #94a3b8;
-        }
-        #error {
-            text-align: center;
-            padding: 40px;
-            color: #f87171;
-            display: none;
-        }
-
-        /* ── TABS ──────────────────────────────────────── */
-        #main-content { display: none; }
-
-        .tabs-wrapper {
-            padding: 10px 16px 0;
-            border-bottom: 1px solid #334155;
-            overflow-x: auto;
-        }
-        .tabs {
-            display: flex;
-            gap: 4px;
-            min-width: max-content;
-        }
-        .tab-btn {
-            background: transparent;
-            border: none;
-            border-bottom: 3px solid transparent;
-            padding: 6px 14px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: #94a3b8;
-            transition: color 0.2s, border-color 0.2s;
-            white-space: nowrap;
-            position: relative;
-        }
-        .tab-btn:hover { color: #e2e8f0; }
-        .tab-btn.active {
-            color: #FFD700;
-            border-bottom-color: #FFD700;
-        }
-        .tab-badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: #334155;
-            border-radius: 999px;
-            font-size: 0.7rem;
-            font-weight: 700;
-            padding: 1px 7px;
-            margin-left: 6px;
-            color: #94a3b8;
-        }
-        .tab-btn.active .tab-badge {
-            background: rgba(255,215,0,0.2);
-            color: #FFD700;
-        }
-
-        /* ── PANEL ─────────────────────────────────────── */
-        .tab-panel {
-            display: none;
-            padding: 12px 16px;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-        .tab-panel.active { display: block; }
-
-        /* ── STATS ROW ─────────────────────────────────── */
-        .stats-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-bottom: 10px;
-        }
-        .stat-card {
-            background: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 6px;
-            padding: 5px 12px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .stat-card .stat-value {
-            font-size: 1rem;
-            font-weight: 800;
-            color: #FFD700;
-            line-height: 1;
-        }
-        .stat-card .stat-label {
-            font-size: 0.72rem;
-            color: #64748b;
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-        }
-        .stat-card.green .stat-value { color: #4ade80; }
-        .stat-card.red .stat-value { color: #f87171; }
-
-        /* ── PROFILE LINK ──────────────────────────────── */
-        .profile-link-bar {
-            border-bottom: 1px solid #334155;
-            padding: 6px 0;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .profile-link-bar span { color: #94a3b8; font-size: 0.85rem; }
-        .profile-link-bar a {
-            color: #FFD700;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 0.85rem;
-        }
-        .profile-link-bar a:hover { text-decoration: underline; }
-
-        /* ── LAYOUT: MAP | LIST (50/50) ──────────────── */
-        .panel-layout {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            align-items: start;
-        }
-        .panel-layout .chart-wrap { grid-column: 1 / -1; }
-        @media (max-width: 800px) {
-            .panel-layout { grid-template-columns: 1fr; }
-        }
-
-        /* ── MINI MAP ──────────────────────────────────── */
-        .map-container {
-            background: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-        .map-container h3 {
-            padding: 12px 16px;
-            font-size: 0.85rem;
-            font-weight: 700;
-            color: #94a3b8;
-            border-bottom: 1px solid #334155;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        .mini-map {
-            height: calc(100vh - 260px);
-            min-height: 400px;
-            width: 100%;
-        }
-
-        /* ── OFFER LIST ────────────────────────────────── */
-        .list-container {
-            background: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-        .list-container h3 {
-            padding: 12px 16px;
-            font-size: 0.85rem;
-            font-weight: 700;
-            color: #94a3b8;
-            border-bottom: 1px solid #334155;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .list-inner {
-            max-height: calc(100vh - 320px);
-            min-height: 360px;
-            overflow-y: auto;
-        }
-        .list-inner::-webkit-scrollbar { width: 5px; }
-        .list-inner::-webkit-scrollbar-track { background: #1e293b; }
-        .list-inner::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
-
-        .offer-row {
-            border-bottom: 1px solid #334155;
-            padding: 10px 16px;
-            transition: background 0.15s;
-        }
-        .offer-row:last-child { border-bottom: none; }
-        .offer-row { cursor: pointer; }
-        .offer-row:hover { background: #273348; }
-        .offer-row.inactive { opacity: 0.55; }
-        .offer-row.highlighted {
-            background: rgba(255,215,0,0.12);
-            border-left: 3px solid #FFD700;
-            padding-left: 13px;
-        }
-        .offer-row-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            margin-bottom: 4px;
-        }
-        .offer-address {
-            font-size: 0.82rem;
-            font-weight: 600;
-            color: #e2e8f0;
-            flex: 1;
-            min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .offer-price {
-            font-size: 0.9rem;
-            font-weight: 800;
-            color: #FFD700;
-            white-space: nowrap;
-        }
-        .offer-price.price-up { color: #f87171; }
-        .offer-price.price-down { color: #4ade80; }
-        .offer-meta {
-            font-size: 0.72rem;
-            color: #64748b;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        .badge-new {
-            background: #dc2626;
-            color: white;
-            font-size: 0.65rem;
-            font-weight: 700;
-            padding: 1px 6px;
-            border-radius: 4px;
-        }
-        .badge-inactive {
-            background: #475569;
-            color: #94a3b8;
-            font-size: 0.65rem;
-            font-weight: 700;
-            padding: 1px 6px;
-            border-radius: 4px;
-        }
-        .badge-mieszkanie {
-            background: rgba(96,165,250,0.2);
-            color: #60a5fa;
-            font-size: 0.65rem;
-            font-weight: 700;
-            padding: 1px 6px;
-            border-radius: 4px;
-            border: 1px solid rgba(96,165,250,0.4);
-        }
-        .badge-pokoj {
-            background: rgba(74,222,128,0.15);
-            color: #4ade80;
-            font-size: 0.65rem;
-            font-weight: 700;
-            padding: 1px 6px;
-            border-radius: 4px;
-        }
-        .offer-city {
-            font-size: 0.68rem;
-            color: #64748b;
-            display: flex;
-            align-items: center;
-            gap: 3px;
-        }
-        .offer-city.outside-lublin {
-            color: #94a3b8;
-            font-style: italic;
-        }
-        .price-history-mini {
-            display: inline-flex;
-            align-items: center;
-            gap: 3px;
-            font-size: 0.7rem;
-            color: #64748b;
-        }
-        .price-history-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: #475569;
-        }
-        .offer-link {
-            font-size: 0.72rem;
-            color: #60a5fa;
-            text-decoration: none;
-        }
-        .offer-link:hover { text-decoration: underline; }
-
-        /* ── PRICE HISTORY CHART ───────────────────────── */
-        .chart-container {
-            background: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 10px;
-            padding: 16px;
-            margin-top: 20px;
-        }
-        .chart-container h3 {
-            font-size: 0.85rem;
-            font-weight: 700;
-            color: #94a3b8;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 12px;
-        }
-        .chart-empty {
-            text-align: center;
-            padding: 30px;
-            color: #475569;
-            font-size: 0.85rem;
-        }
-
-        /* price history bars (CSS-only, no canvas) */
-        .price-bars {
-            display: flex;
-            align-items: flex-end;
-            gap: 3px;
-            height: 80px;
-            padding: 0 4px;
-        }
-        .price-bar-wrap {
+            background: #f8fafc;
+            color: #1e293b;
+            height: 100vh;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            flex: 1;
-            gap: 3px;
-            min-width: 0;
+            overflow: hidden;
         }
-        .price-bar {
-            width: 100%;
-            border-radius: 3px 3px 0 0;
-            background: linear-gradient(180deg, #FFD700 0%, #b45309 100%);
-            transition: height 0.3s;
-            cursor: default;
-            position: relative;
-        }
-        .price-bar:hover::after {
-            content: attr(data-price);
-            position: absolute;
-            top: -24px;
-            left: 50%;
-            transform: translateX(-50%);
+
+        /* ── TOPBAR ── */
+        .topbar {
             background: #0f172a;
-            border: 1px solid #FFD700;
-            color: #FFD700;
-            font-size: 0.7rem;
-            padding: 2px 6px;
-            border-radius: 4px;
+            border-bottom: 1px solid #f59e0b;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+        .topbar-title { color: #f59e0b; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .nav { display: flex; gap: 6px; }
+        .nav a { color: #94a3b8; font-size: 11px; background: rgba(255,255,255,0.08); padding: 4px 10px; border-radius: 5px; text-decoration: none; }
+        .nav a:hover { background: rgba(255,255,255,0.15); color: #e2e8f0; }
+        .nav a.active { background: rgba(245,158,11,0.2); color: #f59e0b; }
+
+        /* ── TABS ── */
+        .tabs {
+            background: #f1f5f9;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 0 14px;
+            display: flex;
+            gap: 2px;
+            flex-shrink: 0;
+            overflow-x: auto;
+        }
+        .tab {
+            padding: 6px 14px;
+            font-size: 12px;
+            color: #64748b;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
             white-space: nowrap;
+            user-select: none;
+        }
+        .tab.active { color: #d97706; border-bottom-color: #d97706; }
+        .tab-badge {
+            background: #e2e8f0;
+            border-radius: 10px;
+            padding: 1px 6px;
+            font-size: 10px;
+            margin-left: 4px;
+            color: #64748b;
+        }
+        .tab.active .tab-badge { background: rgba(245,158,11,0.15); color: #d97706; }
+
+        /* ── STATSBAR ── */
+        .statsbar {
+            background: #f8fafc;
+            padding: 5px 14px;
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            border-bottom: 1px solid #e2e8f0;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            padding: 3px 10px;
+        }
+        .stat .v { font-size: 13px; font-weight: 600; color: #1d4ed8; }
+        .stat .v.dim { color: #64748b; }
+        .stat .l { font-size: 10px; color: #3b82f6; text-transform: uppercase; }
+        .proflink { margin-left: auto; font-size: 10px; color: #3b82f6; text-decoration: none; }
+        .proflink:hover { text-decoration: underline; }
+
+        /* ── MAIN LAYOUT ── */
+        .main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        /* ── MAPA (sticky lewa) ── */
+        .map-col {
+            position: sticky;
+            top: 0;
+            height: 100%;
+            overflow: hidden;
+            border-right: 1px solid #e2e8f0;
+        }
+        #map { width: 100%; height: 100%; }
+
+        /* ── LISTA (prawa, scrolluje) ── */
+        .list-col { overflow-y: auto; }
+        .list-col::-webkit-scrollbar { width: 4px; }
+        .list-col::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+
+        .list-hdr {
+            padding: 7px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f1f5f9;
+            position: sticky;
+            top: 0;
             z-index: 10;
         }
-        .price-bar.down { background: linear-gradient(180deg, #4ade80 0%, #166534 100%); }
-        .price-bar.up { background: linear-gradient(180deg, #f87171 0%, #991b1b 100%); }
+        .list-hdr strong { font-size: 12px; color: #1e293b; }
+        .list-hdr span { font-size: 11px; color: #64748b; }
 
-        /* ── EMPTY STATE ───────────────────────────────── */
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #475569;
+        /* ── WIERSZE OFERT ── */
+        .row {
+            padding: 9px 12px;
+            border-bottom: 0.5px solid #e8ecf0;
+            border-left: 2px solid transparent;
+            cursor: pointer;
+            transition: background 0.1s;
         }
-        .empty-state .empty-icon { font-size: 3rem; margin-bottom: 12px; }
-        .empty-state p { font-size: 0.9rem; }
+        .row:hover { background: #f1f5f9; }
+        .row.hl { background: rgba(245,158,11,0.06); border-left-color: #f59e0b; }
+        .row.dim { opacity: 0.5; }
+
+        .row-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; gap: 8px; }
+        .row-addr { font-size: 12px; font-weight: 600; color: #0f172a; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        .row-price { font-size: 13px; font-weight: 700; white-space: nowrap; }
+
+        .row-meta { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; margin-bottom: 0; }
+        .badge { font-size: 10px; padding: 1px 6px; border-radius: 3px; font-weight: 600; }
+        .badge-pokoj { background: rgba(74,222,128,0.15); color: #166534; }
+        .badge-mieszkanie { background: rgba(96,165,250,0.15); color: #1e40af; }
+        .badge-new { background: #dc2626; color: white; }
+        .badge-inactive { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+        .badge-reakt { background: rgba(245,158,11,0.1); color: #92400e; border: 1px solid rgba(245,158,11,0.3); }
+        .meta-txt { font-size: 10px; color: #475569; }
+        .meta-days { font-size: 10px; font-weight: 600; }
+        .meta-days.fresh { color: #334155; }
+        .meta-days.medium { color: #d97706; }
+        .meta-days.old { color: #ef4444; }
+        .olx-link { font-size: 10px; color: #3b82f6; text-decoration: none; margin-left: auto; }
+        .olx-link:hover { text-decoration: underline; }
+
+        /* Historia cen */
+        .history-row { display: flex; align-items: center; gap: 8px; padding-top: 5px; border-top: 0.5px solid #e8ecf0; margin-top: 5px; }
+        .history-label { font-size: 10px; color: #94a3b8; flex-shrink: 0; width: 72px; }
+        .history-list { font-size: 10px; color: #475569; line-height: 1.5; }
+        .history-list .hp { font-weight: 600; min-width: 38px; display: inline-block; }
+        .history-list .hd { color: #94a3b8; }
+        .hp.down { color: #16a34a; }
+        .hp.up { color: #dc2626; }
+        .hp.same { color: #64748b; }
+
+        /* Odświeżenia */
+        .refresh-row { display: flex; align-items: center; gap: 8px; padding-top: 5px; border-top: 0.5px solid #e8ecf0; margin-top: 5px; }
+        .refresh-bars { display: flex; align-items: flex-end; gap: 2px; height: 18px; }
+        .refresh-bar { width: 7px; border-radius: 2px; flex-shrink: 0; }
+        .refresh-bar.hit { background: #f59e0b; height: 16px; }
+        .refresh-bar.miss { background: #e2e8f0; height: 4px; border: 1px solid #e2e8f0; }
+        .refresh-info { font-size: 10px; line-height: 1.4; }
+        .refresh-info .rc { color: #d97706; font-weight: 600; }
+        .refresh-info .rl { color: #94a3b8; }
+
+        /* Belka archiwalna */
+        .archive-divider {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 12px;
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+            position: sticky;
+            top: 35px;
+            z-index: 9;
+        }
+        .archive-divider .line { flex: 1; height: 1px; background: #e2e8f0; }
+        .archive-divider span { font-size: 11px; color: #94a3b8; font-weight: 600; white-space: nowrap; }
+
+        /* Loading / error */
+        #loading { text-align: center; padding: 80px 20px; color: #64748b; font-size: 1.1rem; }
+        #error-msg { text-align: center; padding: 40px; color: #ef4444; display: none; }
+        #main-content { display: none; flex: 1; flex-direction: column; min-height: 0; }
+
+        /* Empty state */
+        .empty { padding: 40px; text-align: center; color: #94a3b8; }
+
+        /* Leaflet popup override */
+        .leaflet-popup-content-wrapper { background: white; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
+        .leaflet-popup-tip { background: white; }
     </style>
 </head>
 <body>
 
-<header>
-    <h1>
-        <svg width="28" height="28" viewBox="0 0 64 64" style="flex-shrink:0">
-            <defs>
-                <radialGradient id="hdrBg" cx="50%" cy="50%" r="50%">
-                    <stop offset="0%" style="stop-color:#2d2000"/>
-                    <stop offset="100%" style="stop-color:#0f0800"/>
-                </radialGradient>
-            </defs>
-            <circle cx="32" cy="32" r="32" fill="url(#hdrBg)"/>
-            <circle cx="32" cy="32" r="29" fill="none" stroke="#FFD700" stroke-width="1" opacity="0.7"/>
-            <path d="M20 40 L20 28 L32 20 L44 28 L44 40 Z" fill="none" stroke="#FFD700" stroke-width="2"/>
-            <rect x="27" y="32" width="10" height="8" fill="#FFD700" opacity="0.9"/>
+<div class="topbar">
+    <div class="topbar-title">
+        <svg width="18" height="18" viewBox="0 0 64 64">
+            <circle cx="32" cy="32" r="32" fill="#fffbeb"/>
+            <circle cx="32" cy="32" r="29" fill="none" stroke="#f59e0b" stroke-width="1.5"/>
+            <path d="M20 40L20 28L32 20L44 28L44 40Z" fill="none" stroke="#f59e0b" stroke-width="2"/>
+            <rect x="27" y="32" width="10" height="8" fill="#f59e0b"/>
         </svg>
-        SONAR POKOJOWY – Firmy / Agencje
-    </h1>
-    <nav class="nav-links">
+        SONAR POKOJOWY — Firmy / Agencje
+    </div>
+    <nav class="nav">
         <a href="index.html">🗺️ Mapa</a>
         <a href="analytics.html">📈 Analityka</a>
         <a href="monitoring.html">📡 Monitoring</a>
         <a href="profile_tracker.html" class="active">🏢 Firmy</a>
     </nav>
-</header>
+</div>
 
 <div id="loading">⏳ Ładowanie danych profili...</div>
-<div id="error"></div>
+<div id="error-msg"></div>
 
 <div id="main-content">
-    <div class="tabs-wrapper">
-        <div class="tabs" id="tabs-bar">
-            <!-- generated by JS -->
+    <div class="tabs" id="tabs-bar"></div>
+    <div class="statsbar" id="statsbar"></div>
+    <div class="main">
+        <div class="map-col"><div id="map"></div></div>
+        <div class="list-col" id="list-col">
+            <div class="list-hdr">
+                <strong id="list-title">Ogłoszenia</strong>
+                <span id="list-count"></span>
+            </div>
+            <div id="list-body"></div>
         </div>
-    </div>
-
-    <div id="panels-container">
-        <!-- generated by JS -->
     </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// ── DATA ───────────────────────────────────────────────────────────────
-let profileData = null;
-const miniMaps = {}; // profileKey → L.Map
-
-// Price color gradient (mirrors script.js)
+// ── PRICE COLOR ──────────────────────────────────────────────────────
 const PRICE_RANGES = [
-    { max: 500,  color: '#00c853' },
-    { max: 600,  color: '#64dd17' },
-    { max: 700,  color: '#aeea00' },
-    { max: 800,  color: '#ffd600' },
-    { max: 900,  color: '#ffab00' },
-    { max: 1000, color: '#ff6f00' },
-    { max: 1100, color: '#ff3d00' },
-    { max: 1200, color: '#d50000' },
-    { max: 1300, color: '#c51162' },
-    { max: 1400, color: '#aa00ff' },
-    { max: 1500, color: '#7c4dff' },
-    { max: 999999, color: '#6200ea' },
+    {max:500,c:'#00c853'},{max:600,c:'#64dd17'},{max:700,c:'#aeea00'},
+    {max:800,c:'#ffd600'},{max:900,c:'#ffab00'},{max:1000,c:'#ff6f00'},
+    {max:1100,c:'#ff3d00'},{max:1200,c:'#d50000'},{max:1300,c:'#c51162'},
+    {max:1400,c:'#aa00ff'},{max:1500,c:'#7c4dff'},{max:1e9,c:'#6200ea'}
 ];
+function pc(p) { return (PRICE_RANGES.find(r => p <= r.max) || PRICE_RANGES.at(-1)).c; }
 
-function priceColor(price) {
-    for (const r of PRICE_RANGES) if (price <= r.max) return r.color;
-    return '#6200ea';
+// ── STATE ────────────────────────────────────────────────────────────
+let profileData = null;
+let map = null;
+let leafletMarkers = {}; // offerId → {marker, color, active}
+let hlId = null;
+let currentKey = null;
+
+// ── MAP INIT ─────────────────────────────────────────────────────────
+function initMap() {
+    map = L.map('map', { zoomControl: true }).setView([51.246, 22.565], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OSM', maxZoom: 19
+    }).addTo(map);
 }
 
-// ── LOAD ───────────────────────────────────────────────────────────────
-async function loadData() {
-    try {
-        const res = await fetch(`profile_data.json?v=${Date.now()}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        profileData = await res.json();
-        render();
-    } catch (e) {
-        document.getElementById('loading').style.display = 'none';
-        const err = document.getElementById('error');
-        err.style.display = 'block';
-        err.innerHTML = `❌ Błąd ładowania profile_data.json: ${e.message}<br>
-            <small>Plik zostanie wygenerowany przy kolejnym skanie lub uruchomieniu map_generator.py</small>`;
-    }
-}
-
-// ── RENDER ─────────────────────────────────────────────────────────────
-function render() {
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('main-content').style.display = 'block';
-
-    const profiles = profileData.profiles;
-    const keys = profileData.profile_keys;
-
-    const tabsBar = document.getElementById('tabs-bar');
-    const panelsContainer = document.getElementById('panels-container');
-
-    keys.forEach((key, idx) => {
-        const p = profiles[key];
-        if (!p) return;
-
-        // Tab button
-        const btn = document.createElement('button');
-        btn.className = 'tab-btn' + (idx === 0 ? ' active' : '');
-        btn.dataset.key = key;
-        btn.innerHTML = `${p.name}<span class="tab-badge">${p.stats.active}</span>`;
-        btn.addEventListener('click', () => switchTab(key));
-        tabsBar.appendChild(btn);
-
-        // Panel
-        const panel = document.createElement('div');
-        panel.className = 'tab-panel' + (idx === 0 ? ' active' : '');
-        panel.id = `panel-${key}`;
-        panel.innerHTML = buildPanel(key, p);
-        panelsContainer.appendChild(panel);
-    });
-
-    // Init first map
-    if (keys.length > 0) {
-        setTimeout(() => initMiniMap(keys[0]), 100);
-    }
-}
-
-function switchTab(key) {
-    // Resetuj highlight przy zmianie zakładki
-    document.querySelectorAll('.offer-row.highlighted').forEach(r => r.classList.remove('highlighted'));
-    activeHighlight = null;
-
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.key === key));
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `panel-${key}`));
-
-    // Init map lazily
-    if (!miniMaps[key]) {
-        setTimeout(() => initMiniMap(key), 50);
-    } else {
-        miniMaps[key].invalidateSize();
-    }
-}
-
-// ── BUILD PANEL HTML ───────────────────────────────────────────────────
-function buildPanel(key, p) {
-    const s = p.stats;
-    const priceStr = n => n != null ? `${n} zł` : '—';
-
-    const statsHtml = `
-        <div class="stats-row">
-            <div class="stat-card green">
-                <div class="stat-value">${s.active}</div>
-                <div class="stat-label">Aktywne</div>
-            </div>
-            <div class="stat-card red">
-                <div class="stat-value">${s.inactive}</div>
-                <div class="stat-label">Nieaktywne</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">${s.total}</div>
-                <div class="stat-label">Łącznie</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">${priceStr(s.avg_price)}</div>
-                <div class="stat-label">Śr. cena</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">${priceStr(s.min_price)}</div>
-                <div class="stat-label">Min cena</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">${priceStr(s.max_price)}</div>
-                <div class="stat-label">Max cena</div>
-            </div>
-        </div>`;
-
-    const profileLinkHtml = `
-        <div class="profile-link-bar">
-            <span>Profil OLX:</span>
-            <a href="${p.url}" target="_blank" rel="noopener">${p.url} ↗</a>
-        </div>`;
-
-    const offerRows = p.offers.length > 0
-        ? p.offers.map(o => buildOfferRow(o)).join('')
-        : `<div class="empty-state"><div class="empty-icon">📭</div><p>Brak ofert z tego profilu</p></div>`;
-
-    const priceChartHtml = buildPriceChart(p.offers);
-
-    return `
-        ${statsHtml}
-        ${profileLinkHtml}
-        <div class="panel-layout">
-            <div class="map-container">
-                <h3>📍 Lokalizacje ofert w Lublinie</h3>
-                <div class="mini-map" id="map-${key}"></div>
-            </div>
-            <div class="list-container">
-                <h3>
-                    Ogłoszenia
-                    <span style="color:#FFD700;font-size:0.8rem">${p.stats.active} aktywnych</span>
-                </h3>
-                <div class="list-inner" id="list-${key}">
-                    ${offerRows}
-                </div>
-            </div>
-            <div class="chart-wrap">${priceChartHtml}</div>
-        </div>`;
-}
-
-function buildOfferRow(o) {
-    const pColor = priceColor(o.price);
-    const isUp = o.price_trend === 'up';
-    const isDown = o.price_trend === 'down';
-    const priceClass = isUp ? 'price-up' : isDown ? 'price-down' : '';
-    const trend = isUp ? ' ↑' : isDown ? ' ↓' : '';
-    const prev = (isUp || isDown) && o.previous_price
-        ? `<span style="color:#64748b;text-decoration:line-through;font-size:0.75rem">${o.previous_price} zł</span> `
-        : '';
-
-    const typeBadge = o.offer_type === 'mieszkanie'
-        ? '<span class="badge-mieszkanie">🏠 mieszkanie</span>'
-        : o.offer_type === 'pokoj'
-        ? '<span class="badge-pokoj">🛏 pokój</span>'
-        : '';
-
-    const cityLabel = o.city && o.city.toLowerCase() !== 'lublin'
-        ? `<span class="offer-city outside-lublin">📍 ${o.city}</span>`
-        : (o.city ? `<span class="offer-city">📍 ${o.city}</span>` : '');
-
-    // Mini price history dots
-    const histDots = o.price_history && o.price_history.length > 1
-        ? `<span class="price-history-mini">
-                ${o.price_history.slice(-6).map(h =>
-                    `<span class="price-history-dot" style="background:${priceColor(h.price)}" title="${h.price} zł – ${h.date}"></span>`
-                ).join('')}
-           </span>`
-        : '';
-
-    const offerId = o.id || o.url;
-    return `
-        <div class="offer-row ${o.active ? '' : 'inactive'}" data-offer-id="${offerId}" onclick="highlightOffer('${offerId}')">
-            <div class="offer-row-top">
-                <span class="offer-address" title="${o.address}">${o.address || '—'}</span>
-                <span class="offer-price ${priceClass}">${prev}${o.price} zł${trend}</span>
-            </div>
-            <div class="offer-meta">
-                ${typeBadge}
-                ${o.is_new ? '<span class="badge-new">NOWE</span>' : ''}
-                ${!o.active ? '<span class="badge-inactive">NIEAKTYWNE</span>' : ''}
-                ${cityLabel}
-                <span>📅 ${o.first_seen}</span>
-                <span>⏳ ${o.days_active} dni</span>
-                ${histDots}
-                <a href="${o.url}" target="_blank" rel="noopener" class="offer-link">OLX ↗</a>
-            </div>
-        </div>`;
-}
-
-// ── PRICE CHART ────────────────────────────────────────────────────────
-function buildPriceChart(offers) {
-    // Zebranie wszystkich wpisów historii cen ze wszystkich ofert
-    const pricePoints = [];
-    offers.forEach(o => {
-        (o.price_history || []).forEach(h => {
-            if (h.price && h.date_iso) {
-                pricePoints.push({ price: h.price, date: h.date_iso, offerId: o.id });
-            }
-        });
-        // Zawsze dodaj aktualną cenę jeśli brak historii
-        if ((!o.price_history || o.price_history.length === 0) && o.price) {
-            pricePoints.push({ price: o.price, date: o.first_seen_iso || '', offerId: o.id });
-        }
-    });
-
-    if (pricePoints.length < 2) {
-        return `<div class="chart-container"><h3>💰 Rozkład cen aktywnych ofert</h3>
-            <div class="chart-empty">Brak wystarczających danych historycznych</div></div>`;
-    }
-
-    // Grupuj po miesiącu, weź średnią
-    const byMonth = {};
-    pricePoints.forEach(p => {
-        const d = p.date.substring(0, 7); // YYYY-MM
-        if (!byMonth[d]) byMonth[d] = [];
-        byMonth[d].push(p.price);
-    });
-    const months = Object.keys(byMonth).sort();
-    if (months.length < 1) return '';
-
-    const avgs = months.map(m => Math.round(byMonth[m].reduce((a,b) => a+b, 0) / byMonth[m].length));
-    const maxP = Math.max(...avgs);
-    const minP = Math.min(...avgs);
-    const range = maxP - minP || 1;
-
-    const bars = months.map((m, i) => {
-        const avg = avgs[i];
-        const pct = Math.max(8, Math.round(((avg - minP) / range) * 72) + 8);
-        const trend = i > 0 ? (avgs[i] > avgs[i-1] ? 'up' : avgs[i] < avgs[i-1] ? 'down' : '') : '';
-        const label = m.substring(5); // MM
-        return `<div class="price-bar-wrap">
-            <div class="price-bar ${trend}" style="height:${pct}px" data-price="${avg} zł (${m})"></div>
-            <span style="font-size:0.6rem;color:#475569">${label}</span>
-        </div>`;
-    }).join('');
-
-    return `<div class="chart-container">
-        <h3>💰 Śr. cena wg miesięcy (aktywne + historia)</h3>
-        <div class="price-bars">${bars}</div>
-        <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:0.7rem;color:#475569">
-            <span>Min: ${minP} zł</span>
-            <span>Max: ${maxP} zł</span>
-        </div>
-    </div>`;
-}
-
-// ── MINI MAP ───────────────────────────────────────────────────────────
-const offerMarkers = {}; // key → { offerId: { marker, origIcon } }
-let activeHighlight = null; // { key, offerId }
-
-function makeIcon(color, isActive, isHighlighted) {
-    const stroke = isHighlighted ? '#ffffff' : '#FFD700';
-    const sw = isHighlighted ? '4' : '3';
-    const inner = !isActive
-        ? `<circle cx="16" cy="14" r="7" fill="white"/><text x="16" y="14" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="700" fill="#1f2937">×</text>`
-        : isHighlighted
-        ? `<circle cx="16" cy="14" r="7" fill="white"/><text x="16" y="14" text-anchor="middle" dominant-baseline="central" font-size="11" font-weight="800" fill="${color}">★</text>`
-        : `<circle cx="16" cy="14" r="6" fill="white" opacity="0.9"/>`;
+function makeLeafletIcon(color, active, highlighted) {
+    const stroke = highlighted ? '#f59e0b' : '#d97706';
+    const sw = highlighted ? 4 : 2.5;
+    const glow = highlighted ? 'filter:drop-shadow(0 0 5px #f59e0b)' : '';
+    const inner = !active
+        ? '<circle cx="12" cy="11" r="6" fill="white"/><text x="12" y="11" text-anchor="middle" dominant-baseline="central" font-size="9" font-weight="700" fill="#334155">×</text>'
+        : highlighted
+        ? '<circle cx="12" cy="11" r="5" fill="white"/><text x="12" y="11" text-anchor="middle" dominant-baseline="central" font-size="9" font-weight="800" fill="' + color + '">★</text>'
+        : '<circle cx="12" cy="11" r="5" fill="white" opacity="0.9"/>';
     return L.divIcon({
         className: '',
-        html: `<svg width="32" height="40" viewBox="0 0 32 40" style="${isHighlighted ? 'filter:drop-shadow(0 0 6px #FFD700)' : ''}">
-            <path d="M16 0 C7 0 0 7 0 16 C0 28 16 40 16 40 C16 40 32 28 32 16 C32 7 25 0 16 0 Z"
-                  fill="${color}" stroke="${stroke}" stroke-width="${sw}"
-                  ${!isActive ? 'opacity="0.45"' : ''}/>
-            ${inner}
-        </svg>`,
-        iconSize: [32, 40],
-        iconAnchor: [16, 40],
-        popupAnchor: [0, -40]
+        html: '<svg width="24" height="32" viewBox="0 0 24 32" style="' + glow + '">'
+            + '<path d="M12 0C5 0 0 5 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5 19 0 12 0Z"'
+            + ' fill="' + color + '" stroke="' + stroke + '" stroke-width="' + sw + '"'
+            + (active ? '' : ' opacity="0.35"') + '/>'
+            + inner + '</svg>',
+        iconSize: [24, 32], iconAnchor: [12, 32], popupAnchor: [0, -34]
     });
 }
 
-function highlightOffer(offerId) {
-    // Znajdź aktywną zakładkę
-    const activeTab = document.querySelector('.tab-btn.active');
-    if (!activeTab) return;
-    const key = activeTab.dataset.key;
+function renderMarkers(profileKey) {
+    Object.values(leafletMarkers).forEach(m => map.removeLayer(m.marker));
+    leafletMarkers = {};
 
-    // Podświetl wiersz w liście
-    document.querySelectorAll('.offer-row.highlighted').forEach(r => r.classList.remove('highlighted'));
-    const row = document.querySelector(`.offer-row[data-offer-id="${offerId}"]`);
-    if (row) {
-        row.classList.add('highlighted');
-        row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-
-    // Resetuj poprzedni highlight na mapie
-    if (activeHighlight && offerMarkers[activeHighlight.key]) {
-        const prev = offerMarkers[activeHighlight.key][activeHighlight.offerId];
-        if (prev) {
-            prev.marker.setIcon(makeIcon(prev.color, prev.isActive, false));
-            prev.marker.setZIndexOffset(0);
-        }
-    }
-
-    // Podświetl marker na mapie
-    const markers = offerMarkers[key];
-    if (markers && markers[offerId]) {
-        const m = markers[offerId];
-        m.marker.setIcon(makeIcon(m.color, m.isActive, true));
-        m.marker.setZIndexOffset(1000);
-        m.marker.openPopup();
-        if (miniMaps[key]) {
-            miniMaps[key].panTo(m.marker.getLatLng(), { animate: true });
-        }
-        activeHighlight = { key, offerId };
-    }
-}
-
-function initMiniMap(key) {
-    const el = document.getElementById(`map-${key}`);
-    if (!el || miniMaps[key]) return;
-
-    const map = L.map(`map-${key}`, { zoomControl: true }).setView([51.2465, 22.5684], 13);
-    miniMaps[key] = map;
-    offerMarkers[key] = {};
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OSM',
-        maxZoom: 19
-    }).addTo(map);
-
-    const p = profileData.profiles[key];
-    if (!p || !p.offers.length) return;
+    const prof = profileData.profiles[profileKey];
+    if (!prof) return;
 
     const bounds = [];
+    const allOffers = [...prof.offers];
 
-    p.offers.forEach(o => {
-        // Pokaż wszystkie z Lublina (pokoje i mieszkania)
-        const city = (o.city || '').toLowerCase();
-        const inLublin = !city || city === 'lublin';
+    allOffers.forEach(o => {
+        const inLublin = !o.city || o.city.toLowerCase() === 'lublin';
         if (!o.lat || !o.lon || !inLublin) return;
 
-        const color = priceColor(o.price);
-        const isActive = o.active;
-        const offerId = o.id || o.url;
-
-        const icon = makeIcon(color, isActive, false);
-        const marker = L.marker([o.lat, o.lon], { icon });
-
-        const histHtml = (o.price_history || []).slice(-4).map(h =>
-            `<div style="font-size:11px;color:#64748b">${h.date}: <b style="color:${priceColor(h.price)}">${h.price} zł</b></div>`
-        ).join('');
+        const color = pc(o.price);
+        const marker = L.marker([o.lat, o.lon], { icon: makeLeafletIcon(color, o.active, false) });
 
         const typeLabel = o.offer_type === 'mieszkanie' ? '🏠 mieszkanie' : o.offer_type === 'pokoj' ? '🛏 pokój' : '';
+        const histHtml = (o.price_history || []).slice(-4).map(h =>
+            '<div style="font-size:11px;color:#64748b">' + h.date + ': <b style="color:' + pc(h.price) + '">' + h.price + ' zł</b></div>'
+        ).join('');
 
-        marker.bindPopup(`
-            <div style="min-width:200px;font-family:sans-serif">
-                <div style="font-size:11px;color:#FFD700;margin-bottom:4px">${typeLabel}</div>
-                <div style="font-weight:700;font-size:13px;margin-bottom:6px">${o.address || '—'}</div>
-                <div style="font-size:15px;font-weight:800;color:${color};margin-bottom:6px">${o.price} zł</div>
-                <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">Pierwsze: ${o.first_seen}</div>
-                ${histHtml ? `<div style="margin-top:6px;border-top:1px solid #334155;padding-top:6px"><b style="font-size:11px">Historia cen:</b>${histHtml}</div>` : ''}
-                <div style="margin-top:8px">
-                    <a href="${o.url}" target="_blank" style="color:#60a5fa;font-size:11px">Otwórz na OLX ↗</a>
-                </div>
-            </div>
-        `, { maxWidth: 260 });
+        marker.bindPopup(
+            '<div style="min-width:180px;font-family:sans-serif">'
+            + (typeLabel ? '<div style="font-size:10px;color:#d97706;margin-bottom:3px">' + typeLabel + '</div>' : '')
+            + '<div style="font-weight:700;font-size:13px;margin-bottom:5px">' + (o.address || '—') + '</div>'
+            + '<div style="font-size:14px;font-weight:800;color:' + color + ';margin-bottom:4px">' + o.price + ' zł</div>'
+            + (o.refresh_count > 0 ? '<div style="font-size:10px;color:#d97706">🔄 odświeżeń: ' + o.refresh_count + '</div>' : '')
+            + (histHtml ? '<div style="margin-top:5px;padding-top:5px;border-top:1px solid #e2e8f0"><b style="font-size:10px;color:#94a3b8">HISTORIA</b>' + histHtml + '</div>' : '')
+            + '<div style="margin-top:6px"><a href="' + o.url + '" target="_blank" style="color:#3b82f6;font-size:11px">Otwórz na OLX ↗</a></div>'
+            + '</div>',
+            { maxWidth: 260 }
+        );
 
-        // Klik na marker → highlight wiersza
-        marker.on('click', () => highlightOffer(offerId));
-
+        marker.on('click', () => hlOffer(o.id || o.url));
         marker.addTo(map);
-        offerMarkers[key][offerId] = { marker, color, isActive };
+        leafletMarkers[o.id || o.url] = { marker, color, active: o.active };
         bounds.push([o.lat, o.lon]);
     });
 
+    // Zawsze wyśrodkuj na Lublinie
     if (bounds.length > 0) {
-        try {
-            map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
-        } catch (e) { /* ignore */ }
+        try { map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 }); } catch(e) {}
+    } else {
+        map.setView([51.246, 22.565], 13);
     }
 }
 
-// ── BOOT ───────────────────────────────────────────────────────────────
+// ── HIGHLIGHT ────────────────────────────────────────────────────────
+function hlOffer(id) {
+    // Reset poprzedniego
+    if (hlId && leafletMarkers[hlId]) {
+        const old = leafletMarkers[hlId];
+        old.marker.setIcon(makeLeafletIcon(old.color, old.active, false));
+        old.marker.setZIndexOffset(0);
+    }
+    document.querySelectorAll('.row.hl').forEach(r => r.classList.remove('hl'));
+
+    if (hlId === id) { hlId = null; return; }
+    hlId = id;
+
+    if (leafletMarkers[id]) {
+        const m = leafletMarkers[id];
+        m.marker.setIcon(makeLeafletIcon(m.color, m.active, true));
+        m.marker.setZIndexOffset(1000);
+        m.marker.openPopup();
+        map.panTo(m.marker.getLatLng(), { animate: true });
+    }
+
+    const row = document.querySelector('.row[data-id="' + id + '"]');
+    if (row) {
+        row.classList.add('hl');
+        row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+// ── SPARKLINE ────────────────────────────────────────────────────────
+function buildSparkline(history) {
+    if (!history || history.length < 2) return '';
+    const prices = history.map(h => h.price);
+    const mn = Math.min(...prices), mx = Math.max(...prices);
+    const range = mx - mn || 1;
+    const W = 70, H = 26, PAD = 3;
+    const step = (W - PAD*2) / (history.length - 1);
+    const pts = history.map((h, i) => ({
+        x: PAD + i * step,
+        y: PAD + (1 - (h.price - mn) / range) * (H - PAD * 2),
+        p: h.price, d: h.date
+    }));
+    const last = prices.at(-1), first = prices[0];
+    const trend = last < first ? '#16a34a' : last > first ? '#dc2626' : '#94a3b8';
+    const area = [...pts.map(p => p.x+','+p.y), pts.at(-1).x+','+H, pts[0].x+','+H].join(' ');
+    const line = pts.map(p => p.x+','+p.y).join(' ');
+
+    let histList = history.map((h, i) => {
+        const cls = i === 0 ? 'same' : h.price < history[i-1].price ? 'down' : h.price > history[i-1].price ? 'up' : 'same';
+        return '<div><span class="hp ' + cls + '">' + h.price + ' zł</span> <span class="hd">' + h.date + '</span></div>';
+    }).join('');
+
+    const arrow = last < first ? '↓' : last > first ? '↑' : '—';
+    const diff = Math.abs(last - first);
+
+    return '<div class="history-row">'
+        + '<span class="history-label">Historia cen:</span>'
+        + '<svg width="' + W + '" height="' + H + '" style="overflow:visible;flex-shrink:0">'
+        + '<polyline points="' + area + '" fill="' + trend + '" fill-opacity="0.1" stroke="none"/>'
+        + '<polyline points="' + line + '" fill="none" stroke="' + trend + '" stroke-width="1.5" stroke-linejoin="round"/>'
+        + pts.map(p => '<circle cx="' + p.x + '" cy="' + p.y + '" r="2.2" fill="white" stroke="' + trend + '" stroke-width="1.2"><title>' + p.p + ' zł — ' + p.d + '</title></circle>').join('')
+        + '</svg>'
+        + '<div style="font-size:10px;line-height:1.4;color:' + trend + ';font-weight:600">' + arrow + ' ' + diff + ' zł</div>'
+        + '<div class="history-list">' + histList + '</div>'
+        + '</div>';
+}
+
+// ── REFRESH BARS ─────────────────────────────────────────────────────
+function buildRefreshBars(refreshDates, refreshCount, lastRefreshDate) {
+    if (!refreshCount || refreshCount === 0) return '';
+
+    // Ostatnie 14 dni
+    const today = new Date();
+    const days = [];
+    for (let i = 13; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        days.push(d.toISOString().slice(0, 10));
+    }
+
+    const datesSet = new Set(refreshDates || []);
+    const bars = days.map(d => {
+        const hit = datesSet.has(d);
+        return '<div class="refresh-bar ' + (hit ? 'hit' : 'miss') + '" title="' + d + '"></div>';
+    }).join('');
+
+    const lastShort = lastRefreshDate ? lastRefreshDate.slice(5).replace('-', '.') : '';
+
+    return '<div class="refresh-row">'
+        + '<span class="history-label">Odświeżenia:</span>'
+        + '<div class="refresh-bars">' + bars + '</div>'
+        + '<div class="refresh-info"><div class="rc">×' + refreshCount + ' razy</div>'
+        + (lastShort ? '<div class="rl">ostatnie: ' + lastShort + '</div>' : '')
+        + '</div></div>';
+}
+
+// ── BUILD ROW HTML ────────────────────────────────────────────────────
+function buildRow(o) {
+    const id = o.id || o.url;
+    const color = pc(o.price);
+    const prices = (o.price_history || []).map(h => h.price);
+    const last = prices.at(-1), first = prices[0];
+    const trend = prices.length > 1 ? (last < first ? '↓' : last > first ? '↑' : '') : '';
+    const trendColor = trend === '↓' ? '#16a34a' : trend === '↑' ? '#dc2626' : '';
+    const hasHistory = o.price_history && o.price_history.length > 1;
+
+    const daysClass = o.days_active > 60 ? 'old' : o.days_active > 20 ? 'medium' : 'fresh';
+
+    const typeBadge = o.offer_type === 'mieszkanie'
+        ? '<span class="badge badge-mieszkanie">🏠 mieszkanie</span>'
+        : o.offer_type === 'pokoj'
+        ? '<span class="badge badge-pokoj">🛏 pokój</span>'
+        : '';
+
+    const newBadge = o.is_new ? '<span class="badge badge-new">NOWE</span>' : '';
+
+    const reaktBadge = (o.reactivation_count > 0)
+        ? '<span class="badge badge-reakt">♻ reaktywacja ×' + o.reactivation_count + '</span>'
+        : '';
+
+    const inactiveBadge = !o.active ? '<span class="badge badge-inactive">NIEAKTYWNE</span>' : '';
+
+    const trendHtml = trend
+        ? '<span style="font-size:10px;margin-left:2px;color:' + trendColor + '">' + trend + '</span>'
+        : '';
+
+    return '<div class="row' + (!o.active ? ' dim' : '') + '" data-id="' + id + '" onclick="hlOffer(\'' + id + '\')">'
+        + '<div class="row-top">'
+        + '<span class="row-addr" title="' + (o.address || '—') + '">' + (o.address || '—') + '</span>'
+        + '<span class="row-price" style="color:' + color + '">' + o.price + ' zł' + trendHtml + '</span>'
+        + '</div>'
+        + '<div class="row-meta">'
+        + typeBadge + newBadge + reaktBadge + inactiveBadge
+        + '<span class="meta-txt">📅 ' + (o.first_seen || '—') + '</span>'
+        + '<span class="meta-days ' + daysClass + '">⏳ ' + (o.days_active || 0) + ' dni</span>'
+        + '<a class="olx-link" href="' + o.url + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">OLX ↗</a>'
+        + '</div>'
+        + (hasHistory ? buildSparkline(o.price_history) : '')
+        + buildRefreshBars(o.refresh_dates, o.refresh_count, o.last_refresh_date)
+        + '</div>';
+}
+
+// ── RENDER PROFILE ────────────────────────────────────────────────────
+function renderProfile(key) {
+    currentKey = key;
+    hlId = null;
+
+    const prof = profileData.profiles[key];
+    if (!prof) return;
+
+    const active = prof.offers.filter(o => o.active);
+    const archived = prof.offers.filter(o => !o.active);
+    const prices = active.map(o => o.price).filter(Boolean);
+    const avg = prices.length ? Math.round(prices.reduce((a,b)=>a+b,0)/prices.length) : null;
+
+    // Statsbar
+    const stats = [
+        [active.length, 'aktywne', false],
+        [archived.length, 'archiwalne', true],
+        [prof.offers.length, 'łącznie', false],
+        ...(avg ? [[avg + ' zł', 'śr. cena', false]] : []),
+        ...(prices.length ? [[Math.min(...prices) + ' zł', 'min', false], [Math.max(...prices) + ' zł', 'max', false]] : []),
+    ];
+
+    document.getElementById('statsbar').innerHTML =
+        stats.map(([v,l,dim]) =>
+            '<div class="stat"><span class="v' + (dim?' dim':'') + '">' + v + '</span><span class="l">' + l + '</span></div>'
+        ).join('')
+        + '<a class="proflink" href="' + prof.url + '" target="_blank" rel="noopener">' + prof.url.replace('https://','').replace(/\/$/,'') + ' ↗</a>';
+
+    // List header
+    document.getElementById('list-count').textContent =
+        active.length + ' aktywnych · ' + archived.length + ' archiwalnych';
+
+    // List body
+    let html = '';
+    if (!prof.offers.length) {
+        html = '<div class="empty">📭 Brak ogłoszeń z tego profilu</div>';
+    } else {
+        active.forEach(o => { html += buildRow(o); });
+
+        if (archived.length > 0) {
+            html += '<div class="archive-divider">'
+                + '<div class="line"></div>'
+                + '<span>╳ ogłoszenia archiwalne (' + archived.length + ') ╳</span>'
+                + '<div class="line"></div>'
+                + '</div>';
+            archived.forEach(o => { html += buildRow(o); });
+            html += '<div style="padding:10px;text-align:center;font-size:10px;color:#cbd5e1">koniec archiwalnych</div>';
+        }
+    }
+    document.getElementById('list-body').innerHTML = html;
+
+    // Markers
+    renderMarkers(key);
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────
+function buildTabs() {
+    const keys = profileData.profile_keys;
+    document.getElementById('tabs-bar').innerHTML = keys.map(key => {
+        const p = profileData.profiles[key];
+        if (!p) return '';
+        const cnt = p.stats.active;
+        const on = key === currentKey;
+        return '<div class="tab' + (on?' active':'') + '" onclick="switchTab(\'' + key + '\')">'
+            + p.name
+            + '<span class="tab-badge">' + cnt + '</span>'
+            + '</div>';
+    }).join('');
+}
+
+function switchTab(key) {
+    currentKey = key;
+    buildTabs();
+    renderProfile(key);
+}
+
+// ── LOAD ──────────────────────────────────────────────────────────────
+async function loadData() {
+    try {
+        const res = await fetch('profile_data.json?v=' + Date.now());
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        profileData = await res.json();
+
+        document.getElementById('loading').style.display = 'none';
+        const mc = document.getElementById('main-content');
+        mc.style.display = 'flex';
+
+        initMap();
+
+        currentKey = profileData.profile_keys[0];
+        buildTabs();
+        renderProfile(currentKey);
+
+    } catch (e) {
+        document.getElementById('loading').style.display = 'none';
+        const err = document.getElementById('error-msg');
+        err.style.display = 'block';
+        err.innerHTML = '❌ Błąd ładowania profile_data.json: ' + e.message
+            + '<br><small>Plik zostanie wygenerowany przy kolejnym skanie lub uruchomieniu map_generator.py</small>';
+    }
+}
+
 loadData();
 </script>
 </body>

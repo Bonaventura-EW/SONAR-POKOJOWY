@@ -479,6 +479,8 @@ class OLXScraper:
                         'profile_name': profile_name,
                         'offer_type': offer_type,
                         'city': city_name,
+                        'api_last_refresh': api_offer.get('last_refresh_time') or api_offer.get('pushup_time'),
+                        'api_created': api_offer.get('created_time'),
                         '_api_data': api_offer,
                     }
                     all_offers.append(offer)
@@ -548,6 +550,11 @@ class OLXScraper:
         for offer in all_raw:
             offer_id = offer['url'].split('/')[-1].split('.')[0]
             api_data = offer.pop('_api_data', {})
+            # Przekaż datę odświeżenia z API jeśli nie została już dodana
+            if not offer.get('api_last_refresh'):
+                offer['api_last_refresh'] = api_data.get('last_refresh_time') or api_data.get('pushup_time')
+            if not offer.get('api_created'):
+                offer['api_created'] = api_data.get('created_time')
 
             # Wyciągnij adres z danych API jeśli dostępny
             loc = api_data.get('map', {}) or {}

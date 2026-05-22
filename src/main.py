@@ -391,6 +391,11 @@ class SonarPokojowy:
             'profile_name': raw_offer.get('profile_name'),  # None lub klucz profilu firmowego
             'offer_type': raw_offer.get('offer_type'),  # 'pokoj'/'mieszkanie'/'inne'
             'city': raw_offer.get('city', ''),  # miasto z API OLX
+            # Śledzenie odświeżeń (bump) i reaktywacji — tylko dla ofert firmowych
+            'refresh_count': 0,          # ile razy odświeżono (max 1/dzień)
+            'refresh_dates': [],         # lista dat odświeżeń ['YYYY-MM-DD', ...]
+            'last_refresh_date': raw_offer.get('api_last_refresh', ''),
+            'reactivation_count': 0,     # ile razy reaktywowano po zniknięciu
         }
     
     def _find_existing_offer(self, offer_id: str) -> Dict:
@@ -537,11 +542,36 @@ class SonarPokojowy:
             existing['reactivated_at'] = now
         
         # Aktualizuj profile_name jeśli oferta pojawiła się w scanie profilu
-        # (mogła być wcześniej bez tagu, teraz jest już skoja​rzona z profilem)
         new_profile = new_data.get('profile_name')
         if new_profile and not existing.get('profile_name'):
             existing['profile_name'] = new_profile
             print(f"      🏢 Przypisano profil: {new_profile}")
+
+        # Śledź odświeżenia (bump) dla ofert firmowych
+        # api_last_refresh = data ostatniego pushup/odświeżenia z API OLX
+        new_refresh = new_data.get('api_last_refresh', '')
+        if new_refresh and existing.get('profile_name'):
+            # Wyciągnij tylko datę (YYYY-MM-DD) z ISO timestamp
+            try:
+                new_refresh_date = new_refresh[:10]  # 'YYYY-MM-DD'
+                stored_date = existing.get('last_refresh_date', '')[:10] if existing.get('last_refresh_date') else ''
+                refresh_dates = existing.get('refresh_dates', [])
+
+                if new_refresh_date and new_refresh_date != stored_date:
+                    # Nowa data odświeżenia — max 1/dzień
+                    if new_refresh_date not in refresh_dates:
+                        refresh_dates.append(new_refresh_date)
+                        existing['refresh_dates'] = refresh_dates
+                        existing['refresh_count'] = len(refresh_dates)
+                        existing['last_refresh_date'] = new_refresh
+                        print(f"      🔄 Odświeżenie #{existing['refresh_count']}: {new_refresh_date}")
+            except (ValueError, TypeError, AttributeError):
+                pass
+
+        # Śledź reaktywacje — inkrementuj licznik przy każdej reaktywacji
+        if was_inactive:
+            existing['reactivation_count'] = existing.get('reactivation_count', 0) + 1
+            print(f"      ♻️ Reaktywacja #{existing['reactivation_count']}")
     
     def _update_days_active(self):
         """
