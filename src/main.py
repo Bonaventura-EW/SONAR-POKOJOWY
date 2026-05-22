@@ -64,14 +64,23 @@ class SonarPokojowy:
                 except (ValueError, KeyError):
                     continue
             
-            index[offer['id']] = {
+            offer_entry = {
                 'price': offer.get('price', {}).get('current'),
                 'description': offer.get('description', ''),
                 'previous_price': offer.get('price', {}).get('previous_price'),
                 'was_active': is_active,
                 'address': offer.get('address', ''),
-                'coordinates': offer.get('coordinates', {})
+                'coordinates': offer.get('coordinates', {}),
+                'profile_name': offer.get('profile_name'),
             }
+            # Indeksuj po pełnym ID
+            index[offer['id']] = offer_entry
+            # Indeksuj też po krótkim ID końcowym (IDxxxxx)
+            # OLX zmienia slug w URL gdy edytowany tytuł — końcówka pozostaje taka sama
+            if '-ID' in offer['id']:
+                short_id = offer['id'].split('-ID')[-1]
+                if len(short_id) >= 3:
+                    index[f'_short_{short_id}'] = offer_entry
             
             if is_active:
                 active_count += 1

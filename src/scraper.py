@@ -573,10 +573,13 @@ class OLXScraper:
             if city_name:
                 offer['cached_address'] = f"{district_name + ', ' if district_name else ''}{city_name}"
 
-            # Sprawdź cache
+            # Sprawdź cache - próbuj pełny ID, potem krótki (IDxxxxx)
+            # OLX zmienia slug URL gdy tytuł ogłoszenia jest edytowany
             listing_price = self._extract_price_number(offer['price_raw'])
-            if offer_id in self.existing_offers:
-                existing = self.existing_offers[offer_id]
+            short_key = f'_short_{offer_id.split("-ID")[-1]}' if '-ID' in offer_id else None
+            existing = (self.existing_offers.get(offer_id)
+                        or (self.existing_offers.get(short_key) if short_key else None))
+            if existing:
                 existing_price = existing.get('price')
                 if listing_price and existing_price and listing_price == existing_price:
                     offers_to_skip.append({'offer': offer, 'existing': existing})
@@ -601,6 +604,10 @@ class OLXScraper:
                 offer['cached_address'] = existing.get('address')
             if existing.get('coordinates'):
                 offer['cached_coordinates'] = existing.get('coordinates')
+            # WAŻNE: zachowaj profile_name i offer_type z aktualnego scanu
+            # (existing może mieć profile_name=None jeśli wcześniej nie był w profilu)
+            if not offer.get('profile_name') and existing.get('profile_name'):
+                offer['profile_name'] = existing['profile_name']
 
         # Pobierz szczegóły dla nowych
         if offers_to_fetch:
