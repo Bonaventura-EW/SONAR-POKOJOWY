@@ -181,7 +181,12 @@ def generate_map_data(input_file, output_file):
             continue
         
         # Klucz grupowania: pełen adres
-        key = address_full
+        # Klucz grupowania: WSPÓŁRZĘDNE (zaokrąglone do 6 miejsc) + adres jako fallback
+        # Używamy coords jako primary key żeby uniknąć problemów z fleksją (Organowa vs Organowej)
+        # 6 miejsc po przecinku ≈ precyzja 0.1m - bezpieczne dla tego samego budynku
+        lat_r = round(coords['lat'], 6)
+        lon_r = round(coords['lon'], 6)
+        key = (lat_r, lon_r)
         
         # Przygotuj ofertę do frontendu
         price_data = offer.get('price', {})
@@ -262,9 +267,12 @@ def generate_map_data(input_file, output_file):
     # 3. Stwórz listę markerów
     markers = []
     
-    for address, items in markers_dict.items():
+    for key, items in markers_dict.items():
         # Weź współrzędne z pierwszej oferty
         coords = items[0]['coords']
+        # Wybierz adres z mianowniku (unikamy fleksji: Organowa vs Organowej)
+        all_addresses = [item['address'] for item in items if item.get('address')]
+        address = min(all_addresses, key=len) if all_addresses else 'Nieznany adres'
 
         # Zbierz wszystkie oferty dla tego adresu
         offers_list = [item['offer'] for item in items]
