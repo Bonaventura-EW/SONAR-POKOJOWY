@@ -37,6 +37,56 @@ def format_date_only(iso_string: str) -> str:
         return iso_string
 
 
+
+KNOWN_NON_LUBLIN = [
+    'warszawa', 'gdańsk', 'gdansk', 'kraków', 'krakow', 'wrocław', 'wroclaw',
+    'poznań', 'poznan', 'szczecin', 'bydgoszcz', 'łódź', 'lodz', 'katowice',
+    'gdynia', 'białystok', 'bialystok', 'rzeszów', 'rzeszow', 'toruń', 'torun',
+    'olsztyn', 'pogórze', 'pogorze', 'trojmiasto', 'trójmiasto',
+]
+
+# Granice geograficzne Lublina
+LUBLIN_LAT = (51.14, 51.32)
+LUBLIN_LON = (22.40, 22.72)
+
+
+def _resolve_city(offer: dict) -> str:
+    """Zwraca miasto oferty — z pola city, adresu lub współrzędnych."""
+    city = offer.get('city', '').strip()
+    if city:
+        return city
+
+    # Próba z adresu (address to dict ze schematem {full, street, ...})
+    addr_obj = offer.get('address', {}) or {}
+    if isinstance(addr_obj, dict):
+        addr_str = (addr_obj.get('full', '') or '').lower()
+    else:
+        addr_str = str(addr_obj).lower()
+    for non_lublin in KNOWN_NON_LUBLIN:
+        if non_lublin in addr_str:
+            return addr_str.split(',')[-1].strip().title() or 'inne'
+
+    # Próba ze współrzędnych (schemat: address.coords.lat/lon LUB lat/lon bezpośrednio)
+    coords = addr_obj.get('coords', {}) or {}
+    lat = coords.get('lat') or offer.get('lat')
+    lon = coords.get('lon') or offer.get('lon')
+    # Sprawdź też adres pełny jeśli coords nie pomoże
+    full_addr = (addr_obj.get('full', '') or '').lower()
+    for non_lublin in KNOWN_NON_LUBLIN:
+        if non_lublin in full_addr:
+            return full_addr.split(',')[-1].strip().title() or 'inne'
+    if lat and lon:
+        try:
+            lat_f, lon_f = float(lat), float(lon)
+            if LUBLIN_LAT[0] <= lat_f <= LUBLIN_LAT[1] and LUBLIN_LON[0] <= lon_f <= LUBLIN_LON[1]:
+                return 'Lublin'
+            else:
+                return 'inne'
+        except (ValueError, TypeError):
+            pass
+
+    return ''  # nieznane
+
 def generate_profile_data(input_file: str, output_file: str):
     """Główna funkcja generująca profile_data.json"""
     print("🔄 Generowanie profile_data.json...")
@@ -138,7 +188,7 @@ def generate_profile_data(input_file: str, output_file: str):
             'is_new': False,  # obliczone poniżej
             'reactivated': offer.get('reactivated_at') is not None,
             'offer_type': offer.get('offer_type'),   # 'pokoj'/'mieszkanie'/'inne'
-            'city': offer.get('city', ''),            # miasto ogłoszenia
+            'city': _resolve_city(offer),                # miasto ogłoszenia
             'refresh_count': offer.get('refresh_count', 0),
             'refresh_dates': offer.get('refresh_dates', []),
             'last_refresh_date': offer.get('last_refresh_date', ''),

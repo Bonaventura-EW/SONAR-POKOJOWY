@@ -488,7 +488,25 @@ function renderProfile(key) {
     const prof = profileData.profiles[key];
     if (!prof) return;
 
-    const isLublin = o => !o.city || o.city.toLowerCase() === 'lublin';
+    const LUBLIN_LAT = [51.14, 51.32];
+    const LUBLIN_LON = [22.40, 22.72];
+    const isLublin = o => {
+        // 1. city jawnie ustawione
+        if (o.city) return o.city.toLowerCase() === 'lublin';
+        // 2. city puste - sprawdź współrzędne jeśli dostępne
+        if (o.lat && o.lon) {
+            return o.lat >= LUBLIN_LAT[0] && o.lat <= LUBLIN_LAT[1]
+                && o.lon >= LUBLIN_LON[0] && o.lon <= LUBLIN_LON[1];
+        }
+        // 3. brak danych - sprawdź adres
+        const addr = (o.address || '').toLowerCase();
+        if (addr.includes('warszawa') || addr.includes('gdańsk') || addr.includes('gdansk')
+            || addr.includes('kraków') || addr.includes('wrocław') || addr.includes('poznań')
+            || addr.includes('szczecin') || addr.includes('bydgoszcz') || addr.includes('łódź')) {
+            return false;
+        }
+        return true; // brak danych → zakładamy Lublin
+    };
     const active = prof.offers.filter(o => o.active && isLublin(o));
     const archived = prof.offers.filter(o => !o.active && isLublin(o));
     const prices = active.map(o => o.price).filter(Boolean);
