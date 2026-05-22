@@ -591,7 +591,8 @@ async function loadData() {
         currentKey = profileData.profile_keys[0];
         buildTabs();
         renderProfile(currentKey);
-        applyHashTab(); // nadpisz jeśli jest hash w URL
+        // Krótkie opóźnienie - mapa musi się wyrenderować zanim switchTab wywoła invalidateSize
+        setTimeout(applyHashTab, 150);
 
     } catch (e) {
         document.getElementById('loading').style.display = 'none';
@@ -609,8 +610,13 @@ loadData();
 // więc sprawdzamy go po załadowaniu w render().
 function applyHashTab() {
     const hash = window.location.hash.slice(1); // usuń #
-    if (hash && profileData && profileData.profiles[hash]) {
-        switchTab(hash);
+    if (!hash) return;
+    // Spróbuj jako klucz bezpośrednio, potem jako lowercase
+    const key = profileData.profiles[hash] ? hash
+               : profileData.profiles[hash.toLowerCase()] ? hash.toLowerCase()
+               : null;
+    if (key) {
+        switchTab(key);
     }
 }
 </script>
