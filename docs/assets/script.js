@@ -709,7 +709,7 @@ function createPopupContent(address, offers) {
                 const prof = mapData.tracked_profiles[profileKey];
                 html += `<div style="margin: 6px 0 4px; padding: 5px 9px; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.35); border-radius: 6px; font-size: 11px; display: flex; align-items: center; gap: 6px;">`;
                 html += `<span style="color: #d97706; font-weight: 700;">🏢 ${prof.name}</span>`;
-                html += `<a href="profile_tracker.html" style="color: #3b82f6; text-decoration: none; margin-left: auto; font-size: 10px;">Zobacz profil →</a>`;
+                html += `<a href="profile_tracker.html#${profileKey}" style="color: #3b82f6; text-decoration: none; margin-left: auto; font-size: 10px;">Zobacz profil →</a>`;
                 html += `</div>`;
             }
         }

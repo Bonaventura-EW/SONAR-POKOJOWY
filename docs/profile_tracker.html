@@ -591,6 +591,7 @@ async function loadData() {
         currentKey = profileData.profile_keys[0];
         buildTabs();
         renderProfile(currentKey);
+        applyHashTab(); // nadpisz jeśli jest hash w URL
 
     } catch (e) {
         document.getElementById('loading').style.display = 'none';
@@ -602,6 +603,16 @@ async function loadData() {
 }
 
 loadData();
+
+// Obsługa hash URL — np. profile_tracker.html#poqui
+// Przeglądarka może przetworzyć hash przed załadowaniem danych,
+// więc sprawdzamy go po załadowaniu w render().
+function applyHashTab() {
+    const hash = window.location.hash.slice(1); // usuń #
+    if (hash && profileData && profileData.profiles[hash]) {
+        switchTab(hash);
+    }
+}
 </script>
 </body>
 </html>
