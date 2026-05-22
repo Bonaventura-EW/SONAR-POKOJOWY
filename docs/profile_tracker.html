@@ -334,10 +334,9 @@ function renderMarkers(profileKey) {
 
     // Zawsze wyśrodkuj na Lublinie
     if (bounds.length > 0) {
-        try { map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 }); } catch(e) {}
-    } else {
-        map.setView([51.246, 22.565], 13);
+        try { map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 }); } catch(e) {}
     }
+    map.setView([51.246, 22.565], 13);
 }
 
 // ── HIGHLIGHT ────────────────────────────────────────────────────────
@@ -489,8 +488,9 @@ function renderProfile(key) {
     const prof = profileData.profiles[key];
     if (!prof) return;
 
-    const active = prof.offers.filter(o => o.active);
-    const archived = prof.offers.filter(o => !o.active);
+    const isLublin = o => !o.city || o.city.toLowerCase() === 'lublin';
+    const active = prof.offers.filter(o => o.active && isLublin(o));
+    const archived = prof.offers.filter(o => !o.active && isLublin(o));
     const prices = active.map(o => o.price).filter(Boolean);
     const avg = prices.length ? Math.round(prices.reduce((a,b)=>a+b,0)/prices.length) : null;
 
