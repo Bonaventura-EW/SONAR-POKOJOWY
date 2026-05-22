@@ -45,11 +45,17 @@ class DuplicateDetector:
         Sprawdza czy dwa ogłoszenia to duplikaty.
         
         Args:
-            offer1, offer2: Dicts z kluczami: address, description
+            offer1, offer2: Dicts z kluczami: address, description, url
             
         Returns:
             True jeśli duplikat, False jeśli nie
         """
+        # 0. Ten sam URL → nigdy duplikat (to ta sama oferta)
+        url1 = offer1.get('url', '').split('?')[0]
+        url2 = offer2.get('url', '').split('?')[0]
+        if url1 and url2 and url1 == url2:
+            return False
+        
         # 1. Adres musi być identyczny
         addr1 = offer1.get('address', {}).get('full', '').lower().strip()
         addr2 = offer2.get('address', {}).get('full', '').lower().strip()
@@ -57,7 +63,14 @@ class DuplicateDetector:
         if addr1 != addr2:
             return False
         
-        # 2. Sprawdzamy podobieństwo opisów
+        # 2. Cena musi być identyczna lub bardzo podobna (±5%)
+        # Różne ceny = różne pokoje/mieszkania w tym samym budynku
+        price1 = offer1.get('price', 0) or 0
+        price2 = offer2.get('price', 0) or 0
+        if price1 and price2 and abs(price1 - price2) > price1 * 0.05:
+            return False
+        
+        # 3. Sprawdzamy podobieństwo opisów
         desc1 = offer1.get('description', '')
         desc2 = offer2.get('description', '')
         

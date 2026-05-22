@@ -413,6 +413,17 @@ class SonarPokojowy:
             if offer['id'] == offer_id:
                 return offer
         return None
+
+    def _find_existing_offer_by_short_id(self, short_id: str) -> Dict:
+        """Znajduje istniejące ogłoszenie po krótkiej końcówce ID (IDxxxxx).
+        OLX zmienia slug URL gdy edytowany tytuł — końcówka pozostaje ta sama."""
+        if not short_id:
+            return None
+        suffix = f'-ID{short_id}'
+        for offer in self.database['offers']:
+            if offer.get('id', '').endswith(suffix):
+                return offer
+        return None
     
     def _update_existing_offer(self, existing: Dict, new_data: Dict):
         """Aktualizuje istniejące ogłoszenie z inteligentnym zarządzaniem ceną."""
@@ -958,6 +969,22 @@ class SonarPokojowy:
                 
                 # Stwórz ID z URL
                 offer_id = raw_offer['url'].split('/')[-1].split('.')[0]
+
+                # SKIPPED + profil firmowy: zaktualizuj tylko profile_name w istniejącej ofercie
+                # (skip = ta sama cena, nie trzeba przetwarzać od nowa)
+                if raw_offer.get('skipped') and raw_offer.get('profile_name'):
+                    short_id = offer_id.split('-ID')[-1] if '-ID' in offer_id else None
+                    existing = (self._find_existing_offer(offer_id)
+                                or (self._find_existing_offer_by_short_id(short_id) if short_id else None))
+                    if existing and not existing.get('profile_name'):
+                        existing['profile_name'] = raw_offer['profile_name']
+                        if raw_offer.get('offer_type') and not existing.get('offer_type'):
+                            existing['offer_type'] = raw_offer['offer_type']
+                        print(f"      🏢 Przypisano profil (skip): {raw_offer['profile_name']}")
+                    # Dodaj do current_offer_ids żeby nie była dezaktywowana
+                    # (będzie obsłużone przez skipped_ids dalej)
+                    geocoding_time += 0
+                    continue
                 
                 # Pomiar czasu geokodowania
                 geo_start = time.time()
