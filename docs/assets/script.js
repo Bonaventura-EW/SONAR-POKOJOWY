@@ -600,16 +600,19 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
 
         // Dodaj do odpowiedniej warstwy
         // Priorytet: firma > approx > exact
-        // Warstwa firm: tylko Lublin + pokoje/mieszkania
+        // FIX 2026-05-23: WSZYSTKIE oferty firmowe (isFirmOffer && isActive) idą
+        // do markerLayers.firm, niezależnie od offer_type/offer_city. Wcześniej
+        // gdy offer_type=null lub city != 'lublin', marker lądował w markerLayers.active
+        // ale w allMarkers miał flagę isFirmOffer=true → filterMarkers próbował go
+        // usunąć z markerLayers.firm (gdzie go nie było) i marker zostawał widoczny
+        // mimo odznaczonej warstwy "Firmy / Agencje".
+        // isFirmLublin nadal liczone do wykluczania z innych liczników (np. layer-count-active).
         const isFirmLublin = isFirmOffer && isActive
             && (offerType === 'pokoj' || offerType === 'mieszkanie')
             && (!offerCity || offerCity === 'lublin');
 
-        if (isFirmLublin) {
+        if (isFirmOffer && isActive) {
             markerObj.addTo(markerLayers.firm);
-        } else if (isFirmOffer && isActive) {
-            // Firma ale poza Lublinem lub inna kategoria → zwykła warstwa
-            markerObj.addTo(markerLayers.active);
         } else if (isApprox) {
             markerObj.addTo(isActive ? markerLayers.activeApprox : markerLayers.inactiveApprox);
         } else if (isActive) {
