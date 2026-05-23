@@ -768,35 +768,29 @@ class SonarPokojowy:
                     return (offer, 'error', None)
                 
                 soup = BeautifulSoup(response.text, 'lxml')
-                
-                # Sprawdź status oferty przez JSON-LD (najbardziej wiarygodne źródło)
-                is_active = False
-                
-                scripts = soup.find_all('script', type='application/ld+json')
-                for script in scripts:
-                    try:
-                        data = json.loads(script.string)
-                        if isinstance(data, dict) and data.get('@type') == 'Product':
-                            availability = data.get('offers', {}).get('availability', '')
-                            # InStock = aktywna oferta
-                            if 'InStock' in availability:
-                                is_active = True
-                            break
-                    except (json.JSONDecodeError, AttributeError, TypeError):
-                        pass
-                
-                # Jeśli nie ma JSON-LD, sprawdź elementy HTML
-                if not is_active:
-                    price_element = soup.select_one('[data-testid="ad-price-container"]')
-                    contact_btns = soup.select('[data-testid*="phone"], [data-testid*="contact"]')
-                    
-                    if price_element and len(contact_btns) > 0:
-                        is_active = True
-                
-                if is_active:
-                    return (offer, 'reactivated', {'last_seen': now, 'reactivated_at': now})
-                else:
+
+                # FIX (2026-05-23): Verification NIE reaktywuje już ofert na podstawie
+                # availability=InStock. OLX trzyma strony z InStock dla ofert które
+                # wypadły z listingu kategorii (uśpione/zarchiwizowane), co powodowało
+                # nieskończoną pętlę: scrape→inactive→verification→reactivate→scrape→inactive...
+                # Reaktywacja teraz nastąpi TYLKO gdy oferta wróci do listingu kategorii.
+                # Tu sprawdzamy jedynie czy strona dalej istnieje (200 = nadal trzymana
+                # przez OLX, ale nie ma jej w listingu → traktujemy jako inactive).
+
+                # Dodatkowe potwierdzenie inactive przez marker w treści strony
+                # (np. "Ogłoszenie nieaktywne") - jeśli OLX explicit mówi że nieaktywne.
+                page_text_lower = soup.get_text().lower()
+                inactive_markers = [
+                    'ogłoszenie nieaktywne', 'oferta nieaktywna',
+                    'ogłoszenie zakończ', 'to ogłoszenie zostało zakończone',
+                    'oferta wygasła', 'ogłoszenie wygasło'
+                ]
+                if any(m in page_text_lower for m in inactive_markers):
                     return (offer, 'confirmed_inactive', None)
+
+                # HTTP 200 + brak markera = OLX trzyma stronę, ale nie ma jej w listingu.
+                # NIE reaktywujemy - oferta zostanie inactive aż wróci do listingu.
+                return (offer, 'confirmed_inactive', None)
                     
             except requests.RequestException:
                 return (offer, 'error', None)
