@@ -22,9 +22,18 @@ def generate_monitoring_data():
     # Poprzedni (starszy) scan dla idx i to idx i+1.
     # Formuła (taka sama jak w api_generator.py):
     #   deactivated = max(0, prev_active + new + reactivated - curr_active)
+    # FIX 2026-05-23: pomijamy scany failed (active=0 w stats failed scanu daje
+    # absurdalne wyniki, np. prev=288, failed=0 → deact=288, co jest mylące).
     for i, scan in enumerate(recent_scans):
         prev_scan = recent_scans[i + 1] if i + 1 < len(recent_scans) else None
+
+        # Brak poprzednika = brak danych do porównania
         if prev_scan is None:
+            scan['deactivated_count'] = None
+            continue
+
+        # Pomijamy scany failed - ich active=0 nie odzwierciedla stanu bazy
+        if scan.get('status') != 'completed' or prev_scan.get('status') != 'completed':
             scan['deactivated_count'] = None
             continue
 

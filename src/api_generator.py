@@ -259,8 +259,9 @@ class APIGenerator:
 
         # Oblicz ile ogłoszeń zniknęło w tym skanie
         # Formuła: prev_active + new + reactivated - curr_active
+        # FIX 2026-05-23: pomijamy scany failed - ich active=0 daje absurdalne wyniki.
         deactivated = None
-        if prev_scan:
+        if prev_scan and scan.get('status') == 'completed' and prev_scan.get('status') == 'completed':
             prev_stats = prev_scan.get('stats', {})
             prev_active = prev_stats.get('active', 0)
             new = stats.get('new', 0)
