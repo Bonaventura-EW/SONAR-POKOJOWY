@@ -16,6 +16,27 @@ def generate_monitoring_data():
     # Pobierz ostatnie 100 skanów (dla wykresów ~33 dni) i statystyki
     recent_scans = logger.get_recent_scans(count=100)
     statistics = logger.get_statistics()
+
+    # Wylicz deactivated_count dla każdego scanu.
+    # recent_scans jest posortowane od najnowszego (idx 0) do najstarszego.
+    # Poprzedni (starszy) scan dla idx i to idx i+1.
+    # Formuła (taka sama jak w api_generator.py):
+    #   deactivated = max(0, prev_active + new + reactivated - curr_active)
+    for i, scan in enumerate(recent_scans):
+        prev_scan = recent_scans[i + 1] if i + 1 < len(recent_scans) else None
+        if prev_scan is None:
+            scan['deactivated_count'] = None
+            continue
+
+        curr_stats = scan.get('stats', {}) or {}
+        prev_stats = prev_scan.get('stats', {}) or {}
+
+        prev_active = prev_stats.get('active', 0)
+        curr_active = curr_stats.get('active', 0)
+        new_count = curr_stats.get('new', 0)
+        reactivated = curr_stats.get('reactivated', 0)
+
+        scan['deactivated_count'] = max(0, prev_active + new_count + reactivated - curr_active)
     
     # Przygotuj dane dla wykresów
     chart_data = {

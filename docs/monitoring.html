@@ -301,6 +301,7 @@
                             <th>Oferty</th>
                             <th>Przetworzone</th>
                             <th>Nowe</th>
+                            <th>Znikło</th>
                             <th>Błędy</th>
                         </tr>
                     </thead>
@@ -360,7 +361,28 @@
                     // Oferty
                     row.insertCell().textContent = scan.stats?.raw_offers || '-';
                     row.insertCell().textContent = scan.stats?.processed || '-';
-                    row.insertCell().textContent = scan.stats?.new || '-';
+
+                    // Nowe - zielona strzałka w górę
+                    const newCell = row.insertCell();
+                    const newCount = scan.stats?.new ?? 0;
+                    if (scan.stats?.new === undefined || scan.stats?.new === null) {
+                        newCell.textContent = '-';
+                    } else if (newCount > 0) {
+                        newCell.innerHTML = `<span style="color: #16a34a; font-weight: 600;">↑ ${newCount}</span>`;
+                    } else {
+                        newCell.innerHTML = `<span style="color: #94a3b8;">↑ 0</span>`;
+                    }
+
+                    // Znikło - czerwona strzałka w dół (lub "—" gdy brak poprzedniego scanu)
+                    const goneCell = row.insertCell();
+                    const goneCount = scan.deactivated_count;
+                    if (goneCount === null || goneCount === undefined) {
+                        goneCell.innerHTML = `<span style="color: #cbd5e1;">—</span>`;
+                    } else if (goneCount > 0) {
+                        goneCell.innerHTML = `<span style="color: #dc2626; font-weight: 600;">↓ ${goneCount}</span>`;
+                    } else {
+                        goneCell.innerHTML = `<span style="color: #94a3b8;">↓ 0</span>`;
+                    }
                     
                     // Błędy - z tooltipem
                     const errorsCell = row.insertCell();
