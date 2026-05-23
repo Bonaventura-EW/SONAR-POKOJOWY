@@ -48,15 +48,18 @@ class APIGenerator:
         Uproszczony endpoint dedykowany dla aplikacji Android (SZPERACZ).
         Zawiera:
         - Wynik ostatniego skanu (success/failed) z powodem niepowodzenia
-        - Liczba nowych ofert z ostatniego skanu
+        - Liczba nowych i usuniętych ofert z ostatniego skanu
         - Historia 3 ostatnich skanów
         """
-        recent_scans = self.logger.get_recent_scans(count=3)
+        # Pobieramy 4 skany żeby mieć prev dla najstarszego z 3
+        recent_scans = self.logger.get_recent_scans(count=4)
         now = datetime.now(self.tz)
 
-        def _format(scan: Dict) -> Dict:
+        def _format(idx: int) -> Dict:
+            scan = recent_scans[idx] if idx < len(recent_scans) else None
             if not scan:
                 return None
+            prev = recent_scans[idx + 1] if idx + 1 < len(recent_scans) else None
             stats = scan.get('stats', {})
             errors = scan.get('errors', [])
             status = scan.get('status', 'unknown')
@@ -68,6 +71,17 @@ class APIGenerator:
             elif errors:
                 failure_reason = errors[0].get('message', 'Nieznany błąd')
 
+            deactivated = None
+            if prev:
+                prev_stats = prev.get('stats', {})
+                deactivated = max(
+                    0,
+                    prev_stats.get('active', 0)
+                    + stats.get('new', 0)
+                    + stats.get('reactivated', 0)
+                    - stats.get('active', 0)
+                )
+
             return {
                 "id": scan.get('timestamp', '')[:19].replace(':', '-'),
                 "timestamp": scan.get('timestamp'),
@@ -75,16 +89,17 @@ class APIGenerator:
                 "success": success,
                 "failureReason": failure_reason,
                 "newOffers": stats.get('new', 0),
+                "deactivatedOffers": deactivated,  # null jeśli brak poprzedniego skanu w historii
                 "activeOffers": stats.get('active', 0),
                 "foundOffers": stats.get('raw_offers', 0),
             }
 
-        last = _format(recent_scans[0]) if recent_scans else None
+        last = _format(0)
 
         data = {
             "generatedAt": now.isoformat(),
             "lastScan": last,
-            "recentScans": [_format(s) for s in recent_scans],
+            "recentScans": [_format(i) for i in range(min(3, len(recent_scans)))],
             "nextScanAt": (self._calculate_next_scan_time().isoformat()
                            if self._calculate_next_scan_time() else None),
         }
@@ -167,7 +182,10 @@ class APIGenerator:
             "system": "sonar",
             "generatedAt": datetime.now(self.tz).isoformat(),
             "count": len(recent_scans),
-            "scans": [self._format_scan_for_api(scan) for scan in recent_scans]
+            "scans": [
+                self._format_scan_for_api(recent_scans[i], recent_scans[i + 1] if i + 1 < len(recent_scans) else None)
+                for i in range(len(recent_scans))
+            ]
         }
         
         self._save_json("history.json", history_data)
@@ -219,10 +237,12 @@ class APIGenerator:
         self._save_json("health.json", health_data)
         print(f"   💓 health.json - {'fresh' if is_fresh else 'stale'} ({hours_since_last_scan}h ago)")
     
-    def _format_scan_for_api(self, scan: Dict) -> Dict:
+    def _format_scan_for_api(self, scan: Dict, prev_scan: Optional[Dict] = None) -> Dict:
         """
         Formatuje pojedynczy skan do formatu API.
         Upraszcza strukturę i dodaje pola przydatne dla aplikacji mobilnej.
+
+        prev_scan: poprzedni skan (starszy) używany do obliczenia deactivated.
         """
         if not scan:
             return None
@@ -236,6 +256,17 @@ class APIGenerator:
             ui_status = "failed"
         elif errors:
             ui_status = "warning"
+
+        # Oblicz ile ogłoszeń zniknęło w tym skanie
+        # Formuła: prev_active + new + reactivated - curr_active
+        deactivated = None
+        if prev_scan:
+            prev_stats = prev_scan.get('stats', {})
+            prev_active = prev_stats.get('active', 0)
+            new = stats.get('new', 0)
+            reactivated = stats.get('reactivated', 0)
+            curr_active = stats.get('active', 0)
+            deactivated = max(0, prev_active + new + reactivated - curr_active)
         
         return {
             "id": scan.get('timestamp', '')[:19].replace(':', '-'),  # Unikalne ID
@@ -251,6 +282,7 @@ class APIGenerator:
                 "found": stats.get('raw_offers', 0),
                 "processed": stats.get('processed', 0),
                 "new": stats.get('new', 0),
+                "deactivated": deactivated,  # ile ogłoszeń znikło (null jeśli brak poprzedniego skanu)
                 "updated": stats.get('updated', 0),
                 "active": stats.get('active', 0),
                 "inactive": stats.get('inactive', 0)
