@@ -393,11 +393,16 @@
                         errorsCell.style.cursor = 'help';
                         errorsCell.style.color = '#ef4444';
                         errorsCell.style.fontWeight = 'bold';
-                        errorsCell.title = 'Błędy:\n' + scan.errors.join('\n');
+                        // FIX: scan.errors to lista dict-ów [{timestamp, message}], nie stringów.
+                        // Wyciągamy pole .message (fallback na cały dict jako string).
+                        const errorMessages = scan.errors.map(e =>
+                            (e && typeof e === 'object') ? (e.message || JSON.stringify(e)) : String(e)
+                        );
+                        errorsCell.title = 'Błędy:\n' + errorMessages.join('\n');
                         
                         // Opcjonalnie: modal przy kliknięciu
                         errorsCell.onclick = () => {
-                            alert('🔴 Błędy w skanie:\n\n' + scan.errors.map((e, i) => `${i+1}. ${e}`).join('\n'));
+                            alert('🔴 Błędy w skanie:\n\n' + errorMessages.map((msg, i) => `${i+1}. ${msg}`).join('\n'));
                         };
                     }
                 });
