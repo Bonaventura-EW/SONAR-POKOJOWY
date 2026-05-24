@@ -291,6 +291,7 @@ class APIGenerator:
             
             "skipped": {
                 "noAddress": stats.get('skipped_no_address', 0),
+                "noPrice": stats.get('skipped_no_price', 0),
                 "noCoords": stats.get('skipped_no_coords', 0),
                 "duplicates": stats.get('skipped_duplicate', 0)
             },
