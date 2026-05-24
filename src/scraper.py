@@ -230,16 +230,28 @@ class OLXScraper:
         """
         _base = base_url or self.BASE_URL
         
-        # Szukamy linku "następna" lub page=X
+        # PRIORYTET 1: Szukamy linku "pagination-forward" (oficjalny przycisk OLX)
         next_link = soup.find('a', {'data-testid': 'pagination-forward'})
         
         if next_link and next_link.get('href'):
             return urljoin(_base, next_link['href'])
         
-        # Alternatywnie: próbujemy page=X+1
+        # PRIORYTET 2 (FALLBACK): Szukamy linku z ?page=N+1 w HTML.
+        # Jeśli OLX zmieni atrybut data-testid, ten fallback ratuje paginację.
+        # Nie robimy requesta - tylko parsujemy HTML co już mamy.
         next_page_num = current_page + 1
+        next_page_links = soup.find_all(
+            'a',
+            href=lambda x: x and f'page={next_page_num}' in str(x)
+        )
+        if next_page_links:
+            href = next_page_links[0].get('href', '')
+            if href:
+                return urljoin(_base, href)
         
-        # Sprawdzamy czy następna strona istnieje (nie róbmy requesta, tylko sprawdźmy czy jest link)
+        # Brak następnej strony
+        return None
+    
     def scrape_all_pages(self, max_pages: int = 20) -> List[Dict]:
         """
         Scrapuje wszystkie strony z ofertami (z limitem max_pages).
