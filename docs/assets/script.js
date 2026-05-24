@@ -267,21 +267,11 @@ function calculateFilteredStats() {
     function passesTimeFilter(offer) {
         if (!cutoffDate) return true;
         
-        try {
-            const parts = offer.first_seen.split(' ');
-            const dateParts = parts[0].split('.');
-            const timeParts = parts[1].split(':');
-            const offerDate = new Date(
-                parseInt(dateParts[2]),         // year (already full format YYYY)
-                parseInt(dateParts[1]) - 1,     // month (0-indexed)
-                parseInt(dateParts[0]),         // day
-                parseInt(timeParts[0]),         // hour
-                parseInt(timeParts[1])          // minute
-            );
-            return offerDate >= cutoffDate;
-        } catch (e) {
-            return true; // Jeśli błąd parsowania, uwzględnij ofertę
-        }
+        // Użycie wspólnego helpera parsePolishDate (linia 5)
+        // parsePolishDate zwraca null przy błędzie - uwzględniamy ofertę (zachowane zachowanie)
+        const offerDate = parsePolishDate(offer.first_seen);
+        if (!offerDate) return true;
+        return offerDate >= cutoffDate;
     }
     
     // Zbierz wszystkie widoczne oferty (aktywne + nieaktywne razem)
