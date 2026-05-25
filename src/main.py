@@ -69,7 +69,7 @@ class SonarPokojowy:
                 'description': offer.get('description', ''),
                 'previous_price': offer.get('price', {}).get('previous_price'),
                 'was_active': is_active,
-                'address': offer.get('address', ''),
+                'address': offer.get('address', {}),
                 'coordinates': offer.get('coordinates', {}),
                 'profile_name': offer.get('profile_name'),
             }
