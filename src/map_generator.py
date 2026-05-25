@@ -357,26 +357,45 @@ def generate_map_data(input_file, output_file):
     print(f"   Następny scan: {scan_info['next']}")
 
 
-if __name__ == '__main__':
-    # Ścieżki plików
-    base_dir = Path(__file__).parent.parent
+def regenerate_all_derived(base_dir: Path = None) -> bool:
+    """
+    Regeneruje WSZYSTKIE pliki pochodne z data/offers.json:
+    - docs/data.json (mapa)
+    - docs/monitoring_data.json (monitoring)
+    - docs/profile_data.json (profile firmowe)
+    - docs/skipped_debug.html (debug pominiętych)
+    
+    Wywoływana z __main__ tego skryptu (workflow GitHub Actions),
+    a także dostępna dla importerów którzy chcą regenerować pełen
+    zestaw derived po zmianie offers.json (np. skrypty czyszczące,
+    migracje, narzędzia diagnostyczne).
+    
+    Returns:
+        True jeśli wszystkie podstawowe generatory się udały
+        (monitoring/profile/skipped są opcjonalne - błędy nie failują)
+    """
+    if base_dir is None:
+        base_dir = Path(__file__).parent.parent
+    
     input_file = base_dir / 'data' / 'offers.json'
     output_file = base_dir / 'docs' / 'data.json'
     
-    # Sprawdź czy plik wejściowy istnieje
     if not input_file.exists():
         print(f"❌ Plik {input_file} nie istnieje!")
-        exit(1)
+        return False
     
-    # Generuj
+    # 1. Główna mapa (krytyczne - musi się udać)
     generate_map_data(input_file, output_file)
     
-    # Wygeneruj także dane monitoringu
+    # 2. Monitoring (krytyczne dla strony monitoring.html)
     print("\n📊 Generowanie danych monitoringu...")
-    from monitoring_generator import generate_monitoring_data
-    generate_monitoring_data()
+    try:
+        from monitoring_generator import generate_monitoring_data
+        generate_monitoring_data()
+    except Exception as e:
+        print(f"⚠️  monitoring_generator nie powiódł się: {e}")
     
-    # Wygeneruj dane profili firmowych
+    # 3. Profile firmowe (opcjonalne - strona profile_tracker)
     print("\n🏢 Generowanie danych profili firmowych...")
     try:
         from profile_generator import generate_profile_data
@@ -387,10 +406,18 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"⚠️  profile_generator nie powiódł się: {e}")
     
-    # Wygeneruj stronę debug z pominiętymi ofertami (tymczasowa)
+    # 4. Debug skipped (opcjonalne)
     print("\n🐛 Generowanie strony debug pominiętych ofert...")
     try:
         from skipped_debug_generator import generate_skipped_debug_page
         generate_skipped_debug_page()
     except Exception as e:
         print(f"⚠️  skipped_debug_generator nie powiódł się: {e}")
+    
+    return True
+
+
+if __name__ == '__main__':
+    # Workflow GitHub Actions wywołuje: python map_generator.py
+    # Funkcjonalność identyczna jak wcześniej - regeneracja wszystkich derived
+    regenerate_all_derived()
