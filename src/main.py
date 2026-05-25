@@ -70,6 +70,9 @@ class SonarPokojowy:
                 'previous_price': offer.get('price', {}).get('previous_price'),
                 'was_active': is_active,
                 'address': offer.get('address', {}),
+                # LEGACY: top-level 'coordinates' (122 ofert sprzed migracji do address.coords).
+                # Scraper czyta najpierw address.coords, ten klucz tylko jako fallback.
+                # Pole jest stopniowo wycofywane.
                 'coordinates': offer.get('coordinates', {}),
                 'profile_name': offer.get('profile_name'),
             }

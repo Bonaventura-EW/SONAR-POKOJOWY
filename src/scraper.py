@@ -364,8 +364,11 @@ class OLXScraper:
                 # Dodaj adres i współrzędne z cache (dla reaktywacji nieaktywnych ofert)
                 if existing.get('address'):
                     offer['cached_address'] = existing.get('address')
-                if existing.get('coordinates'):
-                    offer['cached_coordinates'] = existing.get('coordinates')
+                # Współrzędne: PRIORYTET 1 = address.coords (canonical),
+                # FALLBACK = top-level 'coordinates' (legacy, do usunięcia z bazy).
+                _coords = (existing.get('address', {}) or {}).get('coords') or existing.get('coordinates')
+                if _coords:
+                    offer['cached_coordinates'] = _coords
                 # Oznacz czy oferta była nieaktywna (do potencjalnej reaktywacji)
                 offer['was_inactive'] = not existing.get('was_active', True)
             
@@ -614,8 +617,10 @@ class OLXScraper:
             offer['skipped'] = True
             if existing.get('address') and 'cached_address' not in offer:
                 offer['cached_address'] = existing.get('address')
-            if existing.get('coordinates'):
-                offer['cached_coordinates'] = existing.get('coordinates')
+            # Współrzędne: PRIORYTET 1 = address.coords, FALLBACK = legacy top-level
+            _coords = (existing.get('address', {}) or {}).get('coords') or existing.get('coordinates')
+            if _coords:
+                offer['cached_coordinates'] = _coords
             # WAŻNE: zachowaj profile_name i offer_type z aktualnego scanu
             # (existing może mieć profile_name=None jeśli wcześniej nie był w profilu)
             if not offer.get('profile_name') and existing.get('profile_name'):
