@@ -326,10 +326,18 @@ class AddressParser:
                 
                 # KRYTYCZNE (Fix #4.1, 2026-05-11): odrzuć jeśli którekolwiek słowo
                 # nazwy ulicy jest w EXCLUDED_WORDS (blackliście słów-szumów)
-                street_words_lower = [w.lower() for w in street_name.split()]
-                if any(w in excluded_words for w in street_words_lower):
-                    continue
-                
+                # WYJĄTEK: znane ulice Lublina których pierwsze słowo jest w blackliście
+                # bo zwykle jest przyimkiem (np. "Przy Stawie", "Na Stoku", "Do Dysa").
+                # Lista oparta o OpenStreetMap, weryfikowane realne ulice.
+                KNOWN_PREFIXED_STREETS = {
+                    'przy stawie', 'przy bocznicy', 'na stoku', 'do dysa',
+                }
+                street_lower_full = street_name.lower()
+                if street_lower_full not in KNOWN_PREFIXED_STREETS:
+                    street_words_lower = [w.lower() for w in street_name.split()]
+                    if any(w in excluded_words for w in street_words_lower):
+                        continue
+
                 streets.add(street_name.lower())
             return streets
         except Exception as e:
@@ -509,7 +517,38 @@ class AddressParser:
                         }
                 except ValueError:
                     pass
-        
+
+        # SPECJALNY PRZYPADEK 2: znane ulice Lublina zaczynające się od słowa w EXCLUDED_WORDS
+        # (np. "Przy Stawie", "Na Stoku" - słowa "przy"/"na" są w EXCLUDED_WORDS bo zwykle są
+        # przyimkami, nie częścią adresu, ale tu są autentycznymi prefiksami nazwy ulicy).
+        # Źródło: OpenStreetMap (potwierdzone realne ulice Lublina).
+        # WYMAGA prefiksu adresowego (ul./ulica/ulicy/ulicą) aby uniknąć false-positive
+        # np. "Pokój położony jest przy Stawie 5" (gdzie "Stawie 5" to nie adres).
+        prefixed_streets = [
+            'Przy Stawie',
+            'Przy Bocznicy',
+            'Na Stoku',
+            'Do Dysa',
+        ]
+
+        for street_name in prefixed_streets:
+            # WYMAGA prefiksu "ul./ulica/ulicy/ulicą" przed nazwą ulicy
+            pattern_num = rf'\b(?:ul\.?|ulica|ulicy|ulicą)\s+{re.escape(street_name)}\s+(\d+[a-zA-Z]?(?:/\d+)?)'
+            match = re.search(pattern_num, text, re.IGNORECASE)
+            if match:
+                number = match.group(1)
+                try:
+                    num_str = number.rstrip('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/')
+                    num_value = int(num_str)
+                    if num_value <= 250:
+                        return {
+                            'street': street_name,
+                            'number': number,
+                            'full': f"{street_name} {number}"
+                        }
+                except ValueError:
+                    pass
+
         # Słowa które NIE mogą być nazwą ulicy (definicja na poziomie klasy - patrz EXCLUDED_WORDS)
         excluded_words_lower = self.EXCLUDED_WORDS
         
@@ -731,8 +770,14 @@ class AddressParser:
                 continue
 
             # Walidacja: pierwsze słowo nie może być na czarnej liście (lowercase comparison)
+            # WYJĄTEK: jeśli cała nazwa (z drugim słowem) jest znaną ulicą Lublina,
+            # przepuszczamy mimo że pierwsze słowo jest na blackliście.
+            # Powód: ulice typu "Przy Stawie", "Na Stoku" mają pierwsze słowo w EXCLUDED_WORDS
+            # bo zwykle jest przyimkiem, ale tu jest częścią autentycznej nazwy ulicy.
             first_word_lower = street_words[0].lower()
-            if first_word_lower in self.EXCLUDED_WORDS:
+            full_lower = ' '.join(w.lower() for w in street_words)
+            is_known_full = full_lower in self._known_streets
+            if first_word_lower in self.EXCLUDED_WORDS and not is_known_full:
                 continue
 
             # Fix #4.3 (2026-05-11): jeśli któreś ze słów PO pierwszym jest na blackliście,
@@ -740,16 +785,22 @@ class AddressParser:
             # Przykład: "ul. Weteranów Lublin" → przed: None, po: "Weteranów"
             #          "ul. Krakowskie Przedmieście" → bez zmian (oba słowa OK)
             #          "ul. Aleja Racławickie centrum" → "Aleja Racławickie" (ucięte "centrum")
-            valid_words = []
-            for w in street_words:
-                if w.lower() in self.EXCLUDED_WORDS:
-                    break  # przerwij na pierwszym blacklisted słowie
-                valid_words.append(w)
-            
-            if not valid_words:
-                continue  # nic nie zostało (nie powinno się stać bo first_word już sprawdzony)
-            
-            street_words = valid_words
+            # WYJĄTEK: jeśli pełna nazwa jest znaną ulicą Lublina (np. "Przy Stawie"),
+            # nie ucinamy mimo że pierwsze słowo jest na blackliście.
+            if is_known_full:
+                # Cała nazwa to znana ulica → zachowaj bez zmian
+                pass
+            else:
+                valid_words = []
+                for w in street_words:
+                    if w.lower() in self.EXCLUDED_WORDS:
+                        break  # przerwij na pierwszym blacklisted słowie
+                    valid_words.append(w)
+
+                if not valid_words:
+                    continue  # nic nie zostało (nie powinno się stać bo first_word już sprawdzony)
+
+                street_words = valid_words
 
             # Normalizacja kapitalizacji — każde słowo z dużej litery
             street = ' '.join(w.capitalize() for w in street_words)
