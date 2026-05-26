@@ -488,8 +488,8 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
         const markerColor = color;
 
 
-        // Czy oferta to "przybliżony adres" (sama ulica, bez numeru)?
-        const isApprox = offer.precision === 'street_only';
+        // Czy oferta to "przybliżony adres" (sama ulica bez numeru lub centroid dzielnicy)?
+        const isApprox = offer.precision === 'street_only' || offer.precision === 'district';
 
         // Badge zmiany ceny - ikona dolara ze strzałką
         let priceChangeBadge = '';
