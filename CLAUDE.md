@@ -6,6 +6,13 @@
 
 ---
 
+## ⚡ KOMENDY-SKRÓTY MATEUSZA (rozumiej dosłownie)
+
+- **"scan" / "uruchom scan" / "odpal scan" / "zrób scan"** → **ZAWSZE** znaczy: triggeruj GitHub Actions workflow `238181145` przez `curl -X POST` z `$GITHUB_TOKEN` na endpoint `https://api.github.com/repos/Bonaventura-EW/SONAR-POKOJOWY/actions/workflows/238181145/dispatches` z body `{"ref":"main"}`. Spodziewany kod: `204`. **Nigdy** nie odpalaj `python src/main.py` lokalnie, chyba że Mateusz wyraźnie napisze "lokalnie".
+- Po triggerze: zwróć tylko kod HTTP i link do https://github.com/Bonaventura-EW/SONAR-POKOJOWY/actions. Nie pollu statusu, nie czekaj na koniec.
+
+---
+
 ## 🚨 ZASADY WSPÓŁPRACY Z UŻYTKOWNIKIEM (Mateusz)
 
 Czytaj uważnie — to nie są sugestie, to są twarde reguły wypracowane przez wiele iteracji.
