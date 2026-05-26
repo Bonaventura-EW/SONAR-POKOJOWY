@@ -530,24 +530,36 @@ class SonarPokojowy:
         # Zawsze aktualizuj media_info (może się zmienić niezależnie)
         existing['price']['media_info'] = new_data['price']['media_info']
         
-        # === FIX 2026-05-14: napraw bogus address w istniejących ofertach ===
-        # Jeśli existing.address jest "bogus" (artefakt starego parsera, np. 'Pokoje'),
-        # a nowy świeży _process_offer wyciągnął prawdziwy adres - podmień.
-        # Bez tego stare oferty z buggy address pozostają na mapie wieczyście,
-        # bo update_existing_offer normalnie NIE aktualizuje pola address.
+        # Potrzebne wcześniej (przed blokiem address) żeby reaktywacja mogła wpłynąć na adres
+        was_inactive = not existing.get('active', True)
+
         existing_addr_full = existing.get('address', {}).get('full', '')
         new_addr = new_data.get('address', {})
         new_addr_full = new_addr.get('full', '')
-        
-        if (existing_addr_full and new_addr_full
-                and existing_addr_full != new_addr_full
-                and self._is_bogus_address(existing_addr_full)
-                and not self._is_bogus_address(new_addr_full)):
-            print(f"      🔧 Naprawiam bogus address: '{existing_addr_full}' → '{new_addr_full}'")
-            # Zachowaj poprzedni adres do historii diagnostycznej
-            existing['address']['previous_bogus'] = existing_addr_full
-            existing['address']['fixed_at'] = now
-            # Podmień adres + współrzędne + precision
+
+        # Przypadek 1: istniejący adres jest "bogus" (artefakt starego parsera)
+        bogus_fix = (existing_addr_full and new_addr_full
+                     and existing_addr_full != new_addr_full
+                     and self._is_bogus_address(existing_addr_full)
+                     and not self._is_bogus_address(new_addr_full))
+
+        # Przypadek 2: reaktywacja — oferta wróciła na OLX z nowym opisem i innym adresem.
+        # Warunek: nowy adres ma numer (precyzyjny), różni się od starego i nie jest bogus.
+        reactivation_addr_update = (was_inactive
+                                    and new_addr_full
+                                    and new_addr.get('number')
+                                    and existing_addr_full != new_addr_full
+                                    and not self._is_bogus_address(new_addr_full))
+
+        if bogus_fix or reactivation_addr_update:
+            reason = "bogus address" if bogus_fix else "reaktywacja z nowym adresem"
+            print(f"      🔧 Aktualizuję adres ({reason}): '{existing_addr_full}' → '{new_addr_full}'")
+            if bogus_fix:
+                existing['address']['previous_bogus'] = existing_addr_full
+                existing['address']['fixed_at'] = now
+            else:
+                existing['address']['previous_before_reactivation'] = existing_addr_full
+                existing['address']['reactivation_addr_updated_at'] = now
             existing['address']['full'] = new_addr_full
             existing['address']['street'] = new_addr.get('street')
             existing['address']['number'] = new_addr.get('number')
@@ -555,9 +567,8 @@ class SonarPokojowy:
                 existing['address']['coords'] = new_addr['coords']
             if new_addr.get('precision'):
                 existing['address']['precision'] = new_addr['precision']
-        
+
         # Upewnij się że jest aktywne (REAKTYWACJA nieaktywnych ofert)
-        was_inactive = not existing.get('active', True)
         existing['active'] = True
         
         if was_inactive:
