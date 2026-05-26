@@ -193,6 +193,15 @@ class AddressParser:
         'uczelni',         # "Uczelni OpisStudio 2" - lokalizacyjne
         'obowym',          # "Osiedle obowym 12" - fragment "1-osobowym" po obcięciu cyfry
         'położony',        # "Dom położony 2"
+        # === FIX 2026-05-26: false-positive z "Wymagana 1-miesięczna kaucja" ===
+        # Parser łapie "Wymagana 1" jako adres ulica+numer.
+        'wymagana', 'wymagany', 'wymagane', 'wymagani', 'wymaganym', 'wymaganej',
+    }
+
+    # FIX 2026-05-26 (B): hardcoded ulice Lublina, których brak w geocoding_cache.
+    # Lowercase. Merge'owane z _known_streets w __init__.
+    HARDCODED_LUBLIN_STREETS = {
+        'rycerska',
     }
 
     # Pattern dla ekstrakcji ulicy BEZ numeru (decyzja 1a — tylko z jawnym prefiksem)
@@ -278,6 +287,10 @@ class AddressParser:
         # Używane jako TRZECI fallback po extract_address i extract_street_only.
         # Fix #4.1: filtrujemy słowa z EXCLUDED_WORDS (np. "umcs", "pokoje", "kawalerka")
         self._known_streets = self._load_known_streets(geocoding_cache_path, self.EXCLUDED_WORDS)
+        # FIX 2026-05-26: hardcoded whitelist znanych ulic Lublina, których brak w geocoding_cache.
+        # Trafiają tu nazwy zweryfikowane z OSM/UM Lublin, niemożliwe do wyciągnięcia przez parser
+        # z typowych opisów OLX (np. mało wystąpień, brak numeru w opisie).
+        self._known_streets |= self.HARDCODED_LUBLIN_STREETS
     
     @staticmethod
     def _load_known_streets(cache_path: str, excluded_words: set = None) -> set:
@@ -697,6 +710,14 @@ class AddressParser:
                 'full': best['full']
             }
         
+        # FIX 2026-05-26 (C1): jeśli tekst zawiera jawny prefiks (ul./al./...) i
+        # wcześniejszy etap odrzucił matche bez prefiksu, NIE wpadaj w surname fallback —
+        # bez tego "Wymagana 1-miesięczna kaucja" trafia jako adres mimo że w tekście
+        # jest "ul. Rycerskiej" (właściwa ulica). Lepiej zwrócić None i pozwolić aby
+        # extract_street_only / extract_from_whitelist znalazły poprawną ulicę.
+        if text_has_explicit_prefix:
+            return None
+
         # NOWY FALLBACK: Wzorzec dla polskich nazwisk w dopełniaczu
         # Łapie przypadki jak "Langiewicza 3A", "Słowackiego 12" bez prefiksu
         surname_matches = self.POLISH_SURNAME_PATTERN.finditer(text)
