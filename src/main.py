@@ -300,6 +300,18 @@ class SonarPokojowy:
                 address_data = whitelist_match
                 address_precision = 'street_only'
 
+        # FIX 2026-05-26 (A): czwarty fallback — rozpoznaj DZIELNICĘ Lublina.
+        # Markery na poziomie centroidu dzielnicy (precision='district') — mniej dokładne,
+        # ale lepsze niż pomijanie ofert mówiących tylko "na Sławinku", "Czuby", "LSM".
+        if not address_data:
+            district_match = self.address_parser.extract_district(full_text)
+            if not district_match and raw_offer.get('description'):
+                district_match = self.address_parser.extract_district(raw_offer['description'])
+            if district_match:
+                print(f"      🗺️  Rozpoznano dzielnicę: {district_match['full']}")
+                address_data = district_match
+                address_precision = 'district'
+
         if not address_data:
             return None  # Brak adresu → ignoruj
         
@@ -368,9 +380,10 @@ class SonarPokojowy:
                 print(f"⚠️ Nie można geokodować: {address_data['full']}")
                 return None  # Nie znaleziono współrzędnych → ignoruj
             
-            if geo_meta.get('number_fallback'):
+            if geo_meta.get('number_fallback') and address_precision != 'district':
                 # Geocoder nie znalazł konkretnego numeru, użył samej ulicy.
                 # Adres na mapie pojawi się jako "przybliżony" (street_only).
+                # FIX 2026-05-26 (A): nie nadpisujemy precision='district'.
                 print(f"      📌 Fallback geocoder: '{address_data['full']}' "
                       f"→ koordynaty samej ulicy (precision=street_only)")
                 address_precision = 'street_only'
@@ -996,11 +1009,17 @@ class SonarPokojowy:
                         'title': raw_offer.get('title', '')[:200],
                         'description_preview': (raw_offer.get('description', '') or '')[:500]
                     }
-                    if not self.address_parser.extract_address(full_text):
-                        # Może parser znalazł ulicę bez numeru — sprawdź
-                        street_only = self.address_parser.extract_street_only(full_text)
-                        if street_only:
-                            sample['note'] = f"extract_street_only znalazłby: {street_only['full']}"
+                    # FIX 2026-05-26 (C): klasyfikacja musi sprawdzić WSZYSTKIE 3 fallbacki
+                    # (extract_address + extract_street_only + extract_from_whitelist), inaczej
+                    # oferty które przeszły fallback ale padły na geocoder/price są błędnie
+                    # klasyfikowane jako no_address. Wcześniej "ghost" - sample 24 'ul.Chopina'.
+                    addr_exact = self.address_parser.extract_address(full_text)
+                    addr_street = self.address_parser.extract_street_only(full_text) if not addr_exact else None
+                    addr_white = self.address_parser.extract_from_whitelist(full_text) if not (addr_exact or addr_street) else None
+                    addr_district = self.address_parser.extract_district(full_text) if not (addr_exact or addr_street or addr_white) else None
+                    any_addr = addr_exact or addr_street or addr_white or addr_district
+
+                    if not any_addr:
                         skipped_no_address += 1
                         if len(skipped_samples['no_address']) < SAMPLE_LIMIT:
                             skipped_samples['no_address'].append(sample)
@@ -1011,9 +1030,15 @@ class SonarPokojowy:
                     else:
                         skipped_no_coords += 1
                         if len(skipped_samples['no_coords']) < SAMPLE_LIMIT:
-                            # Dodaj info o adresie który nie dał się zgeokodować
-                            addr = self.address_parser.extract_address(full_text)
-                            sample['address_parsed'] = addr['full'] if addr else None
+                            # FIX 2026-05-26 (C): pokazuj który parser znalazł adres
+                            # + jaki adres geocoder odrzucił (przed: tylko extract_address).
+                            sample['address_parsed'] = any_addr['full']
+                            sample['address_source'] = (
+                                'extract_address' if addr_exact else
+                                'extract_street_only' if addr_street else
+                                'extract_from_whitelist' if addr_white else
+                                'extract_district'
+                            )
                             skipped_samples['no_coords'].append(sample)
                     continue
                 

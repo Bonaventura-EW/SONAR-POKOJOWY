@@ -240,6 +240,50 @@ class AddressParser:
     _DIGIT_CAPITAL_SPLIT = re.compile(r'(?<=\d)(?=[A-ZĄĘĆŁŃÓŚŹŻ][a-ząęćłńóśźż])')
     _MULTIPLE_WHITESPACE = re.compile(r'\s+')
 
+    # === FIX 2026-05-26 (A): mapa dzielnic Lublina ===
+    # Klucz: kanoniczna nazwa dzielnicy (przekazywana do geocodera, który zwróci centroid).
+    # Wartość: lista form/wariantów (lowercase), w tym miejscownik/dopełniacz/potoczne nazwy.
+    # Lista zweryfikowana z OSM/UM Lublin + potoczne formy z OLX (Bazylianówka, Kalina, LSM).
+    LUBLIN_DISTRICTS = {
+        'Sławin':         ['sławin', 'sławinie', 'slawin', 'slawinie'],
+        'Sławinek':       ['sławinek', 'sławinku', 'slawinek', 'slawinku'],
+        'Czechów':        ['czechów', 'czechow', 'czechowie'],
+        'Ponikwoda':      ['ponikwoda', 'ponikwodzie'],
+        'Kalinowszczyzna':['kalinowszczyzna', 'kalinowszczyźnie', 'kalina', 'kalinie'],
+        'Tatary':         ['tatary', 'tatarach'],
+        'Bronowice':      ['bronowice', 'bronowicach'],
+        'Kośminek':       ['kośminek', 'kośminku', 'kosminek', 'kosminku'],
+        'Dziesiąta':      ['dziesiąta', 'dziesiątej', 'dziesiata', 'dziesiatej'],
+        'Abramowice':     ['abramowice', 'abramowicach'],
+        'Głusk':          ['głusk', 'głusku', 'glusk', 'glusku'],
+        'Zemborzyce':     ['zemborzyce', 'zemborzycach'],
+        'Wrotków':        ['wrotków', 'wrotkowie', 'wrotkow', 'wrotkowie'],
+        'Czuby':          ['czuby', 'czubach'],
+        'Węglin':         ['węglin', 'węglinie', 'weglin', 'weglinie'],
+        'Konstantynów':   ['konstantynów', 'konstantynowie'],
+        'Rury':           ['rury', 'rurach'],
+        'Szerokie':       ['szerokie', 'szerokiem'],
+        'Śródmieście':    ['śródmieście', 'śródmieściu', 'srodmiescie', 'srodmiesciu'],
+        'Wieniawa':       ['wieniawa', 'wieniawie'],
+        'Stare Miasto':   ['stare miasto', 'starym mieście', 'starym miescie'],
+        'Felin':          ['felin', 'felinie'],
+        'Bazylianówka':   ['bazylianówka', 'bazylianowka', 'bazylianówce', 'bazylianowce'],
+        'LSM':            ['lsm'],
+    }
+
+    # Pre-buduj reverse map (forma → kanoniczna) dla szybkiego lookup
+    _DISTRICT_FORM_MAP = {form: canon for canon, forms in LUBLIN_DISTRICTS.items() for form in forms}
+
+    # Konteksty lokalizacyjne, które potwierdzają że słowo jest dzielnicą (nie szumem).
+    # Bez kontekstu nie ufamy — np. "Czuby" w "ul. Czuby 5" to nie dzielnica.
+    # Kontekst: PRZED dzielnicą (na, w, dzielnica, osiedle, kierunku, na terenie) lub
+    # PO dzielnicy (separator [,/.] + jeszcze coś, lub Lublin/koniec).
+    _DISTRICT_CTX_BEFORE = re.compile(
+        r'\b(?:na|w|we|dzielnic[aey]|osiedl[eu]|rejon[ie]?|okolic[ae]|stronie|teren[ie]?|'
+        r'położon[ya]?|znajduj[eą]?\s+si[eę]|mieszkani[ea]?|pokój|pokoj|blok[iu]?)\s+'
+        r'(?:dzielnic[aey]\s+|osiedl[eu]\s+)?'
+    )
+
     @classmethod
     def _normalize_text(cls, text: str) -> str:
         """
@@ -720,20 +764,31 @@ class AddressParser:
 
         # NOWY FALLBACK: Wzorzec dla polskich nazwisk w dopełniaczu
         # Łapie przypadki jak "Langiewicza 3A", "Słowackiego 12" bez prefiksu
+        # FIX 2026-05-26 (B): match akceptowany TYLKO gdy
+        #   (1) w pobliżu (±40 znaków) jest prefiks ul./al./pl./os./ulica/aleja/..., LUB
+        #   (2) sama nazwa jest na whitelist znanych ulic Lublina.
+        # Bez tego pattern łapie szumy typu "szafami wnękowymi 9", "balkonem w 3",
+        # "osobach wychodzi 80", "only a 5" (5 z 9 ofert w no_coords).
+        PROXIMITY_PREFIX = re.compile(
+            r'\b(ul\.?|al\.?|pl\.?|os\.?|ulica|ulicy|ulicą|aleja|aleje|alei|plac|placu|osiedle|osiedlu)\b',
+            re.IGNORECASE
+        )
+        WINDOW = 40
+
         surname_matches = self.POLISH_SURNAME_PATTERN.finditer(text)
-        
+
         for match in surname_matches:
             street = match.group(1).strip()
             number = match.group(2).strip()
-            
+
             # Sprawdź minimum 5 liter (żeby wykluczyć "Pokoja 5" itp.)
             if len(street) < 5:
                 continue
-            
+
             # Sprawdź czy nie jest wykluczonym słowem
             if street.lower() in excluded_words_lower:
                 continue
-            
+
             # Walidacja numeru (max 250)
             try:
                 main_num = number.rstrip('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ/').split('/')[0]
@@ -741,7 +796,29 @@ class AddressParser:
                     continue
             except ValueError:
                 continue
-            
+
+            # FIX 2026-05-26 (B): wymagaj kontekstu (prefiks w pobliżu LUB znana ulica)
+            start = max(0, match.start() - WINDOW)
+            window_text = text[start:match.start()]
+            has_nearby_prefix = bool(PROXIMITY_PREFIX.search(window_text))
+            street_lower = street.lower()
+            is_known = street_lower in self._known_streets
+            # Spróbuj też z mianownikiem (Langiewicza -> Langiewicz)
+            if not is_known:
+                try:
+                    from geocoder import to_nominative
+                    is_known = to_nominative(street).lower() in self._known_streets
+                except ImportError:
+                    pass
+            # Spróbuj bez polskich akcentów (Gleboka -> Głęboka match)
+            if not is_known:
+                _PL = str.maketrans('ąćęłńóśźż', 'acelnoszz')
+                street_ascii = street_lower.translate(_PL)
+                is_known = any(s.translate(_PL) == street_ascii for s in self._known_streets)
+
+            if not has_nearby_prefix and not is_known:
+                continue
+
             return {
                 'street': street,
                 'number': number,
@@ -751,6 +828,63 @@ class AddressParser:
         # BRAK FALLBACK - Wymagamy NUMERU domu!
         # Adresy bez numeru (np. "ul. Niecała") są zbyt nieprecyzyjne dla mapy
         return None
+
+    def extract_district(self, text: str) -> Optional[Dict[str, Optional[str]]]:
+        """
+        FIX 2026-05-26 (A): czwarty fallback — rozpoznaje dzielnicę Lublina w tekście
+        i zwraca jej kanoniczną nazwę. Geocoder zwróci centroid dzielnicy.
+
+        Wymaga KONTEKSTU lokalizacyjnego ("na Sławinku", "dzielnica Czuby", "osiedlu LSM",
+        "Bazylianówka/Ponikwoda") — bez tego ryzyko false-positive jest za duże
+        (np. "Wieniawa" jako nazwisko właściciela).
+
+        Args:
+            text: tekst opisu/tytułu oferty
+
+        Returns:
+            Dict z 'street'=None, 'number'=None, 'full'=<Kanoniczna Nazwa Dzielnicy>
+            lub None.
+        """
+        if not text:
+            return None
+
+        text = self._normalize_text(text)
+        text_lower = text.lower()
+
+        # Dla każdej dzielnicy: sprawdź czy któraś z form występuje w tekście
+        # w kontekście lokalizacyjnym (przed nią słowo lokalizacyjne, lub po niej separator).
+        candidates = []
+        for form, canonical in self._DISTRICT_FORM_MAP.items():
+            # Szukamy wystąpień jako oddzielne słowo
+            pattern = r'\b' + re.escape(form) + r'\b'
+            for m in re.finditer(pattern, text_lower):
+                # Kontekst PRZED (±40 znaków): czy jest tam "na/w/dzielnica/osiedle/..."
+                window_before = text_lower[max(0, m.start() - 40):m.start()]
+                has_ctx_before = bool(self._DISTRICT_CTX_BEFORE.search(window_before))
+
+                # Kontekst PO: separator [/,.\s]+koniec/Lublin, albo pierwsza linia tytułu
+                window_after = text_lower[m.end():m.end() + 20]
+                has_ctx_after = bool(re.match(
+                    r'\s*[/,]\s*[a-ząęćłńóśźż]|\s+lublin\b|\s*\.|\s*$|\s*-',
+                    window_after
+                ))
+
+                if has_ctx_before or has_ctx_after:
+                    # Priorytet: dłuższa forma + kontekst PRZED ważniejszy
+                    score = len(form) + (10 if has_ctx_before else 0)
+                    candidates.append((canonical, score, m.start()))
+
+        if not candidates:
+            return None
+
+        # Wybierz kandydata z najwyższym score, a przy remisie - pierwszy w tekście
+        best = max(candidates, key=lambda x: (x[1], -x[2]))
+        canonical = best[0]
+        return {
+            'street': None,
+            'number': None,
+            'full': canonical,
+        }
 
     def extract_street_only(self, text: str) -> Optional[Dict[str, str]]:
         """

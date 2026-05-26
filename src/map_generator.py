@@ -280,12 +280,15 @@ def generate_map_data(input_file, output_file):
         # Sprawdź czy są aktywne oferty
         has_active = any(o['active'] for o in offers_list)
 
-        # Flagi dla nowych warstw przybliżonych (precision == 'street_only')
+        # Flagi dla nowych warstw przybliżonych (precision == 'street_only' lub 'district')
+        # FIX 2026-05-26 (A): precision='district' (centroidy dzielnic) też trafia
+        # do warstwy "przybliżone" — markery są w środku dzielnicy zamiast pomijać oferty.
+        APPROX_PRECISIONS = ('street_only', 'district')
         has_active_approx = any(
-            o['active'] and o.get('precision') == 'street_only' for o in offers_list
+            o['active'] and o.get('precision') in APPROX_PRECISIONS for o in offers_list
         )
         has_inactive_approx = any(
-            (not o['active']) and o.get('precision') == 'street_only' for o in offers_list
+            (not o['active']) and o.get('precision') in APPROX_PRECISIONS for o in offers_list
         )
 
         LUBLIN_VARIANTS = {'lublin', 'Lublin'}
