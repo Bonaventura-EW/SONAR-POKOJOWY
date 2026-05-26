@@ -114,109 +114,27 @@ header .nav-links a.tmp { background: rgba(255,200,0,0.4); border: 1px dashed wh
 .empty { text-align: center; padding: 60px 20px; color: #a0aec0; }
 .no-results { text-align: center; padding: 40px 20px; color: #a0aec0; display: none; }
 .no-results.visible { display: block; }
-
-/* === Ujednolicony nagłówek (Warm Sunset C) === */
-.sp-header {
-  background: linear-gradient(120deg, #fb923c 0%, #ef4444 50%, #ec4899 100%);
-  color: white;
-  padding: 14px 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  flex-wrap: wrap;
-  box-shadow: 0 2px 12px rgba(239,68,68,0.25);
-}
-.sp-header .sp-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.sp-header .sp-brand-svg { width: 32px; height: 32px; flex-shrink: 0; }
-.sp-header h1 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  color: white;
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0;
-  white-space: nowrap;
-}
-.sp-header h1 .sp-b { font-weight: 800; letter-spacing: 0.5px; }
-.sp-header h1 .sp-s { opacity: 0.5; margin: 0 8px; font-weight: 300; }
-.sp-header h1 .sp-p { font-weight: 500; opacity: 0.95; }
-.sp-header nav { display: flex; gap: 4px; flex-wrap: wrap; }
-.sp-header nav a {
-  color: #be123c;
-  text-decoration: none;
-  padding: 7px 13px;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 600;
-  background: rgba(255,255,255,0.88);
-  border: 1px solid rgba(255,255,255,0.4);
-  transition: background 0.15s, box-shadow 0.15s;
-}
-.sp-header nav a:hover { background: white; }
-.sp-header nav a.active {
-  background: white;
-  color: #9f1239;
-  border-color: #ef4444;
-  box-shadow: 0 2px 6px rgba(190,18,60,0.25);
-}
-@media (max-width: 768px) {
-  .sp-header { padding: 12px 16px; }
-  .sp-header h1 { font-size: 16px; }
-  .sp-header nav a { padding: 6px 10px; font-size: 12px; }
-}
-
 </style>
 </head>
 <body>
 
-<header class="sp-header">
-    <div class="sp-brand">
-      <svg class="sp-brand-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <radialGradient id="spRb-skip" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#1a3a1a"/>
-            <stop offset="100%" stop-color="#0a1a0a"/>
-          </radialGradient>
-          <linearGradient id="spRs-skip" x1="50%" y1="50%" x2="100%" y2="50%">
-            <stop offset="0%" stop-color="#00ff00" stop-opacity="0.8"/>
-            <stop offset="100%" stop-color="#00ff00" stop-opacity="0"/>
-          </linearGradient>
-          <mask id="spRm-skip"><circle cx="32" cy="32" r="28" fill="white"/></mask>
-        </defs>
-        <circle cx="32" cy="32" r="32" fill="url(#spRb-skip)"/>
-        <circle cx="32" cy="32" r="30" fill="none" stroke="#00ff00" stroke-width="0.5" opacity="0.6"/>
-        <circle cx="32" cy="32" r="22" fill="none" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
-        <circle cx="32" cy="32" r="14" fill="none" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
-        <line x1="32" y1="4" x2="32" y2="60" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
-        <line x1="4" y1="32" x2="60" y2="32" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
-        <g mask="url(#spRm-skip)">
-          <path d="M32,32 L32,4 A28,28 0 0,1 60,32 Z" fill="url(#spRs-skip)" opacity="0.6">
-            <animateTransform attributeName="transform" type="rotate" from="0 32 32" to="360 32 32" dur="3s" repeatCount="indefinite"/>
-          </path>
-        </g>
-        <circle cx="22" cy="18" r="1.5" fill="#00ff00">
-          <animate attributeName="opacity" values="0.8;0.3;0.8" dur="1.5s" repeatCount="indefinite"/>
-        </circle>
-      </svg>
-      <h1>
-        <span class="sp-b">SONAR POKOJOWY</span>
-        <span class="sp-s">·</span>
-        <span class="sp-p">🐛 Pominięte</span>
-      </h1>
-    </div>
-    <nav>
-      <a href="index.html">🗺️ Mapa</a>
-      <a href="analytics.html">📈 Analityka</a>
-      <a href="monitoring.html">📊 Monitoring</a>
-      <a href="market_analysis.html">🔍 Analiza Rynku</a>
-      <a href="top5.html">🏆 Top 5</a>
-      <a href="ostatnie.html">🆕 Ostatnie</a>
-      <a href="profile_tracker.html">🏢 Firmy</a>
-      <a href="skipped_debug.html" class="active">🐛 Pominięte</a>
-    </nav>
-  </header>
+<header>
+  <h1>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="8" x2="12" y2="12"/>
+      <line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    SONAR POKOJOWY
+  </h1>
+  <div class="nav-links">
+    <a href="index.html">🗺️ Mapa</a>
+    <a href="analytics.html">📈 Analityka</a>
+    <a href="monitoring.html">📊 Monitoring</a>
+    <a href="market_analysis.html">🔍 Analiza Rynku</a>
+    <a href="skipped_debug.html" class="tmp">🐛 Pominięte (debug)</a>
+  </div>
+</header>
 
 <div class="banner">
   ⚠️ <strong>Strona tymczasowa</strong> do analizy błędów parsera. Pokazuje oferty które scraper pobrał ale nie trafiły na mapę.
@@ -228,19 +146,19 @@ header .nav-links a.tmp { background: rgba(255,200,0,0.4); border: 1px dashed wh
     
         <div class="stat-card no_address">
           <div class="label">Brak adresu</div>
-          <div class="value">21</div>
+          <div class="value">19</div>
           <div class="sub">parser nie znalazł żadnej ulicy w opisie</div>
         </div>
         
         <div class="stat-card no_coords">
           <div class="label">Brak współrzędnych</div>
-          <div class="value">14</div>
+          <div class="value">13</div>
           <div class="sub">parser znalazł adres, geokoder nie</div>
         </div>
         
         <div class="stat-card duplicate">
           <div class="label">Duplikaty</div>
-          <div class="value">2</div>
+          <div class="value">0</div>
           <div class="sub">ten sam pokój 2× w wynikach</div>
         </div>
         
@@ -255,80 +173,14 @@ header .nav-links a.tmp { background: rgba(255,200,0,0.4); border: 1px dashed wh
   <div class="filter-bar">
     <label for="category-filter">Kategoria:</label>
     <select id="category-filter">
-      <option value="all">Wszystkie (39 próbek)</option><option value="no_address">Brak adresu (21)</option><option value="no_coords">Brak współrzędnych (14)</option><option value="duplicate">Duplikaty (2)</option><option value="no_price">Brak ceny (2)</option>
+      <option value="all">Wszystkie (34 próbek)</option><option value="no_address">Brak adresu (19)</option><option value="no_coords">Brak współrzędnych (13)</option><option value="duplicate">Duplikaty (0)</option><option value="no_price">Brak ceny (2)</option>
     </select>
     <label for="search-input">Szukaj:</label>
     <input type="text" id="search-input" placeholder="filtruj po tytule/opisie/URL...">
-    <span class="timestamp">Aktualizacja: 2026-05-26 22:02</span>
+    <span class="timestamp">Aktualizacja: 2026-05-26 22:51</span>
   </div>
 
   <div class="offer-list" id="offer-list">
-    
-    <div class="offer" data-category="duplicate" data-search="wynajmę pokój jednoosobowy na sławinku ">
-      <div class="offer-header">
-        <span class="badge duplicate">duplikat</span>
-        <div class="offer-title">Wynajmę pokój jednoosobowy na Sławinku</div>
-        
-      </div>
-      
-      <div class="offer-meta"><span class="parsed-addr">parsed: "Sławinek"</span></div>
-      
-        <div class="duplicate-compare">
-          <div class="duplicate-compare-title">
-            🔗 Porównaj oferty
-            <span class="similarity-pill">95.7% podobne</span>
-          </div>
-          <div class="duplicate-compare-grid">
-            <div class="duplicate-side this">
-              <div class="role-label">⚠️ Odrzucone (duplikat)</div>
-              <strong>Wynajmę pokój jednoosobowy na Sławinku</strong>
-              <a href="https://www.olx.pl/d/oferta/wynajme-pokoj-jednoosobowy-na-slawinku-CID3-ID16dPdr.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="url">www.olx.pl/d/oferta/wynajme-pokoj-jednoosobowy-na-slawinku-CID3-ID16dPdr.html?search_reason=search%7Corganic ↗</a>
-              <div class="meta">parsed: Sławinek · cena: 1000 zł</div>
-            </div>
-            <div class="duplicate-arrow">≈</div>
-            <div class="duplicate-side original">
-              <div class="role-label">✅ Pozostawione na mapie</div>
-              <strong>ID: wynajme-pokoj-jednoosobowy-na-slawinku-wolny-od-zaraz-CID3-ID1a9xyx</strong>
-              <a href="https://www.olx.pl/d/oferta/wynajme-pokoj-jednoosobowy-na-slawinku-wolny-od-zaraz-CID3-ID1a9xyx.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="url">www.olx.pl/d/oferta/wynajme-pokoj-jednoosobowy-na-slawinku-wolny-od-zaraz-CID3-ID1a9xyx.html?search_reason=search%7Corganic ↗</a>
-              <div class="meta">adres: Sławinek · cena: 950 zł</div>
-            </div>
-          </div>
-        </div>
-        
-    </div>
-    
-    <div class="offer" data-category="duplicate" data-search="pokój do wynajęcia ">
-      <div class="offer-header">
-        <span class="badge duplicate">duplikat</span>
-        <div class="offer-title">Pokój do wynajęcia</div>
-        
-      </div>
-      
-      <div class="offer-meta"><span class="parsed-addr">parsed: "Bronowice"</span></div>
-      
-        <div class="duplicate-compare">
-          <div class="duplicate-compare-title">
-            🔗 Porównaj oferty
-            <span class="similarity-pill">100.0% podobne</span>
-          </div>
-          <div class="duplicate-compare-grid">
-            <div class="duplicate-side this">
-              <div class="role-label">⚠️ Odrzucone (duplikat)</div>
-              <strong>Pokój do wynajęcia</strong>
-              <a href="https://www.olx.pl/d/oferta/pokoj-do-wynajecia-CID3-ID17M60C.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="url">www.olx.pl/d/oferta/pokoj-do-wynajecia-CID3-ID17M60C.html?search_reason=search%7Corganic ↗</a>
-              <div class="meta">parsed: Bronowice · cena: 600 zł</div>
-            </div>
-            <div class="duplicate-arrow">≈</div>
-            <div class="duplicate-side original">
-              <div class="role-label">✅ Pozostawione na mapie</div>
-              <strong>ID: pokoj-do-wynajecia-CID3-ID1axP1L</strong>
-              <a href="https://www.olx.pl/d/oferta/pokoj-do-wynajecia-CID3-ID1axP1L.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="url">www.olx.pl/d/oferta/pokoj-do-wynajecia-CID3-ID1axP1L.html?search_reason=search%7Corganic ↗</a>
-              <div class="meta">adres: Bronowice · cena: 600 zł</div>
-            </div>
-          </div>
-        </div>
-        
-    </div>
     
     <div class="offer" data-category="no_address" data-search="do wynajęcia pokój w mieszkaniu studenckim do wynajęcia pokój w mieszkaniu studenckim lublin odnajmę pokój w 4 pokojowym mieszkaniu studenckim, pokój umeblowany ,mieszkanie położone blisko sklepów żabka, lewiatan, leclerc,stokrotka w bliskiej odległości przystanek autobusowy linii 14,26,31,37,42,44,157,155,158">
       <div class="offer-header">
@@ -363,17 +215,6 @@ header .nav-links a.tmp { background: rgba(255,200,0,0.4); border: 1px dashed wh
       
     </div>
     
-    <div class="offer" data-category="no_address" data-search="pokój dla studenta przy parku akademickim pokój dla studenta przy parku akademickim lublin oferuję do wynajęcia pokój w mieszkaniu w spokojnej i zielonej części lublina przy parku akademickim. to doskonała lokalizacja dla studentów ceniących ciszę, a jednocześnie potrzebujących łatwego dostępu do uczelni i centrum miasta.">
-      <div class="offer-header">
-        <span class="badge no_address">brak adresu</span>
-        <div class="offer-title">Pokój dla studenta przy parku akademickim</div>
-        <a href="https://www.olx.pl/d/oferta/pokoj-dla-studenta-przy-parku-akademickim-CID3-ID1aPdmi.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój dla studenta przy parku akademickim Lublin Oferuję do wynajęcia pokój w mieszkaniu w spokojnej i zielonej części Lublina przy parku akademickim. To doskonała lokalizacja dla studentów ceniących ciszę, a jednocześnie potrzebujących łatwego dostępu do uczelni i centrum miasta.</div>
-      
-      
-    </div>
-    
     <div class="offer" data-category="no_address" data-search="cesja umowy | pokój 2-osobowy w student depot lublin (dla chłopaka) cesja umowy | pokój 2-osobowy w student depot lublin (dla chłopaka) lublin opis ogłoszenia:szukam chłopaka na zastępstwo (cesja umowy) do pokoju dwuosobowego w prywatnym akademiku student depot lublin!o pokoju i module:pokój: dwuosobowy, w pełni umeblowany (wygodne łóżko, biurko, szafy). istnieje możliwość wprowadzenia się samemu lub z kolegą (jeśli szukacie we dwóch).udogodnienia: pokój znajduje się w module składającym się z dwóch pokoi. kuchnia oraz łazienka/wc są dzielone tylko na 4 osoby – ">
       <div class="offer-header">
         <span class="badge no_address">brak adresu</span>
@@ -381,6 +222,17 @@ header .nav-links a.tmp { background: rgba(255,200,0,0.4); border: 1px dashed wh
         <a href="https://www.olx.pl/d/oferta/cesja-umowy-pokoj-2-osobowy-w-student-depot-lublin-dla-chlopaka-CID3-ID1aM75t.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
       </div>
       <div class="offer-desc" onclick="this.classList.toggle('expanded')">Cesja umowy | Pokój 2-osobowy w Student Depot Lublin (dla chłopaka) Lublin Opis ogłoszenia:Szukam chłopaka na zastępstwo (cesja umowy) do pokoju dwuosobowego w prywatnym akademiku Student Depot Lublin!O pokoju i module:Pokój: Dwuosobowy, w pełni umeblowany (wygodne łóżko, biurko, szafy). Istnieje możliwość wprowadzenia się samemu lub z kolegą (jeśli szukacie we dwóch).Udogodnienia: Pokój znajduje się w module składającym się z dwóch pokoi. Kuchnia oraz łazienka/WC są dzielone tylko na 4 osoby – </div>
+      
+      
+    </div>
+    
+    <div class="offer" data-category="no_address" data-search="pokój dla studenta przy parku akademickim pokój dla studenta przy parku akademickim lublin oferuję do wynajęcia pokój w mieszkaniu w spokojnej i zielonej części lublina przy parku akademickim. to doskonała lokalizacja dla studentów ceniących ciszę, a jednocześnie potrzebujących łatwego dostępu do uczelni i centrum miasta.">
+      <div class="offer-header">
+        <span class="badge no_address">brak adresu</span>
+        <div class="offer-title">Pokój dla studenta przy parku akademickim</div>
+        <a href="https://www.olx.pl/d/oferta/pokoj-dla-studenta-przy-parku-akademickim-CID3-ID1aPdmi.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+      </div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój dla studenta przy parku akademickim Lublin Oferuję do wynajęcia pokój w mieszkaniu w spokojnej i zielonej części Lublina przy parku akademickim. To doskonała lokalizacja dla studentów ceniących ciszę, a jednocześnie potrzebujących łatwego dostępu do uczelni i centrum miasta.</div>
       
       
     </div>
@@ -418,17 +270,6 @@ header .nav-links a.tmp { background: rgba(255,200,0,0.4); border: 1px dashed wh
       
     </div>
     
-    <div class="offer" data-category="no_address" data-search="2 pokoje w 3-pokojowym mieszkaniu w domku dla  studentek niepalących 2 pokoje w 3-pokojowym mieszkaniu w domku dla  studentek niepalących lublin piętro w domku przy ul. e. plater. mieszkanie składa się z trzech pokoi z kuchnią i łazienką. umeblowane i wyposażone w podstawowe sprzęty. w kuchni duża pojemna lodówka, piekarnik, mikrofala, opiekacz itd. w łazience kabina natryskowa, pralka automatyczna. aktualnie jeden pokój jest zajęty przez studentkę ii roku. z pozostałych dwóch pokoi jeden jest większy i ew. mogą mieszkać dwie osoby. do opłaty za wynajęcie pokoju ">
-      <div class="offer-header">
-        <span class="badge no_address">brak adresu</span>
-        <div class="offer-title">2 pokoje w 3-pokojowym mieszkaniu w domku dla  studentek niepalących</div>
-        <a href="https://www.olx.pl/d/oferta/2-pokoje-w-3-pokojowym-mieszkaniu-w-domku-dla-studentek-niepalacych-CID3-ID1aP40D.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">2 pokoje w 3-pokojowym mieszkaniu w domku dla  studentek niepalących Lublin Piętro w domku przy ul. E. Plater. Mieszkanie składa się z trzech pokoi z kuchnią i łazienką. Umeblowane i wyposażone w podstawowe sprzęty. W kuchni duża pojemna lodówka, piekarnik, mikrofala, opiekacz itd. W łazience kabina natryskowa, pralka automatyczna. Aktualnie jeden pokój jest zajęty przez studentkę II roku. Z pozostałych dwóch pokoi jeden jest większy i ew. mogą mieszkać dwie osoby. Do opłaty za wynajęcie pokoju </div>
-      
-      
-    </div>
-    
     <div class="offer" data-category="no_address" data-search="pokój wynajem przy klinikach up bez opłat pokój wynajem przy klinikach up bez opłat lublin brak kaucjibrak dodatkowych opłatinternet we własnym zakresie.kuchnia z kuchenką gazową, mikrofala.osobno toaleta i prysznic.spokojne towarzystwo - głównie studenki weterynarii.na piętrze 6 pokoi, mieszkają studentki+student w pozostałych 5ciu.3min na kliniki upzapraszam tylko spokojne osoby.towarzystwo jest w wieku 21-27 lat więc szukamy kogoś zbliżonego wiekiem.">
       <div class="offer-header">
         <span class="badge no_address">brak adresu</span>
@@ -440,13 +281,13 @@ header .nav-links a.tmp { background: rgba(255,200,0,0.4); border: 1px dashed wh
       
     </div>
     
-    <div class="offer" data-category="no_address" data-search="przestronny pokój idealny dla studenta przestronny pokój idealny dla studenta lublin do wynajęcia przestronny pokój z dużym dwuosobowym łóżkiem w komfortowej lokalizacji blisko najpopularniejszych lubelskich uczelni, idealny dla studentów szukających nowego miejsca na obecny rok akademicki.pokój jest w pełni umeblowany, przestronny, posiada prywatny balkon.mieszkanie położone jest w zielonej okolicy nad wąwozem, blisko licznych sklepów, supermarketów, przystanków komunikacji miejskiej oraz punktów usługowych.cena najmu : 780 zł + kos">
+    <div class="offer" data-category="no_address" data-search="2 pokoje w 3-pokojowym mieszkaniu w domku dla  studentek niepalących 2 pokoje w 3-pokojowym mieszkaniu w domku dla  studentek niepalących lublin piętro w domku przy ul. e. plater. mieszkanie składa się z trzech pokoi z kuchnią i łazienką. umeblowane i wyposażone w podstawowe sprzęty. w kuchni duża pojemna lodówka, piekarnik, mikrofala, opiekacz itd. w łazience kabina natryskowa, pralka automatyczna. aktualnie jeden pokój jest zajęty przez studentkę ii roku. z pozostałych dwóch pokoi jeden jest większy i ew. mogą mieszkać dwie osoby. do opłaty za wynajęcie pokoju ">
       <div class="offer-header">
         <span class="badge no_address">brak adresu</span>
-        <div class="offer-title">Przestronny pokój idealny dla studenta</div>
-        <a href="https://www.olx.pl/d/oferta/przestronny-pokoj-idealny-dla-studenta-CID3-ID1aCdqC.html?search_reason=search%7Cpromoted" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+        <div class="offer-title">2 pokoje w 3-pokojowym mieszkaniu w domku dla  studentek niepalących</div>
+        <a href="https://www.olx.pl/d/oferta/2-pokoje-w-3-pokojowym-mieszkaniu-w-domku-dla-studentek-niepalacych-CID3-ID1aP40D.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
       </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Przestronny pokój idealny dla studenta Lublin Do wynajęcia przestronny pokój z dużym dwuosobowym łóżkiem w komfortowej lokalizacji blisko najpopularniejszych lubelskich uczelni, idealny dla studentów szukających nowego miejsca na obecny rok akademicki.Pokój jest w pełni umeblowany, przestronny, posiada prywatny balkon.Mieszkanie położone jest w zielonej okolicy nad wąwozem, blisko licznych sklepów, supermarketów, przystanków komunikacji miejskiej oraz punktów usługowych.Cena najmu : 780 zł + kos</div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">2 pokoje w 3-pokojowym mieszkaniu w domku dla  studentek niepalących Lublin Piętro w domku przy ul. E. Plater. Mieszkanie składa się z trzech pokoi z kuchnią i łazienką. Umeblowane i wyposażone w podstawowe sprzęty. W kuchni duża pojemna lodówka, piekarnik, mikrofala, opiekacz itd. W łazience kabina natryskowa, pralka automatyczna. Aktualnie jeden pokój jest zajęty przez studentkę II roku. Z pozostałych dwóch pokoi jeden jest większy i ew. mogą mieszkać dwie osoby. Do opłaty za wynajęcie pokoju </div>
       
       
     </div>
@@ -491,17 +332,6 @@ header .nav-links a.tmp { background: rgba(255,200,0,0.4); border: 1px dashed wh
         <a href="https://www.olx.pl/d/oferta/pokoj-do-wynajecia-CID3-ID1aur0o.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
       </div>
       <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokoj do wynajecia Lublin Oferuję umeblowany jednoosobowy pokój w Lublinie za 1100 zł. Pokój znajduje się w urbanistycznej okolicy, z drewnianą podłogą i jasnymi ścianami. Wnętrze w skandynawskim stylu zapewnia przyjemną atmosferę do nauki.Lokalizacja jest dogodna dla studentów. W pobliżu znajdują się uczelnie, w tym Uniwersytet Marii Curie-Skłodowskiej oraz Uniwersytet Przyrodniczy. W okolicy są także sklepy, restauracje oraz kawiarnie, idealne na spotkania z przyjaciółmi.Mieszkanie 3 pokojowe </div>
-      
-      
-    </div>
-    
-    <div class="offer" data-category="no_address" data-search="pokój 1-os. do wynajęcia w ścisłym centrum, lublin pokój 1-os. do wynajęcia w ścisłym centrum, lublin lublin umeblowany pokój w dużym mieszkaniu w luksusowym apartamentowcu, przy rodzinie. do wynajęcia dla niepalącej licealistki lub studentki i roku – superszybki bezprzewodowy internet do 300 mb/s, dwie łazienki, duży balkon, monitoring/ochrona budynku 24h. 850 zł/m-c bez dodatkowych opłat. lublin, ścisłe centrum.">
-      <div class="offer-header">
-        <span class="badge no_address">brak adresu</span>
-        <div class="offer-title">Pokój 1-os. do wynajęcia w ścisłym Centrum, Lublin</div>
-        <a href="https://www.olx.pl/d/oferta/pokoj-1-os-do-wynajecia-w-scislym-centrum-lublin-CID3-ID11y0IZ.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój 1-os. do wynajęcia w ścisłym Centrum, Lublin Lublin Umeblowany pokój w dużym mieszkaniu w luksusowym apartamentowcu, przy rodzinie. Do wynajęcia dla niepalącej licealistki lub studentki I roku – superszybki bezprzewodowy internet do 300 Mb/s, dwie łazienki, duży balkon, monitoring/ochrona budynku 24h. 850 zł/m-c bez dodatkowych opłat. Lublin, ścisłe Centrum.</div>
       
       
     </div>
@@ -572,17 +402,6 @@ header .nav-links a.tmp { background: rgba(255,200,0,0.4); border: 1px dashed wh
       
     </div>
     
-    <div class="offer" data-category="no_coords" data-search="room for a female student: preferably from zimbabwe room for a female student: preferably from zimbabwe lublin room for a female student (preferably from zimbabwe, as the other rooms are occupied by students of the same nationality), in a three-bedroom student apartment.the room is lockable and private.great location – only a 5-minute walk to kul and umcs universities. nearby you can find stokrotka, rossmann, and other shops.the apartment is fully equipped with all necessary appliances: iron, vacuum cleaner, etc. separate toilet and bathroom.pric">
-      <div class="offer-header">
-        <span class="badge no_coords">brak współrzędnych</span>
-        <div class="offer-title">Room for a female student: preferably from Zimbabwe</div>
-        <a href="https://www.olx.pl/d/oferta/room-for-a-female-student-preferably-from-zimbabwe-CID3-ID1aGtYk.html?search_reason=search%7Cpromoted" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Room for a female student: preferably from Zimbabwe Lublin Room for a female student (preferably from Zimbabwe, as the other rooms are occupied by students of the same nationality), in a three-bedroom student apartment.The room is lockable and private.Great location – only a 5-minute walk to KUL and UMCS universities. Nearby you can find Stokrotka, Rossmann, and other shops.The apartment is fully equipped with all necessary appliances: iron, vacuum cleaner, etc. Separate toilet and bathroom.Pric</div>
-      <div class="offer-meta"><span class="parsed-addr">parsed: "only a 5"</span></div>
-      
-    </div>
-    
     <div class="offer" data-category="no_coords" data-search="wynajmę 3 pokoje blisko politechniki i uniwersytetu przyrodniczego w centrum lublina wynajmę 3 pokoje blisko politechniki i uniwersytetu przyrodniczego w centrum lublina lublin oferuję 3 umeblowane, nieprzechodnie, zamykane na klucz , duże pokoje ( 20, 18, 16 m2 ) do wynajęcia w mieszkaniu o pow. 62 m2 na 2 piętrze w bloku 4 piętrowym z ogrzewaniem miejskim. mieszkanie wyposażone jest w sprzęt agd, oddzielna toaleta.świetna lokalizacja z przystankami i sklepami  w bloku lub tuż przy bloku oraz z miejscami parkingowymi przy bloku.  bardzo blisko do politechniki - ok. 5 min piecho">
       <div class="offer-header">
         <span class="badge no_coords">brak współrzędnych</span>
@@ -591,6 +410,17 @@ header .nav-links a.tmp { background: rgba(255,200,0,0.4); border: 1px dashed wh
       </div>
       <div class="offer-desc" onclick="this.classList.toggle('expanded')">Wynajmę 3 pokoje blisko Politechniki i Uniwersytetu Przyrodniczego w centrum Lublina Lublin Oferuję 3 umeblowane, nieprzechodnie, zamykane na klucz , duże pokoje ( 20, 18, 16 m2 ) do wynajęcia w mieszkaniu o pow. 62 m2 na 2 piętrze w bloku 4 piętrowym z ogrzewaniem miejskim. Mieszkanie wyposażone jest w sprzęt AGD, oddzielna toaleta.Świetna lokalizacja z przystankami i sklepami  w bloku lub tuż przy bloku oraz z miejscami parkingowymi przy bloku.  Bardzo blisko do Politechniki - ok. 5 min piecho</div>
       <div class="offer-meta"><span class="parsed-addr">parsed: "osobach wychodzi 80"</span></div>
+      
+    </div>
+    
+    <div class="offer" data-category="no_coords" data-search="room for a female student: preferably from zimbabwe room for a female student: preferably from zimbabwe lublin room for a female student (preferably from zimbabwe, as the other rooms are occupied by students of the same nationality), in a three-bedroom student apartment.the room is lockable and private.great location – only a 5-minute walk to kul and umcs universities. nearby you can find stokrotka, rossmann, and other shops.the apartment is fully equipped with all necessary appliances: iron, vacuum cleaner, etc. separate toilet and bathroom.pric">
+      <div class="offer-header">
+        <span class="badge no_coords">brak współrzędnych</span>
+        <div class="offer-title">Room for a female student: preferably from Zimbabwe</div>
+        <a href="https://www.olx.pl/d/oferta/room-for-a-female-student-preferably-from-zimbabwe-CID3-ID1aGtYk.html?search_reason=search%7Cpromoted" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+      </div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Room for a female student: preferably from Zimbabwe Lublin Room for a female student (preferably from Zimbabwe, as the other rooms are occupied by students of the same nationality), in a three-bedroom student apartment.The room is lockable and private.Great location – only a 5-minute walk to KUL and UMCS universities. Nearby you can find Stokrotka, Rossmann, and other shops.The apartment is fully equipped with all necessary appliances: iron, vacuum cleaner, etc. Separate toilet and bathroom.Pric</div>
+      <div class="offer-meta"><span class="parsed-addr">parsed: "only a 5"</span></div>
       
     </div>
     
@@ -690,17 +520,6 @@ header .nav-links a.tmp { background: rgba(255,200,0,0.4); border: 1px dashed wh
       </div>
       <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój dla studentki Lublin Wynajmę pokój dla studentki, cena: 550 zł/ miesięcznie + opłaty licznikowe (energia, gaz, internet), dogodna lokalizacja os. Rogatka Warszawska w Lublinie</div>
       <div class="offer-meta"><span class="parsed-addr">parsed: "Osiedle Rogatka Warszawska"</span></div>
-      
-    </div>
-    
-    <div class="offer" data-category="no_coords" data-search="wynajmę pokoje na felinie wynajmę pokoje na felinie lublin oferuje do wynajęcia mieszkanie 4 pokojowe ( salon z kuchnią) i 3 oddzielne pokoje na felinie. mieszkanie po remoncie umeblowane.  istnieje możliwość domeblowania w zależności od potrzeb. w pobliżu zajezdni autobusowej. w niewielkiej odległości znajduje się stokrotka, żabka ,apteka. część wspólna kuchnia z salonem i łazienka. do ceny wynajmu należy doliczyć opłaty licznikowe wg. zużycia. do wynajęcia zostały 2 pokoje ok.18m2 z balkonem częściowo umeblowany - łóżk">
-      <div class="offer-header">
-        <span class="badge no_coords">brak współrzędnych</span>
-        <div class="offer-title">Wynajmę pokoje na felinie</div>
-        <a href="https://www.olx.pl/d/oferta/wynajme-pokoje-na-felinie-CID3-ID11LimW.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Wynajmę pokoje na felinie Lublin Oferuje do wynajęcia mieszkanie 4 pokojowe ( salon z kuchnią) i 3 oddzielne pokoje na felinie. Mieszkanie po remoncie umeblowane.  Istnieje możliwość domeblowania w zależności od potrzeb. W pobliżu zajezdni autobusowej. W niewielkiej odległości znajduje się stokrotka, żabka ,apteka. Część wspólna kuchnia z salonem i łazienka. Do ceny wynajmu należy doliczyć opłaty licznikowe wg. zużycia. Do wynajęcia zostały 2 pokoje ok.18m2 z balkonem częściowo umeblowany - łóżk</div>
-      <div class="offer-meta"><span class="parsed-addr">parsed: "Felin"</span></div>
       
     </div>
     
