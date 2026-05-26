@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>5 propozycji stylów nagłówka</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f9fafb; margin: 0; padding: 24px; color: #1f2937; }
+  h1.title { font-size: 24px; margin: 0 0 8px; }
+  .intro { color: #6b7280; margin-bottom: 32px; font-size: 14px; }
+  .variant { margin-bottom: 40px; }
+  .variant-name { font-size: 16px; font-weight: 700; color: #111827; margin-bottom: 4px; }
+  .variant-desc { font-size: 13px; color: #6b7280; margin-bottom: 12px; }
+  .frame { border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .palette { display: flex; gap: 6px; margin-top: 8px; }
+  .palette span { width: 24px; height: 24px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.1); }
+
+  /* ===== WARIANT 1: PURPLE (obecny, baseline) ===== */
+  .v1 {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+  }
+  .v1 .brand { display: flex; align-items: center; gap: 12px; }
+  .v1 h2 { margin: 0; font-size: 18px; font-weight: 700; }
+  .v1 h2 .b { opacity: 0.8; font-weight: 600; }
+  .v1 h2 .s { opacity: 0.4; margin: 0 8px; }
+  .v1 nav { display: flex; gap: 6px; flex-wrap: wrap; }
+  .v1 nav a { color: white; text-decoration: none; padding: 7px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; background: rgba(255,255,255,0.12); }
+  .v1 nav a.active { background: rgba(255,255,255,0.32); box-shadow: inset 0 -2px 0 rgba(255,255,255,0.6); }
+
+  /* ===== WARIANT 2: HACKER TERMINAL ===== */
+  .v2 {
+    background: #0a0e0a;
+    background-image: linear-gradient(135deg, #0a1a0a 0%, #0d1f10 50%, #0a1a0a 100%);
+    color: #00ff88; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+    border-bottom: 1px solid #00ff8830;
+    box-shadow: 0 0 30px rgba(0,255,136,0.08);
+  }
+  .v2 .brand { display: flex; align-items: center; gap: 12px; }
+  .v2 h2 { margin: 0; font-size: 16px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; }
+  .v2 h2 .b { color: #00ff88; opacity: 0.7; }
+  .v2 h2 .s { color: #00ff88; opacity: 0.3; margin: 0 8px; }
+  .v2 h2 .p { color: #00ff88; text-shadow: 0 0 8px rgba(0,255,136,0.5); }
+  .v2 nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  .v2 nav a { color: #00ff88; text-decoration: none; padding: 6px 12px; font-size: 12px; font-weight: 500; border: 1px solid #00ff8830; border-radius: 3px; background: rgba(0,255,136,0.05); text-transform: uppercase; letter-spacing: 0.5px; }
+  .v2 nav a.active { background: rgba(0,255,136,0.2); border-color: #00ff88; text-shadow: 0 0 6px rgba(0,255,136,0.7); }
+
+  /* ===== WARIANT 3: MINIMAL LIGHT ===== */
+  .v3 {
+    background: #ffffff;
+    color: #1f2937;
+    padding: 16px 28px;
+    display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .v3 .brand { display: flex; align-items: center; gap: 14px; }
+  .v3 h2 { margin: 0; font-size: 17px; font-weight: 600; }
+  .v3 h2 .b { color: #6b7280; font-weight: 500; }
+  .v3 h2 .s { color: #d1d5db; margin: 0 10px; }
+  .v3 h2 .p { color: #111827; font-weight: 700; }
+  .v3 nav { display: flex; gap: 2px; flex-wrap: wrap; }
+  .v3 nav a { color: #6b7280; text-decoration: none; padding: 8px 14px; font-size: 13px; font-weight: 500; border-radius: 6px; transition: all 0.15s; }
+  .v3 nav a:hover { background: #f3f4f6; color: #111827; }
+  .v3 nav a.active { color: #4f46e5; background: #eef2ff; font-weight: 600; }
+
+  /* ===== WARIANT 4: NAVY / OCEAN SONAR ===== */
+  .v4 {
+    background: linear-gradient(135deg, #0c1e3e 0%, #1e3a8a 50%, #0c1e3e 100%);
+    color: #e0e7ff;
+    padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+    border-bottom: 2px solid #06b6d4;
+    box-shadow: 0 4px 20px rgba(6,182,212,0.15);
+  }
+  .v4 .brand { display: flex; align-items: center; gap: 12px; }
+  .v4 h2 { margin: 0; font-size: 18px; font-weight: 700; }
+  .v4 h2 .b { color: #94a3b8; font-weight: 500; letter-spacing: 1px; font-size: 13px; text-transform: uppercase; }
+  .v4 h2 .s { display: none; }
+  .v4 h2 .stack { display: flex; flex-direction: column; gap: 2px; line-height: 1.1; }
+  .v4 h2 .p { color: #67e8f9; font-size: 19px; }
+  .v4 nav { display: flex; gap: 6px; flex-wrap: wrap; }
+  .v4 nav a { color: #cbd5e1; text-decoration: none; padding: 7px 12px; border-radius: 4px; font-size: 13px; font-weight: 600; background: rgba(6,182,212,0.08); border: 1px solid rgba(6,182,212,0.15); }
+  .v4 nav a.active { background: rgba(6,182,212,0.25); border-color: #06b6d4; color: #67e8f9; }
+
+  /* ===== WARIANT 5: WARM SUNSET (Lublin orange) ===== */
+  .v5 {
+    background: linear-gradient(120deg, #fb923c 0%, #ef4444 50%, #ec4899 100%);
+    color: white;
+    padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+    box-shadow: 0 2px 12px rgba(239,68,68,0.25);
+  }
+  .v5 .brand { display: flex; align-items: center; gap: 12px; }
+  .v5 h2 { margin: 0; font-size: 18px; font-weight: 700; }
+  .v5 h2 .b { font-weight: 800; letter-spacing: 0.5px; }
+  .v5 h2 .s { opacity: 0.5; margin: 0 8px; font-weight: 300; }
+  .v5 h2 .p { font-weight: 500; opacity: 0.95; }
+  .v5 nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  .v5 nav a { color: white; text-decoration: none; padding: 7px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; background: rgba(255,255,255,0.15); backdrop-filter: blur(4px); }
+  .v5 nav a.active { background: white; color: #ef4444; }
+
+  /* ===== WARIANT 6: GLASS / FROSTED ===== */
+  .v6 {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(99,102,241,0.3) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(236,72,153,0.2) 0%, transparent 50%),
+      linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: white;
+    padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  .v6 .brand { display: flex; align-items: center; gap: 12px; }
+  .v6 h2 { margin: 0; font-size: 18px; font-weight: 700; }
+  .v6 h2 .b { background: linear-gradient(90deg, #a5b4fc, #f0abfc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: 800; }
+  .v6 h2 .s { opacity: 0.3; margin: 0 8px; }
+  .v6 h2 .p { color: #f1f5f9; }
+  .v6 nav { display: flex; gap: 6px; flex-wrap: wrap; }
+  .v6 nav a {
+    color: #e2e8f0; text-decoration: none; padding: 7px 13px; border-radius: 8px; font-size: 13px; font-weight: 500;
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .v6 nav a.active { background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.25); }
+
+  /* Common brand-svg sizing */
+  .brand-svg { width: 32px; height: 32px; flex-shrink: 0; }
+  .v3 .brand-svg { width: 28px; height: 28px; }
+</style>
+</head>
+<body>
+
+<h1 class="title">5 propozycji stylów nagłówka — wybór jednego do wdrożenia</h1>
+<p class="intro">Każdy wariant pokazany z aktywną zakładką "Analityka". Powiedz numer (lub kombinację, np. "kolory z 4, układ z 3").</p>
+
+<!-- Reusable radar SVG (zielony) -->
+<svg style="display:none;" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="radar" viewBox="0 0 64 64">
+    <defs>
+      <radialGradient id="rb"><stop offset="0%" stop-color="#1a3a1a"/><stop offset="100%" stop-color="#0a1a0a"/></radialGradient>
+      <linearGradient id="rs" x1="50%" y1="50%" x2="100%" y2="50%"><stop offset="0%" stop-color="#00ff00" stop-opacity="0.8"/><stop offset="100%" stop-color="#00ff00" stop-opacity="0"/></linearGradient>
+      <mask id="rm"><circle cx="32" cy="32" r="28" fill="white"/></mask>
+    </defs>
+    <circle cx="32" cy="32" r="32" fill="url(#rb)"/>
+    <circle cx="32" cy="32" r="30" fill="none" stroke="#00ff00" stroke-width="0.5" opacity="0.6"/>
+    <circle cx="32" cy="32" r="22" fill="none" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+    <circle cx="32" cy="32" r="14" fill="none" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+    <line x1="32" y1="4" x2="32" y2="60" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+    <line x1="4" y1="32" x2="60" y2="32" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+    <g mask="url(#rm)">
+      <path d="M32,32 L32,4 A28,28 0 0,1 60,32 Z" fill="url(#rs)" opacity="0.6">
+        <animateTransform attributeName="transform" type="rotate" from="0 32 32" to="360 32 32" dur="3s" repeatCount="indefinite"/>
+      </path>
+    </g>
+    <circle cx="22" cy="18" r="1.5" fill="#00ff00"><animate attributeName="opacity" values="0.8;0.3;0.8" dur="1.5s" repeatCount="indefinite"/></circle>
+  </symbol>
+  <!-- Mono svg dla light theme -->
+  <symbol id="radar-mono" viewBox="0 0 64 64">
+    <circle cx="32" cy="32" r="30" fill="none" stroke="#4f46e5" stroke-width="2"/>
+    <circle cx="32" cy="32" r="20" fill="none" stroke="#4f46e5" stroke-width="1" opacity="0.4"/>
+    <circle cx="32" cy="32" r="10" fill="none" stroke="#4f46e5" stroke-width="1" opacity="0.4"/>
+    <line x1="32" y1="2" x2="32" y2="62" stroke="#4f46e5" stroke-width="1" opacity="0.3"/>
+    <line x1="2" y1="32" x2="62" y2="32" stroke="#4f46e5" stroke-width="1" opacity="0.3"/>
+    <path d="M32,32 L32,4 A28,28 0 0,1 60,32 Z" fill="#4f46e5" opacity="0.15">
+      <animateTransform attributeName="transform" type="rotate" from="0 32 32" to="360 32 32" dur="4s" repeatCount="indefinite"/>
+    </path>
+    <circle cx="32" cy="32" r="3" fill="#4f46e5"/>
+  </symbol>
+</svg>
+
+<!-- ===== Render helper ===== -->
+<script>
+const PAGES = [
+  {key:'index', emoji:'🗺️', name:'Mapa'},
+  {key:'analytics', emoji:'📈', name:'Analityka'},
+  {key:'monitoring', emoji:'📊', name:'Monitoring'},
+  {key:'market', emoji:'🔍', name:'Analiza Rynku'},
+  {key:'top5', emoji:'🏆', name:'Top 5'},
+  {key:'ostatnie', emoji:'🆕', name:'Ostatnie'},
+  {key:'firmy', emoji:'🏢', name:'Firmy'},
+  {key:'skip', emoji:'🐛', name:'Pominięte'},
+];
+const active = 'analytics';
+function nav() {
+  return PAGES.map(p => `<a class="${p.key===active?'active':''}">${p.emoji} ${p.name}</a>`).join('');
+}
+function brand(svgId='radar') {
+  const ap = PAGES.find(p=>p.key===active);
+  return `<div class="brand"><svg class="brand-svg"><use href="#${svgId}"/></svg><h2><span class="b">SONAR POKOJOWY</span><span class="s">·</span><span class="p">${ap.emoji} ${ap.name}</span></h2></div>`;
+}
+function brandStack(svgId='radar') {
+  const ap = PAGES.find(p=>p.key===active);
+  return `<div class="brand"><svg class="brand-svg"><use href="#${svgId}"/></svg><h2><div class="stack"><span class="b">SONAR POKOJOWY</span><span class="p">${ap.emoji} ${ap.name}</span></div></h2></div>`;
+}
+</script>
+
+<div class="variant">
+  <div class="variant-name">1. Purple Gradient (obecny baseline, ujednolicony)</div>
+  <div class="variant-desc">Co już znasz. Fioletowy gradient, radar SVG, nav po prawej. Spójne, znajome, mało ryzyka.</div>
+  <div class="frame"><div class="v1" id="v1"></div></div>
+  <div class="palette"><span style="background:#667eea"></span><span style="background:#764ba2"></span><span style="background:rgba(255,255,255,0.32)"></span></div>
+</div>
+
+<div class="variant">
+  <div class="variant-name">2. Hacker Terminal (ciemny, monospace, neon green)</div>
+  <div class="variant-desc">Vibe sonaru/radaru naprawdę zrealizowany — czarne tło, terminalowa typografia, neon na aktywnej. Pasuje do "SONAR" semantycznie.</div>
+  <div class="frame"><div class="v2" id="v2"></div></div>
+  <div class="palette"><span style="background:#0a0e0a"></span><span style="background:#00ff88"></span><span style="background:rgba(0,255,136,0.2)"></span></div>
+</div>
+
+<div class="variant">
+  <div class="variant-name">3. Minimal Light (białe tło, subtelne akcenty)</div>
+  <div class="variant-desc">Współczesny, czysty. Mniej krzyku, więcej oddechu. Aktywna zakładka indygo. Najlepiej skaluje się do mobilki.</div>
+  <div class="frame"><div class="v3" id="v3"></div></div>
+  <div class="palette"><span style="background:#ffffff;border-color:#9ca3af"></span><span style="background:#4f46e5"></span><span style="background:#eef2ff"></span><span style="background:#111827"></span></div>
+</div>
+
+<div class="variant">
+  <div class="variant-name">4. Navy Ocean Sonar (granat + cyan)</div>
+  <div class="variant-desc">Profesjonalny, "marynarski" — sonar dosłownie. Granat z cyanową kreską dolną, tytuł na dwóch liniach. Bardziej dojrzały niż purple.</div>
+  <div class="frame"><div class="v4" id="v4"></div></div>
+  <div class="palette"><span style="background:#0c1e3e"></span><span style="background:#1e3a8a"></span><span style="background:#06b6d4"></span><span style="background:#67e8f9"></span></div>
+</div>
+
+<div class="variant">
+  <div class="variant-name">5. Warm Sunset (pomarańcz → róż)</div>
+  <div class="variant-desc">Ciepły gradient, pigułkowe (pill) linki. Mniej "korpo", bardziej "lifestyle". Aktywna zakładka biała na czerwonym — kontrast WCAG OK.</div>
+  <div class="frame"><div class="v5" id="v5"></div></div>
+  <div class="palette"><span style="background:#fb923c"></span><span style="background:#ef4444"></span><span style="background:#ec4899"></span><span style="background:white;border-color:#9ca3af"></span></div>
+</div>
+
+<div class="variant">
+  <div class="variant-name">BONUS 6. Glass / Frosted (ciemny + gradient blob + glassmorphism)</div>
+  <div class="variant-desc">Modny "glass" effect — półprzezroczyste przyciski z blur, gradient blobs w tle, tytuł w gradient text. Bardziej "premium app" niż "narzędzie".</div>
+  <div class="frame"><div class="v6" id="v6"></div></div>
+  <div class="palette"><span style="background:#0f172a"></span><span style="background:#a5b4fc"></span><span style="background:#f0abfc"></span><span style="background:rgba(255,255,255,0.18)"></span></div>
+</div>
+
+<script>
+  document.getElementById('v1').innerHTML = brand('radar') + `<nav>${nav()}</nav>`;
+  document.getElementById('v2').innerHTML = brand('radar') + `<nav>${nav()}</nav>`;
+  document.getElementById('v3').innerHTML = brand('radar-mono') + `<nav>${nav()}</nav>`;
+  document.getElementById('v4').innerHTML = brandStack('radar') + `<nav>${nav()}</nav>`;
+  document.getElementById('v5').innerHTML = brand('radar') + `<nav>${nav()}</nav>`;
+  document.getElementById('v6').innerHTML = brand('radar') + `<nav>${nav()}</nav>`;
+</script>
+
+<div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:14px 18px;border-radius:4px;margin-top:32px;font-size:14px;color:#78350f;">
+  <strong>Powiedz który (1–6)</strong> albo "kolory z X, układ z Y" — wdrożę wybrany na wszystkich 7 zakładkach. Po decyzji mogę też pokazać podgląd dla wszystkich zakładek z wybranym motywem.
+</div>
+
+</body>
+</html>
