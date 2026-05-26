@@ -197,6 +197,16 @@
                             <span>Przybliżone nieaktywne</span>
                             <span id="layer-count-inactive-approx" class="badge-count">(0)</span>
                         </label>
+                        <label style="background: #f0fff4; padding: 5px; border-radius: 4px; margin-top: 5px; border: 1px solid #86efac;">
+                            <input type="checkbox" id="layer-active-district" checked onchange="toggleActiveDistrictLayer()">
+                            <span>⬤ Dzielnice aktywne</span>
+                            <span id="layer-count-active-district" class="badge-count">(0)</span>
+                        </label>
+                        <label style="background: #f0fff4; padding: 5px; border-radius: 4px; margin-top: 3px; border: 1px solid #86efac;">
+                            <input type="checkbox" id="layer-inactive-district" onchange="toggleInactiveDistrictLayer()">
+                            <span>⬤ Dzielnice nieaktywne</span>
+                            <span id="layer-count-inactive-district" class="badge-count">(0)</span>
+                        </label>
                         <label style="background: #fffbeb; padding: 5px; border-radius: 4px; margin-top: 5px; border: 2px solid #FFD700;">
                             <input type="checkbox" id="layer-firm" checked onchange="onFirmLayerToggle()">
                             <span style="font-weight:600;">&#127970; Firmy / Agencje</span>

@@ -26,9 +26,11 @@ let allMarkers = [];
 let markerLayers = {
     active: L.layerGroup(),
     inactive: L.layerGroup(),
-    activeApprox: L.layerGroup(),   // aktywne przybliżone (precision: street_only)
-    inactiveApprox: L.layerGroup(), // nieaktywne przybliżone
-    firm: L.layerGroup()            // aktywne oferty profili firmowych
+    activeApprox: L.layerGroup(),    // aktywne przybliżone (precision: street_only)
+    inactiveApprox: L.layerGroup(),  // nieaktywne przybliżone
+    activeDistrict: L.layerGroup(),  // aktywne na poziomie dzielnicy (precision: district)
+    inactiveDistrict: L.layerGroup(), // nieaktywne na poziomie dzielnicy
+    firm: L.layerGroup()             // aktywne oferty profili firmowych
 };
 
 // ===== Filtr daty dodania (suwak dni) =====
@@ -179,9 +181,10 @@ function initMap() {
     
     // Dodaj warstwy do mapy
     markerLayers.active.addTo(map);
-    markerLayers.activeApprox.addTo(map); // domyślnie włączone
-    markerLayers.firm.addTo(map);          // firmy domyślnie włączone
-    // markerLayers.inactive / inactiveApprox NIE dodajemy - domyślnie wyłączone
+    markerLayers.activeApprox.addTo(map);    // domyślnie włączone
+    markerLayers.activeDistrict.addTo(map);  // domyślnie włączone
+    markerLayers.firm.addTo(map);            // firmy domyślnie włączone
+    // markerLayers.inactive / inactiveApprox / inactiveDistrict NIE dodajemy - domyślnie wyłączone
     
     // Tworzenie warstw uczelni
     createUniversityLayers();
@@ -490,6 +493,8 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
 
         // Czy oferta to "przybliżony adres" (sama ulica, bez numeru)?
         const isApprox = offer.precision === 'street_only';
+        // Czy oferta to "adres na poziomie dzielnicy"?
+        const isDistrict = offer.precision === 'district';
 
         // Badge zmiany ceny - ikona dolara ze strzałką
         let priceChangeBadge = '';
@@ -524,7 +529,33 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
         // Krzyżyk × dla nieaktywnych: dla pinezki = czarny tekst w białym kole (środek)
         //                            dla kwadratu = biały tekst z cieniem na środku kwadratu
         let icon;
-        if (isApprox) {
+        if (isDistrict) {
+            // OKRĄG 34x34 z przerywaną obwódką — oznacza lokalizację na poziomie dzielnicy
+            const circleSize = 34;
+            const inactiveCross = !isActive
+                ? `<text x="17" y="17" text-anchor="middle" dominant-baseline="central" font-size="22" font-weight="700" fill="white" font-family="-apple-system, sans-serif" style="paint-order: stroke; stroke: rgba(0,0,0,0.5); stroke-width: 2px;">×</text>`
+                : '';
+            icon = L.divIcon({
+                className: 'district-marker',
+                html: `
+                    <div style="position: relative; width: ${circleSize}px; height: ${circleSize}px;" title="${tooltipText}">
+                        <svg width="${circleSize}" height="${circleSize}" viewBox="0 0 ${circleSize} ${circleSize}">
+                            <circle cx="17" cy="17" r="14"
+                                  fill="${markerColor}"
+                                  stroke="${isNew ? '#ff0000' : 'white'}"
+                                  stroke-width="3"
+                                  stroke-dasharray="4 3"/>
+                            ${inactiveCross}
+                        </svg>
+                        ${isNew && !hasPriceChange ? '<div style="position: absolute; top: -5px; right: -5px; background: #ff0000; color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">N</div>' : ''}
+                        ${priceChangeBadge}
+                    </div>
+                `,
+                iconSize: [circleSize, circleSize],
+                iconAnchor: [circleSize / 2, circleSize / 2],
+                popupAnchor: [0, -circleSize / 2]
+            });
+        } else if (isApprox) {
             // KWADRAT 34x34 z przerywaną obwódką - decyzja 2b
             // Anchor w środku (nie u dołu jak pinezka)
             const squareSize = 34;
@@ -603,6 +634,8 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
 
         if (isFirmOffer && isActive) {
             markerObj.addTo(markerLayers.firm);
+        } else if (isDistrict) {
+            markerObj.addTo(isActive ? markerLayers.activeDistrict : markerLayers.inactiveDistrict);
         } else if (isApprox) {
             markerObj.addTo(isActive ? markerLayers.activeApprox : markerLayers.inactiveApprox);
         } else if (isActive) {
@@ -619,6 +652,7 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
             priceRange: offerPriceRange,  // ✅ Zakres cenowy z oferty
             isActive: isActive,
             isApprox: isApprox,  // NOWE: czy to przybliżona lokalizacja (street_only)
+            isDistrict: isDistrict,  // NOWE: czy to lokalizacja na poziomie dzielnicy
             primaryTag: offer.tags ? offer.tags.primary : 'pokoj',  // B1: Tag główny
             // Flagi oznaczeń pinezek (do filtrowania legendy)
             isNew: isNew,
@@ -882,7 +916,9 @@ function filterMarkers() {
     }
     const showActiveApprox = document.getElementById('layer-active-approx')?.checked ?? false;
     const showInactiveApprox = document.getElementById('layer-inactive-approx')?.checked ?? false;
-    
+    const showActiveDistrict = document.getElementById('layer-active-district')?.checked ?? false;
+    const showInactiveDistrict = document.getElementById('layer-inactive-district')?.checked ?? false;
+
     // B1: Filtry tagów
     const showPokoj = document.getElementById('layer-tag-pokoj')?.checked ?? true;
     const showKawalerka = document.getElementById('layer-tag-kawalerka')?.checked ?? true;
@@ -922,6 +958,8 @@ function filterMarkers() {
         inactive: 0,
         activeApprox: 0,
         inactiveApprox: 0,
+        activeDistrict: 0,
+        inactiveDistrict: 0,
         firm: 0
     };
     
@@ -941,6 +979,9 @@ function filterMarkers() {
                 const offerProfile = getProfileKeyForOffer(item.originalOffer?.profile_name);
                 passesLayerFilter = offerProfile ? enabledProfiles.has(offerProfile) : false;
             }
+        } else if (item.isDistrict) {
+            if (item.isActive) passesLayerFilter = showActiveDistrict;
+            else passesLayerFilter = showInactiveDistrict;
         } else if (item.isApprox) {
             if (item.isActive) passesLayerFilter = showActiveApprox;
             else passesLayerFilter = showInactiveApprox;
@@ -1018,6 +1059,9 @@ function filterMarkers() {
         if (visible) {
             if (item.isFirmOffer && item.isActive) {
                 layerCounts.firm++;
+            } else if (item.isDistrict) {
+                if (item.isActive) layerCounts.activeDistrict++;
+                else layerCounts.inactiveDistrict++;
             } else if (item.isApprox) {
                 if (item.isActive) layerCounts.activeApprox++;
                 else layerCounts.inactiveApprox++;
@@ -1027,15 +1071,17 @@ function filterMarkers() {
                 layerCounts.inactive++;
             }
         }
-        
+
         // Zastosuj filtr warstwy DOPIERO TERAZ (po policzeniu)
         if (!passesLayerFilter) visible = false;
-        
+
         // Pokaż/ukryj marker
-        // Priorytet warstw: firma > approx > exact (zgodnie z createMarkerGroup)
+        // Priorytet warstw: firma > district > approx > exact (zgodnie z createMarkerGroup)
         if (visible) {
             if (item.isFirmOffer && item.isActive) {
                 markerLayers.firm.addLayer(item.marker);
+            } else if (item.isDistrict) {
+                (item.isActive ? markerLayers.activeDistrict : markerLayers.inactiveDistrict).addLayer(item.marker);
             } else if (item.isApprox) {
                 (item.isActive ? markerLayers.activeApprox : markerLayers.inactiveApprox).addLayer(item.marker);
             } else if (item.isActive) {
@@ -1046,6 +1092,8 @@ function filterMarkers() {
         } else {
             if (item.isFirmOffer && item.isActive) {
                 markerLayers.firm.removeLayer(item.marker);
+            } else if (item.isDistrict) {
+                (item.isActive ? markerLayers.activeDistrict : markerLayers.inactiveDistrict).removeLayer(item.marker);
             } else if (item.isApprox) {
                 (item.isActive ? markerLayers.activeApprox : markerLayers.inactiveApprox).removeLayer(item.marker);
             } else if (item.isActive) {
@@ -1055,7 +1103,7 @@ function filterMarkers() {
             }
         }
     });
-    
+
     // Aktualizuj liczniki warstw w DOM
     const setLayerCount = (id, value) => {
         const el = document.getElementById(id);
@@ -1065,6 +1113,8 @@ function filterMarkers() {
     setLayerCount('layer-count-inactive', layerCounts.inactive);
     setLayerCount('layer-count-active-approx', layerCounts.activeApprox);
     setLayerCount('layer-count-inactive-approx', layerCounts.inactiveApprox);
+    setLayerCount('layer-count-active-district', layerCounts.activeDistrict);
+    setLayerCount('layer-count-inactive-district', layerCounts.inactiveDistrict);
     setLayerCount('layer-count-firm', layerCounts.firm);
     
     // Przelicz i zaktualizuj statystyki po filtrowaniu
@@ -1501,6 +1551,28 @@ function toggleInactiveApproxLayer() {
     } else {
         map.removeLayer(markerLayers.inactiveApprox);
         console.log('⚠️ Warstwa "Przybliżone nieaktywne" wyłączona');
+    }
+    filterMarkers();
+}
+
+// Włączanie/wyłączanie warstwy "Dzielnice aktywne"
+function toggleActiveDistrictLayer() {
+    const isChecked = document.getElementById('layer-active-district').checked;
+    if (isChecked) {
+        markerLayers.activeDistrict.addTo(map);
+    } else {
+        map.removeLayer(markerLayers.activeDistrict);
+    }
+    filterMarkers();
+}
+
+// Włączanie/wyłączanie warstwy "Dzielnice nieaktywne"
+function toggleInactiveDistrictLayer() {
+    const isChecked = document.getElementById('layer-inactive-district').checked;
+    if (isChecked) {
+        markerLayers.inactiveDistrict.addTo(map);
+    } else {
+        map.removeLayer(markerLayers.inactiveDistrict);
     }
     filterMarkers();
 }

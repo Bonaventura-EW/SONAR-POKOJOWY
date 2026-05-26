@@ -300,9 +300,23 @@ class SonarPokojowy:
                 address_data = whitelist_match
                 address_precision = 'street_only'
 
+        # FALLBACK #5: dzielnica Lublina (centroid, bez Nominatim)
+        if not address_data:
+            district_match = self.address_parser.extract_district(full_text)
+            if not district_match and raw_offer.get('description'):
+                district_match = self.address_parser.extract_district(raw_offer['description'])
+            if district_match:
+                district_coords = district_match.pop('district_coords', None)
+                print(f"      🏘️ Dzielnica: {district_match['full']}")
+                address_data = district_match
+                address_precision = 'district'
+                if district_coords:
+                    use_cached_coords = True
+                    cached_coords = district_coords
+
         if not address_data:
             return None  # Brak adresu → ignoruj
-        
+
         # 3. Parsuj cenę - NOWA LOGIKA TRÓJPOZIOMOWA (2C)
         # PRIORYTET 1: JSON-LD z OLX (najbardziej niezawodne, oficjalne dane)
         # PRIORYTET 2: Cache (dane z poprzedniego skanu - równie niezawodne jak JSON-LD)

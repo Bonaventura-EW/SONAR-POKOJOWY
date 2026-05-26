@@ -288,6 +288,14 @@ def generate_map_data(input_file, output_file):
             (not o['active']) and o.get('precision') == 'street_only' for o in offers_list
         )
 
+        # Flagi dla warstw dzielnic (precision == 'district')
+        has_active_district = any(
+            o['active'] and o.get('precision') == 'district' for o in offers_list
+        )
+        has_inactive_district = any(
+            (not o['active']) and o.get('precision') == 'district' for o in offers_list
+        )
+
         LUBLIN_VARIANTS = {'lublin', 'Lublin'}
         has_firm_offers = any(
             o.get('is_firm_offer') and o['active']
@@ -303,6 +311,8 @@ def generate_map_data(input_file, output_file):
             'has_active': has_active,
             'has_active_approx': has_active_approx,
             'has_inactive_approx': has_inactive_approx,
+            'has_active_district': has_active_district,
+            'has_inactive_district': has_inactive_district,
             'has_firm_offers': has_firm_offers
         })
     

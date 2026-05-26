@@ -195,6 +195,61 @@ class AddressParser:
         'położony',        # "Dom położony 2"
     }
 
+    # Centroidy dzielnic Lublina — dla geokodowania na poziomie dzielnicy (precision='district')
+    DISTRICT_CENTROIDS = {
+        'Sławin':          (51.2822, 22.5264),
+        'Sławinek':        (51.2789, 22.5122),
+        'Bronowice':       (51.2619, 22.5053),
+        'Czechów':         (51.2708, 22.5583),
+        'Kalinowszczyzna': (51.2586, 22.5806),
+        'Czuby':           (51.2228, 22.5508),
+        'Wieniawa':        (51.2419, 22.5364),
+        'Śródmieście':     (51.2500, 22.5667),
+        'Ponikwoda':       (51.2875, 22.5472),
+        'Węglin':          (51.2439, 22.5097),
+        'Felin':           (51.2181, 22.6019),
+        'Hajdów':          (51.2317, 22.6069),
+        'Tatary':          (51.2658, 22.6033),
+        'LSM':             (51.2428, 22.5264),
+        'Abramowice':      (51.2047, 22.5667),
+        'Konstantynów':    (51.2244, 22.5392),
+        'Głusk':           (51.1992, 22.5928),
+        'Rury':            (51.2533, 22.5253),
+        'Za Cukrownią':    (51.2658, 22.5639),
+        'Majdan Tatarski': (51.2481, 22.5992),
+    }
+
+    # Formy fleksyjne nazw dzielnic → kanoniczy klucz do DISTRICT_CENTROIDS
+    DISTRICT_FORMS = {
+        # mianownik
+        'sławin': 'Sławin', 'sławinek': 'Sławinek',
+        'bronowice': 'Bronowice', 'czechów': 'Czechów',
+        'kalinowszczyzna': 'Kalinowszczyzna', 'czuby': 'Czuby',
+        'wieniawa': 'Wieniawa', 'śródmieście': 'Śródmieście',
+        'ponikwoda': 'Ponikwoda', 'węglin': 'Węglin',
+        'felin': 'Felin', 'hajdów': 'Hajdów',
+        'tatary': 'Tatary', 'lsm': 'LSM',
+        'abramowice': 'Abramowice', 'konstantynów': 'Konstantynów',
+        'głusk': 'Głusk', 'rury': 'Rury',
+        # formy gramatyczne (miejscownik/dopełniacz/biernik/narzędnik)
+        'sławinie': 'Sławin', 'sławina': 'Sławin', 'sławinku': 'Sławinek',
+        'bronowicach': 'Bronowice', 'bronowic': 'Bronowice',
+        'czechowie': 'Czechów', 'czechowa': 'Czechów',
+        'kalinowszczyźnie': 'Kalinowszczyzna', 'kalinowszczyzny': 'Kalinowszczyzna',
+        'czubach': 'Czuby', 'czub': 'Czuby',
+        'wieniawie': 'Wieniawa', 'wieniawy': 'Wieniawa', 'wieniawę': 'Wieniawa',
+        'śródmieściu': 'Śródmieście', 'śródmieścia': 'Śródmieście',
+        'ponikwodzie': 'Ponikwoda', 'ponikwody': 'Ponikwoda',
+        'węglinie': 'Węglin', 'węglina': 'Węglin',
+        'felinie': 'Felin', 'felina': 'Felin',
+        'hajdowie': 'Hajdów', 'hajdowa': 'Hajdów',
+        'tatarach': 'Tatary',
+        'abramowicach': 'Abramowice', 'abramowic': 'Abramowice',
+        'konstantynowie': 'Konstantynów', 'konstantynowa': 'Konstantynów',
+        'głusku': 'Głusk', 'głuska': 'Głusk',
+        'rurach': 'Rury', 'rur': 'Rury',
+    }
+
     # Pattern dla ekstrakcji ulicy BEZ numeru (decyzja 1a — tylko z jawnym prefiksem)
     # Wymaga: prefiks + nazwa ulicy (1-3 słowa)
     # Prefiks: case-insensitive (przez inline flag (?i:...))
@@ -754,6 +809,11 @@ class AddressParser:
         candidates = []
 
         for match in self.STREET_ONLY_PATTERN.finditer(text):
+            # FIX: odrzuć match gdy prefiks (np. "os.") jest poprzedzony myślnikiem
+            # Przykład: "1-os. Kiepury" — "os." to skrót "1-osobowy", nie "Osiedle"
+            if match.start() > 0 and text[match.start() - 1] == '-':
+                continue
+
             # FIX 2026-05-14 (P2a): pattern ma teraz 3 grupy
             # - grupa 1: prefiks z kropką (ul./al./pl./os.) lub None
             # - grupa 2: prefiks bez kropki (ul/aleja/...) lub None
@@ -897,6 +957,40 @@ class AddressParser:
             'full': best['full']
         }
     
+    def extract_district(self, text: str) -> Optional[Dict]:
+        """
+        Czwarty fallback parsera — wyciąga nazwę dzielnicy Lublina z opisu.
+        Nie wywołuje Nominatim — zwraca hardcoded centroid z DISTRICT_CENTROIDS.
+        Precision wynikowy: 'district'.
+
+        Returns:
+            Dict z kluczami: street, number=None, full, district_coords lub None.
+        """
+        if not text:
+            return None
+        text = self._normalize_text(text)
+        text_lower = re.sub(r'[^\w\sśćłąęóżźńŚĆŁĄĘÓŻŹŃ]', ' ', text.lower())
+        words = text_lower.split()
+
+        found: Dict[str, int] = {}
+        for word in words:
+            if word in self.DISTRICT_FORMS:
+                district_name = self.DISTRICT_FORMS[word]
+                found[district_name] = found.get(district_name, 0) + 1
+
+        if not found:
+            return None
+
+        best = max(found, key=found.get)
+        lat, lon = self.DISTRICT_CENTROIDS[best]
+
+        return {
+            'street': best,
+            'number': None,
+            'full': best,
+            'district_coords': {'lat': lat, 'lon': lon}
+        }
+
     def validate_lublin_address(self, address: str) -> bool:
         """
         Sprawdza czy adres wygląda na prawdziwy adres w Lublinie.
