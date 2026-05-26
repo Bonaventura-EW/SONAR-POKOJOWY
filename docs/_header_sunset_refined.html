@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Warm Sunset — przyciski białe (3 warianty intensywności)</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f9fafb; margin: 0; padding: 24px; color: #1f2937; }
+  h1.title { font-size: 22px; margin: 0 0 4px; }
+  .intro { color: #6b7280; margin-bottom: 28px; font-size: 14px; }
+  .variant { margin-bottom: 36px; }
+  .variant-name { font-size: 15px; font-weight: 700; color: #111827; margin-bottom: 4px; }
+  .variant-desc { font-size: 13px; color: #6b7280; margin-bottom: 10px; }
+  .frame { border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+
+  /* Wspólne tło sunset */
+  .sunset {
+    background: linear-gradient(120deg, #fb923c 0%, #ef4444 50%, #ec4899 100%);
+    color: white;
+    padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+    box-shadow: 0 2px 12px rgba(239,68,68,0.25);
+  }
+  .sunset .brand { display: flex; align-items: center; gap: 12px; }
+  .sunset h2 { margin: 0; font-size: 18px; font-weight: 700; }
+  .sunset h2 .b { font-weight: 800; letter-spacing: 0.5px; }
+  .sunset h2 .s { opacity: 0.5; margin: 0 8px; font-weight: 300; }
+  .sunset h2 .p { font-weight: 500; opacity: 0.95; }
+  .sunset nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  .brand-svg { width: 32px; height: 32px; flex-shrink: 0; }
+
+  /* ===== Wariant A: białe semi-transparent (60%) ===== */
+  .vA nav a {
+    color: #ef4444; text-decoration: none; padding: 7px 12px; border-radius: 999px;
+    font-size: 13px; font-weight: 600;
+    background: rgba(255,255,255,0.6); backdrop-filter: blur(4px);
+  }
+  .vA nav a.active { background: white; color: #be123c; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+
+  /* ===== Wariant B: solidne białe + cień ===== */
+  .vB nav a {
+    color: #ef4444; text-decoration: none; padding: 7px 14px; border-radius: 999px;
+    font-size: 13px; font-weight: 700;
+    background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  }
+  .vB nav a.active {
+    background: #fff1f2; color: #be123c;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2), inset 0 0 0 2px #ef4444;
+  }
+
+  /* ===== Wariant C: białe 85% z subtelnym borderem ===== */
+  .vC nav a {
+    color: #be123c; text-decoration: none; padding: 7px 13px; border-radius: 10px;
+    font-size: 13px; font-weight: 600;
+    background: rgba(255,255,255,0.88);
+    border: 1px solid rgba(255,255,255,0.4);
+  }
+  .vC nav a.active {
+    background: white; color: #9f1239;
+    border-color: #ef4444;
+    box-shadow: 0 2px 6px rgba(190,18,60,0.25);
+  }
+</style>
+</head>
+<body>
+
+<h1 class="title">Warm Sunset — białe tło przycisków</h1>
+<p class="intro">Trzy warianty intensywności. Wybierz literę (A / B / C).</p>
+
+<svg style="display:none;" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="radar" viewBox="0 0 64 64">
+    <defs>
+      <radialGradient id="rb"><stop offset="0%" stop-color="#1a3a1a"/><stop offset="100%" stop-color="#0a1a0a"/></radialGradient>
+      <linearGradient id="rs" x1="50%" y1="50%" x2="100%" y2="50%"><stop offset="0%" stop-color="#00ff00" stop-opacity="0.8"/><stop offset="100%" stop-color="#00ff00" stop-opacity="0"/></linearGradient>
+      <mask id="rm"><circle cx="32" cy="32" r="28" fill="white"/></mask>
+    </defs>
+    <circle cx="32" cy="32" r="32" fill="url(#rb)"/>
+    <circle cx="32" cy="32" r="30" fill="none" stroke="#00ff00" stroke-width="0.5" opacity="0.6"/>
+    <circle cx="32" cy="32" r="22" fill="none" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+    <circle cx="32" cy="32" r="14" fill="none" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+    <line x1="32" y1="4" x2="32" y2="60" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+    <line x1="4" y1="32" x2="60" y2="32" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+    <g mask="url(#rm)">
+      <path d="M32,32 L32,4 A28,28 0 0,1 60,32 Z" fill="url(#rs)" opacity="0.6">
+        <animateTransform attributeName="transform" type="rotate" from="0 32 32" to="360 32 32" dur="3s" repeatCount="indefinite"/>
+      </path>
+    </g>
+    <circle cx="22" cy="18" r="1.5" fill="#00ff00"><animate attributeName="opacity" values="0.8;0.3;0.8" dur="1.5s" repeatCount="indefinite"/></circle>
+  </symbol>
+</svg>
+
+<script>
+const PAGES = [
+  {key:'index', emoji:'🗺️', name:'Mapa'},
+  {key:'analytics', emoji:'📈', name:'Analityka'},
+  {key:'monitoring', emoji:'📊', name:'Monitoring'},
+  {key:'market', emoji:'🔍', name:'Analiza Rynku'},
+  {key:'top5', emoji:'🏆', name:'Top 5'},
+  {key:'ostatnie', emoji:'🆕', name:'Ostatnie'},
+  {key:'firmy', emoji:'🏢', name:'Firmy'},
+  {key:'skip', emoji:'🐛', name:'Pominięte'},
+];
+function build(activeKey) {
+  const ap = PAGES.find(p=>p.key===activeKey);
+  const nav = PAGES.map(p => `<a class="${p.key===activeKey?'active':''}">${p.emoji} ${p.name}</a>`).join('');
+  return `
+    <div class="brand"><svg class="brand-svg"><use href="#radar"/></svg>
+      <h2><span class="b">SONAR POKOJOWY</span><span class="s">·</span><span class="p">${ap.emoji} ${ap.name}</span></h2>
+    </div>
+    <nav>${nav}</nav>`;
+}
+</script>
+
+<div class="variant">
+  <div class="variant-name">A. Półprzezroczyste białe (60%) z blur</div>
+  <div class="variant-desc">Białe tło z przezroczystością — sunset przebija delikatnie. Aktywna w pełni biała + cień.</div>
+  <div class="frame"><div class="sunset vA" id="vA"></div></div>
+</div>
+
+<div class="variant">
+  <div class="variant-name">B. Solidne białe + cień (najmocniejszy kontrast)</div>
+  <div class="variant-desc">Pełne białe tło, czerwony tekst, wyraźny cień. Aktywna ma czerwoną ramkę inset.</div>
+  <div class="frame"><div class="sunset vB" id="vB"></div></div>
+</div>
+
+<div class="variant">
+  <div class="variant-name">C. Białe 85% + subtelny border + zaokrąglone</div>
+  <div class="variant-desc">Pomiędzy A i B. Lekko prześwitujące, łagodne rogi (10px zamiast pigułki), border definiuje krawędzie.</div>
+  <div class="frame"><div class="sunset vC" id="vC"></div></div>
+</div>
+
+<script>
+  document.getElementById('vA').innerHTML = build('analytics');
+  document.getElementById('vB').innerHTML = build('analytics');
+  document.getElementById('vC').innerHTML = build('analytics');
+</script>
+
+<div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:14px 18px;border-radius:4px;margin-top:24px;font-size:14px;color:#78350f;">
+  <strong>Wybierz: A / B / C</strong> — wdrożę na 7 zakładkach. Wracam też do otwartych pytań: czy <code>index.html</code> ma dostać taki sam nagłówek? OK na utratę żółtego motywu na Firmach?
+</div>
+
+</body>
+</html>
