@@ -13,77 +13,109 @@
     
     <!-- Custom CSS -->
     <link rel="stylesheet" href="assets/style.css?v=2">
+<style>
+/* === Ujednolicony nagłówek (Warm Sunset C) === */
+.sp-header {
+  background: linear-gradient(120deg, #fb923c 0%, #ef4444 50%, #ec4899 100%);
+  color: white;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  box-shadow: 0 2px 12px rgba(239,68,68,0.25);
+}
+.sp-header .sp-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.sp-header .sp-brand-svg { width: 32px; height: 32px; flex-shrink: 0; }
+.sp-header h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: white;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0;
+  white-space: nowrap;
+}
+.sp-header h1 .sp-b { font-weight: 800; letter-spacing: 0.5px; }
+.sp-header h1 .sp-s { opacity: 0.5; margin: 0 8px; font-weight: 300; }
+.sp-header h1 .sp-p { font-weight: 500; opacity: 0.95; }
+.sp-header nav { display: flex; gap: 4px; flex-wrap: wrap; }
+.sp-header nav a {
+  color: #be123c;
+  text-decoration: none;
+  padding: 7px 13px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  background: rgba(255,255,255,0.88);
+  border: 1px solid rgba(255,255,255,0.4);
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.sp-header nav a:hover { background: white; }
+.sp-header nav a.active {
+  background: white;
+  color: #9f1239;
+  border-color: #ef4444;
+  box-shadow: 0 2px 6px rgba(190,18,60,0.25);
+}
+@media (max-width: 768px) {
+  .sp-header { padding: 12px 16px; }
+  .sp-header h1 { font-size: 16px; }
+  .sp-header nav a { padding: 6px 10px; font-size: 12px; }
+}
+</style>
 </head>
 <body>
     <div id="app">
         <!-- Header -->
-        <header class="header">
-            <h1>
-                <svg width="32" height="32" viewBox="0 0 64 64" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
-                    <defs>
-                        <radialGradient id="headerRadarBg" cx="50%" cy="50%" r="50%">
-                            <stop offset="0%" style="stop-color:#1a3a1a;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#0a1a0a;stop-opacity:1" />
-                        </radialGradient>
-                        <linearGradient id="headerSweepGradient" x1="50%" y1="50%" x2="100%" y2="50%">
-                            <stop offset="0%" style="stop-color:#00ff00;stop-opacity:0.8" />
-                            <stop offset="50%" style="stop-color:#00ff00;stop-opacity:0.3" />
-                            <stop offset="100%" style="stop-color:#00ff00;stop-opacity:0" />
-                        </linearGradient>
-                        <mask id="headerSweepMask">
-                            <circle cx="32" cy="32" r="28" fill="white"/>
-                        </mask>
-                    </defs>
-                    <circle cx="32" cy="32" r="32" fill="url(#headerRadarBg)"/>
-                    <circle cx="32" cy="32" r="30" fill="none" stroke="#00ff00" stroke-width="0.5" opacity="0.6"/>
-                    <circle cx="32" cy="32" r="24" fill="none" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
-                    <circle cx="32" cy="32" r="18" fill="none" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
-                    <circle cx="32" cy="32" r="12" fill="none" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
-                    <line x1="32" y1="4" x2="32" y2="60" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
-                    <line x1="4" y1="32" x2="60" y2="32" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
-                    <g transform="translate(32, 32)">
-                        <path d="M0,-6 L-2,-3 L-2,0 C-2,2 -1,3 0,6 C1,3 2,2 2,0 L2,-3 Z" fill="#00ff00" stroke="#003300" stroke-width="0.5" opacity="0.9">
-                            <animateTransform attributeName="transform" type="scale" values="1;1.3;1" dur="2s" repeatCount="indefinite"/>
-                        </path>
-                    </g>
-                    <g mask="url(#headerSweepMask)">
-                        <path d="M32,32 L32,4 A28,28 0 0,1 60,32 Z" fill="url(#headerSweepGradient)" opacity="0.6">
-                            <animateTransform attributeName="transform" type="rotate" from="0 32 32" to="360 32 32" dur="3s" repeatCount="indefinite"/>
-                        </path>
-                    </g>
-                    <circle cx="22" cy="18" r="1.5" fill="#00ff00" opacity="0.8">
-                        <animate attributeName="opacity" values="0.8;0.3;0.8" dur="1.5s" repeatCount="indefinite"/>
-                    </circle>
-                    <circle cx="45" cy="25" r="1.5" fill="#00ff00" opacity="0.8">
-                        <animate attributeName="opacity" values="0.3;0.8;0.3" dur="1.5s" repeatCount="indefinite"/>
-                    </circle>
-                </svg>
-                SONAR POKOJOWY
-            </h1>
-            <div style="display: flex; gap: 12px;">
-                <a href="analytics.html" style="color: white; text-decoration: none; background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background 0.3s;">
-                    📈 Analityka
-                </a>
-                <a href="monitoring.html" style="color: white; text-decoration: none; background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background 0.3s;">
-                    📊 Monitoring
-                </a>
-                <a href="market_analysis.html" style="color: white; text-decoration: none; background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background 0.3s;">
-                    🔍 Analiza Rynku
-                </a>
-                <a href="top5.html" style="color: white; text-decoration: none; background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background 0.3s;">
-                    🏆 Top 5
-                </a>
-                <a href="ostatnie.html" style="color: white; text-decoration: none; background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background 0.3s;">
-                    🆕 Ostatnie
-                </a>
-                <a href="profile_tracker.html" style="color: white; text-decoration: none; background: rgba(255,215,0,0.3); padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background 0.3s; border: 1px solid rgba(255,215,0,0.6);">
-                    🏢 Firmy
-                </a>
-                <a href="skipped_debug.html" style="color: white; text-decoration: none; background: rgba(255,200,0,0.35); padding: 8px 16px; border-radius: 6px; font-weight: 600; transition: background 0.3s; border: 1px dashed rgba(255,255,255,0.6);" title="Strona tymczasowa - debug parsera">
-                    🐛 Pominięte
-                </a>
-            </div>
-        </header>
+        <header class="sp-header">
+    <div class="sp-brand">
+      <svg class="sp-brand-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="spRb-index" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#1a3a1a"/>
+            <stop offset="100%" stop-color="#0a1a0a"/>
+          </radialGradient>
+          <linearGradient id="spRs-index" x1="50%" y1="50%" x2="100%" y2="50%">
+            <stop offset="0%" stop-color="#00ff00" stop-opacity="0.8"/>
+            <stop offset="100%" stop-color="#00ff00" stop-opacity="0"/>
+          </linearGradient>
+          <mask id="spRm-index"><circle cx="32" cy="32" r="28" fill="white"/></mask>
+        </defs>
+        <circle cx="32" cy="32" r="32" fill="url(#spRb-index)"/>
+        <circle cx="32" cy="32" r="30" fill="none" stroke="#00ff00" stroke-width="0.5" opacity="0.6"/>
+        <circle cx="32" cy="32" r="22" fill="none" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+        <circle cx="32" cy="32" r="14" fill="none" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+        <line x1="32" y1="4" x2="32" y2="60" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+        <line x1="4" y1="32" x2="60" y2="32" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+        <g mask="url(#spRm-index)">
+          <path d="M32,32 L32,4 A28,28 0 0,1 60,32 Z" fill="url(#spRs-index)" opacity="0.6">
+            <animateTransform attributeName="transform" type="rotate" from="0 32 32" to="360 32 32" dur="3s" repeatCount="indefinite"/>
+          </path>
+        </g>
+        <circle cx="22" cy="18" r="1.5" fill="#00ff00">
+          <animate attributeName="opacity" values="0.8;0.3;0.8" dur="1.5s" repeatCount="indefinite"/>
+        </circle>
+      </svg>
+      <h1>
+        <span class="sp-b">SONAR POKOJOWY</span>
+        <span class="sp-s">·</span>
+        <span class="sp-p">🗺️ Mapa</span>
+      </h1>
+    </div>
+    <nav>
+      <a href="index.html" class="active">🗺️ Mapa</a>
+      <a href="analytics.html">📈 Analityka</a>
+      <a href="monitoring.html">📊 Monitoring</a>
+      <a href="market_analysis.html">🔍 Analiza Rynku</a>
+      <a href="top5.html">🏆 Top 5</a>
+      <a href="ostatnie.html">🆕 Ostatnie</a>
+      <a href="profile_tracker.html">🏢 Firmy</a>
+      <a href="skipped_debug.html">🐛 Pominięte</a>
+    </nav>
+  </header>
 
         <!-- Paski filtra dat -->
         <div class="date-slider-bar">
