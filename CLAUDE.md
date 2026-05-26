@@ -1,0 +1,198 @@
+# SONAR-POKOJOWY — Onboarding dla Claude Code
+
+> **Co to za repo:** Automatyczny monitoring ofert najmu pokoi z OLX w Lublinie. Scraper → geokodowanie → mapa Leaflet hostowana na GitHub Pages. Brak backendu, brak bazy — wszystko statyczne, w JSON-ach commitowanych do repo.
+
+> **Pełna dokumentacja:** `BLUEPRINT.md` (44 KB, kompletny opis architektury). Czytaj go, gdy potrzebujesz głębi. Ten plik to skrót do natychmiastowego startu.
+
+---
+
+## 🚨 ZASADY WSPÓŁPRACY Z UŻYTKOWNIKIEM (Mateusz)
+
+Czytaj uważnie — to nie są sugestie, to są twarde reguły wypracowane przez wiele iteracji.
+
+1. **Komunikuj się po polsku**, terse. Mateusz odpowiada krótko: `tak` / `nie` / `inaczej` / konkretny URL OLX z bugiem.
+2. **Visual-first dla UI**: zanim zmienisz cokolwiek wizualnego, pokaż artifact before/after w HTML do akceptacji. Bez `tak` od użytkownika — nie implementuj.
+3. **Backend fixes preferred**: jeśli problem widać na froncie, ale źródło jest w pipeline — naprawiaj u źródła (`src/`), nie patchuj w `docs/`.
+4. **Direct deletion over flagging**: złe/bogus rekordy usuwaj z bazy całkowicie, nie flaguj jako "disabled".
+5. **One feature at a time**: kończ i weryfikuj jedną zmianę przed startem kolejnej.
+6. **Diagnoza przed fixem**: zidentyfikuj root cause, nie zgaduj. Pokaż użytkownikowi diagnozę, dopiero potem proponuj poprawkę.
+7. **Proposals A/B/C dla nietrywialnych feature'ów**: gdy decyzja ma więcej niż jeden wymiar, przedstaw 2–3 opcje, niech wybierze.
+8. **Bez przeprosin i bez auto-flagellation**: gdy się mylisz, uznaj, popraw, jedź dalej.
+
+---
+
+## 📁 STRUKTURA REPO — ŚCIĄGAWKA
+
+```
+src/                      ← cały backend Python (uruchamiane z poziomu `src/`)
+├── main.py               ← orkiestrator skanu (entrypoint)
+├── scraper.py            ← OLX listing + detail pages, BASE_URL tu
+├── address_parser.py     ← regex extractor adresów z opisów
+├── price_parser.py       ← JSON-LD → desc parser → HTML fallback
+├── geocoder.py           ← Nominatim (OpenStreetMap)
+├── duplicate_detector.py ← Levenshtein 95%
+├── map_generator.py      ← data/offers.json → docs/data.json
+├── monitoring_generator.py
+├── api_generator.py      ← statyczne endpointy mobilne
+├── top5_generator.py
+├── profile_generator.py
+├── offer_tagger.py
+├── scan_logger.py
+└── (pomocnicze: quick_scan, retry_none_cache, cleanup_*, skipped_*)
+
+data/                     ← źródło prawdy
+├── offers.json           ← główna baza ofert (NIGDY nie edytuj ręcznie bez backupu)
+├── scan_history.json     ← historia skanów (źródło prawdy o statusie scanów,
+│                            NIE polegaj na GitHub Actions API conclusion)
+├── geocoding_cache.json  ← cache adres→lat/lon (czyść TANDEM z offers.json!)
+└── *.backup_*            ← punkty kontrolne (zostawiaj, nie kasuj)
+
+docs/                     ← frontend GitHub Pages (NIE edytuj ręcznie data.json!)
+├── index.html            ← główna mapa Leaflet
+├── analytics.html        ← Chart.js
+├── monitoring.html       ← status skanów
+├── market_analysis.html
+├── data.json             ← REGENEROWANY przez map_generator.py
+├── monitoring_data.json  ← REGENEROWANY
+├── api/                  ← statyczne endpointy mobilki (SZPERACZ)
+│   ├── status.json
+│   ├── history.json
+│   └── health.json
+└── ...
+
+.github/workflows/scanner.yml  ← cron 9:00 / 15:00 / 21:00 CEST + workflow_dispatch
+```
+
+---
+
+## 🔥 PUŁAPKI, KTÓRE JUŻ NAS UGRYZŁY — NIE POWTARZAJ
+
+Te błędy są naprawione. Jeśli edytujesz odpowiedni kod, **zachowaj zabezpieczenia**:
+
+### Backend / pipeline
+
+- **Empty-scrape guard** (`main.py` → `_mark_inactive_offers`): jeśli scraper zwróci 0 ofert albo <30% aktywnego stanu, BLOKUJ masowe deaktywowanie. Bez tego jeden zepsuty scrape kasuje pół bazy.
+- **`skipped_offer_ids`**: inteligentne skanowanie pomija oferty z niezmienioną ceną. Ich ID **MUSZĄ** trafić do `_mark_inactive_offers()` jako `skipped_ids`, inaczej zostaną fałszywie zdeaktywowane.
+- **Inactive URL verification**: przed deaktywacją odpytaj URL OLX-a — HTTP 410 = na pewno usunięte, 404 czasem wraca, `availability: InStock` w JSON-LD = oferta nadal żywa (reaktywuj).
+- **Address parser — false addresses**: regex łapie "X minut", "Y metrów" jako ulice. Sprawdzaj `non_street_names` set i excluded words. Litera `O` vs cyfra `0` w nazwach — odrzucaj.
+- **Genitive case streets**: polski dopełniacz ("ul. Lubelskiej" → "Lubelska") — wzorce w `address_parser.py`.
+- **Price pipeline**: JSON-LD = źródło prawdy. HTML fallback wyciąga koszty mediów albo numer ulicy jako cenę — używaj tylko gdy JSON-LD nie ma.
+- **Price range per-offer**: ceny przypisuj per-oferta, nigdy averagowane na markerze.
+- **Geocoding cache**: usuwając wpisy z `offers.json`, **usuń też** odpowiadające wpisy z `geocoding_cache.json`. Inaczej stare/błędne współrzędne wrócą.
+
+### Frontend
+
+- **LayerGroup MUSI mieć `.addTo(map)`**: dodanie markerów do grupy to nie to samo co dodanie grupy do mapy. Klasyczny bug "warstwa nie widać".
+- **Format daty PL**: `"DD.MM.YYYY HH:MM"` — `new Date()` JS-a tego nie sparsuje. Używaj custom `parseDateString()`.
+- **Struktura `docs/data.json`**: zagnieżdżona `markers[].offers[]`, **nie** flat array. Po regeneracji przez `map_generator.py` — wymuś hard reload (Ctrl+F5).
+
+### Workflow / Actions
+
+- **Workflow ID**: `238181145`. Trigger: `POST /repos/.../actions/workflows/238181145/dispatches` z body `{"ref":"main"}` → status `204` = OK.
+- **`conclusion=success` w API jest niewiarygodne**: zawsze sprawdzaj logi bezpośrednio. Prawda o skanach jest w `data/scan_history.json`.
+- **Logi Actions → Azure blob**: `GET` na endpoint logów zwraca `Location` header z URL-em Azure blob, pobierz przez `curl`.
+
+---
+
+## 🛠️ ŚRODOWISKO I KOMENDY
+
+### Setup zależności
+```bash
+pip install -r requirements.txt --break-system-packages
+# requirements.txt: requests, beautifulsoup4, lxml, python-Levenshtein, pytz, geopy
+```
+
+### Uruchomienie skanu lokalnie
+```bash
+cd src/
+python main.py                # pełny skan
+python map_generator.py       # regenerate docs/data.json
+python api_generator.py       # regenerate docs/api/*
+python top5_generator.py
+python monitoring_generator.py
+```
+
+### Testy (w root, nie w `tests/`)
+```bash
+python test_integration.py
+python test_analytics.py
+python test_monitoring.py
+python test_price_fix.py
+```
+
+### Trigger scanu przez API (gdy nie chcesz czekać na cron)
+```bash
+curl -X POST \
+  -H "Authorization: token $GITHUB_TOKEN" \
+  -H "Accept: application/vnd.github+json" \
+  https://api.github.com/repos/Bonaventura-EW/SONAR-POKOJOWY/actions/workflows/238181145/dispatches \
+  -d '{"ref":"main"}'
+# spodziewany kod: 204
+```
+
+### Rozwiązywanie konfliktów git (sprawdzony pattern)
+```bash
+git pull --rebase
+git checkout --theirs <plik_pochodny_np_docs/data.json>
+python src/map_generator.py   # regenerate
+git add <plik>
+GIT_EDITOR=true git rebase --continue
+git push
+```
+
+---
+
+## 🧭 DECISION TREE — DOKĄD IŚĆ Z PROBLEMEM
+
+| Problem zgłoszony przez Mateusza | Pierwsze miejsce do sprawdzenia |
+|---|---|
+| "marker w złym miejscu" / "zły adres" | `src/address_parser.py` + `data/geocoding_cache.json` |
+| "cena jest dziwna" / "X zł zamiast Y zł" | `src/price_parser.py` (JSON-LD priorytet!) |
+| "oferta zniknęła a powinna być" | `src/main.py` → `_mark_inactive_offers`, sprawdź `skipped_offer_ids` i empty-scrape guard |
+| "warstwa się nie wyświetla" | `docs/index.html` → szukaj `LayerGroup` bez `.addTo(map)` |
+| "data wygląda jak NaN/Invalid" | `parseDateString()` w `docs/*.html` — PL format |
+| "scan się nie odpalił" | `data/scan_history.json` (truth), potem logi Actions |
+| "duplikaty na mapie" | `src/duplicate_detector.py` — threshold Levenshtein 95% |
+| "OCR / parser łapie bzdury" | `src/address_parser.py` → `non_street_names`, excluded words |
+
+---
+
+## 🚀 ROADMAP — CO PLANUJEMY
+
+(pełny opis w BLUEPRINT.md sekcja 11)
+
+- **Etap A**: System powiadomień email z filtrowaniem (wybrane: opcja A). NIE zaimplementowane.
+- **SZPERACZ**: Mobilka Flutter/Android konsumująca `docs/api/*.json`.
+- **Geokodowanie**: ciągła poprawa success rate (~49%, target 70%+).
+
+---
+
+## ✅ CHECKLIST PRZED ZAKOŃCZENIEM ZADANIA
+
+Przed commitowaniem zawsze sprawdź:
+
+- [ ] Czy edytowałem plik źródłowy (`src/`) zamiast pochodny (`docs/data.json`)?
+- [ ] Jeśli zmieniłem dane (`data/offers.json`), czy zregenerowałem `docs/data.json` przez `python src/map_generator.py`?
+- [ ] Jeśli usunąłem oferty, czy wyczyściłem `geocoding_cache.json`?
+- [ ] Czy odpaliłem `python test_integration.py` i przeszło?
+- [ ] Czy commit message jest sensowny po polsku? (przykład: `"fix: warstwa nieaktywne nie renderuje sie na mapie"`)
+- [ ] Czy nie zostawiłem `print()` debug-owych w kodzie?
+
+---
+
+## 🤝 STYL ODPOWIEDZI
+
+**Dobre:**
+- "Diagnoza: `_mark_inactive_offers` nie dostaje `skipped_ids` z linii 142. Poprawiam, sekundę."
+- "Przed zmianą — pokażę Ci before/after w HTML. Daj `tak` jak OK."
+- "Mam 3 opcje jak to ugryźć: A) szybko ale brzydko, B) refactor `address_parser`, C) zmiana w geocoderze. Co wybierasz?"
+
+**Złe:**
+- "Świetne pytanie! Z radością pomogę! Oto co możemy zrobić..."
+- Zaimplementowanie zmiany w UI bez pokazania artifactu before/after.
+- Patchowanie objawu w `docs/` zamiast naprawy w `src/`.
+- Generowanie wielkich raportów Markdown po każdej zmianie (mamy już 40 plików RAPORT_*.md).
+
+---
+
+**Powodzenia. Mateusz delegował Ci pełną egzekucję — nie pytaj o rzeczy, które możesz sam sprawdzić w repo. Działaj.**
