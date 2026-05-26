@@ -1106,9 +1106,22 @@ class SonarPokojowy:
             
             for processed in processed_offers:
                 current_offer_ids.append(processed['id'])
-                
+
                 existing = self._find_existing_offer(processed['id'])
-                
+
+                # Fallback: OLX zmienia slug URL gdy sprzedający edytuje tytuł.
+                # Końcówka IDxxxxx pozostaje ta sama — szukamy po niej.
+                if not existing and '-ID' in processed['id']:
+                    short_id = processed['id'].split('-ID')[-1]
+                    existing = self._find_existing_offer_by_short_id(short_id)
+                    if existing:
+                        old_slug = existing.get('id', '')
+                        print(f"      🔗 Slug zmieniony: '{old_slug}' → '{processed['id']}'")
+                        existing['id'] = processed['id']
+                        existing['url'] = processed['url']
+                        # current_offer_ids już ma nowy slug — upewnij się że stary nie dezaktywuje
+                        current_offer_ids.append(old_slug)
+
                 if existing:
                     was_inactive = not existing.get('active', True)
                     self._update_existing_offer(existing, processed)
