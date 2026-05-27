@@ -1037,10 +1037,11 @@
                         </div>
                     </div>
                     <div class="filter-group">
-                        <label>📊 Tylko aktywne</label>
+                        <label>📊 Status ofert</label>
                         <div class="toggle-buttons">
-                            <button class="toggle-btn active" data-price-dist-active="true">Tak</button>
-                            <button class="toggle-btn" data-price-dist-active="false">Wszystkie</button>
+                            <button class="toggle-btn active" data-price-dist-active="active">Aktywne</button>
+                            <button class="toggle-btn" data-price-dist-active="inactive">Nieaktywne</button>
+                            <button class="toggle-btn" data-price-dist-active="all">Wszystkie</button>
                         </div>
                     </div>
                 </div>
@@ -1828,7 +1829,7 @@
         // C2-A: ROZKŁAD CEN (histogram + box plot)
         // ============================================================
         let priceDistType = 'all';
-        let priceDistActiveOnly = true;
+        let priceDistActiveFilter = 'active';
         let priceHistogramChart = null;
         let priceBoxPlotChart = null;
         
@@ -1838,8 +1839,10 @@
             // Filtruj oferty
             let offers = allData.offers;
             
-            if (priceDistActiveOnly) {
+            if (priceDistActiveFilter === 'active') {
                 offers = offers.filter(o => o.active);
+            } else if (priceDistActiveFilter === 'inactive') {
+                offers = offers.filter(o => !o.active);
             }
             
             if (priceDistType !== 'all') {
@@ -2062,7 +2065,7 @@
         
         document.querySelectorAll('[data-price-dist-active]').forEach(btn => {
             btn.addEventListener('click', () => {
-                priceDistActiveOnly = btn.dataset.priceDistActive === 'true';
+                priceDistActiveFilter = btn.dataset.priceDistActive;
                 document.querySelectorAll('[data-price-dist-active]').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 renderPriceDistribution();
