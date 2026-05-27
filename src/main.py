@@ -552,6 +552,16 @@ class SonarPokojowy:
         new_addr = new_data.get('address', {})
         new_addr_full = new_addr.get('full', '')
         
+        existing_precision = existing.get('address', {}).get('precision', '')
+        new_precision = new_addr.get('precision', '')
+        upgrade_precision = (
+            new_addr.get('number')
+            and existing_precision == 'street_only'
+            and new_precision == 'exact'
+            and new_addr_full
+            and existing_addr_full != new_addr_full
+        )
+
         if (existing_addr_full and new_addr_full
                 and existing_addr_full != new_addr_full
                 and self._is_bogus_address(existing_addr_full)
@@ -568,6 +578,16 @@ class SonarPokojowy:
                 existing['address']['coords'] = new_addr['coords']
             if new_addr.get('precision'):
                 existing['address']['precision'] = new_addr['precision']
+        elif upgrade_precision:
+            print(f"      🔧 Upgrade precision street_only→exact: '{existing_addr_full}' → '{new_addr_full}'")
+            existing['address']['previous_street_only'] = existing_addr_full
+            existing['address']['fixed_at'] = now
+            existing['address']['full'] = new_addr_full
+            existing['address']['street'] = new_addr.get('street')
+            existing['address']['number'] = new_addr.get('number')
+            if new_addr.get('coords'):
+                existing['address']['coords'] = new_addr['coords']
+            existing['address']['precision'] = 'exact'
         
         # Upewnij się że jest aktywne (REAKTYWACJA nieaktywnych ofert)
         was_inactive = not existing.get('active', True)
