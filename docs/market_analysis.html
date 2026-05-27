@@ -1044,6 +1044,16 @@
                             <button class="toggle-btn" data-price-dist-active="all">Wszystkie</button>
                         </div>
                     </div>
+                    <div class="filter-group">
+                        <label>📅 Okres (first_seen)</label>
+                        <div class="toggle-buttons">
+                            <button class="toggle-btn" data-price-dist-days="30">30 dni</button>
+                            <button class="toggle-btn" data-price-dist-days="60">60 dni</button>
+                            <button class="toggle-btn" data-price-dist-days="90">90 dni</button>
+                            <button class="toggle-btn" data-price-dist-days="180">180 dni</button>
+                            <button class="toggle-btn active" data-price-dist-days="0">Wszystkie</button>
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -1830,6 +1840,7 @@
         // ============================================================
         let priceDistType = 'all';
         let priceDistActiveFilter = 'active';
+        let priceDistDays = 0;
         let priceHistogramChart = null;
         let priceBoxPlotChart = null;
         
@@ -1843,6 +1854,11 @@
                 offers = offers.filter(o => o.active);
             } else if (priceDistActiveFilter === 'inactive') {
                 offers = offers.filter(o => !o.active);
+            }
+
+            if (priceDistDays > 0) {
+                const cutoff = new Date(Date.now() - priceDistDays * 86400000);
+                offers = offers.filter(o => o.first_seen && parseDateString(o.first_seen) >= cutoff);
             }
             
             if (priceDistType !== 'all') {
@@ -2067,6 +2083,15 @@
             btn.addEventListener('click', () => {
                 priceDistActiveFilter = btn.dataset.priceDistActive;
                 document.querySelectorAll('[data-price-dist-active]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderPriceDistribution();
+            });
+        });
+
+        document.querySelectorAll('[data-price-dist-days]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                priceDistDays = parseInt(btn.dataset.priceDistDays, 10);
+                document.querySelectorAll('[data-price-dist-days]').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 renderPriceDistribution();
             });
