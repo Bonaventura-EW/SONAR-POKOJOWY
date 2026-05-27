@@ -553,7 +553,7 @@ function buildRow(o) {
         + '</div>'
         + '<div class="row-meta">'
         + typeBadge + newBadge + reaktBadge + inactiveBadge
-        + '<span class="meta-txt">📅 ' + (o.first_seen || '—') + '</span>'
+        + '<span class="meta-txt">📅 ' + (o.first_seen || '—') + (!o.active && o.last_seen ? ' → ' + o.last_seen : '') + '</span>'
         + '<span class="meta-days ' + daysClass + '">⏳ ' + (o.days_active || 0) + ' dni</span>'
         + '<a class="olx-link" href="' + o.url + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">OLX ↗</a>'
         + '</div>'
