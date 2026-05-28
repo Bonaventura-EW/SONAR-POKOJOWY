@@ -238,6 +238,11 @@
                         <div id="firm-profiles-tree" style="margin-top:4px;padding-left:14px;display:flex;flex-direction:column;gap:2px;">
                             <!-- generowane dynamicznie przez JS po załadowaniu danych -->
                         </div>
+                        <label style="background: #fefce8; padding: 5px; border-radius: 4px; margin-top: 3px; border: 2px dashed #d97706; opacity: 0.85;">
+                            <input type="checkbox" id="layer-firm-inactive" onchange="filterMarkers()">
+                            <span style="font-weight:600;">&#127970; Firmy / Agencje (nieaktywne)</span>
+                            <span id="layer-count-firm-inactive" class="badge-count">(0)</span>
+                        </label>
                     </div>
                     
                     <!-- B1: WARSTWY TYPU OFERTY -->

@@ -28,7 +28,8 @@ let markerLayers = {
     inactive: L.layerGroup(),
     activeApprox: L.layerGroup(),   // aktywne przybliżone (precision: street_only)
     inactiveApprox: L.layerGroup(), // nieaktywne przybliżone
-    firm: L.layerGroup()            // aktywne oferty profili firmowych
+    firm: L.layerGroup(),            // aktywne oferty profili firmowych
+    firmInactive: L.layerGroup()     // nieaktywne oferty profili firmowych
 };
 
 // ===== Filtr daty dodania (suwak dni) =====
@@ -245,7 +246,8 @@ function calculateFilteredStats() {
     const showActiveApprox = document.getElementById('layer-active-approx')?.checked ?? false;
     const showInactiveApprox = document.getElementById('layer-inactive-approx')?.checked ?? false;
     const showFirm = document.getElementById('layer-firm')?.checked ?? true;
-    
+    const showFirmInactive = document.getElementById('layer-firm-inactive')?.checked ?? false;
+
     // Filtr czasowy
     const timeFilter = document.getElementById('time-filter').value;
     const now = new Date();
@@ -281,6 +283,8 @@ function calculateFilteredStats() {
         // Sprawdź filtr warstwy - osobne checkboxy dla exact i approx i firm
         if (item.isFirmOffer && item.isActive) {
             if (!showFirm) return;
+        } else if (item.isFirmOffer && !item.isActive) {
+            if (!showFirmInactive) return;
         } else if (item.isApprox) {
             if (item.isActive && !showActiveApprox) return;
             if (!item.isActive && !showInactiveApprox) return;
@@ -288,11 +292,13 @@ function calculateFilteredStats() {
             if (item.isActive && !showActive) return;
             if (!item.isActive && !showInactive) return;
         }
-        
+
         // Sprawdź czy marker jest widoczny (jest w odpowiedniej warstwie na mapie)
         let isOnMap;
         if (item.isFirmOffer && item.isActive) {
             isOnMap = markerLayers.firm.hasLayer(item.marker);
+        } else if (item.isFirmOffer && !item.isActive) {
+            isOnMap = markerLayers.firmInactive.hasLayer(item.marker);
         } else if (item.isApprox) {
             isOnMap = (item.isActive && markerLayers.activeApprox.hasLayer(item.marker)) ||
                       (!item.isActive && markerLayers.inactiveApprox.hasLayer(item.marker));
@@ -603,6 +609,8 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
 
         if (isFirmOffer && isActive) {
             markerObj.addTo(markerLayers.firm);
+        } else if (isFirmOffer && !isActive) {
+            markerObj.addTo(markerLayers.firmInactive);
         } else if (isApprox) {
             markerObj.addTo(isActive ? markerLayers.activeApprox : markerLayers.inactiveApprox);
         } else if (isActive) {
@@ -880,6 +888,12 @@ function filterMarkers() {
     } else if (!showInactive && map.hasLayer(markerLayers.inactive)) {
         map.removeLayer(markerLayers.inactive);
     }
+    const showFirmInactive = document.getElementById('layer-firm-inactive')?.checked ?? false;
+    if (showFirmInactive && !map.hasLayer(markerLayers.firmInactive)) {
+        markerLayers.firmInactive.addTo(map);
+    } else if (!showFirmInactive && map.hasLayer(markerLayers.firmInactive)) {
+        map.removeLayer(markerLayers.firmInactive);
+    }
     const showActiveApprox = document.getElementById('layer-active-approx')?.checked ?? false;
     const showInactiveApprox = document.getElementById('layer-inactive-approx')?.checked ?? false;
     
@@ -922,7 +936,8 @@ function filterMarkers() {
         inactive: 0,
         activeApprox: 0,
         inactiveApprox: 0,
-        firm: 0
+        firm: 0,
+        firmInactive: 0
     };
     
     // Filtruj markery
@@ -941,6 +956,8 @@ function filterMarkers() {
                 const offerProfile = getProfileKeyForOffer(item.originalOffer?.profile_name);
                 passesLayerFilter = offerProfile ? enabledProfiles.has(offerProfile) : false;
             }
+        } else if (item.isFirmOffer && !item.isActive) {
+            passesLayerFilter = showFirmInactive;
         } else if (item.isApprox) {
             if (item.isActive) passesLayerFilter = showActiveApprox;
             else passesLayerFilter = showInactiveApprox;
@@ -1018,6 +1035,8 @@ function filterMarkers() {
         if (visible) {
             if (item.isFirmOffer && item.isActive) {
                 layerCounts.firm++;
+            } else if (item.isFirmOffer && !item.isActive) {
+                layerCounts.firmInactive++;
             } else if (item.isApprox) {
                 if (item.isActive) layerCounts.activeApprox++;
                 else layerCounts.inactiveApprox++;
@@ -1036,6 +1055,8 @@ function filterMarkers() {
         if (visible) {
             if (item.isFirmOffer && item.isActive) {
                 markerLayers.firm.addLayer(item.marker);
+            } else if (item.isFirmOffer && !item.isActive) {
+                markerLayers.firmInactive.addLayer(item.marker);
             } else if (item.isApprox) {
                 (item.isActive ? markerLayers.activeApprox : markerLayers.inactiveApprox).addLayer(item.marker);
             } else if (item.isActive) {
@@ -1046,6 +1067,8 @@ function filterMarkers() {
         } else {
             if (item.isFirmOffer && item.isActive) {
                 markerLayers.firm.removeLayer(item.marker);
+            } else if (item.isFirmOffer && !item.isActive) {
+                markerLayers.firmInactive.removeLayer(item.marker);
             } else if (item.isApprox) {
                 (item.isActive ? markerLayers.activeApprox : markerLayers.inactiveApprox).removeLayer(item.marker);
             } else if (item.isActive) {
@@ -1066,6 +1089,7 @@ function filterMarkers() {
     setLayerCount('layer-count-active-approx', layerCounts.activeApprox);
     setLayerCount('layer-count-inactive-approx', layerCounts.inactiveApprox);
     setLayerCount('layer-count-firm', layerCounts.firm);
+    setLayerCount('layer-count-firm-inactive', layerCounts.firmInactive);
     
     // Przelicz i zaktualizuj statystyki po filtrowaniu
     updateStats();
