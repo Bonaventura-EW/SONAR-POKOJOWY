@@ -158,6 +158,8 @@
         .meta-days.old { color: #ef4444; }
         .olx-link { font-size: 10px; color: #3b82f6; text-decoration: none; margin-left: auto; }
         .olx-link:hover { text-decoration: underline; }
+        .map-pin-btn { font-size: 10px; color: #ef4444; text-decoration: none; padding: 1px 5px; border: 1px solid #fca5a5; border-radius: 4px; background: #fff5f5; white-space: nowrap; }
+        .map-pin-btn:hover { background: #fee2e2; border-color: #ef4444; }
 
         /* Historia cen */
         .history-row { display: flex; align-items: center; gap: 8px; padding-top: 5px; border-top: 0.5px solid #e8ecf0; margin-top: 5px; }
@@ -556,6 +558,7 @@ function buildRow(o) {
         + '<span class="meta-txt">📅 ' + (o.first_seen || '—') + (!o.active && o.last_seen ? ' → ' + o.last_seen : '') + '</span>'
         + '<span class="meta-days ' + daysClass + '">⏳ ' + (o.days_active || 0) + ' dni</span>'
         + '<a class="olx-link" href="' + o.url + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">OLX ↗</a>'
+        + (o.lat && o.lon ? '<a class="map-pin-btn" href="index.html?loc=' + o.lat + ',' + o.lon + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Pokaż na głównej mapie">📍 Mapa</a>' : '')
         + '</div>'
         + (hasHistory ? buildSparkline(o.price_history) : '')
         + buildRefreshBars(o.refresh_dates, o.refresh_count, o.last_refresh_date)

@@ -1814,6 +1814,19 @@ function updateBadgeCounts() {
 // ============================================================
 function focusOfferFromUrl() {
     const params = new URLSearchParams(window.location.search);
+
+    // ?loc=LAT,LON — przeniesienie z profile_tracker
+    const locParam = params.get('loc');
+    if (locParam) {
+        const parts = locParam.split(',');
+        const lat = parseFloat(parts[0]);
+        const lon = parseFloat(parts[1]);
+        if (!isNaN(lat) && !isNaN(lon)) {
+            map.flyTo([lat, lon], 17, { duration: 1.2 });
+            return;
+        }
+    }
+
     const targetId = params.get('offer');
     if (!targetId) return;
     
