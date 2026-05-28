@@ -10,7 +10,7 @@
 
 - **Mateusz**: koncepcja, decyzje wizualne/produktowe, wybór wariantów, kierunek.
 - **Claude**: **pełna egzekucja od A do Z** — implementacja, commit, push, **otwarcie PR-a, merge do `main`**, weryfikacja czy GitHub Pages się zaktualizowały. Mateusz NIE robi mergów ani PR-ów. Po akceptacji wizualnej Claude doprowadza zmianę do produkcji bez dopytywania o każdy krok.
-- Wyjątki gdy Claude PYTA przed wykonaniem: rzeczy destrukcyjne (force push, reset --hard, kasowanie branchy z cudzymi commitami), zmiana w `main` bez PR-a, edycja workflowów GitHub Actions, zmiany w `data/offers.json` ręcznie.
+- Wyjątki gdy Claude PYTA przed wykonaniem: rzeczy destrukcyjne (force push, reset --hard, kasowanie branchy z cudzymi commitami), zmiana w `main` bez PR-a, edycja workflowów GitHub Actions, zmiany w `data/offers.json` ręcznie, **merge PR-a do `main`** (zawsze zapytaj przed mergem).
 
 ---
 
