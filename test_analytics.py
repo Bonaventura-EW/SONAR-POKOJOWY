@@ -7,6 +7,8 @@ import json
 import os
 from datetime import datetime
 
+REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
+
 def check_analytics_issues():
     """Sprawdza potencjalne problemy w analytics.html"""
     
@@ -153,5 +155,5 @@ def check_analytics_issues():
     return 0
 
 if __name__ == "__main__":
-    os.chdir('/tmp/SONAR-POKOJOWY')
+    os.chdir(REPO_ROOT)
     exit(check_analytics_issues())
