@@ -6,6 +6,8 @@ Test diagnostyczny dla monitoring.html - sprawdza JavaScript errors
 import json
 import os
 
+REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
+
 def check_monitoring_issues():
     """Sprawdza potencjalne problemy w monitoring.html"""
     
@@ -142,5 +144,5 @@ def check_monitoring_issues():
     return 0
 
 if __name__ == "__main__":
-    os.chdir('/tmp/SONAR-POKOJOWY')
+    os.chdir(REPO_ROOT)
     exit(check_monitoring_issues())
