@@ -11,6 +11,8 @@ Akceptuje formaty:
 import re
 from typing import Optional, Dict
 
+import address_parser_data as _apd
+
 class AddressParser:
     # Prefiksy ulic - teraz jako GRUPY do wyciągnięcia
     # Grupa 1: prefiks (opcjonalny)
@@ -37,172 +39,16 @@ class AddressParser:
         re.UNICODE
     )
     
-    # Mapowanie prefiksów do pełnych nazw (dla geokodowania)
-    PREFIX_MAP = {
-        'ul.': '',  # ul. usuwamy
-        'ul': '',
-        'ulica': '',
-        'ulicy': '',   # FIX 2026-05-13: dopełniacz "na ulicy Foo"
-        'ulicą': '',   # narzędnik "ulicą Foo"
-        'al.': 'Aleja',  # al. zamieniamy na Aleja
-        'al': 'Aleja',
-        'aleja': 'Aleja',
-        'aleje': 'Aleje',
-        'alei': 'Aleja',     # dopełniacz "na alei Foo"
-        'alejami': 'Aleja',  # narzędnik
-        'pl.': 'Plac',
-        'pl': 'Plac',
-        'plac': 'Plac',
-        'placu': 'Plac',     # dopełniacz "na placu Foo"
-        'os.': 'Osiedle',
-        'os': 'Osiedle',
-        'osiedle': 'Osiedle',
-        'osiedlu': 'Osiedle',  # miejscownik "na osiedlu Foo"
-    }
+    # Mapowanie prefiksów do pełnych nazw (dla geokodowania) — dane w address_parser_data.py
+    PREFIX_MAP = _apd.PREFIX_MAP
 
     # Słowa które NIE mogą być nazwą ulicy (class-level, używane przez extract_address i extract_street_only)
     # KRYTYCZNE: używaj lower()! Wszystkie wpisy muszą być małymi literami.
-    EXCLUDED_WORDS = {
-        'pokój', 'przy', 'obok', 'blisko', 'centrum', 'okolice', 'minut', 'minutę', 'rok', 'lata',
-        'jednoosobowy', 'dwuosobowy', 'trzoosobowy', 'osobowy',
-        'dla', 'bez', 'lub', 'osób', 'osoby',
-        # Dzielnice Lublina (nie są ulicami)
-        'wieniawa', 'śródmieście', 'bronowice', 'czuby', 'kalinowszczyzna', 'tatary',
-        'czechów', 'sławinek', 'sławin', 'abramowice', 'konstantynów', 'ponikwoda',
-        'głusk', 'węglin', 'felin', 'hajdów',
-        # Słowa z ogłoszeń które nie są ulicami
-        'net', 'ciepło', 'internet', 'wifi', 'balkon', 'ogród', 'parking',
-        'od', 'do', 'za', 'na', 'po', 'we', 'ze',
-        # Słowa które parser myli z ulicami
-        'stancja', 'mieszkaniu', 'mieszkanie', 'przechowywania', 'powierzchni',
-        'fajna', 'fajny', 'studentki', 'studenta', 'lokalu', 'budynku', 'budynek',
-        'pokoju', 'kuchni', 'salonu', 'łazienki', 'sypialni',
-        # Pseudo-adresy
-        'blok', 'bloku', 'bloków', 'wieżowiec', 'wieżowca', 'kamienica', 'kamienicy',
-        # Pseudo-ulice wyciągnięte z opisów
-        'rachunki', 'pokoje', 'około', 'dostępny', 'dostępna', 'dostępne',
-        'wynajmę', 'wynajem', 'located', 'gyms', 'available', 'meters',
-        'numer', 'kontaktowy', 'telefon', 'kontakt', 'number',
-        # Instytucje, sklepy, uczelnie - NIE są ulicami
-        'umcs', 'kul', 'politechnika', 'up', 'uniwersytet', 'szkoła', 'szpital',
-        'galeria', 'rondo', 'przystanek', 'dworzec', 'stacja',
-        'sklep', 'biedronka', 'lidl', 'żabka', 'rossmann', 'leclerc', 'auchan', 'kaufland',
-        'park', 'las', 'jezioro', 'rzeka', 'plaża', 'stadion', 'hala', 'basen', 'lsm',
-        'carrefour', 'tesco', 'empik', 'media', 'saturn', 'decathlon',
-        'poczta', 'urząd', 'sąd', 'kościół', 'cerkiew', 'meczet', 'synagoga',
-        'apteka', 'bank', 'hotel', 'restauracja', 'kawiarnia', 'pub', 'klub',
-        'kino', 'teatr', 'muzeum', 'biblioteka', 'klinika', 'przychodnia',
-        # Słowa z opisów metrażu/powierzchni
-        'ma', 'ok', 'około', 'posiada', 'powierzchnia', 'powierzchni', 'metraż', 'metrażu',
-        # === FIX #1 (2026-05-11): blokada wzorca "[Ulica] Lublin Witam/Oferuję" ===
-        'lublin', 'witam', 'oferuję',
-        # === FIX #2 (2026-05-11): słowa z analizy 105 false-positives w logach ===
-        # Płatności/koszty
-        'kaucja', 'depozyt', 'zaliczka', 'kwocie', 'opłaty', 'opłat', 'cenie', 'obowiązuje',
-        'płatne', 'płatność', 'czynszu',
-        # Opisowe rzeczowniki
-        'piętro', 'piętrze', 'kawalerka', 'apartamencie', 'telewizor', 'łóżko', 'przedpokój',
-        # Transport publiczny
-        'whatsapp', 'whats', 'app', 'mpk', 'linia', 'linie', 'autobus', 'autobusowe', 'autobusowego', 'tramwaj',
-        'miejska', 'miejską', 'miejski', 'miejskie', 'miejskiej',  # "komunikacją miejską to 2"
-        # Ludzie / status
-        'obecnie', 'aktualnie', 'mieszka', 'mieszkają', 'mieszkaja', 'zamieszkują',
-        'dziewczyna', 'student',
-        # Czasowniki/spójniki
-        'są', 'jest', 'się', 'znajdują', 'dyspozycji',
-        # Przymiotniki opisowe (sprawdzone: nie istnieją jako nazwy ulic w Lublinie)
-        'duży', 'mały', 'jasny', 'nowoczesny', 'samodzielny', 'pozostałe',
-        # Angielskie słowa z opisów
-        'contact', 'rent', 'detached',
-        # Inne wzorce z logów
-        'wieku', 'wymiarach', 'wysokości', 'zasięgu', 'odległości',
-        'czas', 'umowa', 'najmu',
-        # Liczebniki słownie
-        'dwieście', 'pięć',
-        # === FIX #5 (2026-05-13): noise z analizy skipped_offers_sample.json ===
-        # Rzeczowniki/przymiotniki które parser łapie z numerami z opisu jako "adres + nr"
-        'oddzielnej', 'oddzielną', 'oddzielne', 'oddzielny',
-        'telefonu', 'telefoniczny', 'telefoniczne', 'telefonicznego',
-        # === Słowa z warunków umowy (mogą występować + numer "co najmniej 6 miesięcy") ===
-        'co', 'najmniej', 'minimum', 'maksimum', 'maksymalnie', 'maksymalnym',
-        'umowy', 'umowę', 'okres', 'okresu', 'okresem',
-        'miesięcy', 'miesiące', 'miesiąc', 'miesiącu', 'miesięcznych',
-        'rok', 'roku', 'lat', 'latach',
-        'tydzień', 'tygodnia', 'tygodni',
-        'razy', 'razu',
-        # === noise z analizy (kontynuacja) ===
-        'kondygnacji', 'kondygnacja',
-        'dnia', 'dni',
-        'pozostałych', 'pozostałe', 'pozostały', 'pozostałymi', 'zostały',
-        'zajmie', 'zajmuje',
-        'preferably', 'attractive', 'uniwercity', 'gyms', 'rent', 'monthly',
-        'montly', 'within', 'choose', 'from', 'march', 'detached',
-        'wg', 'oraz', 'tel',
-        'miesięcznego', 'średnio', 'miesięcznie',
-        'oznaczony', 'nr',
-        'samodzielnym',
-        'nowoczesnym',
-        'użytku',
-        'linii', 'linia',
-        'częścią', 'częściej',
-        'ochronę',
-        'numerze', 'numerem',
-        'cenie', 'cena',
-        'wolne', 'wolny',
-        'okolica',
-        'odjeżdżają',
-        'lokalu', 'lokal',
-        'lubelski', 'lubelska', 'lubelskiej', 'lubelskie',
-        'kontaktu',
-        'również',
-        'materacem',
-        'spacer',
-        'zaliczka',
-        'opisduży', 'opisdwuosobowy', 'opispokój', 'opisstudio',
-        # Słowa angielskie z opisów (powtórki dla pewności)
-        'gyms', 'within', 'choose', 'monthly', 'attractive',
-        # === FIX 2026-05-14 (fix 2): słowa z analizy skipped_debug po preprocessing ===
-        # Bezsensowne "adresy" wyciągane przez parser z opisów
-        'of',              # angielskie "amount of PLN 100Deposit" → "Of PLN 100"
-        'floor',           # "floor 2.Fees" — angielski opis OLX
-        'lokalizacja',     # "Lokalizacja 100m od Krwiodawców" — nazwa sekcji opisu
-        'ostatnim',        # "na oddzielnym, ostatnim 3 piętrze" — przymiotnik opisowy
-        'przestronne', 'przestronny', 'przestronna',  # "Przestronne 65m mieszkanie"
-        'vpustreet',       # OLX/skrót w angielskich opisach
-        'obowy',           # quick fix dla bugu regexu: "1-osobowy" → prefiks "os" + "obowy"
-                           # (regex łapie 'os' w środku słowa — naprawa w osobnym fixie)
-        # Inne częste słowa-szumy z analizy
-        'street',          # "Nadbystrzycka Street" — ang. duplikat polskiej nazwy
-        'large',           # "Large room with a balcony"
-        'medical',         # "Medical University"
-        'fees',            # "Fees and Internet included"
-        'deposit',         # "deposit 1000PLN"
-        'rent',            # już jest, ale duplikat dla pewności
-        # Warianty "pokojowy" (mieszkanie 3-pokojowe / 1-pokojowym itp.)
-        # Bez tego parser łapie "pokojowym 75m" jako adres
-        'pokojowy', 'pokojowa', 'pokojowe', 'pokojowym', 'pokojowej', 'pokojowych',
-        # === FIX 2026-05-14 (fix C - cache cleanup): śmieci znalezione w cache analiza ===
-        # Te słowa-śmieci były wcześniej wyciągane przez parser, trafiały do cache jako None.
-        # Dodaję do blacklisty żeby już więcej nie wychodziły jako adresy.
-        'pokoj',           # literówka "pokój" (bez kreski) — "Pokoj 1", "Pokoj 25m"
-        'wynajme',         # literówka "wynajmę"
-        'dojazd',          # "Dojazd 15" - opis komunikacji
-        'bliskość',        # "Bliskość 3" - opisowe
-        'sześć',           # "SZEŚĆ 5" - liczebnik
-        'czechowie',       # "Czechowie Pokoj 1" - locative dzielnicy
-        'uczelni',         # "Uczelni OpisStudio 2" - lokalizacyjne
-        'obowym',          # "Osiedle obowym 12" - fragment "1-osobowym" po obcięciu cyfry
-        'położony',        # "Dom położony 2"
-        # === FIX 2026-05-26: false-positive z "Wymagana 1-miesięczna kaucja" ===
-        # Parser łapie "Wymagana 1" jako adres ulica+numer.
-        'wymagana', 'wymagany', 'wymagane', 'wymagani', 'wymaganym', 'wymaganej',
-    }
+    EXCLUDED_WORDS = _apd.EXCLUDED_WORDS
 
     # FIX 2026-05-26 (B): hardcoded ulice Lublina, których brak w geocoding_cache.
     # Lowercase. Merge'owane z _known_streets w __init__.
-    HARDCODED_LUBLIN_STREETS = {
-        'rycerska',
-    }
+    HARDCODED_LUBLIN_STREETS = _apd.HARDCODED_LUBLIN_STREETS
 
     # Pattern dla ekstrakcji ulicy BEZ numeru (decyzja 1a — tylko z jawnym prefiksem)
     # Wymaga: prefiks + nazwa ulicy (1-3 słowa)
@@ -244,32 +90,7 @@ class AddressParser:
     # Klucz: kanoniczna nazwa dzielnicy (przekazywana do geocodera, który zwróci centroid).
     # Wartość: lista form/wariantów (lowercase), w tym miejscownik/dopełniacz/potoczne nazwy.
     # Lista zweryfikowana z OSM/UM Lublin + potoczne formy z OLX (Bazylianówka, Kalina, LSM).
-    LUBLIN_DISTRICTS = {
-        'Sławin':         ['sławin', 'sławinie', 'slawin', 'slawinie'],
-        'Sławinek':       ['sławinek', 'sławinku', 'slawinek', 'slawinku'],
-        'Czechów':        ['czechów', 'czechow', 'czechowie'],
-        'Ponikwoda':      ['ponikwoda', 'ponikwodzie'],
-        'Kalinowszczyzna':['kalinowszczyzna', 'kalinowszczyźnie', 'kalina', 'kalinie'],
-        'Tatary':         ['tatary', 'tatarach'],
-        'Bronowice':      ['bronowice', 'bronowicach'],
-        'Kośminek':       ['kośminek', 'kośminku', 'kosminek', 'kosminku'],
-        'Dziesiąta':      ['dziesiąta', 'dziesiątej', 'dziesiata', 'dziesiatej'],
-        'Abramowice':     ['abramowice', 'abramowicach'],
-        'Głusk':          ['głusk', 'głusku', 'glusk', 'glusku'],
-        'Zemborzyce':     ['zemborzyce', 'zemborzycach'],
-        'Wrotków':        ['wrotków', 'wrotkowie', 'wrotkow', 'wrotkowie'],
-        'Czuby':          ['czuby', 'czubach'],
-        'Węglin':         ['węglin', 'węglinie', 'weglin', 'weglinie'],
-        'Konstantynów':   ['konstantynów', 'konstantynowie'],
-        'Rury':           ['rury', 'rurach'],
-        'Szerokie':       ['szerokie', 'szerokiem'],
-        'Śródmieście':    ['śródmieście', 'śródmieściu', 'srodmiescie', 'srodmiesciu'],
-        'Wieniawa':       ['wieniawa', 'wieniawie'],
-        'Stare Miasto':   ['stare miasto', 'starym mieście', 'starym miescie'],
-        'Felin':          ['felin', 'felinie'],
-        'Bazylianówka':   ['bazylianówka', 'bazylianowka', 'bazylianówce', 'bazylianowce'],
-        'LSM':            ['lsm'],
-    }
+    LUBLIN_DISTRICTS = _apd.LUBLIN_DISTRICTS
 
     # Pre-buduj reverse map (forma → kanoniczna) dla szybkiego lookup
     _DISTRICT_FORM_MAP = {form: canon for canon, forms in LUBLIN_DISTRICTS.items() for form in forms}
