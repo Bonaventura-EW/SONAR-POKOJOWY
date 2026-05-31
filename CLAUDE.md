@@ -44,7 +44,8 @@ Czytaj uważnie — to nie są sugestie, to są twarde reguły wypracowane przez
 src/                      ← cały backend Python (uruchamiane z poziomu `src/`)
 ├── main.py               ← orkiestrator skanu (entrypoint)
 ├── scraper.py            ← OLX listing + detail pages, BASE_URL tu
-├── address_parser.py     ← regex extractor adresów z opisów
+├── address_parser.py     ← regex extractor adresów z opisów (LOGIKA)
+├── address_parser_data.py ← DANE parsera: EXCLUDED_WORDS, LUBLIN_DISTRICTS, PREFIX_MAP, HARDCODED_LUBLIN_STREETS (edytuj blocklisty/dzielnice TUTAJ)
 ├── price_parser.py       ← JSON-LD → desc parser → HTML fallback
 ├── geocoder.py           ← Nominatim (OpenStreetMap)
 ├── duplicate_detector.py ← Levenshtein 95%
@@ -170,7 +171,7 @@ git push
 | "data wygląda jak NaN/Invalid" | `parseDateString()` w `docs/*.html` — PL format |
 | "scan się nie odpalił" | `data/scan_history.json` (truth), potem logi Actions |
 | "duplikaty na mapie" | `src/duplicate_detector.py` — threshold Levenshtein 95% |
-| "OCR / parser łapie bzdury" | `src/address_parser.py` → `non_street_names`, excluded words |
+| "OCR / parser łapie bzdury" | `src/address_parser_data.py` → `EXCLUDED_WORDS` (blocklista). Po zmianie: `python test_address_parser_golden.py` (regresja na 1255 realnych tekstach). Zmiana zamierzona → `python scripts/build_golden.py`. |
 
 ---
 

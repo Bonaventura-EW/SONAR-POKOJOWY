@@ -10,3 +10,9 @@ Migracje i jednorazowe naprawy danych odpalone historycznie. **Nie są części�
 | `fix_days_active.py` | przeliczenie pola `days_active` w ofertach |
 
 > Nie uruchamiaj ich na ślepo — operują bezpośrednio na `data/offers.json`. Najpierw backup.
+
+## Narzędzia (aktywne)
+
+| Skrypt | Do czego |
+|---|---|
+| `build_golden.py` | regeneruje golden set regresyjny parsera adresów (`test_address_golden.json`). Uruchom **tylko** po świadomej, zamierzonej zmianie zachowania `AddressParser` — golden to „prawda" dla `test_address_parser_golden.py`. Wymusza `PYTHONHASHSEED=0` dla determinizmu. |
