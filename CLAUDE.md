@@ -19,6 +19,8 @@
 ## ⚡ KOMENDY-SKRÓTY MATEUSZA (rozumiej dosłownie)
 
 - **"scan" / "uruchom scan" / "odpal scan" / "zrób scan"** → **ZAWSZE** znaczy: triggeruj GitHub Actions workflow `238181145` przez `curl -X POST` z `$GITHUB_TOKEN` na endpoint `https://api.github.com/repos/Bonaventura-EW/SONAR-POKOJOWY/actions/workflows/238181145/dispatches` z body `{"ref":"main"}`. Spodziewany kod: `204`. **Nigdy** nie odpalaj `python src/main.py` lokalnie, chyba że Mateusz wyraźnie napisze "lokalnie".
+  - **Zawsze triggeruj z brancha `main`** (`"ref":"main"`) — niezależnie od tego, na jakim branchu aktualnie pracujesz. Scan workflow zawsze chodzi na `main`.
+  - Jeśli brak `$GITHUB_TOKEN` w środowisku (curl zwraca 401) — poinformuj użytkownika i podaj link do https://github.com/Bonaventura-EW/SONAR-POKOJOWY/actions/workflows/scanner.yml do ręcznego triggera.
 - Po triggerze: zwróć tylko kod HTTP i link do https://github.com/Bonaventura-EW/SONAR-POKOJOWY/actions. Nie pollu statusu, nie czekaj na koniec.
 
 ---
