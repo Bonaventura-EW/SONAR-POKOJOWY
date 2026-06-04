@@ -209,6 +209,8 @@
         .versions-h { font-size: 10px; font-weight: 700; color: #475569; letter-spacing: .3px; margin-bottom: 7px; }
         .ver { position: relative; padding: 8px 10px 8px 20px; border-radius: 7px; margin-bottom: 5px; border: 1px solid #e7ecf2; background: #fff; }
         .ver.current { border-color: #c7f0d6; background: #f6fef9; }
+        .ver.clickable { cursor: pointer; transition: border-color .1s, box-shadow .1s; }
+        .ver.clickable:hover { border-color: #a855f7; box-shadow: 0 1px 4px rgba(168,85,247,0.18); }
         .ver::before { content: ''; position: absolute; left: 7px; top: 12px; width: 7px; height: 7px; border-radius: 50%; background: #cbd5e1; }
         .ver.current::before { background: #16a34a; }
         .ver-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -438,11 +440,13 @@ function makeArchivalIcon() {
 }
 
 let archivalMarkers = [];
+let archivalByKey = {};   // "offerId:vIndex" → marker (do klikania z karty wersji)
 function renderMarkers(profileKey) {
     Object.values(leafletMarkers).forEach(m => map.removeLayer(m.marker));
     leafletMarkers = {};
     archivalMarkers.forEach(m => map.removeLayer(m));
     archivalMarkers = [];
+    archivalByKey = {};
 
     const prof = profileData.profiles[profileKey];
     if (!prof) return;
@@ -481,8 +485,8 @@ function renderMarkers(profileKey) {
 
         // Archiwalne pinezki POPRZEDNICH adresów (oferta zmieniła adres)
         // address_versions[0] = bieżąca (już wyrenderowana wyżej); [1..] = poprzednie
-        (o.address_versions || []).slice(1).forEach(v => {
-            if (!v.lat || !v.lon) return;
+        (o.address_versions || []).forEach((v, vIndex) => {
+            if (vIndex === 0 || !v.lat || !v.lon) return;   // [0] = bieżąca (wyżej)
             const vColor = pc((v.price_history?.at(-1) || {}).price || 0);
             const am = L.marker([v.lat, v.lon], { icon: makeArchivalIcon(), zIndexOffset: -100 });
             am.bindPopup(
@@ -495,9 +499,9 @@ function renderMarkers(profileKey) {
                 + '</div>',
                 { maxWidth: 240 }
             );
-            am.on('click', () => hlOffer(o.id || o.url));
             am.addTo(map);
             archivalMarkers.push(am);
+            archivalByKey[(o.id || o.url) + ':' + vIndex] = am;
             bounds.push([v.lat, v.lon]);
         });
     });
@@ -626,7 +630,7 @@ function verSpark(history) {
         + '</svg>';
 }
 
-function verCard(v) {
+function verCard(v, offerId, vIndex) {
     const status = v.active
         ? '<span class="ver-status st-active">AKTYWNA</span>'
         : '<span class="ver-status st-ended">' + (v.current ? 'NIEAKTYWNA' : 'ZAKOŃCZONA') + '</span>';
@@ -639,7 +643,14 @@ function verCard(v) {
             return '<span class="hp ' + cls + '">' + p + (i === prices.length - 1 ? ' zł' : '') + '</span>';
           }).join(' ')
         : '—';
-    return '<div class="ver' + (v.current ? ' current' : '') + '">'
+    // Klik: bieżąca → pin aktywny; zakończona z coords → jej archiwalny pin
+    const clickable = v.current || (v.lat && v.lon);
+    const onclick = v.current
+        ? "event.stopPropagation(); hlOffer('" + offerId + "')"
+        : (v.lat && v.lon ? "event.stopPropagation(); focusArchival('" + offerId + "', " + vIndex + ")" : '');
+    const titleAttr = (!v.current && v.lat && v.lon) ? ' title="Pokaż na mapie poprzedni adres"' : '';
+    return '<div class="ver' + (v.current ? ' current' : '') + (clickable ? ' clickable' : '') + '"'
+        + (onclick ? ' onclick="' + onclick + '"' : '') + titleAttr + '>'
         + '<div class="ver-top"><span class="ver-addr' + (v.current ? '' : ' old') + '">' + (v.address || '—') + '</span>' + status + '</div>'
         + '<div class="ver-range">' + range + '</div>'
         + '<div class="ver-body">'
@@ -648,12 +659,20 @@ function verCard(v) {
         + '</div></div>';
 }
 
+function focusArchival(offerId, vIndex) {
+    const m = archivalByKey[offerId + ':' + vIndex];
+    if (!m) return;
+    m.openPopup();
+    map.panTo(m.getLatLng(), { animate: true });
+}
+
 function buildVersions(o) {
     const vers = o.address_versions || [];
     if (vers.length < 2) return '';
+    const offerId = o.id || o.url;
     let html = '<div class="versions"><div class="versions-h">📜 Historia ogłoszenia — ' + vers.length + ' wersje adresu</div>';
     vers.forEach((v, i) => {
-        html += verCard(v);
+        html += verCard(v, offerId, i);
         if (i < vers.length - 1) {
             const older = vers[i + 1];
             const oldP = (older.price_history.at(-1) || {}).price;
