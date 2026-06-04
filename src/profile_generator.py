@@ -37,6 +37,23 @@ def format_date_only(iso_string: str) -> str:
         return iso_string
 
 
+def _within_days(iso_string: str, now, tz, days: int = 2) -> bool:
+    """Czy timestamp ISO mieści się w ostatnich `days` dniach względem now."""
+    if not iso_string:
+        return False
+    try:
+        dt = datetime.fromisoformat(iso_string.replace('Z', '+00:00'))
+        if dt.tzinfo is None:
+            dt = tz.localize(dt)
+        else:
+            dt = dt.astimezone(tz)
+        seconds = (now - dt).total_seconds()
+        # -3600 toleruje drobny skew zegara dla świeżych wpisów
+        return -3600 <= seconds <= days * 86400
+    except (ValueError, AttributeError):
+        return False
+
+
 
 KNOWN_NON_LUBLIN = [
     'warszawa', 'gdańsk', 'gdansk', 'kraków', 'krakow', 'wrocław', 'wroclaw',
@@ -120,6 +137,8 @@ def generate_profile_data(input_file: str, output_file: str):
                 'max_price': None,
                 'newest_date': None,
                 'oldest_date': None,
+                'recent_change': False,       # czy zmiana w ostatnich 2 dniach
+                'recent_change_count': 0,     # ile ofert ze świeżą zmianą
             }
         }
 
@@ -210,6 +229,22 @@ def generate_profile_data(input_file: str, output_file: str):
 
         profile_data[profile_key]['offers'].append(offer_entry)
 
+        # Świeża zmiana (≤2 dni): nowa oferta / zmiana ceny / reaktywacja / dezaktywacja
+        recent_change = False
+        if _within_days(offer.get('first_seen', ''), now, tz):
+            recent_change = True
+        if not is_active and _within_days(offer.get('last_seen', ''), now, tz):
+            recent_change = True
+        if offer.get('reactivated_at') and _within_days(offer.get('reactivated_at'), now, tz):
+            recent_change = True
+        if not recent_change:
+            for h in history_full[1:]:  # pomiń wpis startowy = sama cena początkowa
+                if _within_days(h.get('date', ''), now, tz):
+                    recent_change = True
+                    break
+        if recent_change:
+            profile_data[profile_key]['stats']['recent_change_count'] += 1
+
     # Oblicz statystyki per-profil
     for key, pdata in profile_data.items():
         poffers = pdata['offers']
@@ -221,6 +256,7 @@ def generate_profile_data(input_file: str, output_file: str):
         pdata['stats']['total'] = len(poffers)
         pdata['stats']['active'] = len(active_offers)
         pdata['stats']['inactive'] = len(inactive_offers)
+        pdata['stats']['recent_change'] = pdata['stats']['recent_change_count'] > 0
 
         if prices:
             pdata['stats']['avg_price'] = round(sum(prices) / len(prices))
