@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — zmiana adresu w ofercie</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; color: #1e293b; padding: 0 0 60px; }
+  .sp-header { background: linear-gradient(120deg, #fb923c 0%, #ef4444 50%, #ec4899 100%); color: white; padding: 14px 24px; }
+  .sp-header h1 { font-size: 18px; font-weight: 700; }
+  .sp-header h1 .sp-s { opacity: 0.5; margin: 0 8px; font-weight: 300; }
+  .intro { padding: 18px 24px 4px; }
+  .intro h2 { font-size: 15px; }
+  .intro p { font-size: 12px; color: #64748b; margin-top: 4px; }
+  .variant { background: white; border: 1px solid #e2e8f0; border-radius: 10px; margin: 14px 24px; overflow: hidden; max-width: 620px; }
+  .variant-label { display: flex; align-items: baseline; gap: 8px; padding: 8px 14px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0; }
+  .variant-label .num { background: #0f172a; color: #f59e0b; font-weight: 700; font-size: 11px; width: 22px; height: 22px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; }
+  .variant-label .name { font-size: 13px; font-weight: 600; }
+  .variant-label .desc { font-size: 11px; color: #64748b; }
+
+  /* ── styl wierszy z profile_tracker.html ── */
+  .row { padding: 9px 12px; border-bottom: 0.5px solid #e8ecf0; border-left: 2px solid transparent; }
+  .row-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; gap: 8px; }
+  .row-addr { font-size: 12px; font-weight: 600; color: #0f172a; flex: 1; }
+  .row-price { font-size: 13px; font-weight: 700; white-space: nowrap; color: #ff6f00; }
+  .row-meta { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+  .badge { font-size: 10px; padding: 1px 6px; border-radius: 3px; font-weight: 600; }
+  .badge-pokoj { background: rgba(74,222,128,0.15); color: #166534; }
+  .meta-txt { font-size: 10px; color: #475569; }
+  .meta-days { font-size: 10px; font-weight: 600; color: #334155; }
+
+  /* elementy zmiany adresu */
+  .addr-old { text-decoration: line-through; color: #94a3b8; font-weight: 500; }
+  .addr-arrow { color: #94a3b8; margin: 0 4px; font-weight: 400; }
+  .addr-new { color: #0f172a; }
+  .badge-addr { background: rgba(168,85,247,0.12); color: #7c3aed; border: 1px solid rgba(168,85,247,0.3); }
+  .addr-sub { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+  .addr-sub .addr-old { font-size: 10px; }
+</style>
+</head>
+<body>
+<header class="sp-header"><h1>SONAR POKOJOWY <span class="sp-s">·</span> 🏢 Firmy</h1></header>
+<div class="intro">
+  <h2>Wyświetlanie zmiany adresu w ofercie (ten sam listing OLX, edytowany)</h2>
+  <p>Przykład: ogłoszenie <b>ID16ZeYm</b> zmieniło adres <b>Romanowskiego 58</b> → <b>Batalionów Chłopskich 16</b> (i cenę 600 → 780 zł). Wybierz wariant.</p>
+</div>
+
+<!-- 1: inline strikethrough -->
+<div class="variant">
+  <div class="variant-label"><span class="num">1</span><span class="name">Inline — przekreślony stary → nowy</span><span class="desc">w jednej linii tytułu</span></div>
+  <div class="row">
+    <div class="row-top">
+      <span class="row-addr"><span class="addr-old">Romanowskiego 58</span><span class="addr-arrow">→</span><span class="addr-new">Batalionów Chłopskich 16</span></span>
+      <span class="row-price">780 zł <span style="font-size:10px;color:#dc2626">↑</span></span>
+    </div>
+    <div class="row-meta">
+      <span class="badge badge-pokoj">🛏 pokój</span>
+      <span class="badge badge-addr">✏ adres zmieniony</span>
+      <span class="meta-txt">📅 28.02.2026</span>
+      <span class="meta-days">⏳ 96 dni</span>
+    </div>
+  </div>
+</div>
+
+<!-- 2: nowy główny, stary pod spodem małym -->
+<div class="variant">
+  <div class="variant-label"><span class="num">2</span><span class="name">Nowy główny + stary drobnym pod spodem</span><span class="desc">z datą zmiany</span></div>
+  <div class="row">
+    <div class="row-top">
+      <span class="row-addr">
+        <div class="addr-new">Batalionów Chłopskich 16</div>
+        <div class="addr-sub">było: <span class="addr-old">Romanowskiego 58</span> · zmiana 03.06</div>
+      </span>
+      <span class="row-price">780 zł <span style="font-size:10px;color:#dc2626">↑</span></span>
+    </div>
+    <div class="row-meta">
+      <span class="badge badge-pokoj">🛏 pokój</span>
+      <span class="meta-txt">📅 28.02.2026</span>
+      <span class="meta-days">⏳ 96 dni</span>
+    </div>
+  </div>
+</div>
+
+<!-- 3: badge + tylko nowy, historia na hover -->
+<div class="variant">
+  <div class="variant-label"><span class="num">3</span><span class="name">Tylko nowy + badge (stary w tooltipie)</span><span class="desc">najczyściej, najedź na badge</span></div>
+  <div class="row">
+    <div class="row-top">
+      <span class="row-addr">Batalionów Chłopskich 16</span>
+      <span class="row-price">780 zł <span style="font-size:10px;color:#dc2626">↑</span></span>
+    </div>
+    <div class="row-meta">
+      <span class="badge badge-pokoj">🛏 pokój</span>
+      <span class="badge badge-addr" title="Poprzedni adres: Romanowskiego 58 (do 03.06.2026)">✏ adres zmieniony</span>
+      <span class="meta-txt">📅 28.02.2026</span>
+      <span class="meta-days">⏳ 96 dni</span>
+    </div>
+  </div>
+</div>
+
+<div style="padding:4px 24px;font-size:11px;color:#94a3b8">Napisz numer (1–3). Backend i tak scali ofertę + zapisze pełną historię adresów — wybór dotyczy tylko sposobu wyświetlania.</div>
+</body>
+</html>
