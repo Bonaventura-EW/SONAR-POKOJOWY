@@ -3,40 +3,49 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mockup — wersje ogłoszenia (zmiany adresu)</title>
+<title>Mockup — wersje + styl adresu (1+2)</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; color: #1e293b; padding: 0 0 60px; }
   .sp-header { background: linear-gradient(120deg, #fb923c 0%, #ef4444 50%, #ec4899 100%); color: white; padding: 14px 24px; }
   .sp-header h1 { font-size: 18px; font-weight: 700; }
   .sp-header h1 .sp-s { opacity: 0.5; margin: 0 8px; font-weight: 300; }
-  .intro { padding: 18px 24px 6px; }
+  .intro { padding: 18px 24px 4px; }
   .intro h2 { font-size: 15px; }
-  .intro p { font-size: 12px; color: #64748b; margin-top: 4px; max-width: 760px; }
+  .intro p { font-size: 12px; color: #64748b; margin-top: 4px; max-width:780px; }
 
-  .card { background: white; border: 1px solid #e2e8f0; border-radius: 10px; margin: 14px 24px; overflow: hidden; max-width: 680px; }
+  .card { background: white; border: 1px solid #e2e8f0; border-radius: 10px; margin: 14px 24px; overflow: hidden; max-width: 700px; }
+  .card-label { display: flex; align-items: baseline; gap: 8px; padding: 8px 14px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0; }
+  .card-label .num { background: #0f172a; color: #f59e0b; font-weight: 700; font-size: 12px; width: 24px; height: 24px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; }
+  .card-label .name { font-size: 13px; font-weight: 600; }
 
-  /* ── wiersz oferty (jak profile_tracker) ── */
+  /* wiersz oferty */
   .row { padding: 10px 14px; }
   .row-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-  .row-addr { font-size: 13px; font-weight: 700; color: #0f172a; flex: 1; }
-  .row-price { font-size: 14px; font-weight: 800; white-space: nowrap; }
-  .row-meta { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; margin-top: 5px; }
+  .row-addr { font-size: 13px; font-weight: 700; color: #0f172a; flex: 1; line-height:1.45; }
+  .row-price { font-size: 14px; font-weight: 800; white-space: nowrap; color:#ff6f00; }
+  .row-meta { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
   .badge { font-size: 10px; padding: 1px 6px; border-radius: 3px; font-weight: 600; }
   .badge-pokoj { background: rgba(74,222,128,0.15); color: #166534; }
   .badge-addr { background: rgba(168,85,247,0.12); color: #7c3aed; border: 1px solid rgba(168,85,247,0.3); }
   .meta-txt { font-size: 10px; color: #475569; }
   .meta-days { font-size: 10px; font-weight: 600; color: #334155; }
 
-  /* ── sekcja wersji ── */
-  .versions { border-top: 1px solid #eef2f6; background: #fcfdff; padding: 8px 14px 12px; }
-  .versions-h { font-size: 11px; font-weight: 700; color: #475569; letter-spacing: .3px; margin-bottom: 8px; display:flex; align-items:center; gap:6px; }
+  .addr-old { text-decoration: line-through; color: #94a3b8; font-weight: 500; }
+  .addr-arrow { color: #a855f7; margin: 0 5px; font-weight: 600; }
+  .addr-new { color: #0f172a; font-weight: 700; }
+  .addr-sub { font-size: 10px; color: #94a3b8; margin-top: 3px; }
+  .pr-old { text-decoration: line-through; color:#cbd5e1; }
+  .pr-new { color:#dc2626; font-weight:700; }
+  .ico { color:#a855f7; }
 
+  /* sekcja wersji */
+  .versions { border-top: 1px solid #eef2f6; background: #fcfdff; padding: 8px 14px 12px; }
+  .versions-h { font-size: 11px; font-weight: 700; color: #475569; letter-spacing: .3px; margin-bottom: 8px; }
   .ver { position: relative; padding: 9px 10px 9px 22px; border-radius: 8px; margin-bottom: 6px; border: 1px solid #e7ecf2; background: #fff; }
   .ver.current { border-color: #c7f0d6; background: #f6fef9; }
   .ver::before { content:''; position:absolute; left:8px; top:13px; width:8px; height:8px; border-radius:50%; background:#cbd5e1; }
   .ver.current::before { background:#16a34a; }
-
   .ver-top { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
   .ver-addr { font-size:12px; font-weight:700; color:#0f172a; }
   .ver-addr.old { color:#64748b; }
@@ -44,152 +53,167 @@
   .st-active { background:rgba(22,163,74,.12); color:#15803d; }
   .st-ended { background:#f1f5f9; color:#94a3b8; }
   .ver-range { font-size:10px; color:#94a3b8; margin-top:1px; }
-
-  .ver-body { display:flex; align-items:center; gap:14px; margin-top:7px; flex-wrap:wrap; }
+  .ver-body { display:flex; align-items:center; gap:16px; margin-top:7px; flex-wrap:wrap; }
   .spark-wrap { display:flex; align-items:center; gap:8px; }
   .spark-label { font-size:9px; color:#94a3b8; text-transform:uppercase; }
   .spark-prices { font-size:10px; color:#475569; }
   .hp { font-weight:700; } .hp.down{color:#16a34a;} .hp.up{color:#dc2626;} .hp.same{color:#64748b;}
-  .ver-counters { display:flex; gap:10px; font-size:10px; }
-  .vc { color:#475569; } .vc b{color:#d97706;}
-  .vc.reakt b{ color:#92400e; }
-
-  /* ── łącznik zmiany adresu ── */
-  .change { display:flex; align-items:center; gap:8px; margin:2px 0 6px 22px; font-size:10px; color:#7c3aed; }
-  .change .ico { font-size:11px; }
+  .ver-counters { display:flex; gap:12px; font-size:10px; }
+  .vc { color:#475569; } .vc b{color:#d97706;} .vc.reakt b{ color:#92400e; }
+  .change { display:flex; align-items:center; gap:6px; margin:2px 0 6px 22px; font-size:10px; color:#7c3aed; }
   .change b { color:#0f172a; }
-  .change .pr-old { color:#94a3b8; text-decoration:line-through; }
-  .change .pr-new { color:#dc2626; font-weight:700; }
-
-  .note { padding: 4px 24px; font-size: 11px; color: #94a3b8; max-width:760px; }
+  .note { padding: 4px 24px; font-size: 11px; color: #94a3b8; max-width:780px; }
 </style>
 </head>
 <body>
 <header class="sp-header"><h1>SONAR POKOJOWY <span class="sp-s">·</span> 🏢 Firmy</h1></header>
 <div class="intro">
-  <h2>Wersje ogłoszenia — osobna historia cen / odświeżeń / reaktywacji per adres</h2>
-  <p>Jeden listing OLX (ten sam <b>ID</b>) może zmieniać adres. Każda zmiana adresu = nowa <b>wersja</b>. Każda wersja ma <b>własny</b> wykres cen, <b>własne</b> odświeżenia i <b>własne</b> reaktywacje. Widoczna jest data zmiany i cena przed → po.</p>
+  <h2>Wersje ogłoszenia — osobny wykres cen / odświeżenia / reaktywacje per adres + styl wyświetlania (A/B/C)</h2>
+  <p>Każda zmiana adresu = nowa wersja z <b>własnym</b> wykresem cen, <b>własnymi</b> odświeżeniami i reaktywacjami. Karty A/B/C mają identyczną strukturę — różnią się tylko <b>stylem nagłówka i linii zmiany</b> (połączenie wariantu 1 i 2). Wybierz literę.</p>
 </div>
 
-<!-- PRZYKŁAD REALNY: ID16ZeYm, 2 wersje -->
+<!-- ============ STYL A: inline w nagłówku ============ -->
 <div class="card">
+  <div class="card-label"><span class="num">A</span><span class="name">Nagłówek inline: przekreślony → nowy</span></div>
   <div class="row">
     <div class="row-top">
-      <span class="row-addr">Batalionów Chłopskich 16</span>
-      <span class="row-price" style="color:#ff6f00">780 zł</span>
+      <span class="row-addr">
+        <span class="addr-old">Romanowskiego 58</span><span class="addr-arrow">→</span><span class="addr-new">Batalionów Chłopskich 16</span>
+      </span>
+      <span class="row-price">780 zł</span>
     </div>
     <div class="row-meta">
-      <span class="badge badge-pokoj">🛏 pokój</span>
-      <span class="badge badge-addr">✏ 1 zmiana adresu</span>
-      <span class="meta-txt">📅 28.02.2026 (pierwsze ogłoszenie)</span>
-      <span class="meta-days">⏳ 96 dni łącznie</span>
+      <span class="badge badge-pokoj">🛏 pokój</span><span class="badge badge-addr">✏ 1 zmiana adresu</span>
+      <span class="meta-txt">📅 28.02.2026 (pierwsze)</span><span class="meta-days">⏳ 96 dni łącznie</span>
     </div>
   </div>
-
   <div class="versions">
-    <div class="versions-h">📜 Historia ogłoszenia — 2 wersje adresu</div>
-
-    <!-- wersja 2 aktualna -->
+    <div class="versions-h">📜 Historia ogłoszenia — 2 wersje</div>
     <div class="ver current">
-      <div class="ver-top">
-        <span class="ver-addr">Batalionów Chłopskich 16</span>
-        <span class="ver-status st-active">AKTYWNA</span>
-      </div>
+      <div class="ver-top"><span class="ver-addr">Batalionów Chłopskich 16</span><span class="ver-status st-active">AKTYWNA</span></div>
       <div class="ver-range">od 03.06.2026</div>
       <div class="ver-body">
-        <div class="spark-wrap">
-          <span class="spark-label">Ceny</span>
-          <svg width="70" height="26"></svg>
-          <span class="spark-prices"><span class="hp same">780 zł</span></span>
-        </div>
-        <div class="ver-counters">
-          <span class="vc">🔄 odświeżenia: <b>0</b></span>
-          <span class="vc reakt">♻ reaktywacje: <b>0</b></span>
-        </div>
+        <div class="spark-wrap"><span class="spark-label">Ceny</span><svg width="70" height="26" data-prices="780"></svg><span class="spark-prices"><span class="hp same">780 zł</span></span></div>
+        <div class="ver-counters"><span class="vc">🔄 odświeżenia: <b>0</b></span><span class="vc reakt">♻ reaktywacje: <b>0</b></span></div>
       </div>
     </div>
-
-    <!-- moment zmiany -->
-    <div class="change"><span class="ico">✏</span> zmiana adresu <b>03.06.2026</b> · Romanowskiego 58 → Batalionów Chłopskich 16 · cena <span class="pr-old">600 zł</span> → <span class="pr-new">780 zł</span></div>
-
-    <!-- wersja 1 poprzednia -->
+    <div class="change"><span class="ico">✏</span> zmiana adresu <b>03.06.2026</b> · cena <span class="pr-old">600</span> → <span class="pr-new">780 zł</span></div>
     <div class="ver">
-      <div class="ver-top">
-        <span class="ver-addr old">Romanowskiego 58</span>
-        <span class="ver-status st-ended">ZAKOŃCZONA</span>
-      </div>
+      <div class="ver-top"><span class="ver-addr old">Romanowskiego 58</span><span class="ver-status st-ended">ZAKOŃCZONA</span></div>
       <div class="ver-range">28.02.2026 → 02.06.2026 · 94 dni</div>
       <div class="ver-body">
-        <div class="spark-wrap">
-          <span class="spark-label">Ceny</span>
-          <svg width="70" height="26" data-prices="640,600"></svg>
-          <span class="spark-prices"><span class="hp same">640</span> → <span class="hp down">600 zł</span></span>
-        </div>
-        <div class="ver-counters">
-          <span class="vc">🔄 odświeżenia: <b>2</b></span>
-          <span class="vc reakt">♻ reaktywacje: <b>1</b></span>
-        </div>
+        <div class="spark-wrap"><span class="spark-label">Ceny</span><svg width="70" height="26" data-prices="640,600"></svg><span class="spark-prices"><span class="hp same">640</span> → <span class="hp down">600 zł</span></span></div>
+        <div class="ver-counters"><span class="vc">🔄 odświeżenia: <b>2</b></span><span class="vc reakt">♻ reaktywacje: <b>1</b></span></div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- PRZYKŁAD SYNTETYCZNY: jak wygląda przy 4 zmianach adresu -->
+<!-- ============ STYL B: nowy + (było: ...) ============ -->
 <div class="card">
+  <div class="card-label"><span class="num">B</span><span class="name">Nagłówek: nowy + „(było: …)" obok</span></div>
   <div class="row">
     <div class="row-top">
-      <span class="row-addr">Przykład: 4 zmiany adresu (jak by to wyglądało)</span>
-      <span class="row-price" style="color:#aa00ff">1400 zł</span>
+      <span class="row-addr">
+        <span class="addr-new">Batalionów Chłopskich 16</span> <span class="addr-old" style="font-size:11px">(było: Romanowskiego 58)</span>
+      </span>
+      <span class="row-price">780 zł</span>
     </div>
     <div class="row-meta">
-      <span class="badge badge-addr">✏ 4 zmiany adresu</span>
-      <span class="meta-days">⏳ 210 dni łącznie</span>
+      <span class="badge badge-pokoj">🛏 pokój</span><span class="badge badge-addr">✏ 1 zmiana adresu</span>
+      <span class="meta-txt">📅 28.02.2026 (pierwsze)</span><span class="meta-days">⏳ 96 dni łącznie</span>
     </div>
   </div>
   <div class="versions">
-    <div class="versions-h">📜 Historia ogłoszenia — 5 wersji adresu</div>
+    <div class="versions-h">📜 Historia ogłoszenia — 2 wersje</div>
+    <div class="ver current">
+      <div class="ver-top"><span class="ver-addr">Batalionów Chłopskich 16</span><span class="ver-status st-active">AKTYWNA</span></div>
+      <div class="ver-range">od 03.06.2026</div>
+      <div class="ver-body">
+        <div class="spark-wrap"><span class="spark-label">Ceny</span><svg width="70" height="26" data-prices="780"></svg><span class="spark-prices"><span class="hp same">780 zł</span></span></div>
+        <div class="ver-counters"><span class="vc">🔄 odświeżenia: <b>0</b></span><span class="vc reakt">♻ reaktywacje: <b>0</b></span></div>
+      </div>
+    </div>
+    <div class="change"><span class="ico">✏</span> zmiana adresu <b>03.06.2026</b> · cena <span class="pr-old">600</span> → <span class="pr-new">780 zł</span></div>
+    <div class="ver">
+      <div class="ver-top"><span class="ver-addr old">Romanowskiego 58</span><span class="ver-status st-ended">ZAKOŃCZONA</span></div>
+      <div class="ver-range">28.02.2026 → 02.06.2026 · 94 dni</div>
+      <div class="ver-body">
+        <div class="spark-wrap"><span class="spark-label">Ceny</span><svg width="70" height="26" data-prices="640,600"></svg><span class="spark-prices"><span class="hp same">640</span> → <span class="hp down">600 zł</span></span></div>
+        <div class="ver-counters"><span class="vc">🔄 odświeżenia: <b>2</b></span><span class="vc reakt">♻ reaktywacje: <b>1</b></span></div>
+      </div>
+    </div>
+  </div>
+</div>
 
+<!-- ============ STYL C: nowy + linia "było ... →" pod spodem ============ -->
+<div class="card">
+  <div class="card-label"><span class="num">C</span><span class="name">Nagłówek: nowy duży + linia zmiany pod spodem</span></div>
+  <div class="row">
+    <div class="row-top">
+      <span class="row-addr">
+        <span class="addr-new" style="font-size:13px">Batalionów Chłopskich 16</span>
+        <div class="addr-sub"><span class="ico">✏</span> było: <span class="addr-old">Romanowskiego 58</span> → zmiana 03.06.2026 · <span class="pr-old">600</span> → <span class="pr-new">780 zł</span></div>
+      </span>
+      <span class="row-price">780 zł</span>
+    </div>
+    <div class="row-meta">
+      <span class="badge badge-pokoj">🛏 pokój</span><span class="badge badge-addr">✏ 1 zmiana adresu</span>
+      <span class="meta-txt">📅 28.02.2026 (pierwsze)</span><span class="meta-days">⏳ 96 dni łącznie</span>
+    </div>
+  </div>
+  <div class="versions">
+    <div class="versions-h">📜 Historia ogłoszenia — 2 wersje</div>
+    <div class="ver current">
+      <div class="ver-top"><span class="ver-addr">Batalionów Chłopskich 16</span><span class="ver-status st-active">AKTYWNA</span></div>
+      <div class="ver-range">od 03.06.2026</div>
+      <div class="ver-body">
+        <div class="spark-wrap"><span class="spark-label">Ceny</span><svg width="70" height="26" data-prices="780"></svg><span class="spark-prices"><span class="hp same">780 zł</span></span></div>
+        <div class="ver-counters"><span class="vc">🔄 odświeżenia: <b>0</b></span><span class="vc reakt">♻ reaktywacje: <b>0</b></span></div>
+      </div>
+    </div>
+    <div class="change"><span class="ico">✏</span> zmiana adresu <b>03.06.2026</b> · cena <span class="pr-old">600</span> → <span class="pr-new">780 zł</span></div>
+    <div class="ver">
+      <div class="ver-top"><span class="ver-addr old">Romanowskiego 58</span><span class="ver-status st-ended">ZAKOŃCZONA</span></div>
+      <div class="ver-range">28.02.2026 → 02.06.2026 · 94 dni</div>
+      <div class="ver-body">
+        <div class="spark-wrap"><span class="spark-label">Ceny</span><svg width="70" height="26" data-prices="640,600"></svg><span class="spark-prices"><span class="hp same">640</span> → <span class="hp down">600 zł</span></span></div>
+        <div class="ver-counters"><span class="vc">🔄 odświeżenia: <b>2</b></span><span class="vc reakt">♻ reaktywacje: <b>1</b></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PRZYKŁAD: 4 zmiany adresu = 4+1 wersji, każda swój wykres ============ -->
+<div class="card" style="max-width:700px">
+  <div class="card-label"><span class="num">↯</span><span class="name">Jak skaluje przy 4 zmianach adresu (5 wersji, każda osobny wykres + liczniki)</span></div>
+  <div class="versions">
     <div class="ver current">
       <div class="ver-top"><span class="ver-addr">Lipowa 12</span><span class="ver-status st-active">AKTYWNA</span></div>
       <div class="ver-range">od 20.05.2026</div>
-      <div class="ver-body">
-        <div class="spark-wrap"><span class="spark-label">Ceny</span><svg width="70" height="26" data-prices="1300,1400"></svg><span class="spark-prices"><span class="hp same">1300</span>→<span class="hp up">1400</span></span></div>
-        <div class="ver-counters"><span class="vc">🔄 <b>1</b></span><span class="vc reakt">♻ <b>0</b></span></div>
-      </div>
+      <div class="ver-body"><div class="spark-wrap"><span class="spark-label">Ceny</span><svg width="70" height="26" data-prices="1300,1400"></svg><span class="spark-prices"><span class="hp same">1300</span>→<span class="hp up">1400</span></span></div><div class="ver-counters"><span class="vc">🔄 <b>1</b></span><span class="vc reakt">♻ <b>0</b></span></div></div>
     </div>
     <div class="change"><span class="ico">✏</span> <b>20.05</b> · Krakowska 4 → Lipowa 12 · <span class="pr-old">1250</span> → <span class="pr-new">1300 zł</span></div>
-
     <div class="ver">
       <div class="ver-top"><span class="ver-addr old">Krakowska 4</span><span class="ver-status st-ended">ZAKOŃCZONA</span></div>
       <div class="ver-range">02.04 → 19.05.2026 · 47 dni</div>
-      <div class="ver-body">
-        <div class="spark-wrap"><span class="spark-label">Ceny</span><svg width="70" height="26" data-prices="1200,1100,1250"></svg><span class="spark-prices"><span class="hp same">1200</span><span class="hp down">1100</span><span class="hp up">1250</span></span></div>
-        <div class="ver-counters"><span class="vc">🔄 <b>3</b></span><span class="vc reakt">♻ <b>2</b></span></div>
-      </div>
+      <div class="ver-body"><div class="spark-wrap"><span class="spark-label">Ceny</span><svg width="70" height="26" data-prices="1200,1100,1250"></svg><span class="spark-prices"><span class="hp same">1200</span><span class="hp down">1100</span><span class="hp up">1250</span></span></div><div class="ver-counters"><span class="vc">🔄 <b>3</b></span><span class="vc reakt">♻ <b>2</b></span></div></div>
     </div>
     <div class="change"><span class="ico">✏</span> <b>02.04</b> · Pogodna 8 → Krakowska 4 · <span class="pr-old">1000</span> → <span class="pr-new">1200 zł</span></div>
-
     <div class="ver">
       <div class="ver-top"><span class="ver-addr old">Pogodna 8</span><span class="ver-status st-ended">ZAKOŃCZONA</span></div>
       <div class="ver-range">10.02 → 01.04.2026 · 50 dni</div>
-      <div class="ver-body">
-        <div class="spark-wrap"><span class="spark-label">Ceny</span><svg width="70" height="26" data-prices="950,1000"></svg><span class="spark-prices"><span class="hp same">950</span><span class="hp up">1000</span></span></div>
-        <div class="ver-counters"><span class="vc">🔄 <b>0</b></span><span class="vc reakt">♻ <b>1</b></span></div>
-      </div>
+      <div class="ver-body"><div class="spark-wrap"><span class="spark-label">Ceny</span><svg width="70" height="26" data-prices="950,1000"></svg><span class="spark-prices"><span class="hp same">950</span><span class="hp up">1000</span></span></div><div class="ver-counters"><span class="vc">🔄 <b>0</b></span><span class="vc reakt">♻ <b>1</b></span></div></div>
     </div>
-    <div class="note" style="margin:0;padding-left:22px">… (kolejne wersje analogicznie, najstarsze na dole)</div>
+    <div class="note" style="margin:0;padding-left:22px">… kolejne 2 wersje analogicznie (najstarsze na dole)</div>
   </div>
 </div>
 
-<div class="note">Każdy wykres liczony jest <b>osobno</b> dla danego adresu — przy zmianie adresu cena nie „przeskakuje" w jednym wykresie, tylko zaczyna nowy. Odświeżenia i reaktywacje też naliczane per wersja. OK z układem? Coś dodać/uprościć?</div>
+<div class="note">Wybierz literę nagłówka (A / B / C). Struktura wersji (osobne wykresy + osobne 🔄/♻) jest w każdym wariancie identyczna — to jest sedno, o które prosiłeś.</div>
 
 <script>
-// prosty sparkline z atrybutu data-prices
 function spark(svg, prices){
-  if(prices.length<2){
-    const c=Math.round(svg.getAttribute('width')/2);
-    svg.innerHTML='<circle cx="'+c+'" cy="13" r="2.4" fill="#64748b"/>';return;
-  }
+  if(prices.length<2){ const c=Math.round(svg.getAttribute('width')/2); svg.innerHTML='<circle cx="'+c+'" cy="13" r="2.4" fill="#64748b"/>'; return; }
   const W=+svg.getAttribute('width'),H=+svg.getAttribute('height'),P=3;
   const mn=Math.min(...prices),mx=Math.max(...prices),rg=(mx-mn)||1;
   const step=(W-P*2)/(prices.length-1);
@@ -202,9 +226,7 @@ function spark(svg, prices){
     +'<polyline points="'+line+'" fill="none" stroke="'+col+'" stroke-width="1.5" stroke-linejoin="round"/>'
     +pts.map(p=>'<circle cx="'+p[0]+'" cy="'+p[1]+'" r="2.1" fill="#fff" stroke="'+col+'" stroke-width="1.2"/>').join('');
 }
-document.querySelectorAll('svg[data-prices]').forEach(s=>{
-  spark(s, s.getAttribute('data-prices').split(',').map(Number));
-});
+document.querySelectorAll('svg[data-prices]').forEach(s=>spark(s, s.getAttribute('data-prices').split(',').map(Number)));
 </script>
 </body>
 </html>
