@@ -104,6 +104,53 @@ def _resolve_city(offer: dict) -> str:
 
     return ''  # nieznane
 
+def _format_price_history(history_full):
+    """Lista {price,date,date_iso,approximated} z surowego history_full."""
+    out = []
+    for h in history_full or []:
+        out.append({
+            'price': h.get('price', 0),
+            'date': format_datetime(h.get('date', '')),
+            'date_iso': h.get('date', ''),
+            'approximated': h.get('approximated', False),
+        })
+    return out
+
+
+def _build_address_versions(offer, current_price_history):
+    """Buduje listę wersji adresu do wyświetlenia (najnowsza/bieżąca pierwsza).
+    Każda wersja ma własną historię cen, odświeżenia i reaktywacje."""
+    past = offer.get('versions', [])
+    if not past:
+        return []  # brak zmian adresu — front nie pokazuje sekcji wersji
+
+    address = offer.get('address', {}) or {}
+    versions = [{
+        'address': address.get('full', ''),
+        'current': True,
+        'active': offer.get('active', False),
+        'first_seen': format_datetime(offer.get('version_first_seen') or offer.get('first_seen', '')),
+        'first_seen_iso': offer.get('version_first_seen') or offer.get('first_seen', ''),
+        'last_seen': format_datetime(offer.get('last_seen', '')),
+        'price_history': current_price_history,
+        'refresh_count': offer.get('refresh_count', 0),
+        'reactivation_count': offer.get('reactivation_count', 0),
+    }]
+    for v in reversed(past):  # najnowsze najpierw
+        versions.append({
+            'address': (v.get('address', {}) or {}).get('full', ''),
+            'current': False,
+            'active': False,
+            'first_seen': format_datetime(v.get('first_seen', '')),
+            'first_seen_iso': v.get('first_seen', ''),
+            'last_seen': format_datetime(v.get('last_seen', '')),
+            'price_history': _format_price_history(v.get('price_history', [])),
+            'refresh_count': v.get('refresh_count', 0),
+            'reactivation_count': v.get('reactivation_count', 0),
+        })
+    return versions
+
+
 def generate_profile_data(input_file: str, output_file: str):
     """Główna funkcja generująca profile_data.json"""
     print("🔄 Generowanie profile_data.json...")
@@ -212,6 +259,10 @@ def generate_profile_data(input_file: str, output_file: str):
             'refresh_dates': offer.get('refresh_dates', []),
             'last_refresh_date': offer.get('last_refresh_date', ''),
             'reactivation_count': offer.get('reactivation_count', 0),
+            # Wersje adresu (Faza 1): zmiany adresu tego samego listingu OLX
+            'address_change_count': offer.get('address_change_count', 0),
+            'address_changed_at': format_datetime(offer.get('address_changed_at', '')),
+            'address_versions': _build_address_versions(offer, price_history_formatted),
         }
 
         # Czy nowa (first_seen dzisiaj)
