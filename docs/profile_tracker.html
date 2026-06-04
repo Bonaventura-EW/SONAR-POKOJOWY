@@ -63,6 +63,22 @@
             color: #64748b;
         }
         .tab.active .tab-badge { background: rgba(245,158,11,0.15); color: #d97706; }
+        /* Badge "NOWE" — świeża zmiana w profilu (≤2 dni), pulsuje */
+        .tab-new {
+            font-size: 9px;
+            font-weight: 700;
+            color: #fff;
+            background: #dc2626;
+            padding: 1px 5px;
+            border-radius: 4px;
+            letter-spacing: .3px;
+            margin-left: 5px;
+            animation: tabNewPulse 1.1s ease-in-out infinite;
+        }
+        @keyframes tabNewPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.45; }
+        }
 
         /* ── STATSBAR ── */
         .statsbar {
@@ -647,9 +663,11 @@ function buildTabs() {
         if (!p) return '';
         const cnt = p.stats.active;
         const on = key === currentKey;
+        const newBadge = (p.stats && p.stats.recent_change) ? '<span class="tab-new">NOWE</span>' : '';
         return '<div class="tab' + (on?' active':'') + '" onclick="switchTab(\'' + key + '\')">'
             + p.name
             + '<span class="tab-badge">' + cnt + '</span>'
+            + newBadge
             + '</div>';
     }).join('');
 }
