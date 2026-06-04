@@ -197,6 +197,37 @@
         .refresh-info .rc { color: #d97706; font-weight: 600; }
         .refresh-info .rl { color: #94a3b8; }
 
+        /* ── WERSJE ADRESU (zmiana adresu tego samego listingu OLX) ── */
+        .badge-addr { background: rgba(168,85,247,0.12); color: #7c3aed; border: 1px solid rgba(168,85,247,0.3); }
+        .addr-new { color: #0f172a; font-weight: 700; }
+        .addr-old { text-decoration: line-through; color: #94a3b8; font-weight: 500; }
+        .addr-sub { font-size: 10px; color: #94a3b8; margin-top: 3px; font-weight: 400; }
+        .addr-sub .ico { color: #a855f7; }
+        .pr-old { text-decoration: line-through; color: #cbd5e1; }
+        .pr-new { color: #dc2626; font-weight: 700; }
+        .versions { border-top: 1px solid #eef2f6; margin-top: 7px; padding-top: 8px; }
+        .versions-h { font-size: 10px; font-weight: 700; color: #475569; letter-spacing: .3px; margin-bottom: 7px; }
+        .ver { position: relative; padding: 8px 10px 8px 20px; border-radius: 7px; margin-bottom: 5px; border: 1px solid #e7ecf2; background: #fff; }
+        .ver.current { border-color: #c7f0d6; background: #f6fef9; }
+        .ver::before { content: ''; position: absolute; left: 7px; top: 12px; width: 7px; height: 7px; border-radius: 50%; background: #cbd5e1; }
+        .ver.current::before { background: #16a34a; }
+        .ver-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+        .ver-addr { font-size: 11px; font-weight: 700; color: #0f172a; }
+        .ver-addr.old { color: #64748b; }
+        .ver-status { font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 4px; white-space: nowrap; }
+        .st-active { background: rgba(22,163,74,.12); color: #15803d; }
+        .st-ended { background: #f1f5f9; color: #94a3b8; }
+        .ver-range { font-size: 10px; color: #94a3b8; margin-top: 1px; }
+        .ver-body { display: flex; align-items: center; gap: 14px; margin-top: 6px; flex-wrap: wrap; }
+        .ver-body .spark-wrap { display: flex; align-items: center; gap: 7px; }
+        .ver-body .spark-label { font-size: 9px; color: #94a3b8; text-transform: uppercase; }
+        .ver-body .spark-prices { font-size: 10px; color: #475569; }
+        .ver-counters { display: flex; gap: 12px; font-size: 10px; }
+        .vc { color: #475569; } .vc b { color: #d97706; } .vc.reakt b { color: #92400e; }
+        .change { display: flex; align-items: center; gap: 6px; margin: 2px 0 5px 20px; font-size: 10px; color: #7c3aed; flex-wrap: wrap; }
+        .change b { color: #0f172a; }
+        .change .ico { color: #a855f7; }
+
         /* Belka archiwalna */
         .archive-divider {
             display: flex;
@@ -534,6 +565,68 @@ function buildRefreshBars(refreshDates, refreshCount, lastRefreshDate) {
         + '</div></div>';
 }
 
+// ── WERSJE ADRESU ─────────────────────────────────────────────────────
+// Mały sparkline (sam SVG) dla pojedynczej wersji
+function verSpark(history) {
+    const prices = (history || []).map(h => h.price);
+    if (prices.length < 2) {
+        return '<svg width="70" height="26"><circle cx="35" cy="13" r="2.4" fill="#64748b"/></svg>';
+    }
+    const W = 70, H = 26, P = 3;
+    const mn = Math.min(...prices), mx = Math.max(...prices), rg = (mx - mn) || 1;
+    const step = (W - P * 2) / (prices.length - 1);
+    const pts = prices.map((p, i) => [P + i * step, P + (1 - (p - mn) / rg) * (H - P * 2)]);
+    const last = prices.at(-1), first = prices[0];
+    const col = last < first ? '#16a34a' : last > first ? '#dc2626' : '#94a3b8';
+    const line = pts.map(p => p.join(',')).join(' ');
+    const area = [...pts.map(p => p.join(',')), pts.at(-1)[0] + ',' + H, pts[0][0] + ',' + H].join(' ');
+    return '<svg width="' + W + '" height="' + H + '" style="overflow:visible;flex-shrink:0">'
+        + '<polyline points="' + area + '" fill="' + col + '" fill-opacity=".1"/>'
+        + '<polyline points="' + line + '" fill="none" stroke="' + col + '" stroke-width="1.5" stroke-linejoin="round"/>'
+        + pts.map(p => '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="2.1" fill="#fff" stroke="' + col + '" stroke-width="1.2"/>').join('')
+        + '</svg>';
+}
+
+function verCard(v) {
+    const status = v.active
+        ? '<span class="ver-status st-active">AKTYWNA</span>'
+        : '<span class="ver-status st-ended">' + (v.current ? 'NIEAKTYWNA' : 'ZAKOŃCZONA') + '</span>';
+    const range = v.current ? ('od ' + (v.first_seen || '—'))
+                            : ((v.first_seen || '—') + ' → ' + (v.last_seen || '—'));
+    const prices = (v.price_history || []).map(h => h.price);
+    const priceList = prices.length
+        ? prices.map((p, i) => {
+            const cls = i === 0 ? 'same' : p < prices[i - 1] ? 'down' : p > prices[i - 1] ? 'up' : 'same';
+            return '<span class="hp ' + cls + '">' + p + (i === prices.length - 1 ? ' zł' : '') + '</span>';
+          }).join(' ')
+        : '—';
+    return '<div class="ver' + (v.current ? ' current' : '') + '">'
+        + '<div class="ver-top"><span class="ver-addr' + (v.current ? '' : ' old') + '">' + (v.address || '—') + '</span>' + status + '</div>'
+        + '<div class="ver-range">' + range + '</div>'
+        + '<div class="ver-body">'
+        +   '<div class="spark-wrap"><span class="spark-label">Ceny</span>' + verSpark(v.price_history) + '<span class="spark-prices">' + priceList + '</span></div>'
+        +   '<div class="ver-counters"><span class="vc">🔄 odświeżenia: <b>' + (v.refresh_count || 0) + '</b></span><span class="vc reakt">♻ reaktywacje: <b>' + (v.reactivation_count || 0) + '</b></span></div>'
+        + '</div></div>';
+}
+
+function buildVersions(o) {
+    const vers = o.address_versions || [];
+    if (vers.length < 2) return '';
+    let html = '<div class="versions"><div class="versions-h">📜 Historia ogłoszenia — ' + vers.length + ' wersje adresu</div>';
+    vers.forEach((v, i) => {
+        html += verCard(v);
+        if (i < vers.length - 1) {
+            const older = vers[i + 1];
+            const oldP = (older.price_history.at(-1) || {}).price;
+            const newP = (v.price_history[0] || {}).price;
+            html += '<div class="change"><span class="ico">✏</span> zmiana adresu <b>' + (v.first_seen || '—') + '</b>'
+                + (oldP != null && newP != null ? ' · cena <span class="pr-old">' + oldP + '</span> → <span class="pr-new">' + newP + ' zł</span>' : '')
+                + '</div>';
+        }
+    });
+    return html + '</div>';
+}
+
 // ── BUILD ROW HTML ────────────────────────────────────────────────────
 function buildRow(o) {
     const id = o.id || o.url;
@@ -564,20 +657,46 @@ function buildRow(o) {
         ? '<span style="font-size:10px;margin-left:2px;color:' + trendColor + '">' + trend + '</span>'
         : '';
 
+    // Czy oferta ma zmiany adresu (ten sam listing OLX, inne miejsce)
+    const hasVersions = (o.address_change_count || 0) > 0 && (o.address_versions || []).length > 1;
+
+    // Nagłówek adresu — styl C: nowy duży + linia "było ... → zmiana ..." pod spodem
+    let addrHtml;
+    if (hasVersions) {
+        const prev = o.address_versions[1];           // ostatni poprzedni adres
+        const cur = o.address_versions[0];
+        const oldP = (prev.price_history.at(-1) || {}).price;
+        const newP = (cur.price_history[0] || {}).price;
+        addrHtml = '<span class="row-addr">'
+            + '<span class="addr-new">' + (o.address || '—') + '</span>'
+            + '<div class="addr-sub"><span class="ico">✏</span> było: <span class="addr-old">' + (prev.address || '—') + '</span>'
+            + ' → zmiana ' + (o.address_changed_at || cur.first_seen || '')
+            + (oldP != null && newP != null ? ' · <span class="pr-old">' + oldP + '</span> → <span class="pr-new">' + newP + ' zł</span>' : '')
+            + '</div></span>';
+    } else {
+        addrHtml = '<span class="row-addr" title="' + (o.address || '—') + '">' + (o.address || '—') + '</span>';
+    }
+
+    const addrBadge = hasVersions
+        ? '<span class="badge badge-addr">✏ ' + o.address_change_count + (o.address_change_count === 1 ? ' zmiana adresu' : ' zmiany adresu') + '</span>'
+        : '';
+
     return '<div class="row' + (!o.active ? ' dim' : '') + '" data-id="' + id + '" onclick="hlOffer(\'' + id + '\')">'
         + '<div class="row-top">'
-        + '<span class="row-addr" title="' + (o.address || '—') + '">' + (o.address || '—') + '</span>'
+        + addrHtml
         + '<span class="row-price" style="color:' + color + '">' + o.price + ' zł' + trendHtml + '</span>'
         + '</div>'
         + '<div class="row-meta">'
-        + typeBadge + newBadge + reaktBadge + inactiveBadge
+        + typeBadge + newBadge + reaktBadge + addrBadge + inactiveBadge
         + '<span class="meta-txt">📅 ' + (o.first_seen || '—') + (!o.active && o.last_seen ? ' → ' + o.last_seen : '') + '</span>'
         + '<span class="meta-days ' + daysClass + '">⏳ ' + (o.days_active || 0) + ' dni</span>'
         + '<a class="olx-link" href="' + o.url + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">OLX ↗</a>'
         + (o.lat && o.lon ? '<a class="map-pin-btn" href="index.html?loc=' + o.lat + ',' + o.lon + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Pokaż na głównej mapie">📍 Mapa</a>' : '')
         + '</div>'
-        + (hasHistory ? buildSparkline(o.price_history) : '')
-        + buildRefreshBars(o.refresh_dates, o.refresh_count, o.last_refresh_date)
+        // Gdy są wersje — sekcja wersji zastępuje pojedynczy wykres/odświeżenia (każda wersja ma własne)
+        + (hasVersions
+            ? buildVersions(o)
+            : (hasHistory ? buildSparkline(o.price_history) : '') + buildRefreshBars(o.refresh_dates, o.refresh_count, o.last_refresh_date))
         + '</div>';
 }
 

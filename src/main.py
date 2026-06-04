@@ -432,22 +432,71 @@ class SonarPokojowy:
 
     def _find_existing_offer_by_short_id(self, short_id: str) -> Dict:
         """Znajduje istniejące ogłoszenie po krótkiej końcówce ID (IDxxxxx).
-        OLX zmienia slug URL gdy edytowany tytuł — końcówka pozostaje ta sama."""
-        if not short_id:
+        OLX zmienia slug URL gdy edytowany tytuł/adres — końcówka (ID OLX) pozostaje ta sama.
+        Gdy w bazie jest kilka rekordów z tą samą końcówką (historyczne duplikaty),
+        zwraca najlepszego kandydata: aktywny > najświeższy last_seen."""
+        if not short_id or len(short_id) < 3:
             return None
         suffix = f'-ID{short_id}'
-        for offer in self.database['offers']:
-            if offer.get('id', '').endswith(suffix):
-                return offer
-        return None
+        candidates = [o for o in self.database['offers'] if o.get('id', '').endswith(suffix)]
+        if not candidates:
+            return None
+        candidates.sort(key=lambda o: (o.get('active', False), o.get('last_seen', '')), reverse=True)
+        return candidates[0]
+
+    def _addr_changed(self, old_addr: Dict, new_addr: Dict) -> bool:
+        """Czy adres realnie się zmienił (ten sam listing OLX, inne miejsce)?
+        Liczy się zmiana numeru ALBO znacząca zmiana ulicy. Drobne różnice zapisu
+        (dopełniacz 'Glinianej'/'Gliniana', zgubione imię) NIE są zmianą adresu."""
+        import difflib
+        if not isinstance(old_addr, dict) or not isinstance(new_addr, dict):
+            return False
+        o_full = (old_addr.get('full') or '').strip().lower()
+        n_full = (new_addr.get('full') or '').strip().lower()
+        if not o_full or not n_full or o_full == n_full:
+            return False
+        o_num = str(old_addr.get('number') or '').strip().lower()
+        n_num = str(new_addr.get('number') or '').strip().lower()
+        # Zmiana numeru (nawet sam numer) = zmiana adresu
+        if o_num and n_num and o_num != n_num:
+            return True
+        # Ulica: porównaj z tolerancją na odmianę/zapis
+        o_st = (old_addr.get('street') or '').strip().lower() or o_full
+        n_st = (new_addr.get('street') or '').strip().lower() or n_full
+        return difflib.SequenceMatcher(None, o_st, n_st).ratio() < 0.82
     
     def _update_existing_offer(self, existing: Dict, new_data: Dict):
         """Aktualizuje istniejące ogłoszenie z inteligentnym zarządzaniem ceną."""
         now = datetime.now(self.tz).isoformat()
-        
+
+        # === WYKRYCIE ZMIANY ADRESU (ten sam listing OLX, inne miejsce) ===
+        # Zrób to PRZED logiką cenową — żeby zrzucić starą wersję z jej własną,
+        # nietkniętą historią cen. Nową wersję otwieramy na końcu funkcji.
+        prev_last_seen = existing.get('last_seen', now)
+        _new_addr = new_data.get('address', {}) or {}
+        _new_addr_full = _new_addr.get('full', '')
+        _existing_addr_full = existing.get('address', {}).get('full', '')
+        addr_change = bool(
+            _new_addr_full and _existing_addr_full
+            and not self._is_bogus_address(_existing_addr_full)
+            and self._addr_changed(existing.get('address', {}), _new_addr)
+        )
+        addr_snapshot = None
+        if addr_change:
+            addr_snapshot = {
+                'address': dict(existing.get('address', {})),
+                'price_history': list(existing.get('price', {}).get('history_full', [])),
+                'first_seen': existing.get('version_first_seen') or existing.get('first_seen', ''),
+                'last_seen': prev_last_seen,
+                'refresh_count': existing.get('refresh_count', 0),
+                'refresh_dates': list(existing.get('refresh_dates', [])),
+                'reactivation_count': existing.get('reactivation_count', 0),
+                'last_price': existing.get('price', {}).get('current'),
+            }
+
         # Aktualizuj last_seen
         existing['last_seen'] = now
-        
+
         # INTELIGENTNA AKTUALIZACJA CENY - priorytetyzuj źródła
         old_price = existing['price']['current']
         new_price = new_data['price']['current']
@@ -608,7 +657,42 @@ class SonarPokojowy:
         if was_inactive:
             existing['reactivation_count'] = existing.get('reactivation_count', 0) + 1
             print(f"      ♻️ Reaktywacja #{existing['reactivation_count']}")
-    
+
+        # === OTWARCIE NOWEJ WERSJI po zmianie adresu ===
+        # Stara wersja (z własną historią cen / odświeżeniami / reaktywacjami)
+        # ląduje w versions[]; top-level reprezentuje nową, świeżą wersję.
+        if addr_change:
+            existing.setdefault('versions', []).append(addr_snapshot)
+            existing['address_change_count'] = len(existing['versions'])
+            existing['address_changed_at'] = now
+            print(f"      ✏️ ZMIANA ADRESU #{existing['address_change_count']}: "
+                  f"'{addr_snapshot['address'].get('full','')}' → '{_new_addr_full}'")
+            # Podmień adres na nowy
+            existing['address'] = {
+                'full': _new_addr_full,
+                'street': _new_addr.get('street'),
+                'number': _new_addr.get('number'),
+                'coords': _new_addr.get('coords') or existing.get('address', {}).get('coords'),
+                'precision': _new_addr.get('precision', 'exact'),
+            }
+            # Świeża historia cen dla nowej wersji
+            npv = new_data.get('price', {}).get('current')
+            existing['price']['current'] = npv
+            existing['price']['history'] = [npv] if npv else []
+            existing['price']['history_full'] = (
+                [{'price': npv, 'date': now, 'approximated': False}] if npv else []
+            )
+            existing['price'].pop('previous_price', None)
+            existing['price'].pop('price_trend', None)
+            existing['price'].pop('price_changed_at', None)
+            # Reset liczników — nowa wersja zaczyna od zera
+            existing['version_first_seen'] = now
+            existing['refresh_count'] = 0
+            existing['refresh_dates'] = []
+            existing['last_refresh_date'] = ''
+            existing['reactivation_count'] = 0
+            existing.pop('reactivated_at', None)
+
     def _update_days_active(self):
         """
         Aktualizuje pole days_active dla WSZYSTKICH ofert (aktywnych i nieaktywnych).
@@ -1120,12 +1204,25 @@ class SonarPokojowy:
             
             for processed in processed_offers:
                 current_offer_ids.append(processed['id'])
-                
+
+                # 1) Dopasowanie po pełnym ID (slug). 2) Fallback po końcówce ID OLX —
+                # gdy właściciel edytował tytuł/adres, OLX zmienia slug, ale ID OLX zostaje.
+                # Bez tego ta sama oferta rozdwajała się na duplikaty.
                 existing = self._find_existing_offer(processed['id'])
-                
+                matched_by_short = False
+                if not existing and '-ID' in processed['id']:
+                    short_id = processed['id'].split('-ID')[-1]
+                    existing = self._find_existing_offer_by_short_id(short_id)
+                    matched_by_short = existing is not None
+
                 if existing:
                     was_inactive = not existing.get('active', True)
                     self._update_existing_offer(existing, processed)
+                    # Slug się zmienił → zaktualizuj id/url do aktualnego,
+                    # żeby _mark_inactive_offers nie uznał rekordu za zniknięty.
+                    if matched_by_short:
+                        existing['id'] = processed['id']
+                        existing['url'] = processed['url']
                     updated_offers_count += 1
                     if was_inactive:
                         reactivated_count += 1
