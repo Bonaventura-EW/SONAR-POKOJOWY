@@ -125,8 +125,11 @@ def _build_address_versions(offer, current_price_history):
         return []  # brak zmian adresu — front nie pokazuje sekcji wersji
 
     address = offer.get('address', {}) or {}
+    cur_coords = address.get('coords', {}) or {}
     versions = [{
         'address': address.get('full', ''),
+        'lat': cur_coords.get('lat'),
+        'lon': cur_coords.get('lon'),
         'current': True,
         'active': offer.get('active', False),
         'first_seen': format_datetime(offer.get('version_first_seen') or offer.get('first_seen', '')),
@@ -137,8 +140,11 @@ def _build_address_versions(offer, current_price_history):
         'reactivation_count': offer.get('reactivation_count', 0),
     }]
     for v in reversed(past):  # najnowsze najpierw
+        v_coords = (v.get('address', {}) or {}).get('coords', {}) or {}
         versions.append({
             'address': (v.get('address', {}) or {}).get('full', ''),
+            'lat': v_coords.get('lat'),
+            'lon': v_coords.get('lon'),
             'current': False,
             'active': False,
             'first_seen': format_datetime(v.get('first_seen', '')),

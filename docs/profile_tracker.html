@@ -423,9 +423,26 @@ function makeLeafletIcon(color, active, highlighted) {
     });
 }
 
+// Ikona archiwalnego adresu (po zmianie adresu) — fioletowy pin, przerywany obrys, strzałka ↩
+function makeArchivalIcon() {
+    return L.divIcon({
+        className: '',
+        html: '<svg width="22" height="30" viewBox="0 0 24 32" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,.25))">'
+            + '<path d="M12 0C5 0 0 5 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5 19 0 12 0Z"'
+            + ' fill="#a855f7" fill-opacity="0.25" stroke="#7c3aed" stroke-width="2" stroke-dasharray="3 2"/>'
+            + '<circle cx="12" cy="11" r="6" fill="white"/>'
+            + '<text x="12" y="11.5" text-anchor="middle" dominant-baseline="central" font-size="10" fill="#7c3aed">↩</text>'
+            + '</svg>',
+        iconSize: [22, 30], iconAnchor: [11, 30], popupAnchor: [0, -30]
+    });
+}
+
+let archivalMarkers = [];
 function renderMarkers(profileKey) {
     Object.values(leafletMarkers).forEach(m => map.removeLayer(m.marker));
     leafletMarkers = {};
+    archivalMarkers.forEach(m => map.removeLayer(m));
+    archivalMarkers = [];
 
     const prof = profileData.profiles[profileKey];
     if (!prof) return;
@@ -461,6 +478,28 @@ function renderMarkers(profileKey) {
         marker.addTo(map);
         leafletMarkers[o.id || o.url] = { marker, color, active: o.active };
         bounds.push([o.lat, o.lon]);
+
+        // Archiwalne pinezki POPRZEDNICH adresów (oferta zmieniła adres)
+        // address_versions[0] = bieżąca (już wyrenderowana wyżej); [1..] = poprzednie
+        (o.address_versions || []).slice(1).forEach(v => {
+            if (!v.lat || !v.lon) return;
+            const vColor = pc((v.price_history?.at(-1) || {}).price || 0);
+            const am = L.marker([v.lat, v.lon], { icon: makeArchivalIcon(), zIndexOffset: -100 });
+            am.bindPopup(
+                '<div style="min-width:170px;font-family:sans-serif">'
+                + '<div style="font-size:10px;color:#7c3aed;font-weight:700;margin-bottom:3px">↩ POPRZEDNI ADRES</div>'
+                + '<div style="font-weight:700;font-size:13px;margin-bottom:2px">' + (v.address || '—') + '</div>'
+                + '<div style="font-size:10px;color:#94a3b8;margin-bottom:4px">' + (v.first_seen || '') + ' → ' + (v.last_seen || '') + '</div>'
+                + '<div style="font-size:13px;font-weight:800;color:' + vColor + '">' + ((v.price_history?.at(-1) || {}).price || '—') + ' zł</div>'
+                + '<div style="font-size:10px;color:#64748b;margin-top:4px">oferta przeniesiona do: <b>' + (o.address || '—') + '</b></div>'
+                + '</div>',
+                { maxWidth: 240 }
+            );
+            am.on('click', () => hlOffer(o.id || o.url));
+            am.addTo(map);
+            archivalMarkers.push(am);
+            bounds.push([v.lat, v.lon]);
+        });
     });
 
     // Zawsze wyśrodkuj na Lublinie
