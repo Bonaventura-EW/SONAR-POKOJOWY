@@ -716,11 +716,24 @@ function onArchivalLayerToggle() {
     }
 }
 
+// Upewnia się, że marker jest widoczny na mapie (gdy jego warstwa była schowana)
+function ensureMarkerVisible(marker) {
+    if (map.hasLayer(marker)) return;
+    for (const layer of Object.values(markerLayers)) {
+        if (layer.hasLayer && layer.hasLayer(marker)) {
+            if (!map.hasLayer(layer)) layer.addTo(map);
+            return;
+        }
+    }
+    marker.addTo(map);  // fallback — marker bez przypisanej warstwy
+}
+
 // Nawigacja: z archiwalnego pinu → do aktualnego ogłoszenia
 function focusCurrentOffer(offerId) {
     const entry = allMarkers.find(m => m.originalOffer && m.originalOffer.id === offerId);
     if (!entry) return;
     map.closePopup();
+    ensureMarkerVisible(entry.marker);
     map.flyTo(entry.marker.getLatLng(), 17, { duration: 1.0 });
     setTimeout(() => entry.marker.openPopup(), 700);
 }
