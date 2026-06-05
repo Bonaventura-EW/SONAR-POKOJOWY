@@ -463,7 +463,14 @@ class SonarPokojowy:
         # Ulica: porównaj z tolerancją na odmianę/zapis
         o_st = (old_addr.get('street') or '').strip().lower() or o_full
         n_st = (new_addr.get('street') or '').strip().lower() or n_full
-        return difflib.SequenceMatcher(None, o_st, n_st).ratio() < 0.82
+        # Ten sam rdzeń ulicy, różny zapis (zgubione imię/prefiks): 'Żywnego' ⊆
+        # 'Wojciecha Żywnego', 'Racławickie' ⊆ 'Aleja Racławickie' → NIE zmiana.
+        o_tok, n_tok = set(o_st.split()), set(n_st.split())
+        if o_tok and n_tok and (o_tok <= n_tok or n_tok <= o_tok):
+            return False
+        # Próg 0.75: realna zmiana ulicy ma niskie podobieństwo; sama fleksja
+        # ('Bajkowa'/'Bajkowej' ≈ 0.80) NIE jest zmianą.
+        return difflib.SequenceMatcher(None, o_st, n_st).ratio() < 0.75
     
     def _update_existing_offer(self, existing: Dict, new_data: Dict):
         """Aktualizuje istniejące ogłoszenie z inteligentnym zarządzaniem ceną."""
