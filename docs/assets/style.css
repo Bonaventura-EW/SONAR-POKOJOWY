@@ -382,6 +382,35 @@ body {
     font-weight: 500;
 }
 
+/* Historia adresu — zmiana adresu tego samego listingu OLX (styl 2: mini-blok) */
+.addr-history {
+    margin-top: 10px;
+    border: 1px solid #e7ddff;
+    border-radius: 10px;
+    overflow: hidden;
+}
+.addr-history-h {
+    font-size: 11px;
+    font-weight: 700;
+    color: #7c3aed;
+    background: rgba(168,85,247,0.08);
+    padding: 6px 10px;
+}
+.addr-history-r {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 7px 10px;
+    font-size: 12px;
+    border-top: 1px solid #f1ecff;
+}
+.addr-history-r .ah-l { display: flex; flex-direction: column; }
+.addr-history-r .ah-new { color: #0f172a; font-weight: 700; }
+.addr-history-r .ah-old { color: #94a3b8; text-decoration: line-through; }
+.addr-history-r .ah-d { color: #94a3b8; font-size: 10px; margin-top: 1px; }
+.addr-history-r .ah-p { font-weight: 700; white-space: nowrap; }
+.addr-history-r .ah-p.old { color: #cbd5e1; text-decoration: line-through; }
+
 .offer-link {
     display: inline-block;
     margin-top: 12px;

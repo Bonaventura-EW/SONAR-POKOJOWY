@@ -29,7 +29,8 @@ let markerLayers = {
     activeApprox: L.layerGroup(),   // aktywne przybliżone (precision: street_only)
     inactiveApprox: L.layerGroup(), // nieaktywne przybliżone
     firm: L.layerGroup(),            // aktywne oferty profili firmowych
-    firmInactive: L.layerGroup()     // nieaktywne oferty profili firmowych
+    firmInactive: L.layerGroup(),    // nieaktywne oferty profili firmowych
+    addrArchival: L.layerGroup()     // archiwalne pinezki poprzednich adresów (po zmianie adresu)
 };
 
 // ===== Filtr daty dodania (suwak dni) =====
@@ -182,6 +183,7 @@ function initMap() {
     markerLayers.active.addTo(map);
     markerLayers.activeApprox.addTo(map); // domyślnie włączone
     markerLayers.firm.addTo(map);          // firmy domyślnie włączone
+    markerLayers.addrArchival.addTo(map);  // archiwalne adresy domyślnie widoczne
     // markerLayers.inactive / inactiveApprox NIE dodajemy - domyślnie wyłączone
     
     // Tworzenie warstw uczelni
@@ -220,6 +222,7 @@ async function loadData() {
         updateScanInfo();
         createPriceRangeFilters();
         await createMarkers();  // async batch - czekamy aż wszystkie markery będą gotowe
+        renderArchivalPins();  // archiwalne pinezki poprzednich adresów (po zmianie adresu)
         updateStats();  // Wywołaj PO createMarkers(), żeby allMarkers był wypełniony
         initDateSlider();  // Suwak dni - wymaga wypełnionego allMarkers
         initGoneSlider(); // Suwak daty zniknięcia
@@ -651,6 +654,45 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
     updatePriceRangeCounts();
 }
 
+// Archiwalna pinezka poprzedniego adresu (po zmianie adresu) — fioletowa kropla, ↩
+function makeArchivalMapIcon() {
+    return L.divIcon({
+        className: 'pin-marker',
+        html: `<div style="position:relative;width:34px;height:44px">
+            <svg width="34" height="44" viewBox="0 0 40 50" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,.25))">
+                <path d="M20 0 C9 0 0 9 0 20 C0 35 20 50 20 50 C20 50 40 35 40 20 C40 9 31 0 20 0 Z"
+                      fill="#a855f7" fill-opacity="0.25" stroke="#7c3aed" stroke-width="3" stroke-dasharray="4 3"/>
+                <circle cx="20" cy="18" r="9" fill="white"/>
+                <text x="20" y="19" text-anchor="middle" dominant-baseline="central" font-size="16" fill="#7c3aed">↩</text>
+            </svg></div>`,
+        iconSize: [34, 44], iconAnchor: [17, 44], popupAnchor: [0, -44]
+    });
+}
+
+// Renderuje archiwalne pinezki w miejscach POPRZEDNICH adresów ofert, które zmieniły adres
+function renderArchivalPins() {
+    markerLayers.addrArchival.clearLayers();
+    (mapData.markers || []).forEach(m => {
+        (m.offers || []).forEach(offer => {
+            const vers = offer.address_versions || [];
+            if (!(offer.address_change_count > 0) || vers.length < 2) return;
+            vers.forEach((v, i) => {
+                if (i === 0 || !v.lat || !v.lon) return;  // [0] = bieżąca
+                const prices = v.prices || [];
+                const lastPrice = prices.length ? prices[prices.length - 1] + ' zł' : '—';
+                const popup = `<div class="offer-popup"><div style="font-size:11px;color:#7c3aed;font-weight:700;margin-bottom:4px">↩ POPRZEDNI ADRES</div>`
+                    + `<div style="font-weight:700;font-size:15px;color:#212529">${v.address || '—'}</div>`
+                    + `<div style="font-size:11px;color:#94a3b8;margin:3px 0 6px">${v.first_seen || ''} → ${v.last_seen || ''} · 🔄${v.refresh_count || 0} ♻${v.reactivation_count || 0}</div>`
+                    + `<div style="font-size:16px;font-weight:800;color:#667eea">${lastPrice}</div>`
+                    + `<div style="font-size:11px;color:#64748b;margin-top:6px">oferta przeniesiona do: <b>${offer.address_versions[0].address || '—'}</b></div></div>`;
+                L.marker([v.lat, v.lon], { icon: makeArchivalMapIcon(), zIndexOffset: -200 })
+                    .bindPopup(popup, { maxWidth: 320 })
+                    .addTo(markerLayers.addrArchival);
+            });
+        });
+    });
+}
+
 // Tworzenie HTML popup
 function createPopupContent(address, offers) {
     let html = `<div class="offer-popup">`;
@@ -694,10 +736,31 @@ function createPopupContent(address, offers) {
             const history = offer.price_history.map(p => p + ' zł').join(' → ');
             html += `<div class="price-history" style="color: #666; font-size: 0.85em; margin-top: 4px;">📊 Historia: ${history}</div>`;
         }
-        
+
+        // Historia adresu (zmiana adresu tego samego listingu OLX) — styl 2: mini-blok
+        if (offer.address_change_count > 0 && (offer.address_versions || []).length > 1) {
+            const vers = offer.address_versions;
+            html += `<div class="addr-history">`;
+            html += `<div class="addr-history-h">📜 Historia adresu — ${vers.length} wersje</div>`;
+            vers.forEach(v => {
+                const dot = v.current ? '#16a34a' : '#cbd5e1';
+                const range = v.current ? ('od ' + (v.first_seen || '') + (v.active ? ' · aktywna' : ''))
+                                        : ((v.first_seen || '') + ' → ' + (v.last_seen || ''));
+                const prices = v.prices || [];
+                const priceStr = prices.length
+                    ? (prices.length > 1 ? prices[0] + '→' + prices[prices.length - 1] : prices[prices.length - 1]) + ' zł'
+                    : '—';
+                html += `<div class="addr-history-r">`
+                    + `<span class="ah-l"><span style="color:${dot}">●</span> <span class="${v.current ? 'ah-new' : 'ah-old'}">${v.address || '—'}</span>`
+                    + `<span class="ah-d">${range} · 🔄${v.refresh_count || 0} ♻${v.reactivation_count || 0}</span></span>`
+                    + `<span class="ah-p ${v.current ? '' : 'old'}">${priceStr}</span></div>`;
+            });
+            html += `</div>`;
+        }
+
         // Media info
         html += `<div class="media-info">Skład: ${offer.media_info}</div>`;
-        
+
         // B1: Tag oferty
         if (offer.tags && offer.tags.primary) {
             const tagIcons = { pokoj: '🛏️', kawalerka: '🏠', mieszkanie: '🏢' };
