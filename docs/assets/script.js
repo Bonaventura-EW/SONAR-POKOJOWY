@@ -669,13 +669,20 @@ function makeArchivalMapIcon() {
     });
 }
 
+// Rejestr archiwalnych pinów: "offerId:vIndex" → marker (do nawigacji z popupu oferty)
+let archivalRegistry = {};
+
 // Renderuje archiwalne pinezki w miejscach POPRZEDNICH adresów ofert, które zmieniły adres
 function renderArchivalPins() {
     markerLayers.addrArchival.clearLayers();
+    archivalRegistry = {};
+    let count = 0;
     (mapData.markers || []).forEach(m => {
         (m.offers || []).forEach(offer => {
             const vers = offer.address_versions || [];
             if (!(offer.address_change_count > 0) || vers.length < 2) return;
+            const offerId = offer.id;
+            const curAddr = vers[0].address || '—';
             vers.forEach((v, i) => {
                 if (i === 0 || !v.lat || !v.lon) return;  // [0] = bieżąca
                 const prices = v.prices || [];
@@ -684,13 +691,51 @@ function renderArchivalPins() {
                     + `<div style="font-weight:700;font-size:15px;color:#212529">${v.address || '—'}</div>`
                     + `<div style="font-size:11px;color:#94a3b8;margin:3px 0 6px">${v.first_seen || ''} → ${v.last_seen || ''} · 🔄${v.refresh_count || 0} ♻${v.reactivation_count || 0}</div>`
                     + `<div style="font-size:16px;font-weight:800;color:#667eea">${lastPrice}</div>`
-                    + `<div style="font-size:11px;color:#64748b;margin-top:6px">oferta przeniesiona do: <b>${offer.address_versions[0].address || '—'}</b></div></div>`;
-                L.marker([v.lat, v.lon], { icon: makeArchivalMapIcon(), zIndexOffset: -200 })
-                    .bindPopup(popup, { maxWidth: 320 })
-                    .addTo(markerLayers.addrArchival);
+                    + `<div style="font-size:11px;color:#64748b;margin-top:6px">oferta przeniesiona do: <b>${curAddr}</b></div>`
+                    + `<button onclick="focusCurrentOffer('${offerId}')" style="margin-top:10px;width:100%;padding:8px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">→ Przejdź do aktualnego ogłoszenia</button>`
+                    + `</div>`;
+                const am = L.marker([v.lat, v.lon], { icon: makeArchivalMapIcon(), zIndexOffset: -200 })
+                    .bindPopup(popup, { maxWidth: 320 });
+                am.addTo(markerLayers.addrArchival);
+                archivalRegistry[offerId + ':' + i] = am;
+                count++;
             });
         });
     });
+    const badge = document.getElementById('layer-count-addr-archival');
+    if (badge) badge.textContent = '(' + count + ')';
+}
+
+// Przełącznik warstwy "Przeniesione" (archiwalne adresy)
+function onArchivalLayerToggle() {
+    const show = document.getElementById('layer-addr-archival')?.checked ?? true;
+    if (show) {
+        if (!map.hasLayer(markerLayers.addrArchival)) markerLayers.addrArchival.addTo(map);
+    } else {
+        map.removeLayer(markerLayers.addrArchival);
+    }
+}
+
+// Nawigacja: z archiwalnego pinu → do aktualnego ogłoszenia
+function focusCurrentOffer(offerId) {
+    const entry = allMarkers.find(m => m.originalOffer && m.originalOffer.id === offerId);
+    if (!entry) return;
+    map.closePopup();
+    map.flyTo(entry.marker.getLatLng(), 17, { duration: 1.0 });
+    setTimeout(() => entry.marker.openPopup(), 700);
+}
+
+// Nawigacja: z ogłoszenia z historią → do konkretnego archiwalnego (fioletowego) pinu
+function focusArchivalPin(offerId, vIndex) {
+    const am = archivalRegistry[offerId + ':' + vIndex];
+    if (!am) return;
+    // Upewnij się, że warstwa jest widoczna
+    const cb = document.getElementById('layer-addr-archival');
+    if (cb && !cb.checked) { cb.checked = true; onArchivalLayerToggle(); }
+    if (!map.hasLayer(markerLayers.addrArchival)) markerLayers.addrArchival.addTo(map);
+    map.closePopup();
+    map.flyTo(am.getLatLng(), 17, { duration: 1.0 });
+    setTimeout(() => am.openPopup(), 700);
 }
 
 // Tworzenie HTML popup
@@ -741,8 +786,8 @@ function createPopupContent(address, offers) {
         if (offer.address_change_count > 0 && (offer.address_versions || []).length > 1) {
             const vers = offer.address_versions;
             html += `<div class="addr-history">`;
-            html += `<div class="addr-history-h">📜 Historia adresu — ${vers.length} wersje</div>`;
-            vers.forEach(v => {
+            html += `<div class="addr-history-h">📜 Historia adresu — ${vers.length} wersje <span style="font-weight:400;opacity:.7">(kliknij poprzedni → pokaż na mapie)</span></div>`;
+            vers.forEach((v, i) => {
                 const dot = v.current ? '#16a34a' : '#cbd5e1';
                 const range = v.current ? ('od ' + (v.first_seen || '') + (v.active ? ' · aktywna' : ''))
                                         : ((v.first_seen || '') + ' → ' + (v.last_seen || ''));
@@ -750,9 +795,13 @@ function createPopupContent(address, offers) {
                 const priceStr = prices.length
                     ? (prices.length > 1 ? prices[0] + '→' + prices[prices.length - 1] : prices[prices.length - 1]) + ' zł'
                     : '—';
-                html += `<div class="addr-history-r">`
+                const clickable = !v.current && v.lat && v.lon;
+                const attrs = clickable
+                    ? ` class="addr-history-r clickable" onclick="focusArchivalPin('${offer.id}', ${i})" title="Pokaż poprzedni adres na mapie"`
+                    : ` class="addr-history-r"`;
+                html += `<div${attrs}>`
                     + `<span class="ah-l"><span style="color:${dot}">●</span> <span class="${v.current ? 'ah-new' : 'ah-old'}">${v.address || '—'}</span>`
-                    + `<span class="ah-d">${range} · 🔄${v.refresh_count || 0} ♻${v.reactivation_count || 0}</span></span>`
+                    + `<span class="ah-d">${range} · 🔄${v.refresh_count || 0} ♻${v.reactivation_count || 0}${clickable ? ' · ↩ pokaż' : ''}</span></span>`
                     + `<span class="ah-p ${v.current ? '' : 'old'}">${priceStr}</span></div>`;
             });
             html += `</div>`;
