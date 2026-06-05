@@ -149,6 +149,43 @@ def format_scan_datetime(iso_string):
         return iso_string
 
 
+def _build_addr_versions(offer):
+    """Wersje adresu do popupu/pinów głównej mapy (najnowsza/bieżąca pierwsza).
+    Każda wersja: adres, współrzędne, zakres dat, ceny, odświeżenia, reaktywacje."""
+    past = offer.get('versions', [])
+    if not past:
+        return []
+    addr = offer.get('address', {}) or {}
+    c = addr.get('coords', {}) or {}
+    price = offer.get('price', {}) or {}
+    cur_prices = [h.get('price') for h in (price.get('history_full') or [])] or price.get('history', [])
+    out = [{
+        'address': addr.get('full', ''),
+        'lat': c.get('lat'), 'lon': c.get('lon'),
+        'current': True,
+        'active': offer.get('active', False),
+        'first_seen': format_datetime(offer.get('version_first_seen') or offer.get('first_seen', '')),
+        'last_seen': format_datetime(offer.get('last_seen', '')),
+        'prices': cur_prices,
+        'refresh_count': offer.get('refresh_count', 0),
+        'reactivation_count': offer.get('reactivation_count', 0),
+    }]
+    for v in reversed(past):
+        vc = (v.get('address', {}) or {}).get('coords', {}) or {}
+        out.append({
+            'address': (v.get('address', {}) or {}).get('full', ''),
+            'lat': vc.get('lat'), 'lon': vc.get('lon'),
+            'current': False,
+            'active': False,
+            'first_seen': format_datetime(v.get('first_seen', '')),
+            'last_seen': format_datetime(v.get('last_seen', '')),
+            'prices': [h.get('price') for h in (v.get('price_history') or [])],
+            'refresh_count': v.get('refresh_count', 0),
+            'reactivation_count': v.get('reactivation_count', 0),
+        })
+    return out
+
+
 def generate_map_data(input_file, output_file):
     """Główna funkcja generująca map_data.json"""
     
@@ -254,6 +291,10 @@ def generate_map_data(input_file, output_file):
             'is_firm_offer': bool(offer.get('profile_name')),
             'offer_type': offer.get('offer_type'),  # 'pokoj'/'mieszkanie'/'inne'/None
             'city': offer.get('city', ''),
+            # Wersje adresu (zmiany adresu tego samego listingu OLX)
+            'address_change_count': offer.get('address_change_count', 0),
+            'address_changed_at': format_datetime(offer.get('address_changed_at', '')) if offer.get('address_changed_at') else None,
+            'address_versions': _build_addr_versions(offer),
         }
         
         markers_dict[key].append({
