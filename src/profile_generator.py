@@ -299,6 +299,8 @@ def generate_profile_data(input_file: str, output_file: str):
                 if _within_days(h.get('date', ''), now, tz):
                     recent_change = True
                     break
+        # Per-ofertę: ta flaga steruje badge'em "NOWE" przy konkretnym ogłoszeniu
+        offer_entry['recent_change'] = recent_change
         if recent_change:
             profile_data[profile_key]['stats']['recent_change_count'] += 1
 

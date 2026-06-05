@@ -703,7 +703,9 @@ function buildRow(o) {
         ? '<span class="badge badge-pokoj">🛏 pokój</span>'
         : '';
 
-    const newBadge = o.is_new ? '<span class="badge badge-new">NOWE</span>' : '';
+    // "NOWE" przy ofercie = świeża zmiana ≤2 dni (nowa / zmiana ceny / reaktywacja / dezaktywacja),
+    // spójnie z badge'em "NOWE" na zakładce firmy. Fallback na is_new dla starszych danych.
+    const newBadge = (o.recent_change ?? o.is_new) ? '<span class="badge badge-new">NOWE</span>' : '';
 
     const reaktBadge = (o.reactivation_count > 0)
         ? '<span class="badge badge-reakt">♻ reaktywacja ×' + o.reactivation_count + '</span>'
