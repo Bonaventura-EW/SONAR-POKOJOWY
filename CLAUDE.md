@@ -175,16 +175,6 @@ git push
 
 ---
 
-## 🚀 ROADMAP — CO PLANUJEMY
-
-(pełny opis w BLUEPRINT.md sekcja 11)
-
-- **Etap A**: System powiadomień email z filtrowaniem (wybrane: opcja A). NIE zaimplementowane.
-- **SZPERACZ**: Mobilka Flutter/Android konsumująca `docs/api/*.json`.
-- **Geokodowanie**: ciągła poprawa success rate (~49%, target 70%+).
-
----
-
 ## ✅ CHECKLIST PRZED ZAKOŃCZENIEM ZADANIA
 
 Przed commitowaniem zawsze sprawdź:
