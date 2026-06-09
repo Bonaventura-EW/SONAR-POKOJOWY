@@ -195,6 +195,10 @@ class SonarPokojowy:
             (coords, chosen_address_data, chosen_precision)
             coords=None jeśli ŻADEN kandydat się nie zgeokodował (wtedy zwracamy
             oryginalny address_data/precision dla logu).
+
+        Efekt uboczny: ustawia self._geocode_transient=True jeśli któryś kandydat
+        padł na TYMCZASOWY błąd Nominatim (timeout/429/5xx) — run_scan użyje tego
+        do ponowienia oferty w kolejce retry (zamiast liczyć ją jako no_coords).
         """
         description = raw_offer.get('description', '')
 
@@ -217,6 +221,7 @@ class SonarPokojowy:
              'district')
 
         tried_full = set()
+        transient = False
         for cand, precision in candidates:
             full = cand['full']
             if full in tried_full:
@@ -226,6 +231,8 @@ class SonarPokojowy:
             # FIX 2026-05-14: return_meta=True → wiemy czy geocoder zrobił fallback
             # "sama ulica bez numeru" (wtedy obniżamy precision do street_only).
             coords, geo_meta = self.geocoder.geocode_address(full, return_meta=True)
+            if geo_meta.get('transient_error'):
+                transient = True
             if not coords:
                 continue
 
@@ -242,6 +249,9 @@ class SonarPokojowy:
 
             return coords, cand, precision
 
+        # Żaden kandydat się nie zgeokodował — zapamiętaj czy to był transient fail.
+        if transient:
+            self._geocode_transient = True
         return None, address_data, address_precision
 
     def _process_offer(self, raw_offer: Dict) -> Dict:
@@ -251,6 +261,10 @@ class SonarPokojowy:
         Returns:
             Dict z przetworzonymi danymi lub None jeśli oferta nieprawidłowa
         """
+        # Reset flagi transient-fail geokodera (ustawiana w _geocode_with_fallbacks,
+        # odczytywana przez run_scan do kolejki retry).
+        self._geocode_transient = False
+
         # 1. Użyj pełnego opisu (scraper już go pobrał)
         full_text = raw_offer['title'] + " " + raw_offer.get('description', '')
         
@@ -1131,32 +1145,17 @@ class SonarPokojowy:
             }
             SAMPLE_LIMIT = 50
 
-            for i, raw_offer in enumerate(raw_offers, 1):
-                print(f"   [{i}/{len(raw_offers)}] Przetwarzam: {raw_offer['title'][:50]}...")
-                
-                # Stwórz ID z URL
-                offer_id = raw_offer['url'].split('/')[-1].split('.')[0]
+            # FIX 2026-06-09: kolejka retry dla ofert które padły na TYMCZASOWY błąd
+            # Nominatim (timeout/429/5xx). Bez tego pojedynczy chwilowy błąd geokodera
+            # wyrzucał ofertę z poprawnym adresem do no_coords (Chodźki/Chmielewskiego/
+            # Wilczej). Te oferty ponawiamy po głównej pętli (z odstępem).
+            transient_retry_queue = []
 
-                # SKIPPED + profil firmowy: zaktualizuj tylko profile_name w istniejącej ofercie
-                # (skip = ta sama cena, nie trzeba przetwarzać od nowa)
-                if raw_offer.get('skipped') and raw_offer.get('profile_name'):
-                    short_id = offer_id.split('-ID')[-1] if '-ID' in offer_id else None
-                    existing = (self._find_existing_offer(offer_id)
-                                or (self._find_existing_offer_by_short_id(short_id) if short_id else None))
-                    if existing and not existing.get('profile_name'):
-                        existing['profile_name'] = raw_offer['profile_name']
-                        if raw_offer.get('offer_type') and not existing.get('offer_type'):
-                            existing['offer_type'] = raw_offer['offer_type']
-                        print(f"      🏢 Przypisano profil (skip): {raw_offer['profile_name']}")
-                    # Dodaj do current_offer_ids żeby nie była dezaktywowana
-                    # (będzie obsłużone przez skipped_ids dalej)
-                    geocoding_time += 0
-                    continue
-                
-                # Pomiar czasu geokodowania
-                geo_start = time.time()
-                processed = self._process_offer(raw_offer)
-                geocoding_time += time.time() - geo_start
+            def consume(raw_offer, processed):
+                """Obsługuje wynik _process_offer: liczy skip/sample LUB dodaje ofertę
+                (z dedupem). Wspólne dla głównej pętli i przebiegu retry."""
+                nonlocal skipped_no_address, skipped_no_price, skipped_no_coords
+                nonlocal skipped_duplicate
 
                 if not processed:
                     # Zlicz powody odrzucenia + zachowaj próbkę do analizy
@@ -1197,8 +1196,8 @@ class SonarPokojowy:
                                 'extract_district'
                             )
                             skipped_samples['no_coords'].append(sample)
-                    continue
-                
+                    return
+
                 # Sprawdź duplikaty
                 original_dup = self.duplicate_detector.find_duplicate(processed, processed_offers)
                 if original_dup is not None:
@@ -1224,10 +1223,62 @@ class SonarPokojowy:
                             },
                             'similarity': round(similarity, 4)
                         })
-                    continue
-                
+                    return
+
                 processed_offers.append(processed)
                 print(f"      ✅ {processed['address']['full']} - {processed['price']['current']} zł")
+
+            for i, raw_offer in enumerate(raw_offers, 1):
+                print(f"   [{i}/{len(raw_offers)}] Przetwarzam: {raw_offer['title'][:50]}...")
+                
+                # Stwórz ID z URL
+                offer_id = raw_offer['url'].split('/')[-1].split('.')[0]
+
+                # SKIPPED + profil firmowy: zaktualizuj tylko profile_name w istniejącej ofercie
+                # (skip = ta sama cena, nie trzeba przetwarzać od nowa)
+                if raw_offer.get('skipped') and raw_offer.get('profile_name'):
+                    short_id = offer_id.split('-ID')[-1] if '-ID' in offer_id else None
+                    existing = (self._find_existing_offer(offer_id)
+                                or (self._find_existing_offer_by_short_id(short_id) if short_id else None))
+                    if existing and not existing.get('profile_name'):
+                        existing['profile_name'] = raw_offer['profile_name']
+                        if raw_offer.get('offer_type') and not existing.get('offer_type'):
+                            existing['offer_type'] = raw_offer['offer_type']
+                        print(f"      🏢 Przypisano profil (skip): {raw_offer['profile_name']}")
+                    # Dodaj do current_offer_ids żeby nie była dezaktywowana
+                    # (będzie obsłużone przez skipped_ids dalej)
+                    geocoding_time += 0
+                    continue
+                
+                # Pomiar czasu geokodowania
+                geo_start = time.time()
+                processed = self._process_offer(raw_offer)
+                geocoding_time += time.time() - geo_start
+
+                # FIX 2026-06-09: jeśli oferta padła na TYMCZASOWY błąd geokodera,
+                # nie licz jej jako no_coords — odłóż do kolejki retry (po pętli).
+                if not processed and getattr(self, '_geocode_transient', False):
+                    print(f"      ⏳ Transient fail geokodera — kolejka retry")
+                    transient_retry_queue.append(raw_offer)
+                    continue
+
+                consume(raw_offer, processed)
+
+            # FIX 2026-06-09: przebieg RETRY dla ofert z transient-failem geokodera.
+            # Po głównej pętli okno rate-limitu zwykle minęło; ponawiamy z odstępem.
+            if transient_retry_queue:
+                print(f"\n   ⏳ Retry geokodowania: {len(transient_retry_queue)} ofert "
+                      f"(transient fail Nominatim)...")
+                time.sleep(5)
+                for raw_offer in transient_retry_queue:
+                    geo_start = time.time()
+                    processed = self._process_offer(raw_offer)
+                    geocoding_time += time.time() - geo_start
+                    if processed:
+                        print(f"      ✅ Retry OK: {raw_offer['title'][:50]}")
+                    # Tym razem konsumujemy wynik bez względu na transient — jeśli nadal
+                    # None, trafi do właściwej kategorii skip (zwykle no_coords).
+                    consume(raw_offer, processed)
 
             # Zapisz próbki odrzuconych do analizy (nadpisuje przy każdym scanie)
             try:

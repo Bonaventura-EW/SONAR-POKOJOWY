@@ -224,12 +224,63 @@ def test_fallback_only_triggers_on_geocode_failure():
     assert prec == 'exact'
 
 
+class TransientGeocoder:
+    """Geocoder który ZAWSZE zwraca transient_error (symulacja chwilowego błędu)."""
+    def geocode_address(self, address, max_retries=3, return_meta=False):
+        meta = {'number_fallback': False, 'cache_hit': False, 'transient_error': True}
+        return (None, meta) if return_meta else None
+
+
+def test_transient_error_sets_flag():
+    """
+    Gdy geokoder pada na TYMCZASOWY błąd (timeout/429), _geocode_with_fallbacks
+    musi ustawić self._geocode_transient=True (run_scan użyje tego do kolejki retry),
+    a NIE liczyć oferty od razu jako no_coords.
+    """
+    parser = AddressParser(geocoding_cache_path=CACHE_PATH)
+    proc = SimpleNamespace(address_parser=parser, geocoder=TransientGeocoder(),
+                           _geocode_transient=False)
+    address_data = {'full': 'Chodźki', 'street': 'Chodźki', 'number': None}
+    full_text = 'Pokój przy ul. Chodźki'
+    raw_offer = {'title': 'Pokój', 'description': full_text}
+    coords, chosen, prec = SonarPokojowy._geocode_with_fallbacks(
+        proc, address_data, 'street_only', full_text, raw_offer
+    )
+    assert coords is None, "przy transient-failu nie powinno być coords"
+    assert proc._geocode_transient is True, "flaga _geocode_transient nie ustawiona"
+
+
+def test_no_transient_flag_on_genuine_miss():
+    """
+    Gdy geokoder zwraca None BEZ transient (adres realnie nieznany), flaga
+    _geocode_transient zostaje False — oferta trafi do no_coords, nie do retry.
+    """
+    parser = AddressParser(geocoding_cache_path=CACHE_PATH)
+    # Stub: None bez transient_error
+    class MissGeo:
+        def geocode_address(self, address, max_retries=3, return_meta=False):
+            meta = {'number_fallback': False, 'cache_hit': False, 'transient_error': False}
+            return (None, meta) if return_meta else None
+    proc = SimpleNamespace(address_parser=parser, geocoder=MissGeo(),
+                           _geocode_transient=False)
+    address_data = {'full': 'Nieistniejąca 999', 'street': 'Nieistniejąca', 'number': '999'}
+    full_text = 'Pokój'
+    raw_offer = {'title': 'Pokój', 'description': ''}
+    coords, _, _ = SonarPokojowy._geocode_with_fallbacks(
+        proc, address_data, 'exact', full_text, raw_offer
+    )
+    assert coords is None
+    assert proc._geocode_transient is False, "false-positive transient na realnym miss"
+
+
 def _run():
     tests = [
         test_excluded_words_hygiene,
         test_parser_never_returns_garbage_street,
         test_geocode_with_fallbacks_places_all_offers,
         test_fallback_only_triggers_on_geocode_failure,
+        test_transient_error_sets_flag,
+        test_no_transient_flag_on_genuine_miss,
     ]
     passed = 0
     failed = 0

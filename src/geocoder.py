@@ -230,7 +230,7 @@ class Geocoder:
 
     def _geocode_with_meta(self, address: str, max_retries: int = 3):
         """Implementacja geokodowania, zawsze zwraca (coords, meta)."""
-        meta = {'number_fallback': False, 'cache_hit': False}
+        meta = {'number_fallback': False, 'cache_hit': False, 'transient_error': False}
         
         if not address:
             return None, meta
@@ -281,6 +281,7 @@ class Geocoder:
             except (GeocoderTimedOut, GeocoderServiceError) as e:
                 # Tymczasowy błąd (rate-limit, timeout, 5xx) - NIE zapisuj None do cache
                 print(f"      ⏸️  Tymczasowy błąd Nominatim dla '{address}': {type(e).__name__}")
+                meta['transient_error'] = True
                 return None, meta
             
             if coords is not None:
@@ -308,6 +309,7 @@ class Geocoder:
             except (GeocoderTimedOut, GeocoderServiceError) as e:
                 # Tymczasowy błąd przy mianowniku - NIE zapisuj None do cache
                 print(f"      ⏸️  Tymczasowy błąd Nominatim dla mianownika '{nominative}': {type(e).__name__}")
+                meta['transient_error'] = True
                 return None, meta
             
             if coords is not None:
@@ -347,8 +349,9 @@ class Geocoder:
                 coords = self._try_nominatim(variant, max_retries=max_retries)
             except (GeocoderTimedOut, GeocoderServiceError) as e:
                 print(f"      ⏸️  Tymczasowy błąd Nominatim dla '{variant}': {type(e).__name__}")
+                meta['transient_error'] = True
                 return None, meta
-            
+
             if coords is not None:
                 print(f"      ✅ Wariant znaleziony: {variant}")
                 self.cache[address] = coords
@@ -388,8 +391,9 @@ class Geocoder:
                 coords = self._try_nominatim(variant, max_retries=max_retries)
             except (GeocoderTimedOut, GeocoderServiceError) as e:
                 print(f"      ⏸️  Tymczasowy błąd Nominatim dla '{variant}': {type(e).__name__}")
+                meta['transient_error'] = True
                 return None, meta
-            
+
             if coords is not None:
                 print(f"      ✅ Wariant l. poj. ż. znaleziony: {variant}")
                 self.cache[address] = coords
@@ -438,6 +442,7 @@ class Geocoder:
                 coords = self._try_nominatim(street_only, max_retries=max_retries)
             except (GeocoderTimedOut, GeocoderServiceError) as e:
                 print(f"      ⏸️  Tymczasowy błąd Nominatim dla '{street_only}': {type(e).__name__}")
+                meta['transient_error'] = True
                 # Nie cache'ujemy None na tymczasowy błąd; idź do następnego wariantu
                 continue
             
