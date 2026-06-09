@@ -44,6 +44,7 @@ GEOCODABLE = {
     'Narutowicza':     {'lat': 51.2458, 'lon': 22.5604},
     'Narutowicza 50':  {'lat': 51.2425, 'lon': 22.5562},
     'Bursztynowa':     {'lat': 51.2230, 'lon': 22.5093},
+    'Chodźki':         {'lat': 51.2618, 'lon': 22.5640},
 }
 
 # Adresy które NIE geokodują się do punktu w Lublinie (zwracają None).
@@ -111,6 +112,15 @@ OFFERS = [
                         'stokrotka, pętli autobusów, osiedle Czuby. Dojazd samochodem '
                         'na uczelnie ok. Pokój ma ok 9m.'),
         'expected_street_substr': 'Bursztynowa',
+    },
+    {
+        'name': 'Chodźki (prywatny akademik)',
+        'title': 'Pokój w prywatnym akademiku przy ul. Chodźki',
+        'description': ('Lublin Zapraszamy do zapoznania się z ofertą wynajmu pokoju '
+                        'w prywatnym domu studenckim, zlokalizowanym przy ul. Chodźki. '
+                        'Pokój jest jednoosobowy, przestronny z dostępem do łazienki '
+                        'i kuchni. Opłata w wysokości 1680zł obejmuje miesięczny czynsz.'),
+        'expected_street_substr': 'Chodźki',
     },
 ]
 
