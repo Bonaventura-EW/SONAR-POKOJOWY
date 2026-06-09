@@ -473,6 +473,7 @@ header nav a.active {{ background: white; color: #9f1239; border-color: #ef4444;
     searchInput.addEventListener('input', applyFilters);
 }})();
 </script>
+<script src="firmy_badge.js" defer></script>
 
 </body>
 </html>'''
