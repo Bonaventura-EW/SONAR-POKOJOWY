@@ -547,9 +547,10 @@
             
             // Wykresy (zapisz oferty globalnie dla suwaków) - używaj validOffers
             window.allOffersData = validOffers;
+            window.allOffersDataFull = allOffers;
             window.allPricesData = prices;
             createPriceChart(validOffers, 30); // Domyślnie 30 dni
-            createNewOffersChart(validOffers, 30);
+            createNewOffersChart(allOffers, 30);
             
             // Histogram z domyślnymi filtrami (aktywne, 30 dni)
             window.histogramStatus = 'active';
@@ -899,8 +900,8 @@
             newOffersChartRange.addEventListener('input', (e) => {
                 const days = parseInt(e.target.value);
                 newOffersChartRangeValue.textContent = days + ' dni';
-                if (window.allOffersData) {
-                    createNewOffersChart(window.allOffersData, days);
+                if (window.allOffersDataFull) {
+                    createNewOffersChart(window.allOffersDataFull, days);
                 }
             });
         }
