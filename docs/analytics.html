@@ -663,51 +663,61 @@
         function createNewOffersChart(offers, daysRange = 30) {
             const now = new Date();
             const startDate = new Date(now.getTime() - (daysRange * 24 * 60 * 60 * 1000));
-            
-            const dailyCounts = {};
+
+            const dailyNew = {};
+            const dailyRemoved = {};
+
             offers.forEach(offer => {
-                // Walidacja: tylko oferty z sensownymi cenami
                 const price = offer.price;
                 const isValidPrice = price >= 200 && price <= 3000;
-                
+
                 if (offer.first_seen_date >= startDate && isValidPrice) {
                     const dateKey = offer.first_seen_date.toISOString().split('T')[0];
-                    dailyCounts[dateKey] = (dailyCounts[dateKey] || 0) + 1;
+                    dailyNew[dateKey] = (dailyNew[dateKey] || 0) + 1;
+                }
+
+                if (!offer.active && offer.last_seen_date && offer.last_seen_date >= startDate) {
+                    const dateKey = offer.last_seen_date.toISOString().split('T')[0];
+                    dailyRemoved[dateKey] = (dailyRemoved[dateKey] || 0) + 1;
                 }
             });
-            
+
             // Wypełnij puste dni zerami (ciągła oś czasu)
-            const filledCounts = {};
+            const labels = [];
             let currentDate = new Date(startDate);
-            const endDate = now;
-            
-            while (currentDate <= endDate) {
-                const dateKey = currentDate.toISOString().split('T')[0];
-                filledCounts[dateKey] = dailyCounts[dateKey] || 0;
+            while (currentDate <= now) {
+                labels.push(currentDate.toISOString().split('T')[0]);
                 currentDate.setDate(currentDate.getDate() + 1);
             }
-            
-            const labels = Object.keys(filledCounts).sort();
-            const counts = labels.map(date => filledCounts[date]);
-            
+
             const ctx = document.getElementById('newOffersChart');
-            
-            // Zniszcz poprzedni wykres jeśli istnieje
+
             if (window.newOffersChartInstance) {
                 window.newOffersChartInstance.destroy();
             }
-            
+
             window.newOffersChartInstance = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: labels.map(d => new Date(d).toLocaleDateString('pl-PL')),
-                    datasets: [{
-                        label: 'Nowe oferty',
-                        data: counts,
-                        backgroundColor: '#10b981',
-                        borderColor: '#059669',
-                        borderWidth: 1
-                    }]
+                    datasets: [
+                        {
+                            label: 'Nowe oferty',
+                            data: labels.map(d => dailyNew[d] || 0),
+                            backgroundColor: '#10b981',
+                            borderColor: '#059669',
+                            borderWidth: 1,
+                            borderRadius: 3
+                        },
+                        {
+                            label: 'Zniknęły',
+                            data: labels.map(d => dailyRemoved[d] || 0),
+                            backgroundColor: '#ef4444',
+                            borderColor: '#dc2626',
+                            borderWidth: 1,
+                            borderRadius: 3
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
@@ -716,6 +726,17 @@
                         legend: {
                             display: true,
                             position: 'top'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                afterBody: (items) => {
+                                    const idx = items[0].dataIndex;
+                                    const n = dailyNew[labels[idx]] || 0;
+                                    const r = dailyRemoved[labels[idx]] || 0;
+                                    const bilans = n - r;
+                                    return 'Bilans: ' + (bilans >= 0 ? '+' : '') + bilans;
+                                }
+                            }
                         }
                     },
                     scales: {
