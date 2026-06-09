@@ -166,6 +166,11 @@ EXCLUDED_WORDS = {
     # === FIX 2026-05-26: false-positive z "Wymagana 1-miesięczna kaucja" ===
     # Parser łapie "Wymagana 1" jako adres ulica+numer.
     'wymagana', 'wymagany', 'wymagane', 'wymagani', 'wymaganym', 'wymaganej',
+    # === FIX 2026-06-09: słowa wyciągane jako pierwszy człon nazwy ulicy ===
+    # "Adres Paganiniego 4" → parser brał "Adres" jako część nazwy ulicy.
+    # "Głęboka Samochód 9m" → "Samochód" wciągany jako drugi człon nazwy.
+    'adres', 'adresie', 'adresu', 'adresem',
+    'samochód', 'samochodem', 'samochodu', 'samochody', 'auto', 'autem',
 }
 
 

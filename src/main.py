@@ -174,7 +174,76 @@ class SonarPokojowy:
             return True
         
         return False
-    
+
+    def _geocode_with_fallbacks(self, address_data: Dict, address_precision: str,
+                                full_text: str, raw_offer: Dict):
+        """
+        FIX 2026-06-09: geokoduje adres z łańcuchem fallbacków na poziomie ekstraktorów.
+
+        Próbuje geokodować KOLEJNO kandydatów adresu, od najbardziej precyzyjnego:
+          1. address_data (główny — zwykle z extract_address, precision='exact')
+          2. extract_street_only  (precision='street_only')
+          3. extract_from_whitelist (precision='street_only')
+          4. extract_district     (precision='district')
+
+        Pierwszy kandydat który się zgeokoduje wygrywa. Bez tego błędnie sparsowany
+        adres z numerem (np. "Gabriela Narutowicza 50" → centroid poza Lublinem,
+        "Adres Paganiniego 4", "Głęboka Samochód 9m") zabija ofertę, mimo że poprawna
+        ulica jest dostępna z innego ekstraktora.
+
+        Returns:
+            (coords, chosen_address_data, chosen_precision)
+            coords=None jeśli ŻADEN kandydat się nie zgeokodował (wtedy zwracamy
+            oryginalny address_data/precision dla logu).
+        """
+        description = raw_offer.get('description', '')
+
+        # Zbuduj listę kandydatów w kolejności precyzji, deduplikując po 'full'.
+        candidates = [(address_data, address_precision)]
+
+        def _add(extractor_result, precision):
+            if extractor_result and extractor_result.get('full'):
+                candidates.append((extractor_result, precision))
+
+        # street_only / whitelist / district — liczone leniwie tylko jako fallback
+        _add(self.address_parser.extract_street_only(full_text)
+             or (self.address_parser.extract_street_only(description) if description else None),
+             'street_only')
+        _add(self.address_parser.extract_from_whitelist(full_text)
+             or (self.address_parser.extract_from_whitelist(description) if description else None),
+             'street_only')
+        _add(self.address_parser.extract_district(full_text)
+             or (self.address_parser.extract_district(description) if description else None),
+             'district')
+
+        tried_full = set()
+        for cand, precision in candidates:
+            full = cand['full']
+            if full in tried_full:
+                continue
+            tried_full.add(full)
+
+            # FIX 2026-05-14: return_meta=True → wiemy czy geocoder zrobił fallback
+            # "sama ulica bez numeru" (wtedy obniżamy precision do street_only).
+            coords, geo_meta = self.geocoder.geocode_address(full, return_meta=True)
+            if not coords:
+                continue
+
+            if len(tried_full) > 1:
+                print(f"      🔁 Fallback ekstraktora: główny adres nie geokodował się, "
+                      f"użyto '{full}' (precision={precision})")
+
+            if geo_meta.get('number_fallback') and precision != 'district':
+                # Geocoder nie znalazł konkretnego numeru, użył samej ulicy → przybliżony.
+                # FIX 2026-05-26 (A): nie nadpisujemy precision='district'.
+                print(f"      📌 Fallback geocoder: '{full}' "
+                      f"→ koordynaty samej ulicy (precision=street_only)")
+                precision = 'street_only'
+
+            return coords, cand, precision
+
+        return None, address_data, address_precision
+
     def _process_offer(self, raw_offer: Dict) -> Dict:
         """
         Przetwarza surowe ogłoszenie: parsuje adres, cenę, geokoduje.
@@ -371,22 +440,19 @@ class SonarPokojowy:
             coords = cached_coords
             print(f"      📍 Użyto współrzędnych z cache: {coords['lat']:.4f}, {coords['lon']:.4f}")
         else:
-            # FIX 2026-05-14: używamy return_meta=True żeby wiedzieć czy geocoder zrobił
-            # fallback "sama ulica bez numeru". Jeśli tak, obniżamy precision do street_only.
-            coords, geo_meta = self.geocoder.geocode_address(
-                address_data['full'], return_meta=True
+            # FIX 2026-06-09: geokodowanie z łańcuchem fallbacków na poziomie EKSTRAKTORÓW.
+            # Jeśli główny (zwykle exact) adres nie geokoduje się, próbujemy alternatyw
+            # z pozostałych ekstraktorów (street_only / whitelist / district) ZANIM
+            # porzucimy ofertę. Bez tego błędnie sparsowany adres z numerem
+            # (np. "Gabriela Narutowicza 50" → poza Lublinem, "Adres Paganiniego 4",
+            # "Głęboka Samochód 9m") zabijał ofertę, mimo że poprawna ulica
+            # ("Narutowicza", "Paganiniego", "Bursztynowa") była dostępna z innego ekstraktora.
+            coords, address_data, address_precision = self._geocode_with_fallbacks(
+                address_data, address_precision, full_text, raw_offer
             )
             if not coords:
                 print(f"⚠️ Nie można geokodować: {address_data['full']}")
                 return None  # Nie znaleziono współrzędnych → ignoruj
-            
-            if geo_meta.get('number_fallback') and address_precision != 'district':
-                # Geocoder nie znalazł konkretnego numeru, użył samej ulicy.
-                # Adres na mapie pojawi się jako "przybliżony" (street_only).
-                # FIX 2026-05-26 (A): nie nadpisujemy precision='district'.
-                print(f"      📌 Fallback geocoder: '{address_data['full']}' "
-                      f"→ koordynaty samej ulicy (precision=street_only)")
-                address_precision = 'street_only'
         
         # 5. Stwórz ID z URL (unikalne)
         offer_id = raw_offer['url'].split('/')[-1].split('.')[0]
