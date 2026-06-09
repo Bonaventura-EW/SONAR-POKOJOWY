@@ -273,13 +273,11 @@ class SonarPokojowy:
         # po audycie skipped_offers_sample - generowały ~28% false positives w no_address
         # (pokoje na oddzielnej kondygnacji w domu są funkcjonalnie identyczne z pokojami
         # w mieszkaniu i powinny być uwzględniane). Patrz: discussion 2026-05-17.
-        excluded_phrases = [
-            'domek jednorodzinny',
-            'willa',
-            'domek',
-            'dom w zabudowie',
-            'segment'
-        ]
+        # FIX 2026-06-09: usunięto 'domek jednorodzinny', 'willa', 'domek',
+        # 'dom w zabudowie', 'segment' — łapały LEGALNE pokoje do wynajęcia, w których
+        # budynek opisano jako domek/segment/willa (Chodźki/Wilczej/Chmielewskiego).
+        # To pokoje, nie całe nieruchomości — mają trafiać na mapę. Decyzja Mateusza.
+        excluded_phrases = []
         
         full_text_lower = full_text.lower()
         for phrase in excluded_phrases:
