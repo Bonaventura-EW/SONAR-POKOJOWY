@@ -40,6 +40,12 @@ CATEGORY_LABELS = {
         'color': '#f59e0b',
         'sub': 'parser nie wyciągnął ceny',
     },
+    'excluded': {
+        'label': 'Wykluczone (filtr)',
+        'short': 'wykluczone',
+        'color': '#64748b',
+        'sub': 'odrzucone przez filtr fraz (np. domek/willa)',
+    },
 }
 
 
@@ -74,6 +80,11 @@ def _build_offer_card(category: str, sample: dict) -> str:
     if parsed_addr:
         meta_items.append(
             f'<span class="parsed-addr">parsed: "{_esc(parsed_addr)}"</span>'
+        )
+    excluded_phrase = sample.get('excluded_phrase', '')
+    if excluded_phrase:
+        meta_items.append(
+            f'<span class="note">⚠️ fraza: "{_esc(excluded_phrase)}"</span>'
         )
     if note:
         meta_items.append(f'<span class="note">⚠️ {_esc(note)}</span>')
@@ -184,7 +195,7 @@ def generate_skipped_debug_page(
 
     # Renderuj karty
     cards_html_parts = []
-    for cat_key in ('no_address', 'no_coords', 'duplicate', 'no_price'):
+    for cat_key in ('no_address', 'no_coords', 'excluded', 'duplicate', 'no_price'):
         meta = CATEGORY_LABELS[cat_key]
         count = counts.get(cat_key, 0)
         sub = meta['sub']
@@ -199,7 +210,7 @@ def generate_skipped_debug_page(
 
     # Renderuj listy ofert (per kategoria - duplikaty pierwsze bo najbardziej diagnostyczne)
     offers_html_parts = []
-    for cat_key in ('duplicate', 'no_address', 'no_coords', 'no_price'):
+    for cat_key in ('duplicate', 'no_address', 'no_coords', 'excluded', 'no_price'):
         cat_samples = samples.get(cat_key, [])
         for s in cat_samples:
             offers_html_parts.append(_build_offer_card(cat_key, s))
@@ -211,7 +222,7 @@ def generate_skipped_debug_page(
     # Opcje filtra
     filter_options = []
     filter_options.append(f'<option value="all">Wszystkie ({total_samples} próbek)</option>')
-    for cat_key in ('no_address', 'no_coords', 'duplicate', 'no_price'):
+    for cat_key in ('no_address', 'no_coords', 'excluded', 'duplicate', 'no_price'):
         meta = CATEGORY_LABELS[cat_key]
         cnt = len(samples.get(cat_key, []))
         filter_options.append(
@@ -250,6 +261,7 @@ header nav a.active {{ background: white; color: #9f1239; border-color: #ef4444;
 .stat-card.no_price {{ border-color: #f59e0b; }}
 .stat-card.no_coords {{ border-color: #8b5cf6; }}
 .stat-card.duplicate {{ border-color: #06b6d4; }}
+.stat-card.excluded {{ border-color: #64748b; }}
 .stat-card .label {{ font-size: 12px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }}
 .stat-card .value {{ font-size: 28px; font-weight: 700; color: #2d3748; }}
 .stat-card .sub {{ font-size: 12px; color: #a0aec0; margin-top: 4px; }}
@@ -268,6 +280,7 @@ header nav a.active {{ background: white; color: #9f1239; border-color: #ef4444;
 .badge.no_price {{ background: #fef3c7; color: #92400e; }}
 .badge.no_coords {{ background: #ede9fe; color: #5b21b6; }}
 .badge.duplicate {{ background: #cffafe; color: #155e75; }}
+.badge.excluded {{ background: #e2e8f0; color: #334155; }}
 .offer-title {{ font-weight: 600; color: #2d3748; font-size: 15px; flex: 1; min-width: 0; }}
 .offer-link {{ color: #667eea; text-decoration: none; font-size: 13px; white-space: nowrap; }}
 .offer-link:hover {{ text-decoration: underline; }}

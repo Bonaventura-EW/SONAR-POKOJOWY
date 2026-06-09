@@ -315,6 +315,48 @@ def test_room_in_domek_not_excluded():
     assert not fails, f"Pokoje wykluczone mimo 'domek/segment' (filtr za ostry): {fails}"
 
 
+def test_skip_reason_classification():
+    """
+    FIX 2026-06-09: _process_offer ustawia JAWNY self._skip_reason dla każdego
+    powodu odrzucenia — run_scan klasyfikuje wg niego (zamiast zgadywać). Bez tego
+    oferty odrzucone z innego powodu (np. filtr) lądowały błędnie w no_coords.
+    """
+    fails = []
+
+    # no_address: brak ulicy, jest cena
+    proc = _make_full_processor()
+    proc._process_offer({'title': 'Pokój ładny',
+                         'description': 'Miłe miejsce blisko centrum, super.',
+                         'url': 'x/CID3-IDa.html', 'official_price': 800,
+                         'price_source': 'json-ld'})
+    if proc._skip_reason != 'no_address':
+        fails.append(f"no_address: {proc._skip_reason}")
+
+    # no_price: jest ulica, brak ceny
+    proc = _make_full_processor()
+    proc._process_offer({'title': 'Pokój przy ul. Bursztynowa',
+                         'description': 'Spokojna okolica, miło.',
+                         'url': 'x/CID3-IDb.html'})
+    if proc._skip_reason != 'no_price':
+        fails.append(f"no_price: {proc._skip_reason}")
+
+    # no_coords: jest ulica (z prefiksem) + cena, ale geokoder nie zna adresu
+    proc = _make_full_processor()
+    proc._process_offer({'title': 'Pokój przy ul. Nieistniejąca 5',
+                         'description': 'Spokojnie.', 'url': 'x/CID3-IDc.html',
+                         'official_price': 800, 'price_source': 'json-ld'})
+    if proc._skip_reason != 'no_coords':
+        fails.append(f"no_coords: {proc._skip_reason}")
+
+    assert not fails, f"Błędna klasyfikacja _skip_reason: {fails}"
+
+
+def test_excluded_category_in_generator():
+    """skipped_debug_generator zna kategorię 'excluded' (etykieta + CSS)."""
+    import skipped_debug_generator as gen
+    assert 'excluded' in gen.CATEGORY_LABELS, "brak 'excluded' w CATEGORY_LABELS"
+
+
 def _run():
     tests = [
         test_excluded_words_hygiene,
@@ -324,6 +366,8 @@ def _run():
         test_transient_error_sets_flag,
         test_no_transient_flag_on_genuine_miss,
         test_room_in_domek_not_excluded,
+        test_skip_reason_classification,
+        test_excluded_category_in_generator,
     ]
     passed = 0
     failed = 0
