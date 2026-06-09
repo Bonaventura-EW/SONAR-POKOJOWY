@@ -264,6 +264,11 @@ class SonarPokojowy:
         # Reset flagi transient-fail geokodera (ustawiana w _geocode_with_fallbacks,
         # odczytywana przez run_scan do kolejki retry).
         self._geocode_transient = False
+        # FIX 2026-06-09: jawny powód odrzucenia oferty (zamiast zgadywania przez
+        # re-derywację w run_scan). Ustawiany przed każdym `return None`.
+        # Wartości: 'excluded' | 'no_address' | 'no_price' | 'no_coords' | None.
+        self._skip_reason = None
+        self._skip_detail = None  # dodatkowy kontekst (np. dopasowana fraza wykluczenia)
 
         # 1. Użyj pełnego opisu (scraper już go pobrał)
         full_text = raw_offer['title'] + " " + raw_offer.get('description', '')
@@ -283,6 +288,8 @@ class SonarPokojowy:
         for phrase in excluded_phrases:
             if phrase in full_text_lower:
                 print(f"      ⚠️ Wykluczono: {phrase}")
+                self._skip_reason = 'excluded'
+                self._skip_detail = phrase
                 return None
         
         # 2. Parsuj adres z pełnego tekstu (tytuł + opis)
@@ -394,6 +401,7 @@ class SonarPokojowy:
                 address_precision = 'district'
 
         if not address_data:
+            self._skip_reason = 'no_address'
             return None  # Brak adresu → ignoruj
         
         # 3. Parsuj cenę - NOWA LOGIKA TRÓJPOZIOMOWA (2C)
@@ -445,6 +453,7 @@ class SonarPokojowy:
             print(f"      💰 Użyto ceny HTML (fallback): {price} zł ({media_info})")
         
         if not price:
+            self._skip_reason = 'no_price'
             return None  # Brak ceny → ignoruj
         
         # 4. Geokoduj adres (lub użyj cache dla reaktywacji)
@@ -464,6 +473,7 @@ class SonarPokojowy:
             )
             if not coords:
                 print(f"⚠️ Nie można geokodować: {address_data['full']}")
+                self._skip_reason = 'no_coords'
                 return None  # Nie znaleziono współrzędnych → ignoruj
         
         # 5. Stwórz ID z URL (unikalne)
@@ -1133,13 +1143,15 @@ class SonarPokojowy:
             skipped_no_price = 0
             skipped_no_coords = 0
             skipped_duplicate = 0
+            skipped_excluded = 0  # FIX 2026-06-09: oferty odrzucone przez filtr excluded_phrases
 
             # Zbieram próbki odrzuconych ofert do analizy (max 50 per kategorię)
             skipped_samples = {
                 'no_address': [],
                 'no_price': [],
                 'no_coords': [],
-                'duplicate': []
+                'duplicate': [],
+                'excluded': []  # FIX 2026-06-09: osobna kategoria (nie myl z no_coords)
             }
             SAMPLE_LIMIT = 50
 
@@ -1153,47 +1165,55 @@ class SonarPokojowy:
                 """Obsługuje wynik _process_offer: liczy skip/sample LUB dodaje ofertę
                 (z dedupem). Wspólne dla głównej pętli i przebiegu retry."""
                 nonlocal skipped_no_address, skipped_no_price, skipped_no_coords
-                nonlocal skipped_duplicate
+                nonlocal skipped_duplicate, skipped_excluded
 
                 if not processed:
-                    # Zlicz powody odrzucenia + zachowaj próbkę do analizy
+                    # FIX 2026-06-09: klasyfikuj wg JAWNEGO powodu ustawionego przez
+                    # _process_offer (self._skip_reason), zamiast zgadywać przez
+                    # re-derywację adresu/ceny. Poprzednio oferty odrzucone z innego
+                    # powodu (np. filtr excluded_phrases) z parsowalnym adresem+ceną
+                    # lądowały błędnie w no_coords.
                     full_text = raw_offer['title'] + " " + raw_offer.get('description', '')
                     sample = {
                         'url': raw_offer.get('url', ''),
                         'title': raw_offer.get('title', '')[:200],
                         'description_preview': (raw_offer.get('description', '') or '')[:500]
                     }
-                    # FIX 2026-05-26 (C): klasyfikacja musi sprawdzić WSZYSTKIE 3 fallbacki
-                    # (extract_address + extract_street_only + extract_from_whitelist), inaczej
-                    # oferty które przeszły fallback ale padły na geocoder/price są błędnie
-                    # klasyfikowane jako no_address. Wcześniej "ghost" - sample 24 'ul.Chopina'.
-                    addr_exact = self.address_parser.extract_address(full_text)
-                    addr_street = self.address_parser.extract_street_only(full_text) if not addr_exact else None
-                    addr_white = self.address_parser.extract_from_whitelist(full_text) if not (addr_exact or addr_street) else None
-                    addr_district = self.address_parser.extract_district(full_text) if not (addr_exact or addr_street or addr_white) else None
-                    any_addr = addr_exact or addr_street or addr_white or addr_district
+                    reason = getattr(self, '_skip_reason', None)
 
-                    if not any_addr:
-                        skipped_no_address += 1
-                        if len(skipped_samples['no_address']) < SAMPLE_LIMIT:
-                            skipped_samples['no_address'].append(sample)
-                    elif not self.price_parser.extract_price(full_text) and not raw_offer.get('official_price'):
+                    if reason == 'excluded':
+                        skipped_excluded += 1
+                        if len(skipped_samples['excluded']) < SAMPLE_LIMIT:
+                            sample['excluded_phrase'] = getattr(self, '_skip_detail', None)
+                            skipped_samples['excluded'].append(sample)
+                    elif reason == 'no_price':
                         skipped_no_price += 1
                         if len(skipped_samples['no_price']) < SAMPLE_LIMIT:
                             skipped_samples['no_price'].append(sample)
-                    else:
+                    elif reason == 'no_coords':
                         skipped_no_coords += 1
                         if len(skipped_samples['no_coords']) < SAMPLE_LIMIT:
-                            # FIX 2026-05-26 (C): pokazuj który parser znalazł adres
-                            # + jaki adres geocoder odrzucił (przed: tylko extract_address).
-                            sample['address_parsed'] = any_addr['full']
-                            sample['address_source'] = (
-                                'extract_address' if addr_exact else
-                                'extract_street_only' if addr_street else
-                                'extract_from_whitelist' if addr_white else
-                                'extract_district'
-                            )
+                            # Wzbogać próbkę o sparsowany adres (diagnostyka który adres
+                            # geocoder odrzucił + który ekstraktor go znalazł).
+                            addr_exact = self.address_parser.extract_address(full_text)
+                            addr_street = self.address_parser.extract_street_only(full_text) if not addr_exact else None
+                            addr_white = self.address_parser.extract_from_whitelist(full_text) if not (addr_exact or addr_street) else None
+                            addr_district = self.address_parser.extract_district(full_text) if not (addr_exact or addr_street or addr_white) else None
+                            any_addr = addr_exact or addr_street or addr_white or addr_district
+                            if any_addr:
+                                sample['address_parsed'] = any_addr['full']
+                                sample['address_source'] = (
+                                    'extract_address' if addr_exact else
+                                    'extract_street_only' if addr_street else
+                                    'extract_from_whitelist' if addr_white else
+                                    'extract_district'
+                                )
                             skipped_samples['no_coords'].append(sample)
+                    else:
+                        # reason == 'no_address' lub None (defensywnie)
+                        skipped_no_address += 1
+                        if len(skipped_samples['no_address']) < SAMPLE_LIMIT:
+                            skipped_samples['no_address'].append(sample)
                     return
 
                 # Sprawdź duplikaty
@@ -1288,7 +1308,8 @@ class SonarPokojowy:
                             'no_address': skipped_no_address,
                             'no_price': skipped_no_price,
                             'no_coords': skipped_no_coords,
-                            'duplicate': skipped_duplicate
+                            'duplicate': skipped_duplicate,
+                            'excluded': skipped_excluded
                         },
                         'samples': skipped_samples
                     }, f, ensure_ascii=False, indent=2)
@@ -1302,9 +1323,10 @@ class SonarPokojowy:
                 'skipped_no_address': skipped_no_address,
                 'skipped_no_price': skipped_no_price,
                 'skipped_no_coords': skipped_no_coords,
-                'skipped_duplicate': skipped_duplicate
+                'skipped_duplicate': skipped_duplicate,
+                'skipped_excluded': skipped_excluded
             })
-            
+
             # Dodaj metryki geokodowania
             self.scan_logger.log_phase('geocoding', geocoding_time, {
                 'geocoded_addresses': len(processed_offers)
@@ -1314,7 +1336,8 @@ class SonarPokojowy:
             print(f"   Pominięte - brak adresu: {skipped_no_address}")
             print(f"   Pominięte - brak ceny: {skipped_no_price}")
             print(f"   Pominięte - brak współrzędnych: {skipped_no_coords}")
-            print(f"   Pominięte - duplikaty: {skipped_duplicate}\n")
+            print(f"   Pominięte - duplikaty: {skipped_duplicate}")
+            print(f"   Pominięte - wykluczone (filtr): {skipped_excluded}\n")
             
             # 3. Aktualizacja bazy danych
             print("💾 Krok 3: Aktualizacja bazy danych...")
@@ -1420,6 +1443,7 @@ class SonarPokojowy:
                 'skipped_no_price': skipped_no_price,
                 'skipped_no_coords': skipped_no_coords,
                 'skipped_duplicate': skipped_duplicate,
+                'skipped_excluded': skipped_excluded,
                 'verification': verification_stats
             })
             
