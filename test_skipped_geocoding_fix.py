@@ -273,6 +273,48 @@ def test_no_transient_flag_on_genuine_miss():
     assert proc._geocode_transient is False, "false-positive transient na realnym miss"
 
 
+def _make_full_processor():
+    """SonarPokojowy bez ciężkiego __init__ — tylko atrybuty potrzebne w _process_offer."""
+    from price_parser import PriceParser
+    import pytz
+    proc = SonarPokojowy.__new__(SonarPokojowy)
+    proc.address_parser = AddressParser(geocoding_cache_path=CACHE_PATH)
+    proc.price_parser = PriceParser()
+    proc.geocoder = StubGeocoder()
+    proc.tz = pytz.timezone('Europe/Warsaw')
+    proc._geocode_transient = False
+    return proc
+
+
+def test_room_in_domek_not_excluded():
+    """
+    FIX 2026-06-09: pokoje do wynajęcia, w których budynek to 'domek'/'segment'/'willa',
+    NIE mogą być wykluczane (Chodźki/Wilczej/Chmielewskiego). To pokoje, nie całe domy.
+    """
+    proc = _make_full_processor()
+    fails = []
+    cases = [
+        ('Domek (Wilczej)', 'Pokoje do wynajęcia, nowy dom',
+         'Pokój w nowo wybudowanym domku na ul. Bursztynowa. Domek z parkingiem na 3 auta.'),
+        ('Segment (Chodźki)', 'Pokój w prywatnym akademiku przy ul. Chodźki',
+         'Pokój single, located in a segment designed for two residents. ul. Chodźki.'),
+        ('Domek (Chmielewskiego)', 'Pokój dwuosobowy przy UP',
+         'Do wynajęcia pokoje w domu ul. Bursztynowa. Domek znajduje się w spokojnej okolicy.'),
+    ]
+    for name, title, desc in cases:
+        raw_offer = {
+            'title': title,
+            'description': desc,
+            'url': 'https://www.olx.pl/d/oferta/test-CID3-IDtest.html',
+            'official_price': 800,
+            'price_source': 'json-ld',
+        }
+        processed = proc._process_offer(raw_offer)
+        if not processed:
+            fails.append(name)
+    assert not fails, f"Pokoje wykluczone mimo 'domek/segment' (filtr za ostry): {fails}"
+
+
 def _run():
     tests = [
         test_excluded_words_hygiene,
@@ -281,6 +323,7 @@ def _run():
         test_fallback_only_triggers_on_geocode_failure,
         test_transient_error_sets_flag,
         test_no_transient_flag_on_genuine_miss,
+        test_room_in_domek_not_excluded,
     ]
     passed = 0
     failed = 0
