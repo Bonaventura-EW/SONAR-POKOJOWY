@@ -464,11 +464,6 @@ class Geocoder:
         self.cache[address] = None
         self._save_cache()
         return None, meta
-        
-        # Wszystkie podejścia zawiodły (faktyczne None od Nominatim) - cache jako None
-        self.cache[address] = None
-        self._save_cache()
-        return None, meta
     
     @staticmethod
     def _strip_number_variants(address: str, nominative: str, plural_variants: list) -> list:

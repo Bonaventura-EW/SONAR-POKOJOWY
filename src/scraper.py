@@ -157,10 +157,11 @@ class OLXScraper:
         """
         offers = []
         seen_urls = set()  # Deduplikacja
-        
+        parse_failures = 0  # Wyjątki przy parsowaniu — sygnał zmiany struktury HTML OLX
+
         # Nowa strategia: znajdź wszystkie linki do /d/oferta/ i wyciągnij dane z kontekstu
         all_links = soup.find_all('a', href=lambda x: x and '/d/oferta/' in str(x))
-        
+
         for link_tag in all_links:
             try:
                 # URL ogłoszenia
@@ -212,9 +213,16 @@ class OLXScraper:
                 })
                 
             except (AttributeError, TypeError, KeyError) as e:
+                parse_failures += 1
                 print(f"⚠️ Błąd parsowania ogłoszenia: {e}")
                 continue
-        
+
+        # >10% linków na stronie padło na wyjątku = prawdopodobnie OLX zmienił
+        # strukturę HTML — głośny sygnał w logach zamiast cichej utraty ofert
+        if all_links and parse_failures > 0.1 * len(all_links):
+            print(f"🚨 UWAGA: {parse_failures}/{len(all_links)} ogłoszeń nie sparsowało się "
+                  f"— możliwa zmiana struktury HTML OLX!")
+
         return offers
     
     def _get_next_page_url(self, soup: BeautifulSoup, current_page: int,
