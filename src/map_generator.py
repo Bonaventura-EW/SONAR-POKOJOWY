@@ -11,6 +11,7 @@ from pathlib import Path
 
 # Import taggera ofert (B1)
 from offer_tagger import tag_offer, TAGS as OFFER_TAGS
+from shared_utils import write_json_atomic, format_datetime
 from profiles_config import TRACKED_PROFILES, FIRM_BORDER_COLOR, FIRM_BORDER_WIDTH
 
 # Definicja zakresów cenowych - 12 przedziałów z gradientem
@@ -97,57 +98,9 @@ def get_price_range(price):
     return 'range_1501_plus'  # Fallback
 
 
-def format_datetime(iso_string):
-    """
-    Konwertuj ISO datetime → format frontend 'DD.MM.RRRR HH:MM'
-    Input: '2026-03-01T15:51:38.344630+01:00'
-    Output: '01.03.2026 15:51'
-    """
-    try:
-        # Parse ISO format (obsługa timezone)
-        if '+' in iso_string:
-            dt_str = iso_string.split('+')[0]  # Usuń timezone
-        elif 'Z' in iso_string:
-            dt_str = iso_string.replace('Z', '')
-        else:
-            dt_str = iso_string
-        
-        # Parse datetime
-        if '.' in dt_str:
-            dt = datetime.fromisoformat(dt_str)
-        else:
-            dt = datetime.strptime(dt_str, '%Y-%m-%dT%H:%M:%S')
-        
-        # Format do DD.MM.YYYY HH:MM
-        return dt.strftime('%d.%m.%Y %H:%M')
-    except (ValueError, AttributeError) as e:
-        print(f"⚠️  Błąd parsowania daty '{iso_string}': {e}")
-        return iso_string
-
-
 def format_scan_datetime(iso_string):
-    """
-    Format dla scan info (z sekundami)
-    Output: 'DD.MM.YYYY HH:MM:SS'
-    """
-    try:
-        if '+' in iso_string:
-            dt_str = iso_string.split('+')[0]
-        elif 'Z' in iso_string:
-            dt_str = iso_string.replace('Z', '')
-        else:
-            dt_str = iso_string
-        
-        if '.' in dt_str:
-            dt = datetime.fromisoformat(dt_str)
-        else:
-            dt = datetime.strptime(dt_str, '%Y-%m-%dT%H:%M:%S')
-        
-        return dt.strftime('%d.%m.%Y %H:%M:%S')
-    except (ValueError, AttributeError) as e:
-        print(f"⚠️  Błąd parsowania daty skanu '{iso_string}': {e}")
-        return iso_string
-
+    """Format dla scan info (z sekundami): 'DD.MM.YYYY HH:MM:SS'"""
+    return format_datetime(iso_string, '%d.%m.%Y %H:%M:%S')
 
 def _build_addr_versions(offer):
     """Wersje adresu do popupu/pinów głównej mapy (najnowsza/bieżąca pierwsza).
@@ -392,9 +345,8 @@ def generate_map_data(input_file, output_file):
         }
     }
     
-    # 7. Zapisz do pliku
-    with open(output_file, 'w', encoding='utf-8') as f:
-        json.dump(map_data, f, ensure_ascii=False, indent=2)
+    # 7. Zapisz do pliku (atomowo)
+    write_json_atomic(output_file, map_data)
     
     print(f"✅ Zapisano map_data.json ({len(markers)} markerów, {stats['active_count']} aktywnych ofert)")
     print(f"   Ostatni scan: {scan_info['last']}")

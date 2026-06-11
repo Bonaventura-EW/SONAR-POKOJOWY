@@ -20,6 +20,7 @@ from price_parser import PriceParser
 from geocoder import Geocoder
 from duplicate_detector import DuplicateDetector
 from scan_logger import ScanLogger
+from shared_utils import write_json_atomic
 
 class SonarPokojowy:
     def __init__(self, data_file: str = "../data/offers.json"):
@@ -115,10 +116,8 @@ class SonarPokojowy:
         }
     
     def _save_database(self):
-        """Zapisuje bazę danych do JSON."""
-        self.data_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.data_file, 'w', encoding='utf-8') as f:
-            json.dump(self.database, f, ensure_ascii=False, indent=2)
+        """Zapisuje bazę danych do JSON (atomowo — crash nie utnie offers.json)."""
+        write_json_atomic(self.data_file, self.database)
         print(f"💾 Baza zapisana: {self.data_file}")
     
     def _calculate_next_scan_time(self) -> str:
@@ -1301,18 +1300,17 @@ class SonarPokojowy:
             # Zapisz próbki odrzuconych do analizy (nadpisuje przy każdym scanie)
             try:
                 samples_path = self.data_file.parent / 'skipped_offers_sample.json'
-                with open(samples_path, 'w', encoding='utf-8') as f:
-                    json.dump({
-                        'scan_timestamp': datetime.now(self.tz).isoformat(),
-                        'counts': {
-                            'no_address': skipped_no_address,
-                            'no_price': skipped_no_price,
-                            'no_coords': skipped_no_coords,
-                            'duplicate': skipped_duplicate,
-                            'excluded': skipped_excluded
-                        },
-                        'samples': skipped_samples
-                    }, f, ensure_ascii=False, indent=2)
+                write_json_atomic(samples_path, {
+                    'scan_timestamp': datetime.now(self.tz).isoformat(),
+                    'counts': {
+                        'no_address': skipped_no_address,
+                        'no_price': skipped_no_price,
+                        'no_coords': skipped_no_coords,
+                        'duplicate': skipped_duplicate,
+                        'excluded': skipped_excluded
+                    },
+                    'samples': skipped_samples
+                })
                 print(f"   📊 Zapisano próbki odrzuconych do {samples_path.name}")
             except Exception as e:
                 print(f"   ⚠️ Nie udało się zapisać skipped_offers_sample.json: {e}")
