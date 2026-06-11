@@ -21,7 +21,9 @@ sys.path.insert(0, os.path.join(REPO_ROOT, 'src'))
 
 from address_parser import AddressParser
 
-CACHE = os.path.join(REPO_ROOT, 'data', 'geocoding_cache.json')
+# ZAMROŻONY cache (fixture) — żywy data/geocoding_cache.json mutuje przy każdym
+# scanie i psuł determinizm testu. Aktualizacja: patrz test_fixtures/README.md
+CACHE = os.path.join(REPO_ROOT, 'test_fixtures', 'geocoding_cache_golden.json')
 GOLDEN = os.path.join(REPO_ROOT, 'test_address_golden.json')
 
 
