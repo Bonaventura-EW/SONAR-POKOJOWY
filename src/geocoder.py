@@ -18,6 +18,8 @@ try:
 except ImportError:
     GeocoderRateLimited = None  # type: ignore
 
+from shared_utils import write_json_atomic
+
 # Bounding box Lublina (~20x25 km z marginesem)
 # Pokrywa centrum + wszystkie dzielnice + przedmieścia
 LUBLIN_BBOX = {
@@ -174,10 +176,8 @@ class Geocoder:
         return {}
     
     def _save_cache(self):
-        """Zapisuje cache do pliku JSON."""
-        self.cache_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.cache_file, 'w', encoding='utf-8') as f:
-            json.dump(self.cache, f, ensure_ascii=False, indent=2)
+        """Zapisuje cache do pliku JSON (atomowo)."""
+        write_json_atomic(self.cache_file, self.cache)
     
     def is_in_lublin(self, coords: Dict[str, float]) -> bool:
         """
@@ -459,11 +459,6 @@ class Geocoder:
                 # Cache None dla wariantu samej ulicy (np. literówka w nazwie)
                 self.cache[street_only] = None
                 self._save_cache()
-        
-        # Wszystkie podejścia zawiodły (faktyczne None od Nominatim) - cache jako None
-        self.cache[address] = None
-        self._save_cache()
-        return None, meta
         
         # Wszystkie podejścia zawiodły (faktyczne None od Nominatim) - cache jako None
         self.cache[address] = None

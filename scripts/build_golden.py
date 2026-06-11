@@ -21,7 +21,9 @@ sys.path.insert(0, os.path.join(REPO_ROOT, 'src'))
 
 from address_parser import AddressParser
 
-CACHE = os.path.join(REPO_ROOT, 'data', 'geocoding_cache.json')
+# ZAMROŻONY cache (fixture) — ten sam co w test_address_parser_golden.py,
+# inaczej golden i test widzą różne whitelisty ulic. Patrz test_fixtures/README.md
+CACHE = os.path.join(REPO_ROOT, 'test_fixtures', 'geocoding_cache_golden.json')
 
 
 def collect_texts():

@@ -11,30 +11,12 @@ from pathlib import Path
 import pytz
 
 from profiles_config import TRACKED_PROFILES
-
-
-def format_datetime(iso_string: str) -> str:
-    """ISO datetime → 'DD.MM.YYYY HH:MM'"""
-    if not iso_string:
-        return ''
-    try:
-        dt_str = iso_string.split('+')[0].replace('Z', '')
-        dt = datetime.fromisoformat(dt_str)
-        return dt.strftime('%d.%m.%Y %H:%M')
-    except (ValueError, AttributeError):
-        return iso_string
+from shared_utils import write_json_atomic, format_datetime
 
 
 def format_date_only(iso_string: str) -> str:
     """ISO datetime → 'DD.MM.YYYY'"""
-    if not iso_string:
-        return ''
-    try:
-        dt_str = iso_string.split('+')[0].replace('Z', '')
-        dt = datetime.fromisoformat(dt_str)
-        return dt.strftime('%d.%m.%Y')
-    except (ValueError, AttributeError):
-        return iso_string
+    return format_datetime(iso_string, '%d.%m.%Y')
 
 
 def _within_days(iso_string: str, now, tz, days: int = 2) -> bool:
@@ -375,9 +357,7 @@ def generate_profile_data(input_file: str, output_file: str):
     }
 
     out_path = Path(output_file)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, 'w', encoding='utf-8') as f:
-        json.dump(output, f, ensure_ascii=False, indent=2)
+    write_json_atomic(out_path, output)
 
     print(f"✅ Zapisano profile_data.json ({out_path})")
 

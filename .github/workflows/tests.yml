@@ -3,6 +3,17 @@ name: Testy
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
+    # Nie odpalaj na commitach automatycznych scanów (zmieniają tylko data/ i docs/)
+    paths:
+      - 'src/**'
+      - 'scripts/**'
+      - 'test_*.py'
+      - 'test_address_golden.json'
+      - 'test_fixtures/**'
+      - 'requirements.txt'
+      - '.github/workflows/tests.yml'
   workflow_dispatch:
 
 jobs:

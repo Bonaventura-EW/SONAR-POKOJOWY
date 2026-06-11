@@ -5,6 +5,7 @@ Monitoring Data Generator - przygotowuje dane dla dashboardu monitoringu
 import json
 from pathlib import Path
 from scan_logger import ScanLogger
+from shared_utils import write_json_atomic
 
 
 def generate_monitoring_data():
@@ -101,10 +102,7 @@ def generate_monitoring_data():
     
     # Zapisz do docs/
     output_file = Path("../docs/monitoring_data.json")
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    
-    with open(output_file, 'w', encoding='utf-8') as f:
-        json.dump(monitoring_data, f, ensure_ascii=False, indent=2)
+    write_json_atomic(output_file, monitoring_data)
     
     print(f"✅ Dane monitoringu wygenerowane: {output_file}")
     print(f"   Statystyki: {statistics}")

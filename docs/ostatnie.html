@@ -487,6 +487,17 @@ async function loadOffers() {
     const subtitleEl = document.getElementById('subtitle');
     const statsBar = document.getElementById('stats-bar');
 
+    // Dane ofert pochodzą z OLX (zewnętrzne) — escapuj przed wstawieniem do innerHTML
+    function escapeHtml(value) {
+        if (value === null || value === undefined) return '';
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     try {
         const resp = await fetch('data.json?v=' + Date.now());
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -547,8 +558,8 @@ async function loadOffers() {
                 ? `<button class="btn-map" onclick="goToMap(${offer._lat}, ${offer._lon})" title="Pokaż na mapie">📍 Mapa</button>`
                 : `<button class="btn-map" style="opacity:0.4;cursor:not-allowed" disabled title="Brak lokalizacji">📍 Brak</button>`;
 
-            const olxBtn = offer.url
-                ? `<a class="btn-olx" href="${offer.url}" target="_blank" rel="noopener">🔗 OLX</a>`
+            const olxBtn = (offer.url && /^https?:\/\//i.test(offer.url))
+                ? `<a class="btn-olx" href="${escapeHtml(offer.url)}" target="_blank" rel="noopener">🔗 OLX</a>`
                 : '';
 
             return `
@@ -556,10 +567,10 @@ async function loadOffers() {
                 ${rank}
                 <div class="offer-price-badge" style="background:${colorObj.bg};color:${colorObj.text}">${priceText}</div>
                 <div class="offer-info">
-                    <div class="offer-address" title="${offer._address}">${offer._address}</div>
+                    <div class="offer-address" title="${escapeHtml(offer._address)}">${escapeHtml(offer._address)}</div>
                     <div class="offer-meta">
-                        <span class="offer-date" title="${fullDate}">🕐 ${dateStr}</span>
-                        <span class="offer-scan" title="Data dodania: ${fullDate}">📡 scan ${formatScan(offer.first_seen)}</span>
+                        <span class="offer-date" title="${escapeHtml(fullDate)}">🕐 ${escapeHtml(dateStr)}</span>
+                        <span class="offer-scan" title="Data dodania: ${escapeHtml(fullDate)}">📡 scan ${escapeHtml(formatScan(offer.first_seen))}</span>
                         <span class="offer-tag ${tag.cls}">${tag.label}</span>
                         ${isNew}
                     </div>

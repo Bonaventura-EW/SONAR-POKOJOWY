@@ -28,6 +28,8 @@ from pathlib import Path
 from datetime import datetime
 import pytz
 
+from shared_utils import write_json_atomic
+
 
 class Top5Generator:
     def __init__(
@@ -135,9 +137,7 @@ class Top5Generator:
             'entries': entries
         }
         
-        self.output_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.output_file, 'w', encoding='utf-8') as f:
-            json.dump(result, f, ensure_ascii=False, indent=2)
+        write_json_atomic(self.output_file, result)
         
         drops = [e for e in entries if e['trend'] == 'down']
         rises = [e for e in entries if e['trend'] == 'up']

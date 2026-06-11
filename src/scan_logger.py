@@ -9,6 +9,8 @@ from datetime import datetime
 from typing import Dict, List
 import pytz
 
+from shared_utils import write_json_atomic
+
 
 class ScanLogger:
     def __init__(self, log_file: str = "../data/scan_history.json"):
@@ -164,10 +166,8 @@ class ScanLogger:
         return []
     
     def _save_history(self, history: List[Dict]):
-        """Zapisuje historię skanów do pliku."""
-        self.log_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.log_file, 'w', encoding='utf-8') as f:
-            json.dump(history, f, ensure_ascii=False, indent=2)
+        """Zapisuje historię skanów do pliku (atomowo)."""
+        write_json_atomic(self.log_file, history)
     
     def get_recent_scans(self, count: int = 10) -> List[Dict]:
         """

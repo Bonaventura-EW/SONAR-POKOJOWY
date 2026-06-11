@@ -10,6 +10,12 @@ on:
   # Możliwość manualnego uruchomienia
   workflow_dispatch:
 
+# Nigdy dwa scany naraz (cron + ręczny dispatch) — drugi run czeka w kolejce.
+# Bez tego równoległy run przegrywa wyścig o git push i cały scan idzie do kosza.
+concurrency:
+  group: sonar-scanner
+  cancel-in-progress: false
+
 jobs:
   scan:
     runs-on: ubuntu-latest
@@ -73,5 +79,19 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "🤖 Automatyczny scan: $(TZ='Europe/Warsaw' date +'%Y-%m-%d %H:%M')" || true
-            git push || echo "::warning::Push failed"
+            # Ktoś mógł wpushować w trakcie scanu — rebase przed pushem,
+            # z retry żeby nie stracić wyników scanu na chwilowym błędzie
+            pushed=false
+            for i in 1 2 3; do
+              if git pull --rebase origin main && git push; then
+                pushed=true
+                break
+              fi
+              echo "::warning::Push attempt $i failed, retrying in $((i*5))s..."
+              sleep $((i*5))
+            done
+            if [ "$pushed" != "true" ]; then
+              echo "::error::Push failed after 3 attempts - scan results lost"
+              exit 1
+            fi
           fi

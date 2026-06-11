@@ -20,6 +20,7 @@ from price_parser import PriceParser
 from geocoder import Geocoder
 from duplicate_detector import DuplicateDetector
 from scan_logger import ScanLogger
+from shared_utils import write_json_atomic
 
 class SonarPokojowy:
     def __init__(self, data_file: str = "../data/offers.json"):
@@ -115,10 +116,8 @@ class SonarPokojowy:
         }
     
     def _save_database(self):
-        """Zapisuje bazę danych do JSON."""
-        self.data_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.data_file, 'w', encoding='utf-8') as f:
-            json.dump(self.database, f, ensure_ascii=False, indent=2)
+        """Zapisuje bazę danych do JSON (atomowo — crash nie utnie offers.json)."""
+        write_json_atomic(self.data_file, self.database)
         print(f"💾 Baza zapisana: {self.data_file}")
     
     def _calculate_next_scan_time(self) -> str:
@@ -989,7 +988,10 @@ class SonarPokojowy:
                     
             except requests.RequestException:
                 return (offer, 'error', None)
-            except Exception:
+            except Exception as e:
+                # Nie-sieciowy wyjątek (np. zmiana HTML) — loguj, nie połykaj po cichu
+                print(f"      ⚠️ Weryfikacja {offer.get('id', '?')}: "
+                      f"{type(e).__name__}: {e}")
                 return (offer, 'error', None)
         
         # Równoległa weryfikacja (10 wątków - tak samo jak scraper)
@@ -1283,36 +1285,48 @@ class SonarPokojowy:
                 consume(raw_offer, processed)
 
             # FIX 2026-06-09: przebieg RETRY dla ofert z transient-failem geokodera.
-            # Po głównej pętli okno rate-limitu zwykle minęło; ponawiamy z odstępem.
+            # Backoff 5/10/20s — pojedyncza próba po 5s nie wystarczała przy dłuższych
+            # oknach rate-limitu Nominatim i oferty cicho spadały do no_coords.
             if transient_retry_queue:
-                print(f"\n   ⏳ Retry geokodowania: {len(transient_retry_queue)} ofert "
-                      f"(transient fail Nominatim)...")
-                time.sleep(5)
-                for raw_offer in transient_retry_queue:
-                    geo_start = time.time()
-                    processed = self._process_offer(raw_offer)
-                    geocoding_time += time.time() - geo_start
-                    if processed:
-                        print(f"      ✅ Retry OK: {raw_offer['title'][:50]}")
-                    # Tym razem konsumujemy wynik bez względu na transient — jeśli nadal
-                    # None, trafi do właściwej kategorii skip (zwykle no_coords).
-                    consume(raw_offer, processed)
+                retry_queue = transient_retry_queue
+                retry_delays = (5, 10, 20)
+                for attempt, delay in enumerate(retry_delays, start=1):
+                    print(f"\n   ⏳ Retry geokodowania (próba {attempt}/{len(retry_delays)}): "
+                          f"{len(retry_queue)} ofert (transient fail Nominatim), czekam {delay}s...")
+                    time.sleep(delay)
+                    still_transient = []
+                    for raw_offer in retry_queue:
+                        geo_start = time.time()
+                        processed = self._process_offer(raw_offer)
+                        geocoding_time += time.time() - geo_start
+                        if processed:
+                            print(f"      ✅ Retry OK: {raw_offer['title'][:50]}")
+                            consume(raw_offer, processed)
+                        elif (getattr(self, '_geocode_transient', False)
+                              and attempt < len(retry_delays)):
+                            still_transient.append(raw_offer)
+                        else:
+                            # Nie-transient None albo ostatnia próba — konsumujemy,
+                            # oferta trafi do właściwej kategorii skip (zwykle no_coords).
+                            consume(raw_offer, processed)
+                    retry_queue = still_transient
+                    if not retry_queue:
+                        break
 
             # Zapisz próbki odrzuconych do analizy (nadpisuje przy każdym scanie)
             try:
                 samples_path = self.data_file.parent / 'skipped_offers_sample.json'
-                with open(samples_path, 'w', encoding='utf-8') as f:
-                    json.dump({
-                        'scan_timestamp': datetime.now(self.tz).isoformat(),
-                        'counts': {
-                            'no_address': skipped_no_address,
-                            'no_price': skipped_no_price,
-                            'no_coords': skipped_no_coords,
-                            'duplicate': skipped_duplicate,
-                            'excluded': skipped_excluded
-                        },
-                        'samples': skipped_samples
-                    }, f, ensure_ascii=False, indent=2)
+                write_json_atomic(samples_path, {
+                    'scan_timestamp': datetime.now(self.tz).isoformat(),
+                    'counts': {
+                        'no_address': skipped_no_address,
+                        'no_price': skipped_no_price,
+                        'no_coords': skipped_no_coords,
+                        'duplicate': skipped_duplicate,
+                        'excluded': skipped_excluded
+                    },
+                    'samples': skipped_samples
+                })
                 print(f"   📊 Zapisano próbki odrzuconych do {samples_path.name}")
             except Exception as e:
                 print(f"   ⚠️ Nie udało się zapisać skipped_offers_sample.json: {e}")

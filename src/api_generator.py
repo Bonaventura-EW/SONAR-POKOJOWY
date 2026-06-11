@@ -16,6 +16,7 @@ from typing import Dict, List, Optional
 import pytz
 
 from scan_logger import ScanLogger
+from shared_utils import write_json_atomic
 
 
 class APIGenerator:
@@ -367,10 +368,8 @@ class APIGenerator:
         return f"{secs}s"
     
     def _save_json(self, filename: str, data: Dict):
-        """Zapisuje dane JSON do pliku."""
-        filepath = self.output_dir / filename
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        """Zapisuje dane JSON do pliku (atomowo)."""
+        write_json_atomic(self.output_dir / filename, data)
 
 
 def main():

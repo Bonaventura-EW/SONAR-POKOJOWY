@@ -9,6 +9,15 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Audyt i naprawy (2026-06-11)
+- **security**: XSS — dane z OLX (adresy, opisy, URL-e, historia adresów) są escapowane przed wstawieniem do HTML (`escapeHtml()`/`safeOfferUrl()` w `script.js`, `ostatnie.html`, `market_analysis.html`); inline `onclick` z interpolacją ID ofert zastąpione `data-oid`.
+- **fix**: workflow scannera — `concurrency` (runy kolejkowane zamiast wyścigu o push) + `git pull --rebase` z 3 próbami przed pushem; nieudany push to teraz twardy błąd, nie cichy warning.
+- **feat**: `src/shared_utils.py` — atomowy zapis JSON (`write_json_atomic`, temp + rename) we wszystkich miejscach zapisu (`offers.json`, `geocoding_cache`, `scan_history`, `docs/*.json`); crash nie utnie już pliku. Wspólny `format_datetime()` zamiast kopii w `map_generator`/`profile_generator`.
+- **fix**: golden test parsera adresów jest hermetyczny — czyta zamrożony `test_fixtures/geocoding_cache_golden.json` zamiast żywego cache'a (który mutuje przy każdym scanie i powodował fałszywe regresje); golden przebudowany (1506 tekstów). `tests.yml` odpala się też na push do `main` (z filtrem ścieżek — commity scanów pomijane).
+- **fix**: retry geokodowania po transient-failu Nominatim z backoffem 5/10/20 s (wcześniej jedna próba po 5 s → oferty spadały do `no_coords`).
+- **fix**: scraper alarmuje gdy >10% ogłoszeń na stronie pada na wyjątku parsowania (wczesny sygnał zmiany struktury HTML OLX); wyjątki w weryfikacji inactive logowane zamiast połykane.
+- **chore**: usunięty martwy zdublowany blok return w `geocoder.py`; usunięte sekcje Roadmap z `README.md`, `BLUEPRINT.md` i `docs/api/README.md` (sekcje BLUEPRINT przenumerowane 12–14 → 11–13).
+
 ### Porządki / utrzymanie (2026-05-30)
 - **chore**: wyczyszczono `geocoding_cache.json` z 494 martwych wpisów (adresy nieużywane przez żadną ofertę). Cache 1082 → 588 wpisów, backup w `data/backups/`.
 - **docs**: archiwizacja 33 historycznych raportów/wizualizacji do `docs/archive/` (root: 45 → 8 plików dokumentacji).
