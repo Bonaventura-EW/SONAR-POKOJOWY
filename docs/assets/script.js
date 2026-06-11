@@ -20,6 +20,24 @@ function parsePolishDate(str) {
     }
 }
 
+// Helper: escapowanie HTML — dane ofert (adres, opis, URL) pochodzą z OLX,
+// czyli od zewnętrznych ogłoszeniodawców. Wszystko co trafia do innerHTML/popupów
+// MUSI przejść przez escapeHtml(), inaczej XSS.
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// Helper: URL oferty do atrybutu href — tylko http(s), inaczej '#'
+function safeOfferUrl(url) {
+    return /^https?:\/\//i.test(url || '') ? escapeHtml(url) : '#';
+}
+
 let map;
 let mapData;
 let allMarkers = [];
@@ -688,11 +706,11 @@ function renderArchivalPins() {
                 const prices = v.prices || [];
                 const lastPrice = prices.length ? prices[prices.length - 1] + ' zł' : '—';
                 const popup = `<div class="offer-popup"><div style="font-size:11px;color:#7c3aed;font-weight:700;margin-bottom:4px">↩ POPRZEDNI ADRES</div>`
-                    + `<div style="font-weight:700;font-size:15px;color:#212529">${v.address || '—'}</div>`
-                    + `<div style="font-size:11px;color:#94a3b8;margin:3px 0 6px">${v.first_seen || ''} → ${v.last_seen || ''} · 🔄${v.refresh_count || 0} ♻${v.reactivation_count || 0}</div>`
-                    + `<div style="font-size:16px;font-weight:800;color:#667eea">${lastPrice}</div>`
-                    + `<div style="font-size:11px;color:#64748b;margin-top:6px">oferta przeniesiona do: <b>${curAddr}</b></div>`
-                    + `<button onclick="focusCurrentOffer('${offerId}')" style="margin-top:10px;width:100%;padding:8px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">→ Przejdź do aktualnego ogłoszenia</button>`
+                    + `<div style="font-weight:700;font-size:15px;color:#212529">${escapeHtml(v.address || '—')}</div>`
+                    + `<div style="font-size:11px;color:#94a3b8;margin:3px 0 6px">${escapeHtml(v.first_seen || '')} → ${escapeHtml(v.last_seen || '')} · 🔄${v.refresh_count || 0} ♻${v.reactivation_count || 0}</div>`
+                    + `<div style="font-size:16px;font-weight:800;color:#667eea">${escapeHtml(lastPrice)}</div>`
+                    + `<div style="font-size:11px;color:#64748b;margin-top:6px">oferta przeniesiona do: <b>${escapeHtml(curAddr)}</b></div>`
+                    + `<button data-oid="${escapeHtml(offerId)}" onclick="focusCurrentOffer(this.dataset.oid)" style="margin-top:10px;width:100%;padding:8px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">→ Przejdź do aktualnego ogłoszenia</button>`
                     + `</div>`;
                 const am = L.marker([v.lat, v.lon], { icon: makeArchivalMapIcon(), zIndexOffset: -200 })
                     .bindPopup(popup, { maxWidth: 320 });
@@ -754,12 +772,12 @@ function focusArchivalPin(offerId, vIndex) {
 // Tworzenie HTML popup
 function createPopupContent(address, offers) {
     let html = `<div class="offer-popup">`;
-    html += `<h3>📍 ${address}</h3>`;
-    
+    html += `<h3>📍 ${escapeHtml(address)}</h3>`;
+
     offers.forEach(offer => {
         const isActive = offer.active;
-        
-        html += `<div class="offer-item ${isActive ? '' : 'inactive'}" data-offer-id="${offer.id}">`;
+
+        html += `<div class="offer-item ${isActive ? '' : 'inactive'}" data-offer-id="${escapeHtml(offer.id)}">`;
         
         if (!isActive) {
             html += `<div class="inactive-badge">❌ Nieaktywne</div>`;
@@ -782,7 +800,7 @@ function createPopupContent(address, offers) {
             html += `<div class="previous-price" style="color: #888; font-size: 0.9em; margin-top: 2px;">`;
             html += `<s>Poprzednio: ${offer.previous_price} zł</s>`;
             if (offer.price_changed_at) {
-                html += ` <span style="font-size: 0.85em;">(zmiana: ${offer.price_changed_at})</span>`;
+                html += ` <span style="font-size: 0.85em;">(zmiana: ${escapeHtml(offer.price_changed_at)})</span>`;
             }
             html += `</div>`;
         } else {
@@ -810,18 +828,18 @@ function createPopupContent(address, offers) {
                     : '—';
                 const clickable = !v.current && v.lat && v.lon;
                 const attrs = clickable
-                    ? ` class="addr-history-r clickable" onclick="focusArchivalPin('${offer.id}', ${i})" title="Pokaż poprzedni adres na mapie"`
+                    ? ` class="addr-history-r clickable" data-oid="${escapeHtml(offer.id)}" onclick="focusArchivalPin(this.dataset.oid, ${i})" title="Pokaż poprzedni adres na mapie"`
                     : ` class="addr-history-r"`;
                 html += `<div${attrs}>`
-                    + `<span class="ah-l"><span style="color:${dot}">●</span> <span class="${v.current ? 'ah-new' : 'ah-old'}">${v.address || '—'}</span>`
-                    + `<span class="ah-d">${range} · 🔄${v.refresh_count || 0} ♻${v.reactivation_count || 0}${clickable ? ' · ↩ pokaż' : ''}</span></span>`
+                    + `<span class="ah-l"><span style="color:${dot}">●</span> <span class="${v.current ? 'ah-new' : 'ah-old'}">${escapeHtml(v.address || '—')}</span>`
+                    + `<span class="ah-d">${escapeHtml(range)} · 🔄${v.refresh_count || 0} ♻${v.reactivation_count || 0}${clickable ? ' · ↩ pokaż' : ''}</span></span>`
                     + `<span class="ah-p ${v.current ? '' : 'old'}">${priceStr}</span></div>`;
             });
             html += `</div>`;
         }
 
         // Media info
-        html += `<div class="media-info">Skład: ${offer.media_info}</div>`;
+        html += `<div class="media-info">Skład: ${escapeHtml(offer.media_info)}</div>`;
 
         // B1: Tag oferty
         if (offer.tags && offer.tags.primary) {
@@ -846,50 +864,51 @@ function createPopupContent(address, offers) {
             if (profileKey) {
                 const prof = mapData.tracked_profiles[profileKey];
                 html += `<div style="margin: 6px 0 4px; padding: 5px 9px; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.35); border-radius: 6px; font-size: 11px; display: flex; align-items: center; gap: 6px;">`;
-                html += `<span style="color: #d97706; font-weight: 700;">🏢 ${prof.name}</span>`;
-                html += `<a href="profile_tracker.html#${profileKey}" style="color: #3b82f6; text-decoration: none; margin-left: auto; font-size: 10px;">Zobacz profil →</a>`;
+                html += `<span style="color: #d97706; font-weight: 700;">🏢 ${escapeHtml(prof.name)}</span>`;
+                html += `<a href="profile_tracker.html#${escapeHtml(profileKey)}" style="color: #3b82f6; text-decoration: none; margin-left: auto; font-size: 10px;">Zobacz profil →</a>`;
                 html += `</div>`;
             }
         }
 
         // Link
-        html += `<a href="${offer.url}" target="_blank" class="offer-link">🔗 Otwórz ogłoszenie</a>`;
-        
+        html += `<a href="${safeOfferUrl(offer.url)}" target="_blank" class="offer-link">🔗 Otwórz ogłoszenie</a>`;
+
         // Opis - z funkcją zwijania/rozwijania
         const maxChars = 100; // Maksymalna długość podglądu (~1-2 linie)
         const needsTruncate = offer.description.length > maxChars;
-        
+
         if (needsTruncate) {
-            const uniqueId = `desc-${offer.id}`;
+            // ID oferty trafia do atrybutu id i onclick — tylko znaki bezpieczne
+            const uniqueId = `desc-${String(offer.id).replace(/[^\w-]/g, '')}`;
             const shortDescription = offer.description.substring(0, maxChars);
-            
+
             html += `
                 <div class="offer-description">
                     <div id="${uniqueId}-short">
-                        📝 ${shortDescription}...
+                        📝 ${escapeHtml(shortDescription)}...
                         <br><a href="javascript:void(0)" onclick="toggleDescription('${uniqueId}')" class="show-more-link">▼ Pokaż całość</a>
                     </div>
                     <div id="${uniqueId}-full" style="display: none;">
-                        📝 ${offer.description}
+                        📝 ${escapeHtml(offer.description)}
                         <br><a href="javascript:void(0)" onclick="toggleDescription('${uniqueId}')" class="show-more-link">▲ Zwiń</a>
                     </div>
                 </div>
             `;
         } else {
-            html += `<div class="offer-description">📝 ${offer.description}</div>`;
+            html += `<div class="offer-description">📝 ${escapeHtml(offer.description)}</div>`;
         }
-        
+
         // Daty
         if (isActive) {
             html += `<div class="offer-dates">`;
-            html += `📅 Dodano: ${offer.first_seen}<br>`;
-            html += `📅 Ostatnio widziane: ${offer.last_seen}<br>`;
+            html += `📅 Dodano: ${escapeHtml(offer.first_seen)}<br>`;
+            html += `📅 Ostatnio widziane: ${escapeHtml(offer.last_seen)}<br>`;
             html += `⏱️ Dni aktywności: ${offer.days_active}`;
             html += `</div>`;
         } else {
             html += `<div class="offer-dates">`;
             html += `📅 Aktywna przez: ${offer.days_active} dni<br>`;
-            html += `📅 Nieaktywna od: ${offer.last_seen}<br>`;
+            html += `📅 Nieaktywna od: ${escapeHtml(offer.last_seen)}<br>`;
             html += `💰 Ostatnia cena: ${offer.price} zł`;
             html += `</div>`;
         }

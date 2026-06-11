@@ -1125,7 +1125,18 @@
 
     <script>
         console.log('=== START MARKET ANALYSIS ===');
-        
+
+        // Dane ofert pochodzą z OLX (zewnętrzne) — escapuj przed wstawieniem do innerHTML
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         // Załaduj dane z data.json
         let allData = null;
         let currentFilter = 'all';
@@ -1569,13 +1580,13 @@
                 decreases.forEach(offer => {
                     html += `
                         <div class="offer-card">
-                            <h3>${offer.address}</h3>
+                            <h3>${escapeHtml(offer.address)}</h3>
                             <div class="price-change decrease">
                                 ${offer.first} zł → ${offer.last} zł (${offer.changePct.toFixed(1)}%)
                             </div>
                             <div class="details">Oszczędzasz: ${Math.abs(offer.change)} zł/mies.</div>
                             <div class="timestamp">${offer.daysAgo} dni temu</div>
-                            <a href="${offer.url}" target="_blank">Zobacz ogłoszenie →</a>
+                            <a href="${escapeHtml(offer.url)}" target="_blank">Zobacz ogłoszenie →</a>
                         </div>
                     `;
                 });
@@ -1588,13 +1599,13 @@
                 increases.reverse().forEach(offer => {
                     html += `
                         <div class="offer-card increase">
-                            <h3>${offer.address}</h3>
+                            <h3>${escapeHtml(offer.address)}</h3>
                             <div class="price-change increase">
                                 ${offer.first} zł → ${offer.last} zł (+${offer.changePct.toFixed(1)}%)
                             </div>
                             <div class="details">Wzrost: +${offer.change} zł/mies.</div>
                             <div class="timestamp">${offer.daysAgo} dni temu</div>
-                            <a href="${offer.url}" target="_blank">Zobacz ogłoszenie →</a>
+                            <a href="${escapeHtml(offer.url)}" target="_blank">Zobacz ogłoszenie →</a>
                         </div>
                     `;
                 });
