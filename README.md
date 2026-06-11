@@ -221,16 +221,6 @@ detector = DuplicateDetector(similarity_threshold=0.95)
 
 ---
 
-## 🛣️ Roadmap
-
-- [x] Etap 1-5: Core scraping + mapa + analityka
-- [x] Etap 6: Mobile API (statyczny JSON)
-- [ ] Etap 7: Powiadomienia email
-- [ ] Etap 8: Rozszerzenie na inne miasta
-- [ ] Etap 9: Integracja z SZPERACZ
-
----
-
 ## 🐛 Zgłaszanie błędów
 
 1. Sprawdź [Issues](https://github.com/Bonaventura-EW/SONAR-POKOJOWY/issues)

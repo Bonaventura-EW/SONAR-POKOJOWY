@@ -271,15 +271,6 @@ final url = '$_baseUrl/status.json?t=${DateTime.now().millisecondsSinceEpoch}';
 
 ---
 
-## 🛣️ Roadmap
-
-- [ ] **SZPERACZ** - drugi system monitoringu
-- [ ] **Push notifications** - webhook do FCM
-- [ ] **Filtry** - parametry dla history.json
-- [ ] **WebSocket** - real-time updates (wymaga backendu)
-
----
-
 ## 📁 Pliki źródłowe
 
 | Plik | Opis |

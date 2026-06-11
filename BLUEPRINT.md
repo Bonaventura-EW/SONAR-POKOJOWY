@@ -46,7 +46,7 @@ SONAR to **statyczny, zero-cost** system monitorowania ogłoszeń jednej kategor
 - Nie używa Selenium / Playwright (OLX renderuje listę server-side, więc wystarczy `requests` + `BeautifulSoup`).
 - Nie ma bazy danych — wszystko w plikach JSON commitowanych do repo (history out-of-the-box).
 - Nie ma backendu API — endpointy mobilne to statyczne pliki JSON regenerowane przy każdym skanie.
-- Nie wysyła powiadomień (planowane w Etap A — patrz sekcja 12).
+- Nie wysyła powiadomień.
 
 ### 1.2. Stack technologiczny
 
@@ -957,22 +957,7 @@ Pierwszy scan trwa ~10 min (cache geokodowania pusty). Następne ~5 min.
 
 ---
 
-## 11. Roadmap (planowane Etapy A–E)
-
-> Te etapy NIE są jeszcze zaimplementowane w SONAR-POKOJOWY. Dla nowego projektu można zacząć od MVP (kroki 1–7 z sekcji 10) i dodawać Etapy w miarę potrzeb.
-
-| Etap | Funkcja | Trudność | Zależność |
-|---|---|---|---|
-| **A** | Powiadomienia email z filtrami (cena, dzielnica, słowa kluczowe) | średnia | SMTP / Brevo |
-| **B** | Kategoryzacja + detekcja podejrzanych ofert + historia cen z wykresami | średnia | — |
-| **C** | Heatmap cen + indeks wartości oferty + analiza trendów | wysoka | — |
-| **D** | Filtry słów kluczowych + porównywanie ofert + ulubione (localStorage) | niska | — |
-| **E** | Dodatkowe źródła (Otodom, Gratka), PWA push, panel admina | wysoka | nowe scrapery |
-| **SZPERACZ** | Aplikacja Flutter/Android konsumująca `docs/api/` | średnia | mobile API |
-
----
-
-## 12. FAQ implementacyjne
+## 11. FAQ implementacyjne
 
 **Q: Czy mogę użyć Selenium/Playwright dla bardziej dynamicznych stron?**  
 A: OLX renderuje listę server-side, więc requests + BS4 wystarczą. Jeśli celujesz w stronę typu Otodom (SPA), będzie potrzebne Playwright + zmiany w `_fetch_page()`. Architektura przyjmie to bez zmian w innych modułach.
@@ -994,7 +979,7 @@ A: Krytyczne selektory są w `_extract_offers_from_page()` (klasy/data-testid) i
 
 ---
 
-## 13. Inwentarz funkcji obecnie działających w SONAR-POKOJOWY
+## 12. Inwentarz funkcji obecnie działających w SONAR-POKOJOWY
 
 Lista do zaimportowania 1:1 (każda funkcja jest gotowa i przetestowana):
 
@@ -1022,7 +1007,7 @@ Lista do zaimportowania 1:1 (każda funkcja jest gotowa i przetestowana):
 
 ---
 
-## 14. Wnioski końcowe
+## 13. Wnioski końcowe
 
 System jest **świadomie minimalistyczny**: brak bazy danych, brak backend serwera, brak buildów frontendowych. To zaleta — działa zerowym kosztem na infrastrukturze GitHub i jest deterministyczny (każdy commit reproducible).
 
