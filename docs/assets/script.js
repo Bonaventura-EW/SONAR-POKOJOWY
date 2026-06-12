@@ -245,7 +245,6 @@ async function loadData() {
         const text = await response.text();
         mapData = JSON.parse(text);
         
-        console.log(`✅ Załadowano ${mapData.markers?.length || 0} markerów`);
         
         updateScanInfo();
         createPriceRangeFilters();
@@ -261,7 +260,6 @@ async function loadData() {
         // NOWE: jeśli URL ma ?offer=ID, pokaż wskazany marker
         focusOfferFromUrl();
 
-        console.log('🎉 Mapa gotowa!');
         
     } catch (error) {
         console.error('❌ Błąd wczytywania danych:', error);
@@ -509,11 +507,6 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
         const hasPriceChange = offer.previous_price && offer.price_trend;
         const priceUp = offer.price_trend === 'up';
         const priceDown = offer.price_trend === 'down';
-        
-        // DEBUG: Log ofert ze zmianą ceny
-        if (hasPriceChange) {
-            console.log(`💲 Zmiana ceny: ${address} | ${offer.previous_price} → ${offer.price} (${offer.price_trend})`);
-        }
         
         // Ikona markera - pinezka z kolorem
         // Jeśli nowa - czerwona obwódka; firmowa - złota; inaczej - biała
@@ -1664,10 +1657,8 @@ function toggleActiveApproxLayer() {
     const isChecked = document.getElementById('layer-active-approx').checked;
     if (isChecked) {
         markerLayers.activeApprox.addTo(map);
-        console.log('✅ Warstwa "Przybliżone aktywne" włączona');
     } else {
         map.removeLayer(markerLayers.activeApprox);
-        console.log('⚠️ Warstwa "Przybliżone aktywne" wyłączona');
     }
     // Przelicz markery aby uwzględnić zmianę widoczności warstwy
     filterMarkers();
@@ -1678,10 +1669,8 @@ function toggleInactiveApproxLayer() {
     const isChecked = document.getElementById('layer-inactive-approx').checked;
     if (isChecked) {
         markerLayers.inactiveApprox.addTo(map);
-        console.log('✅ Warstwa "Przybliżone nieaktywne" włączona');
     } else {
         map.removeLayer(markerLayers.inactiveApprox);
-        console.log('⚠️ Warstwa "Przybliżone nieaktywne" wyłączona');
     }
     filterMarkers();
 }
@@ -1730,7 +1719,6 @@ function createUniversityLayers() {
         universityLayers[key] = layerGroup;
     });
     
-    console.log('🎓 Warstwy uczelni utworzone');
 }
 
 // Przełączanie warstwy uczelni
@@ -2011,7 +1999,6 @@ function focusOfferFromUrl() {
     const targetId = params.get('offer');
     if (!targetId) return;
     
-    console.log(`🎯 Szukam markera dla oferty: ${targetId}`);
     
     // Znajdź marker który zawiera ofertę o tym ID
     const found = allMarkers.find(m => 
@@ -2023,7 +2010,6 @@ function focusOfferFromUrl() {
         return;
     }
     
-    console.log(`✓ Znaleziono marker: ${found.address} (active=${found.isActive}, approx=${found.isApprox})`);
     
     // KROK 1: Włącz wszystkie checkboxy warstw, tagów, zakresów cenowych
     // żeby żaden filtr nie ukrywał markera
@@ -2034,7 +2020,6 @@ function focusOfferFromUrl() {
         const cb = document.getElementById(id);
         if (cb && !cb.checked) {
             cb.checked = true;
-            console.log(`  ✓ Włączono: ${id}`);
         }
     });
     
@@ -2087,22 +2072,18 @@ function focusOfferFromUrl() {
     
     if (!targetLayer.hasLayer(found.marker)) {
         targetLayer.addLayer(found.marker);
-        console.log('  ✓ Wymuszono dodanie markera do warstwy');
     }
     // Upewnij się że warstwa jest na mapie
     if (!map.hasLayer(targetLayer)) {
         targetLayer.addTo(map);
-        console.log('  ✓ Wymuszono dodanie warstwy na mapę');
     }
     
     // KROK 4: Przelot + popup
     const coords = found.marker.getLatLng();
-    console.log(`  → Lecę do [${coords.lat}, ${coords.lng}]`);
     map.flyTo(coords, 17, { duration: 1.2 });
     
     setTimeout(() => {
         found.marker.openPopup();
-        console.log('  ✓ Popup otwarty');
         
         // Krótka animacja pulsowania ikony
         const iconEl = found.marker._icon;
