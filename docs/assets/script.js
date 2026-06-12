@@ -38,6 +38,16 @@ function safeOfferUrl(url) {
     return /^https?:\/\//i.test(url || '') ? escapeHtml(url) : '#';
 }
 
+// Helper: debounce dla zdarzeń ciągłych (wpisywanie, suwaki) — filterMarkers
+// przebudowuje warstwy markerów, bez debounce odpala się na każdy keystroke/tick
+function debounce(fn, wait) {
+    let timeout;
+    return function (...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fn.apply(this, args), wait);
+    };
+}
+
 let map;
 let mapData;
 let allMarkers = [];
@@ -920,6 +930,9 @@ function createPopupContent(address, offers) {
     return html;
 }
 
+// Debounced wariant filterMarkers dla zdarzeń ciągłych (pola cen, suwaki)
+const filterMarkersDebounced = debounce(() => filterMarkers(), 250);
+
 // Filtrowanie markerów
 // ── DRZEWO PROFILI FIRMOWYCH ─────────────────────────────────────────
 function buildFirmProfilesTree() {
@@ -1386,8 +1399,8 @@ function initDateSlider() {
 
     slider.addEventListener('input', () => {
         dateSliderState.selectedIndex = parseInt(slider.value);
-        updateDateSliderReadout();
-        filterMarkers();
+        updateDateSliderReadout();   // odczyt na żywo
+        filterMarkersDebounced();    // przebudowa markerów po puszczeniu suwaka
     });
 
     // 7. Stan początkowy - wyłączony
@@ -1516,8 +1529,8 @@ function initGoneSlider() {
 
     slider.addEventListener('input', () => {
         goneSliderState.selectedIndex = parseInt(slider.value);
-        filterMarkers();
-        updateGoneSliderReadout();
+        updateGoneSliderReadout();   // odczyt na żywo
+        filterMarkersDebounced();    // przebudowa markerów po puszczeniu suwaka
     });
 
     document.getElementById('date-gone-control').style.opacity = '0.4';
@@ -1586,12 +1599,12 @@ function setupEventListeners() {
             if (el) el.addEventListener('change', filterMarkers);
         });
     
-    // Precyzyjne filtry cen - wspólne dla obu warstw
-    document.getElementById('price-min').addEventListener('input', filterMarkers);
-    document.getElementById('price-max').addEventListener('input', filterMarkers);
-    
-    // Wyszukiwanie
-    document.getElementById('search-input').addEventListener('input', searchAndZoom);
+    // Precyzyjne filtry cen - wspólne dla obu warstw (debounce: zdarzenia na każdy znak)
+    document.getElementById('price-min').addEventListener('input', filterMarkersDebounced);
+    document.getElementById('price-max').addEventListener('input', filterMarkersDebounced);
+
+    // Wyszukiwanie (debounce: nie skanuj markerów na każdy keystroke)
+    document.getElementById('search-input').addEventListener('input', debounce(searchAndZoom, 300));
     
     // Zoom mapy - aktualizuj rozsunięcie markerów
     map.on('zoomend', function() {
