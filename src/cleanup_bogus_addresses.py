@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from address_parser import AddressParser
 from geocoder import Geocoder
+from shared_utils import OFFERS_FILE, GEOCODING_CACHE_FILE
 
 
 def is_bogus_address(address_full: str, excluded_words: set) -> bool:
@@ -53,18 +54,12 @@ def is_bogus_address(address_full: str, excluded_words: set) -> bool:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dry-run', action='store_true', help='Pokaż co byłoby zmienione, ale nie zapisuj')
-    parser.add_argument('--offers-file', default='../data/offers.json')
-    parser.add_argument('--cache-file', default='../data/geocoding_cache.json')
+    parser.add_argument('--offers-file', default=str(OFFERS_FILE))
+    parser.add_argument('--cache-file', default=str(GEOCODING_CACHE_FILE))
     args = parser.parse_args()
 
     offers_path = Path(args.offers_file)
-    if not offers_path.exists():
-        # fallback dla uruchomienia z repo root
-        offers_path = Path('data/offers.json')
-    
     cache_path = Path(args.cache_file)
-    if not cache_path.exists():
-        cache_path = Path('data/geocoding_cache.json')
     
     print(f"📚 Wczytuję {offers_path}")
     with open(offers_path, 'r', encoding='utf-8') as f:
