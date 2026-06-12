@@ -9,6 +9,13 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Porządki frontend/narzędzia (2026-06-12)
+- **perf**: debounce filtrów — pola cen, wyszukiwarka (300 ms) i suwaki dat (250 ms) nie przebudowują markerów na każdy keystroke/tick; checkboxy bez zmian (dyskretne).
+- **refactor**: blok nagłówka `.sp-header` (identyczny w 7 stronach) wydzielony do `docs/assets/header.css` (−352 linie); per-page overridy zostają w plikach.
+- **chore**: wykonane migracje jednorazowe przeniesione do `scripts/archive/` (w `scripts/` zostaje `build_golden.py`).
+- **fix**: `quick_scan`, `test_scan`, `cleanup_bogus_addresses`, `retry_none_cache` używają ścieżek z `shared_utils` — działają z dowolnego cwd, usunięte fallbacki zgadywania ścieżek.
+- **chore**: usunięte debug `console.log` (15 szt.) z `script.js` (warn/error zostają) i martwe klasy `.header`/`.subtitle` w `style.css`.
+
 ### Audyt i naprawy (2026-06-11)
 - **security**: XSS — dane z OLX (adresy, opisy, URL-e, historia adresów) są escapowane przed wstawieniem do HTML (`escapeHtml()`/`safeOfferUrl()` w `script.js`, `ostatnie.html`, `market_analysis.html`); inline `onclick` z interpolacją ID ofert zastąpione `data-oid`.
 - **fix**: workflow scannera — `concurrency` (runy kolejkowane zamiast wyścigu o push) + `git pull --rebase` z 3 próbami przed pushem; nieudany push to teraz twardy błąd, nie cichy warning.
