@@ -120,6 +120,7 @@ class QuickSonar(SonarPokojowy):
             raise
 
 if __name__ == "__main__":
-    agent = QuickSonar(data_file="../data/offers.json")
+    from shared_utils import OFFERS_FILE
+    agent = QuickSonar(data_file=str(OFFERS_FILE))
     agent.run_quick_scan()
 

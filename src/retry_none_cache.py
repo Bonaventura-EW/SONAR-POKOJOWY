@@ -15,6 +15,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from geocoder import Geocoder, to_nominative
+from shared_utils import GEOCODING_CACHE_FILE
 
 # Filtr noise - słowa które na pewno nie są ulicami (z analizy skipped_offers_sample.json
 # + ręcznej inspekcji cache geokodera)
@@ -120,9 +121,7 @@ def is_noise_address(address: str) -> bool:
 
 
 def main():
-    cache_path = Path("../data/geocoding_cache.json")
-    if not cache_path.exists():
-        cache_path = Path("data/geocoding_cache.json")
+    cache_path = GEOCODING_CACHE_FILE
     
     print(f"Wczytuję cache z {cache_path}")
     with open(cache_path) as f:
