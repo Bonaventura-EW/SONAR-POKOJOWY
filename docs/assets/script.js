@@ -1610,12 +1610,20 @@ function setupEventListeners() {
 document.addEventListener('DOMContentLoaded', function() {
     initMap();
     loadData().then(() => {
-        // Obsługa linku z ostatnie.html: #goto:lat,lon
+        // Obsługa linku z ostatnie.html: #goto:lat,lon[,inactive]
         const hash = window.location.hash;
-        const m = hash.match(/^#goto:([\d.]+),([\d.]+)$/);
+        const m = hash.match(/^#goto:([\d.]+),([\d.]+)(,inactive)?$/);
         if (m) {
             const lat = parseFloat(m[1]);
             const lon = parseFloat(m[2]);
+            // Oferta nieaktywna → włącz warstwy nieaktywnych, żeby marker z × był widoczny
+            if (m[3]) {
+                ['layer-inactive', 'layer-inactive-approx', 'layer-firm-inactive'].forEach(id => {
+                    const cb = document.getElementById(id);
+                    if (cb && !cb.checked) cb.checked = true;
+                });
+                filterMarkers();
+            }
             map.setView([lat, lon], 17);
             // Pulsujący marker wskazujący lokalizację
             const pulse = L.circleMarker([lat, lon], {

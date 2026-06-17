@@ -385,8 +385,9 @@ function getTag(offer) {
     return { label: 'Pokój', cls: 'tag-pokoj' };
 }
 
-function goToMap(lat, lon) {
-    window.open(`index.html#goto:${lat},${lon}`, '_blank');
+function goToMap(lat, lon, inactive) {
+    const suffix = inactive ? ',inactive' : '';
+    window.open(`index.html#goto:${lat},${lon}${suffix}`, '_blank');
 }
 
 function escapeHtml(value) {
@@ -417,7 +418,7 @@ function card(o, kind) {
         : `⏸ zniknęła <b>${escapeHtml(relDate(o.last_seen))}</b>${o.days_active != null ? ` · była <b>${o.days_active} dni</b>` : ''}`;
     const hasGps = o._lat && o._lon;
     const pin = hasGps
-        ? `<button class="zm-btn pin" onclick="goToMap(${o._lat}, ${o._lon})" title="Pokaż na mapie">📍 Mapa</button>`
+        ? `<button class="zm-btn pin" onclick="goToMap(${o._lat}, ${o._lon}, ${kind === 'gone' ? 'true' : 'false'})" title="Pokaż na mapie">📍 Mapa</button>`
         : `<span class="zm-btn pin off" title="Brak współrzędnych GPS">📍 bez GPS</span>`;
     const olx = (o.url && /^https?:\/\//i.test(o.url))
         ? `<a class="zm-btn olx" href="${escapeHtml(o.url)}" target="_blank" rel="noopener">🔗 OLX</a>`
