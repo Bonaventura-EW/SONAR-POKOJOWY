@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SONAR POKOJOWY - Indeks</title>
+
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="assets/header.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #1f2530;
+            min-height: 100vh;
+            color: #e8ecf3;
+        }
+        .container { max-width: 1280px; margin: 0 auto; padding: 0 20px 28px; }
+        .container > .sp-header { margin: 0 -20px 22px; }
+
+        .card {
+            background: #2a3140;
+            border-radius: 16px;
+            padding: 26px 28px 18px;
+            box-shadow: 0 8px 30px rgba(0,0,0,.35);
+        }
+        .card h2 { font-size: 24px; font-weight: 700; margin: 0 0 8px; color: #fff; }
+        .sub { color: #8b93a7; font-size: 15px; margin-bottom: 14px; }
+        .deltas {
+            display: flex; gap: 22px; font-size: 14px;
+            font-variant-numeric: tabular-nums; margin-bottom: 8px; flex-wrap: wrap;
+        }
+        .deltas b { color: #e8ecf3; font-weight: 700; margin-right: 4px; }
+        .pos { color: #37c26b; } .neg { color: #e8624c; } .na { color: #8b93a7; }
+
+        #chart { margin-top: 4px; min-height: 520px; }
+
+        .foot {
+            color: #8b93a7; font-size: 12.5px; margin-top: 16px; line-height: 1.65;
+        }
+        .foot code { background: #222836; padding: 1px 6px; border-radius: 4px; color: #b9c2d6; }
+        .loading { padding: 60px 0; text-align: center; color: #8b93a7; }
+
+        .apexcharts-tooltip { background: #1b2230 !important; border: 1px solid #3a4357 !important; color: #e8ecf3 !important; }
+        .apexcharts-tooltip-title { background: #222a3a !important; border-bottom: 1px solid #3a4357 !important; }
+        .apexcharts-menu { background: #222a3a !important; border: 1px solid #3a4357 !important; }
+        .apexcharts-menu-item:hover { background: #2f3950 !important; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="sp-header">
+    <div class="sp-brand">
+      <svg class="sp-brand-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="spRb-trend" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#1a3a1a"/>
+            <stop offset="100%" stop-color="#0a1a0a"/>
+          </radialGradient>
+          <linearGradient id="spRs-trend" x1="50%" y1="50%" x2="100%" y2="50%">
+            <stop offset="0%" stop-color="#00ff00" stop-opacity="0.8"/>
+            <stop offset="100%" stop-color="#00ff00" stop-opacity="0"/>
+          </linearGradient>
+          <mask id="spRm-trend"><circle cx="32" cy="32" r="28" fill="white"/></mask>
+        </defs>
+        <circle cx="32" cy="32" r="32" fill="url(#spRb-trend)"/>
+        <circle cx="32" cy="32" r="30" fill="none" stroke="#00ff00" stroke-width="0.5" opacity="0.6"/>
+        <circle cx="32" cy="32" r="22" fill="none" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+        <circle cx="32" cy="32" r="14" fill="none" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+        <line x1="32" y1="4" x2="32" y2="60" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+        <line x1="4" y1="32" x2="60" y2="32" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+        <g mask="url(#spRm-trend)">
+          <path d="M32,32 L32,4 A28,28 0 0,1 60,32 Z" fill="url(#spRs-trend)" opacity="0.6">
+            <animateTransform attributeName="transform" type="rotate" from="0 32 32" to="360 32 32" dur="3s" repeatCount="indefinite"/>
+          </path>
+        </g>
+        <circle cx="22" cy="18" r="1.5" fill="#00ff00">
+          <animate attributeName="opacity" values="0.8;0.3;0.8" dur="1.5s" repeatCount="indefinite"/>
+        </circle>
+      </svg>
+      <h1>
+        <span class="sp-b">SONAR POKOJOWY</span>
+        <span class="sp-s">·</span>
+        <span class="sp-p">📉 Indeks</span>
+      </h1>
+    </div>
+    <nav>
+      <a href="index.html">🗺️ Mapa</a>
+      <a href="analytics.html">📈 Analityka</a>
+      <a href="trend.html" class="active">📉 Indeks</a>
+      <a href="monitoring.html">📊 Monitoring</a>
+      <a href="market_analysis.html">🔍 Analiza Rynku</a>
+      <a href="top5.html">🏆 Top 5</a>
+      <a href="ostatnie.html">🆕 Ostatnie</a>
+      <a href="profile_tracker.html">🏢 Firmy</a>
+      <a href="skipped_debug.html">🐛 Pominięte</a>
+    </nav>
+  </header>
+
+        <div class="card">
+            <h2 id="title">Lublin &ndash; pokoje: wynajem</h2>
+            <div class="sub"><span id="lastLabel">&mdash;</span> (<span id="curVal">&mdash;</span>)</div>
+            <div class="deltas" id="deltas"></div>
+            <div id="chart"><div class="loading">Ładowanie danych…</div></div>
+        </div>
+
+        <div class="foot">
+            <strong>Skąd dane:</strong> liczba <em>aktywnych</em> ofert pokoi (pole <code>stats.active</code>
+            z każdego skanu w <code>data/scan_history.json</code>). Każdy punkt = jeden skan szperacza.
+            To analog indeksu podaży z betonometr.pl — pokazuje, ile żywych ofert wynajmu pokoi w Lublinie
+            jest w danym momencie na rynku. MAX/MIN/zakres liczone automatycznie z serii;
+            zmiany 6M/1Y pojawią się, gdy uzbieramy odpowiednio długą historię.
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.49.1/dist/apexcharts.min.js"></script>
+    <script>
+    (async function () {
+        let d;
+        try {
+            const res = await fetch('trend_data.json?v=' + Date.now());
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            d = await res.json();
+        } catch (e) {
+            document.getElementById('chart').innerHTML =
+                '<div class="loading">Nie udało się wczytać danych (' + e.message + ').</div>';
+            return;
+        }
+
+        const RAW = d.series || [];
+        document.getElementById('title').textContent = d.title || 'Lublin – pokoje: wynajem';
+        document.getElementById('lastLabel').textContent = d.last_label || '—';
+        document.getElementById('curVal').textContent = d.current != null ? d.current : '—';
+
+        // --- deltas (1D / 1M / 6M / 1Y) ---
+        const order = ['1D', '1M', '6M', '1Y'];
+        const deltas = d.deltas || {};
+        document.getElementById('deltas').innerHTML = order.map(function (lab) {
+            const v = deltas[lab];
+            if (v === null || v === undefined) {
+                return '<span><b>' + lab + ':</b><span class="na">&mdash;</span></span>';
+            }
+            const cls = v > 0 ? 'pos' : (v < 0 ? 'neg' : 'na');
+            const sign = v > 0 ? '+' : '';
+            return '<span><b>' + lab + ':</b><span class="' + cls + '">' + sign + v + '</span></span>';
+        }).join('');
+
+        if (!RAW.length) {
+            document.getElementById('chart').innerHTML = '<div class="loading">Brak danych w serii.</div>';
+            return;
+        }
+
+        const cur = d.current, mx = d.max, mn = d.min;
+        const unit = d.unit || 'ofert';
+
+        const options = {
+            chart: {
+                type: 'area', height: 520, background: 'transparent',
+                fontFamily: 'inherit', foreColor: '#8b93a7',
+                toolbar: { show: true, tools: { download: true, selection: true, zoom: true, zoomin: true, zoomout: true, pan: true, reset: true } },
+                animations: { enabled: true, speed: 600 },
+                zoom: { enabled: true }
+            },
+            theme: { mode: 'dark' },
+            series: [{ name: 'Aktywne oferty', data: RAW }],
+            colors: ['#6c7bf2'],
+            stroke: { curve: 'straight', width: 2 },
+            fill: {
+                type: 'gradient', gradient: {
+                    shadeIntensity: 1, opacityFrom: 0.55, opacityTo: 0.03, stops: [0, 90, 100],
+                    colorStops: [
+                        { offset: 0, color: '#6c7bf2', opacity: 0.55 },
+                        { offset: 100, color: '#6c7bf2', opacity: 0.02 }
+                    ]
+                }
+            },
+            dataLabels: { enabled: false },
+            grid: { borderColor: '#3a4255', strokeDashArray: 4, xaxis: { lines: { show: true } }, yaxis: { lines: { show: true } } },
+            xaxis: {
+                type: 'datetime', axisBorder: { show: false }, axisTicks: { color: '#3a4255' },
+                labels: {
+                    datetimeUTC: false, style: { colors: '#8b93a7' },
+                    datetimeFormatter: { year: 'yyyy', month: "MMM 'yy", day: 'dd MMM', hour: 'HH:mm' }
+                }
+            },
+            yaxis: { labels: { style: { colors: '#8b93a7' }, formatter: function (v) { return Math.round(v); } }, tickAmount: 5 },
+            tooltip: { theme: 'dark', x: { format: 'dd.MM.yyyy HH:mm' }, y: { formatter: function (v) { return v + ' ' + unit; } } },
+            annotations: {
+                yaxis: [
+                    { y: mx, borderColor: '#e8624c', strokeDashArray: 5, label: { text: 'MAX: ' + mx, style: { background: '#e8624c', color: '#fff', fontSize: '12px', fontWeight: 600 }, position: 'left', offsetX: 64 } },
+                    { y: mn, borderColor: '#37c26b', strokeDashArray: 5, label: { text: 'MIN: ' + mn, style: { background: '#37c26b', color: '#08210f', fontSize: '12px', fontWeight: 600 }, position: 'left', offsetX: 64 } },
+                    { y: cur, borderColor: '#5a7bc4', strokeDashArray: 3, label: { text: String(cur), style: { background: '#5a7bc4', color: '#fff', fontSize: '12px', fontWeight: 700 }, position: 'left', offsetX: 40 } }
+                ],
+                points: [
+                    { x: d.max_ts, y: mx, marker: { size: 5, fillColor: '#e8624c', strokeColor: '#fff', strokeWidth: 1 } },
+                    { x: d.min_ts, y: mn, marker: { size: 5, fillColor: '#37c26b', strokeColor: '#fff', strokeWidth: 1 } }
+                ]
+            }
+        };
+
+        document.getElementById('chart').innerHTML = '';
+        new ApexCharts(document.querySelector('#chart'), options).render();
+    })();
+    </script>
+</body>
+</html>
