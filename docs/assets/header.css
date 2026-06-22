@@ -9,7 +9,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;                 /* brand + nav ZAWSZE w jednym rzędzie (desktop) */
   box-shadow: 0 2px 12px rgba(239,68,68,0.25);
 }
 .sp-header .sp-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
@@ -27,7 +27,7 @@
 .sp-header h1 .sp-b { font-weight: 800; letter-spacing: 0.5px; }
 .sp-header h1 .sp-s { opacity: 0.5; margin: 0 8px; font-weight: 300; }
 .sp-header h1 .sp-p { font-weight: 500; opacity: 0.95; }
-.sp-header nav { display: flex; gap: 3px; flex-wrap: wrap; justify-content: flex-end; }
+.sp-header nav { display: flex; gap: 3px; flex-wrap: nowrap; justify-content: flex-end; min-width: 0; }
 .sp-header nav a {
   color: #be123c;
   text-decoration: none;
@@ -47,8 +47,15 @@
   border-color: #ef4444;
   box-shadow: 0 2px 6px rgba(190,18,60,0.25);
 }
+/* Węższe laptopy: jeszcze ciaśniejsze przyciski, ale wciąż JEDEN rząd */
+@media (max-width: 1200px) {
+  .sp-header { gap: 10px; padding: 12px 16px; }
+  .sp-header nav { gap: 2px; }
+  .sp-header nav a { padding: 5px 7px; font-size: 11px; }
+}
 @media (max-width: 768px) {
-  .sp-header { padding: 10px 14px; }
+  .sp-header { padding: 10px 14px; flex-wrap: wrap; }   /* na telefonie zawijaj, nie wypychaj poza ekran */
   .sp-header h1 { font-size: 15px; }
+  .sp-header nav { flex-wrap: wrap; }
   .sp-header nav a { padding: 5px 8px; font-size: 11px; }
 }
