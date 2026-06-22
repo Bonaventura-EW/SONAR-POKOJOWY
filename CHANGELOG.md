@@ -9,6 +9,12 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Mapa fix — wariant canvas (2026-06-22)
+- **perf/feat**: nowa zakładka **🗺️ Mapa fix** (`docs/mapa2.html` + `docs/assets/script2.js`) renderująca wszystkie pinezki na JEDNYM `<canvas>` przez warstwę wektorową Leaflet (`L.canvas`) zamiast ~1000 węzłów DOM (`divIcon`). Płynny pan/zoom i filtrowanie przy dużej liczbie ofert, **bez klastrowania** — każda oferta to nadal osobny punkt.
+- Kształty zachowane 1:1: kropla = dokładny adres, kwadrat z przerywaną ramką = adres przybliżony. Własne klasy `PinMarker`/`SquareMarker` (rozszerzenia `L.CircleMarker`) rysują kształt + badge `N`/`↓↑`/`×` na canvasie.
+- Wszystkie filtry, warstwy, legenda, liczniki, popupy i suwaki dat działają identycznie jak na mapie głównej — obie mapy czytają ten sam `docs/data.json`, backend bez zmian.
+- Mapa główna (`index.html` + `assets/script.js`) **nietknięta** jako fallback. Link „🗺️ Mapa fix" dodany do nawigacji wszystkich podstron.
+
 ### Porządki frontend/narzędzia (2026-06-12)
 - **perf**: debounce filtrów — pola cen, wyszukiwarka (300 ms) i suwaki dat (250 ms) nie przebudowują markerów na każdy keystroke/tick; checkboxy bez zmian (dyskretne).
 - **refactor**: blok nagłówka `.sp-header` (identyczny w 7 stronach) wydzielony do `docs/assets/header.css` (−352 linie); per-page overridy zostają w plikach.

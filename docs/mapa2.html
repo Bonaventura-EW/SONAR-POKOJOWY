@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SONAR POKOJOWY - Mapa pokoi Lublin</title>
+    <title>SONAR POKOJOWY - Mapa fix (canvas)</title>
     
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -50,12 +50,12 @@
       <h1>
         <span class="sp-b">SONAR POKOJOWY</span>
         <span class="sp-s">·</span>
-        <span class="sp-p">🗺️ Mapa</span>
+        <span class="sp-p">🗺️ Mapa fix</span>
       </h1>
     </div>
     <nav>
-      <a href="index.html" class="active">🗺️ Mapa</a>
-      <a href="mapa2.html">🗺️ Mapa fix</a>
+      <a href="index.html">🗺️ Mapa</a>
+      <a href="mapa2.html" class="active">🗺️ Mapa fix</a>
       <a href="analytics.html">📈 Analityka</a>
       <a href="trend.html">📉 Indeks</a>
       <a href="monitoring.html">📊 Monitoring</a>
@@ -334,8 +334,8 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
-    <!-- Custom JS (v12 - liczniki ofert w zakresach cenowych) -->
-    <script src="assets/script.js?v=16"></script>
+    <!-- MAPA FIX: wariant canvas (L.canvas) — płynny pan/zoom przy dużej liczbie ofert -->
+    <script src="assets/script2.js?v=1"></script>
     <script src="firmy_badge.js" defer></script>
 </body>
 </html>
