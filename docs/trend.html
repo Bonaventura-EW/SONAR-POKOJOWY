@@ -105,11 +105,12 @@
         </div>
 
         <div class="foot">
-            <strong>Skąd dane:</strong> liczba <em>aktywnych</em> ofert pokoi (pole <code>stats.active</code>
-            z każdego skanu w <code>data/scan_history.json</code>). Każdy punkt = jeden skan szperacza.
-            To analog indeksu podaży z betonometr.pl — pokazuje, ile żywych ofert wynajmu pokoi w Lublinie
-            jest w danym momencie na rynku. MAX/MIN/zakres liczone automatycznie z serii;
-            zmiany 6M/1Y pojawią się, gdy uzbieramy odpowiednio długą historię.
+            <strong>Skąd dane:</strong> dzienna rekonstrukcja z <code>data/offers.json</code> — dla każdego dnia
+            liczba ofert, które tego dnia „żyły" (<code>first_seen &le; dzień &le; last_seen</code>). Każdy punkt = jeden dzień.
+            To analog indeksu podaży z betonometr.pl — pokazuje, ile żywych ofert wynajmu pokoi w Lublinie jest na rynku.
+            Wykres startuje <strong>16.05.2026</strong> — wcześniejsze dane są niewiarygodne (scraper dopiero się rozpędzał,
+            stara baza zaniżona przez survivorship). MAX/MIN/zakres liczone automatycznie; zmiany 6M/1Y pojawią się,
+            gdy uzbieramy dłuższą historię.
         </div>
     </div>
 
@@ -184,7 +185,7 @@
                 }
             },
             yaxis: { labels: { style: { colors: '#8b93a7' }, formatter: function (v) { return Math.round(v); } }, tickAmount: 5 },
-            tooltip: { theme: 'dark', x: { format: 'dd.MM.yyyy HH:mm' }, y: { formatter: function (v) { return v + ' ' + unit; } } },
+            tooltip: { theme: 'dark', x: { format: 'dd.MM.yyyy' }, y: { formatter: function (v) { return v + ' ' + unit; } } },
             annotations: {
                 yaxis: [
                     { y: mx, borderColor: '#e8624c', strokeDashArray: 5, label: { text: 'MAX: ' + mx, style: { background: '#e8624c', color: '#fff', fontSize: '12px', fontWeight: 600 }, position: 'left', offsetX: 64 } },
