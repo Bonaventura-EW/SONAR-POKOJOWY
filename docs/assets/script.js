@@ -1,5 +1,9 @@
 // SONAR POKOJOWY - JavaScript
-// Interaktywna mapa z filtrami, wyszukiwaniem i warstwami
+// Interaktywna mapa z filtrami, wyszukiwaniem i warstwami.
+// Pinezki rysowane są na JEDNYM elemencie <canvas> (L.canvas) zamiast ~1000
+// węzłów DOM (divIcon) — płynny pan/zoom i filtrowanie przy dużej liczbie ofert,
+// BEZ klastrowania (każda oferta to nadal osobny punkt).
+// Kształty (kropla / kwadrat), kolory cen, badge N / ↓↑ / × bez zmian.
 
 // Helper: parsowanie daty z formatu polskiego "DD.MM.YYYY HH:MM"
 function parsePolishDate(str) {
@@ -60,6 +64,142 @@ let markerLayers = {
     firmInactive: L.layerGroup(),    // nieaktywne oferty profili firmowych
     addrArchival: L.layerGroup()     // archiwalne pinezki poprzednich adresów (po zmianie adresu)
 };
+
+// ============================================================
+// MAPA FIX — renderowanie kształtów na wspólnym <canvas> (L.canvas)
+// ============================================================
+// Jeden renderer = jeden canvas = jeden "paint" dla wszystkich ofert.
+// preferCanvas na mapie NIC by nie dał (działa tylko dla warstw wektorowych),
+// dlatego markery to wektorowe kształty (rozszerzenia L.CircleMarker), którym
+// jawnie przekazujemy ten renderer w opcji `renderer`.
+const canvasRenderer = L.canvas({ padding: 0.5 });
+
+// Białe kółko w środku kształtu + ewentualny krzyżyk × dla ofert nieaktywnych.
+function _drawInnerGlyph(ctx, cx, cy, r, inactive) {
+    if (ctx.setLineDash) ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = inactive ? '#ffffff' : 'rgba(255,255,255,0.9)';
+    ctx.fill();
+    if (inactive) {
+        ctx.fillStyle = '#1f2937';
+        ctx.font = '700 ' + Math.round(r * 1.9) + 'px -apple-system, Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('×', cx, cy + 0.5);
+    }
+}
+
+// Badge w prawym-górnym rogu. Priorytet: zmiana ceny (↓/↑ w kółku) > nowa (N).
+// Odpowiednik "💲↓" / "N" z mapy głównej — na canvasie czytelniejszy jako kółko.
+function _drawCornerBadge(ctx, cx, cy, o) {
+    if (ctx.setLineDash) ctx.setLineDash([]);
+    if (o.hasPriceChange) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+        ctx.fillStyle = o.priceDown ? '#28a745' : '#dc3545';  // zielony=spadek, czerwony=wzrost
+        ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = '#ffffff'; ctx.stroke();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '700 13px -apple-system, Segoe UI, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(o.priceDown ? '↓' : '↑', cx, cy + 1);
+    } else if (o.isNewFlag) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+        ctx.fillStyle = '#ff0000'; ctx.fill();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = '#ffffff'; ctx.stroke();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '700 10px -apple-system, Segoe UI, sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('N', cx, cy + 0.5);
+    }
+}
+
+// KROPLA 40×50 — dokładny adres (precision: exact). Ostrze pinezki = współrzędne.
+const PinMarker = L.CircleMarker.extend({
+    _updateBounds: function () {
+        const p = this._point;
+        // od ostrza w górę (bąbel) + margines na badge w prawym-górnym rogu
+        this._pxBounds = new L.Bounds(p.add(L.point(-22, -60)), p.add(L.point(28, 4)));
+    },
+    _updatePath: function () {
+        const r = this._renderer;
+        // _updatePath bywa wołane też poza pętlą rysowania (przy dodaniu markera) —
+        // jak we wbudowanych kształtach rysujemy tylko gdy renderer faktycznie rysuje.
+        if (!r._drawing || this._empty()) return;
+        const ctx = r._ctx;
+        const x = this._point.x, y = this._point.y;     // ostrze kropli
+        const ox = x - 20, oy = y - 50;                  // translacja viewBox 40×50 (ostrze 20,50)
+        ctx.beginPath();
+        ctx.moveTo(ox + 20, oy + 0);
+        ctx.bezierCurveTo(ox + 9,  oy + 0,  ox + 0,  oy + 9,  ox + 0,  oy + 20);
+        ctx.bezierCurveTo(ox + 0,  oy + 35, ox + 20, oy + 50, ox + 20, oy + 50);
+        ctx.bezierCurveTo(ox + 20, oy + 50, ox + 40, oy + 35, ox + 40, oy + 20);
+        ctx.bezierCurveTo(ox + 40, oy + 9,  ox + 31, oy + 0,  ox + 20, oy + 0);
+        ctx.closePath();
+        r._fillStroke(ctx, this);                        // wypełnienie + obwódka wg options
+        const o = this.options;
+        _drawInnerGlyph(ctx, x, y - 32, o._inactiveShape ? 9 : 8, o._inactiveShape);
+        _drawCornerBadge(ctx, x + 17, y - 47, o);
+    },
+    _containsPoint: function (p) {
+        // klikalny obszar = bąbel pinezki (środek ≈ ostrze − 30px), ostry ogon nieklikalny
+        const c = this._point.add(L.point(0, -30));
+        const dx = p.x - c.x, dy = p.y - c.y;
+        return dx * dx + dy * dy <= 19 * 19;
+    }
+});
+
+// KWADRAT 34×34 z przerywaną ramką — adres przybliżony (street_only/district). Środek = współrzędne.
+const SquareMarker = L.CircleMarker.extend({
+    _updateBounds: function () {
+        const p = this._point;
+        this._pxBounds = new L.Bounds(p.add(L.point(-19, -22)), p.add(L.point(22, 19)));
+    },
+    _updatePath: function () {
+        const r = this._renderer;
+        if (!r._drawing || this._empty()) return;
+        const ctx = r._ctx;
+        const x = this._point.x, y = this._point.y;     // środek kwadratu
+        const half = 14;                                 // rect 28×28 (jak w SVG: x3 w28 viewBox 34)
+        ctx.beginPath();
+        ctx.rect(x - half, y - half, half * 2, half * 2);
+        r._fillStroke(ctx, this);                        // wypełnienie + przerywana obwódka (_dashArray)
+        if (ctx.setLineDash) ctx.setLineDash([]);
+        const o = this.options;
+        if (o._inactiveShape) {
+            ctx.font = '700 22px -apple-system, Segoe UI, sans-serif';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+            ctx.strokeText('×', x, y + 1);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText('×', x, y + 1);
+        }
+        _drawCornerBadge(ctx, x + 14, y - 14, o);
+    },
+    _containsPoint: function (p) {
+        const d = p.subtract(this._point);
+        return Math.abs(d.x) <= 16 && Math.abs(d.y) <= 16;
+    }
+});
+
+// Kolejność rysowania na canvasie = kolejność dodania ("na wierzchu" to, co później).
+// Ustawiamy: kwadraty pod pinezkami, nieaktywne pod aktywnymi, firmy na wierzchu.
+function restackCanvasOrder() {
+    const tier = (it) => {
+        if (it.isFirmOffer && it.isActive) return 6;
+        if (it.isFirmOffer && !it.isActive) return 5;
+        if (!it.isApprox && it.isActive) return 4;
+        if (it.isApprox && it.isActive) return 3;
+        if (!it.isApprox && !it.isActive) return 2;
+        return 1; // kwadrat nieaktywny
+    };
+    allMarkers.slice().sort((a, b) => tier(a) - tier(b)).forEach(it => {
+        // bringToFront działa tylko dla markerów aktualnie na mapie (z rendererem) — reszta bezpiecznie pomijana
+        if (it.marker && it.marker.bringToFront) it.marker.bringToFront();
+    });
+}
 
 // ===== Filtr daty dodania (suwak dni) =====
 // Stan: mapowanie "YYYY-MM-DD" -> liczba ofert w tym dniu, lista dni w zakresie
@@ -255,6 +395,7 @@ async function loadData() {
         initGoneSlider(); // Suwak daty zniknięcia
         setupEventListeners();
         filterMarkers();  // ✅ Przefiltruj markery zgodnie z początkowymi stanami checkboxów
+        restackCanvasOrder();  // MAPA FIX: kwadraty pod pinezkami, nieaktywne pod aktywnymi
         buildFirmProfilesTree();  // Drzewo profili firmowych w sidebarze
 
         // NOWE: jeśli URL ma ?offer=ID, pokaż wskazany marker
@@ -462,10 +603,6 @@ function createMarkers() {
 
 // Tworzenie grupy markerów (rozsunięcie dla tego samego adresu)
 
-function buildActiveCircle() {
-    return '<circle cx="20" cy="18" r="8" fill="white" opacity="0.9"/>';
-}
-
 function createMarkerGroup(baseCoords, address, offers, isActive) {
     // Oblicz offset bazowy - ~10 metrów między markerami (0.0001 stopnia ≈ 10m)
     const baseOffset = 0.0001;
@@ -496,10 +633,6 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
             baseCoords.lon + offsetLon
         ];
         
-        // Tooltip (pojawia się przy hover)
-        const price = offer.price;
-        const tooltipText = `${address} - ${price} zł`;
-        
         // Sprawdź czy oferta jest nowa (z ostatniego skanu)
         const isNew = offer.is_new === true;
         
@@ -521,102 +654,45 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
         // Czy oferta to "przybliżony adres" (sama ulica bez numeru lub centroid dzielnicy)?
         const isApprox = offer.precision === 'street_only' || offer.precision === 'district';
 
-        // Badge zmiany ceny - ikona dolara ze strzałką
-        let priceChangeBadge = '';
-        if (hasPriceChange) {
-            const badgeColor = priceDown ? '#28a745' : '#dc3545';  // Zielony=spadek, Czerwony=wzrost
-            const arrow = priceDown ? '↓' : '↑';
-            priceChangeBadge = `
-                <div style="
-                    position: absolute;
-                    top: -8px;
-                    right: -8px;
-                    background: ${badgeColor};
-                    color: white;
-                    border-radius: 10px;
-                    min-width: 28px;
-                    height: 20px;
-                    font-size: 11px;
-                    font-weight: bold;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-                    padding: 0 4px;
-                    border: 2px solid white;
-                    z-index: 1000;
-                ">💲${arrow}</div>
-            `;
-        }
-
-        // ===== IKONA =====
-        // Dwa warianty: pinezka (precision: exact) lub kwadrat (precision: street_only).
-        // Krzyżyk × dla nieaktywnych: dla pinezki = czarny tekst w białym kole (środek)
-        //                            dla kwadratu = biały tekst z cieniem na środku kwadratu
-        let icon;
+        // ===== KSZTAŁT (MAPA FIX — canvas) =====
+        // Pinezka (kropla) dla precision:exact, kwadrat dla przybliżonych.
+        // Rysunek kształtu + badge (N / ↓↑) + krzyżyk × wykonują klasy
+        // PinMarker / SquareMarker na wspólnym canvasie (canvasRenderer).
+        const shapeOpts = {
+            renderer: canvasRenderer,
+            radius: 20,                 // truthy → działa culling poza widokiem (_empty)
+            stroke: true,
+            color: strokeColor,
+            weight: parseFloat(strokeWidth),
+            opacity: 1,
+            fill: true,
+            fillColor: markerColor,
+            fillOpacity: 1,
+            lineCap: 'round',
+            lineJoin: 'round',
+            interactive: true,
+            bubblingMouseEvents: false,
+            // dane do rysowania badge / krzyżyka na canvasie
+            _inactiveShape: !isActive,
+            isNewFlag: isNew && !hasPriceChange,   // N tylko gdy brak badge zmiany ceny (jak na mapie głównej)
+            hasPriceChange: hasPriceChange,
+            priceDown: priceDown,
+            priceUp: priceUp
+        };
+        let markerObj;
         if (isApprox) {
-            // KWADRAT 34x34 z przerywaną obwódką - decyzja 2b
-            // Anchor w środku (nie u dołu jak pinezka)
-            const squareSize = 34;
-            // Krzyżyk × dla nieaktywnych - biały tekst z cieniem (czytelny na każdym kolorze)
-            const inactiveCross = !isActive
-                ? `<text x="17" y="17" text-anchor="middle" dominant-baseline="central" font-size="22" font-weight="700" fill="white" font-family="-apple-system, sans-serif" style="paint-order: stroke; stroke: rgba(0,0,0,0.5); stroke-width: 2px;">×</text>`
-                : '';
-            icon = L.divIcon({
-                className: 'square-marker',
-                html: `
-                    <div style="position: relative; width: ${squareSize}px; height: ${squareSize}px;" title="${tooltipText}">
-                        <svg width="${squareSize}" height="${squareSize}" viewBox="0 0 ${squareSize} ${squareSize}">
-                            <rect x="3" y="3" width="${squareSize - 6}" height="${squareSize - 6}"
-                                  fill="${markerColor}"
-                                  stroke="${isNew ? '#ff0000' : 'white'}"
-                                  stroke-width="3"
-                                  stroke-dasharray="4 3"/>
-                            ${inactiveCross}
-                        </svg>
-                        ${isNew && !hasPriceChange ? '<div style="position: absolute; top: -5px; right: -5px; background: #ff0000; color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">N</div>' : ''}
-                        ${priceChangeBadge}
-                    </div>
-                `,
-                iconSize: [squareSize, squareSize],
-                iconAnchor: [squareSize / 2, squareSize / 2],  // środek
-                popupAnchor: [0, -squareSize / 2]
-            });
+            // Kwadrat: obwódka czerwona dla nowych, inaczej biała; ramka przerywana
+            shapeOpts.color = isNew ? '#ff0000' : 'white';
+            shapeOpts.weight = 3;
+            shapeOpts.dashArray = '4 3';   // Leaflet (_updateDashArray) parsuje string → options._dashArray
+            markerObj = new SquareMarker(coords, shapeOpts);
         } else {
-            // PINEZKA (standard, precision: exact)
-            // Krzyżyk × dla nieaktywnych: czarny tekst w białym kole wewnątrz SVG (zgodnie z mockupem v2)
-            const inactiveMarker = !isActive
-                ? `<circle cx="20" cy="18" r="9" fill="white"/><text x="20" y="18" text-anchor="middle" dominant-baseline="central" font-size="16" font-weight="700" fill="#1f2937" font-family="-apple-system, sans-serif">×</text>`
-                : buildActiveCircle();
-            icon = L.divIcon({
-                className: 'pin-marker',
-                html: `
-                    <div style="position: relative; width: 40px; height: 50px;" title="${tooltipText}">
-                        <svg width="40" height="50" viewBox="0 0 40 50">
-                            <path d="M20 0 C9 0 0 9 0 20 C0 35 20 50 20 50 C20 50 40 35 40 20 C40 9 31 0 20 0 Z"
-                                  fill="${markerColor}"
-                                  stroke="${strokeColor}"
-                                  stroke-width="${strokeWidth}"/>
-                            ${inactiveMarker}
-                        </svg>
-                        ${isNew && !hasPriceChange ? '<div style="position: absolute; top: -5px; right: -5px; background: #ff0000; color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; font-weight: bold; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">N</div>' : ''}
-                        ${priceChangeBadge}
-                    </div>
-                `,
-                iconSize: [40, 50],
-                iconAnchor: [20, 50],
-                popupAnchor: [0, -50]
-            });
+            markerObj = new PinMarker(coords, shapeOpts);
         }
 
-        // Popup content - LAZY: HTML generowany dopiero przy kliknięciu (oszczędność ~620 niepotrzebnych konstrukcji przy starcie)
-
-        // Tworzenie markera z tooltip
-        const markerObj = L.marker(coords, {
-            icon: icon,
-            title: tooltipText  // Tooltip przy hover
-        })
-            .bindPopup(() => createPopupContent(address, [offer]), { maxWidth: 400 });
+        // Popup LAZY (HTML dopiero przy kliknięciu). offset podnosi popup nad kształt.
+        markerObj.bindPopup(() => createPopupContent(address, [offer]),
+            { maxWidth: 400, offset: L.point(0, isApprox ? -12 : -40) });
 
         // Dodaj do odpowiedniej warstwy
         // Priorytet: firma > approx > exact

@@ -9,11 +9,11 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
-### Mapa fix — wariant canvas (2026-06-22)
-- **perf/feat**: nowa zakładka **🗺️ Mapa fix** (`docs/mapa2.html` + `docs/assets/script2.js`) renderująca wszystkie pinezki na JEDNYM `<canvas>` przez warstwę wektorową Leaflet (`L.canvas`) zamiast ~1000 węzłów DOM (`divIcon`). Płynny pan/zoom i filtrowanie przy dużej liczbie ofert, **bez klastrowania** — każda oferta to nadal osobny punkt.
+### Mapa fix scalona w mapę główną — wariant canvas (2026-06-24)
+- **perf**: renderowanie pinezek na canvasie (`L.canvas`) zostało **scalone do mapy głównej** (`index.html` + `assets/script.js`). Wszystkie pinezki rysowane są na JEDNYM `<canvas>` przez warstwę wektorową Leaflet zamiast ~1000 węzłów DOM (`divIcon`) — płynny pan/zoom i filtrowanie przy dużej liczbie ofert, **bez klastrowania** (każda oferta to nadal osobny punkt).
 - Kształty zachowane 1:1: kropla = dokładny adres, kwadrat z przerywaną ramką = adres przybliżony. Własne klasy `PinMarker`/`SquareMarker` (rozszerzenia `L.CircleMarker`) rysują kształt + badge `N`/`↓↑`/`×` na canvasie.
-- Wszystkie filtry, warstwy, legenda, liczniki, popupy i suwaki dat działają identycznie jak na mapie głównej — obie mapy czytają ten sam `docs/data.json`, backend bez zmian.
-- Mapa główna (`index.html` + `assets/script.js`) **nietknięta** jako fallback. Link „🗺️ Mapa fix" dodany do nawigacji wszystkich podstron.
+- Wszystkie filtry, warstwy, legenda, liczniki, popupy i suwaki dat działają identycznie jak wcześniej — backend i `docs/data.json` bez zmian.
+- **cleanup**: usunięto tymczasową zakładkę `docs/mapa2.html` + `docs/assets/script2.js` oraz link „🗺️ Mapa fix" z nawigacji wszystkich podstron (canvas jest teraz domyślny). Bump cache `script.js?v=17`.
 
 ### Porządki frontend/narzędzia (2026-06-12)
 - **perf**: debounce filtrów — pola cen, wyszukiwarka (300 ms) i suwaki dat (250 ms) nie przebudowują markerów na każdy keystroke/tick; checkboxy bez zmian (dyskretne).
