@@ -66,7 +66,8 @@ data/                     ← źródło prawdy
 └── *.backup_*            ← punkty kontrolne (zostawiaj, nie kasuj)
 
 docs/                     ← frontend GitHub Pages (NIE edytuj ręcznie data.json!)
-├── index.html            ← główna mapa Leaflet
+├── index.html            ← główna mapa Leaflet (markery na canvas — assets/script.js)
+├── assets/script.js      ← logika mapy: filtry, warstwy, popupy + render canvas (L.canvas)
 ├── analytics.html        ← Chart.js
 ├── monitoring.html       ← status skanów
 ├── market_analysis.html
@@ -101,6 +102,7 @@ Te błędy są naprawione. Jeśli edytujesz odpowiedni kod, **zachowaj zabezpiec
 ### Frontend
 
 - **LayerGroup MUSI mieć `.addTo(map)`**: dodanie markerów do grupy to nie to samo co dodanie grupy do mapy. Klasyczny bug "warstwa nie widać".
+- **Markery na canvasie (NIE divIcon)**: pinezki/kwadraty rysowane są na JEDNYM `<canvas>` (`L.canvas`) przez własne klasy `PinMarker`/`SquareMarker` (rozszerzenia `L.CircleMarker`) w `assets/script.js` — wydajność przy ~1000 ofert. **Nie cofaj do `L.divIcon`/SVG.** Kształt + badge (`N`/`↓↑`/`×`) rysują metody `_updatePath`; klikalność (popup) zależy od `_containsPoint` — edytując kształt zaktualizuj OBA. Kolejność rysowania (kwadraty pod pinezkami, firmy na wierzchu) ustawia `restackCanvasOrder()`. (Stary wariant `mapa2.html`/`script2.js` był prototypem tego rozwiązania i został scalony/usunięty.)
 - **Format daty PL**: `"DD.MM.YYYY HH:MM"` — `new Date()` JS-a tego nie sparsuje. Używaj custom `parseDateString()`.
 - **Struktura `docs/data.json`**: zagnieżdżona `markers[].offers[]`, **nie** flat array. Po regeneracji przez `map_generator.py` — wymuś hard reload (Ctrl+F5).
 
