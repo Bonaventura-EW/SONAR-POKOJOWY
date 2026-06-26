@@ -1405,13 +1405,25 @@ class SonarPokojowy:
             MIN_RATIO = 0.3  # Scrape musi zwrócić co najmniej 30% wcześniejszej liczby aktywnych
             scraped_count = len(raw_offers)
 
+            scrape_blocked = False
             if scraped_count == 0 and active_in_db > 0:
                 print(f"   ⚠️  OCHRONA: Scraper zwrócił 0 ofert a baza ma {active_in_db} aktywnych.")
                 print(f"       Pomijam dezaktywację (prawdopodobna blokada OLX).")
+                scrape_blocked = True
+                self.scan_logger.log_error(
+                    f"SCRAPE_BLOCKED: scraper zwrócił 0 ofert (baza: {active_in_db} aktywnych). "
+                    f"Prawdopodobna blokada OLX/Cloudflare lub zmiana struktury HTML."
+                )
             elif active_in_db >= 10 and scraped_count < active_in_db * MIN_RATIO:
                 print(f"   ⚠️  OCHRONA: Scraper zwrócił tylko {scraped_count} ofert, w bazie jest {active_in_db} aktywnych.")
                 print(f"       Próg bezpieczeństwa: {int(active_in_db * MIN_RATIO)}. Pomijam dezaktywację.")
                 print(f"       Prawdopodobna blokada OLX lub częściowa awaria scrapera.")
+                scrape_blocked = True
+                self.scan_logger.log_error(
+                    f"SCRAPE_PARTIAL: scraper zwrócił tylko {scraped_count} ofert "
+                    f"(baza: {active_in_db} aktywnych, próg: {int(active_in_db * MIN_RATIO)}). "
+                    f"Prawdopodobna blokada OLX lub awaria scrapera."
+                )
             else:
                 self._mark_inactive_offers(current_offer_ids, skipped_ids)
             
@@ -1461,7 +1473,8 @@ class SonarPokojowy:
                 'verification': verification_stats
             })
             
-            self.scan_logger.end_scan('completed', total_duration)
+            final_status = 'warning' if scrape_blocked else 'completed'
+            self.scan_logger.end_scan(final_status, total_duration)
             
             # 9. Podsumowanie
             print("\n" + "="*60)
