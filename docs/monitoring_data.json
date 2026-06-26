@@ -2,9 +2,9 @@
   "generated_at": "2026-06-26T14:40:20.349626+02:00",
   "statistics": {
     "total_scans": 100,
-    "successful": 100,
-    "failed": 0,
-    "success_rate": 100.0,
+    "successful": 99,
+    "failed": 1,
+    "success_rate": 99.0,
     "avg_duration": 44.63,
     "avg_offers_found": 479.2
   },
@@ -79,11 +79,11 @@
         "scraping_per_page": 0.91,
         "processing_success_rate": 90.9
       },
-      "deactivated_count": 10
+      "deactivated_count": null
     },
     {
       "timestamp": "2026-06-26T12:14:02.237457+02:00",
-      "status": "completed",
+      "status": "warning",
       "phases": {
         "scraping": {
           "duration": 0.24,
@@ -140,7 +140,12 @@
           "errors": 40
         }
       },
-      "errors": [],
+      "errors": [
+        {
+          "timestamp": "2026-06-26T12:14:07+02:00",
+          "message": "SCRAPE_BLOCKED: scraper zwrócił 0 ofert (baza: 492 aktywnych). Prawdopodobna blokada OLX/Cloudflare lub zmiana struktury HTML."
+        }
+      ],
       "end_timestamp": "2026-06-26T12:14:07.485619+02:00",
       "total_duration": 5.25,
       "performance": {
@@ -148,7 +153,7 @@
         "geocoding_duration": 0,
         "scraping_per_page": 0.0
       },
-      "deactivated_count": 0
+      "deactivated_count": null
     },
     {
       "timestamp": "2026-06-25T22:51:24.179639+02:00",
@@ -7884,8 +7889,8 @@
       },
       {
         "timestamp": "2026-06-26T12:14:02.237457+02:00",
-        "success": 100,
-        "status": "completed"
+        "success": 0,
+        "status": "warning"
       },
       {
         "timestamp": "2026-06-26T14:40:20.349626+02:00",

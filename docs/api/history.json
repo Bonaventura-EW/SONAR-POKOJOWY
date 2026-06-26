@@ -1,6 +1,6 @@
 {
   "system": "sonar",
-  "generatedAt": "2026-06-26T14:41:25.271570+02:00",
+  "generatedAt": "2026-06-26T14:51:54.352809+02:00",
   "count": 20,
   "scans": [
     {
@@ -15,7 +15,7 @@
         "found": 581,
         "processed": 528,
         "new": 11,
-        "deactivated": 10,
+        "deactivated": null,
         "updated": 517,
         "active": 499,
         "inactive": 570
@@ -35,13 +35,13 @@
       "endTimestamp": "2026-06-26T12:14:07.485619+02:00",
       "durationSeconds": 5.25,
       "durationFormatted": "5s",
-      "uiStatus": "success",
-      "rawStatus": "completed",
+      "uiStatus": "failed",
+      "rawStatus": "warning",
       "offers": {
         "found": 0,
         "processed": 0,
         "new": 0,
-        "deactivated": 0,
+        "deactivated": null,
         "updated": 0,
         "active": 492,
         "inactive": 566
@@ -52,8 +52,13 @@
         "noCoords": 0,
         "duplicates": 0
       },
-      "errors": [],
-      "hasErrors": false
+      "errors": [
+        {
+          "message": "SCRAPE_BLOCKED: scraper zwrócił 0 ofert (baza: 492 aktywnych). Prawdopodobna blokada OLX/Cloudflare lub zmiana struktury HTML.",
+          "timestamp": "2026-06-26T12:14:07+02:00"
+        }
+      ],
+      "hasErrors": true
     },
     {
       "id": "2026-06-25T22-51-24",

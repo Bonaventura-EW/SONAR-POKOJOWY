@@ -6858,7 +6858,7 @@
   },
   {
     "timestamp": "2026-06-26T12:14:02.237457+02:00",
-    "status": "completed",
+    "status": "warning",
     "phases": {
       "scraping": {
         "duration": 0.24,
@@ -6915,7 +6915,12 @@
         "errors": 40
       }
     },
-    "errors": [],
+    "errors": [
+      {
+        "timestamp": "2026-06-26T12:14:07+02:00",
+        "message": "SCRAPE_BLOCKED: scraper zwrócił 0 ofert (baza: 492 aktywnych). Prawdopodobna blokada OLX/Cloudflare lub zmiana struktury HTML."
+      }
+    ],
     "end_timestamp": "2026-06-26T12:14:07.485619+02:00",
     "total_duration": 5.25,
     "performance": {
