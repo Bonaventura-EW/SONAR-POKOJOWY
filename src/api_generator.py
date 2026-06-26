@@ -67,7 +67,9 @@ class APIGenerator:
 
             success = status == 'completed' and not errors
             failure_reason = None
-            if status != 'completed':
+            if status == 'warning' and errors:
+                failure_reason = errors[0].get('message', 'Blokada OLX lub awaria scrapera')
+            elif status not in ('completed', 'warning'):
                 failure_reason = f"Skan zakończył się statusem: {status}"
             elif errors:
                 failure_reason = errors[0].get('message', 'Nieznany błąd')
@@ -343,9 +345,12 @@ class APIGenerator:
         if not last_scan:
             return "unknown"
         
-        if last_scan.get('status') != 'completed':
+        if last_scan.get('status') == 'warning':
+            return "degraded"
+
+        if last_scan.get('status') not in ('completed', 'warning'):
             return "down"
-        
+
         if last_scan.get('errors'):
             return "degraded"
         
