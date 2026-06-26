@@ -4,7 +4,7 @@
 
 > **Pełna dokumentacja:** `BLUEPRINT.md` (44 KB, kompletny opis architektury). Czytaj go, gdy potrzebujesz głębi. Ten plik to skrót do natychmiastowego startu.
 
-> **Historia zmian:** `CHANGELOG.md` (kanoniczne, zwięzłe). Stare raporty z napraw (`RAPORT_*`, `PODSUMOWANIE_*`, `WIZUALIZACJA_*`) → `docs/archive/`. Luźne backupy danych → `data/backups/`.
+> **Historia zmian:** `CHANGELOG.md` (kanoniczne, zwięzłe). **Czytaj go na początku każdej sesji** — zawiera kontekst ostatnich zmian niezbędny do zrozumienia stanu projektu. Stare raporty z napraw (`RAPORT_*`, `PODSUMOWANIE_*`, `WIZUALIZACJA_*`) → `docs/archive/`. Luźne backupy danych → `data/backups/`.
 
 ---
 
