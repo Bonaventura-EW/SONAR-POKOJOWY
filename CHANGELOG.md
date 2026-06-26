@@ -9,6 +9,11 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Wykrywanie blokady OLX w skanach (2026-06-26)
+- **fix**: gdy scraper zwróci 0 ofert (lub <30% liczby aktywnych w bazie), scan kończy się statusem `warning` zamiast `completed`, a `scan_history.json` dostaje wpis w `errors[]` z komunikatem `SCRAPE_BLOCKED`/`SCRAPE_PARTIAL`.
+- **fix**: `api/status.json` pokazuje `degraded` zamiast `operational` po takim scanie; `api/scan_status.json` wypełnia `failureReason` treścią błędu.
+- **fix**: `monitoring.html` — nowy żółty badge „Ostrzeżenie" dla skanów z `status: warning` (wcześniej błędnie wyświetlał „Sukces").
+
 ### Mapa fix scalona w mapę główną — wariant canvas (2026-06-24)
 - **perf**: renderowanie pinezek na canvasie (`L.canvas`) zostało **scalone do mapy głównej** (`index.html` + `assets/script.js`). Wszystkie pinezki rysowane są na JEDNYM `<canvas>` przez warstwę wektorową Leaflet zamiast ~1000 węzłów DOM (`divIcon`) — płynny pan/zoom i filtrowanie przy dużej liczbie ofert, **bez klastrowania** (każda oferta to nadal osobny punkt).
 - Kształty zachowane 1:1: kropla = dokładny adres, kwadrat z przerywaną ramką = adres przybliżony. Własne klasy `PinMarker`/`SquareMarker` (rozszerzenia `L.CircleMarker`) rysują kształt + badge `N`/`↓↑`/`×` na canvasie.
