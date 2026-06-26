@@ -187,6 +187,7 @@ Przed commitowaniem zawsze sprawdź:
 - [ ] Czy odpaliłem `python test_integration.py` i przeszło?
 - [ ] Czy commit message jest sensowny po polsku? (przykład: `"fix: warstwa nieaktywne nie renderuje sie na mapie"`)
 - [ ] Czy nie zostawiłem `print()` debug-owych w kodzie?
+- [ ] Czy zaktualizowałem `CHANGELOG.md` o opis zmiany? (zawsze, bez wyjątku)
 
 ---
 
