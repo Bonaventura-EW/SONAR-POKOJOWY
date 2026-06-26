@@ -166,6 +166,11 @@
             background: #fee2e2;
             color: #991b1b;
         }
+
+        .status.warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
         
         .loading {
             text-align: center;
@@ -358,7 +363,7 @@
                     const statusCell = row.insertCell();
                     const statusSpan = document.createElement('span');
                     statusSpan.className = `status ${scan.status}`;
-                    statusSpan.textContent = scan.status === 'completed' ? 'Sukces' : 'Błąd';
+                    statusSpan.textContent = scan.status === 'completed' ? 'Sukces' : scan.status === 'warning' ? 'Ostrzeżenie' : 'Błąd';
                     statusCell.appendChild(statusSpan);
                     
                     // Czas
