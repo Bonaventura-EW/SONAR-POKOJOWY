@@ -9,6 +9,10 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Filtr cen-outlierów (2026-07-01)
+- **feat**: `_process_offer` odrzuca oferty z ceną >= 10x średnia cena aktywnych ofert w bazie (próg liczony raz na scan, z bazy sprzed scanu, `main.py::_compute_price_outlier_threshold`). Chroni przed literówkami/błędami parsera cen (np. "9500" zamiast "950") i ofertami nie-pokojowymi z absurdalną ceną. Nowy `_skip_reason='price_outlier'`, liczony i próbkowany osobno w `skipped_offers_sample.json` i `scan_history.json`. Filtr wyłączony gdy baza ma <10 aktywnych ofert z ceną (świeży start).
+- Audyt bazy 2026-07-01: 0 ofert w aktualnej bazie (518 aktywnych, średnia ~969 zł, próg ~9685 zł, max cena w bazie 4799 zł) spełnia to kryterium — filtr zabezpiecza na przyszłość, nie było czego czyścić.
+
 ### Wykrywanie blokady OLX w skanach (2026-06-26)
 - **fix**: gdy scraper zwróci 0 ofert (lub <30% liczby aktywnych w bazie), scan kończy się statusem `warning` zamiast `completed`, a `scan_history.json` dostaje wpis w `errors[]` z komunikatem `SCRAPE_BLOCKED`/`SCRAPE_PARTIAL`.
 - **fix**: `api/status.json` pokazuje `degraded` zamiast `operational` po takim scanie; `api/scan_status.json` wypełnia `failureReason` treścią błędu.

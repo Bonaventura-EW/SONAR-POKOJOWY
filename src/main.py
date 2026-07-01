@@ -36,10 +36,15 @@ class SonarPokojowy:
         
         # Wczytaj istniejącą bazę
         self.database = self._load_database()
-        
+
         # Inicjalizuj scraper Z istniejącymi ofertami (inteligentne pomijanie)
         existing_offers = self._build_existing_offers_index()
         self.scraper = OLXScraper(delay_range=(0.2, 0.5), max_workers=10, existing_offers=existing_offers)
+
+        # Próg cenowych outlierów (10x średnia aktywnej bazy) — liczony raz na scan,
+        # z bazy sprzed scanu. Chroni przed literówkami/błędami parsera cen
+        # (np. "9500" zamiast "950") i ofertami nie-pokojowymi z absurdalną ceną.
+        self._price_outlier_threshold = self._compute_price_outlier_threshold()
     
     def _build_existing_offers_index(self) -> Dict:
         """
@@ -95,6 +100,28 @@ class SonarPokojowy:
               f"({active_count} aktywnych, {inactive_count} nieaktywnych z ostatnich 30 dni)")
         return index
     
+    def _compute_price_outlier_threshold(self, multiplier: float = 10) -> float:
+        """
+        Liczy próg cenowego outliera: multiplier x średnia cena aktywnych ofert
+        w bazie (stan sprzed bieżącego scanu). Oferty z ceną >= progu są
+        odrzucane w _process_offer jako podejrzane (literówka/błąd parsera,
+        oferta nie-pokojowa z absurdalną ceną).
+
+        Zwraca None gdy baza ma za mało aktywnych ofert z ceną (świeży start) -
+        wtedy filtr jest wyłączony, bo średnia byłaby niemiarodajna.
+        """
+        prices = [
+            o['price']['current']
+            for o in self.database.get('offers', [])
+            if o.get('active') and o.get('price', {}).get('current')
+        ]
+        if len(prices) < 10:
+            return None
+        avg_price = sum(prices) / len(prices)
+        threshold = avg_price * multiplier
+        print(f"📊 Próg outlierów cenowych: {multiplier}x średnia ({avg_price:.0f} zł) = {threshold:.0f} zł")
+        return threshold
+
     def _load_database(self) -> Dict:
         """Wczytuje bazę danych z JSON."""
         if self.data_file.exists():
@@ -265,7 +292,7 @@ class SonarPokojowy:
         self._geocode_transient = False
         # FIX 2026-06-09: jawny powód odrzucenia oferty (zamiast zgadywania przez
         # re-derywację w run_scan). Ustawiany przed każdym `return None`.
-        # Wartości: 'excluded' | 'no_address' | 'no_price' | 'no_coords' | None.
+        # Wartości: 'excluded' | 'no_address' | 'no_price' | 'no_coords' | 'price_outlier' | None.
         self._skip_reason = None
         self._skip_detail = None  # dodatkowy kontekst (np. dopasowana fraza wykluczenia)
 
@@ -454,7 +481,16 @@ class SonarPokojowy:
         if not price:
             self._skip_reason = 'no_price'
             return None  # Brak ceny → ignoruj
-        
+
+        # FILTR: cena-outlier (>= 10x średnia aktywnej bazy) — nie zbieramy takich
+        # ofert. Zwykle to literówka/błąd parsera (np. "9500" zamiast "950") albo
+        # oferta nie-pokojowa (całe mieszkanie/dom) z absurdalną ceną.
+        if self._price_outlier_threshold and price >= self._price_outlier_threshold:
+            print(f"      🚫 Cena-outlier: {price} zł >= {self._price_outlier_threshold:.0f} zł "
+                  f"(10x średnia) — pomijam")
+            self._skip_reason = 'price_outlier'
+            return None
+
         # 4. Geokoduj adres (lub użyj cache dla reaktywacji)
         if use_cached_coords and cached_coords:
             coords = cached_coords
@@ -1146,6 +1182,7 @@ class SonarPokojowy:
             skipped_no_coords = 0
             skipped_duplicate = 0
             skipped_excluded = 0  # FIX 2026-06-09: oferty odrzucone przez filtr excluded_phrases
+            skipped_price_outlier = 0  # oferty odrzucone jako cena-outlier (>= 10x średnia)
 
             # Zbieram próbki odrzuconych ofert do analizy (max 50 per kategorię)
             skipped_samples = {
@@ -1153,7 +1190,8 @@ class SonarPokojowy:
                 'no_price': [],
                 'no_coords': [],
                 'duplicate': [],
-                'excluded': []  # FIX 2026-06-09: osobna kategoria (nie myl z no_coords)
+                'excluded': [],  # FIX 2026-06-09: osobna kategoria (nie myl z no_coords)
+                'price_outlier': []
             }
             SAMPLE_LIMIT = 50
 
@@ -1167,7 +1205,7 @@ class SonarPokojowy:
                 """Obsługuje wynik _process_offer: liczy skip/sample LUB dodaje ofertę
                 (z dedupem). Wspólne dla głównej pętli i przebiegu retry."""
                 nonlocal skipped_no_address, skipped_no_price, skipped_no_coords
-                nonlocal skipped_duplicate, skipped_excluded
+                nonlocal skipped_duplicate, skipped_excluded, skipped_price_outlier
 
                 if not processed:
                     # FIX 2026-06-09: klasyfikuj wg JAWNEGO powodu ustawionego przez
@@ -1188,6 +1226,10 @@ class SonarPokojowy:
                         if len(skipped_samples['excluded']) < SAMPLE_LIMIT:
                             sample['excluded_phrase'] = getattr(self, '_skip_detail', None)
                             skipped_samples['excluded'].append(sample)
+                    elif reason == 'price_outlier':
+                        skipped_price_outlier += 1
+                        if len(skipped_samples['price_outlier']) < SAMPLE_LIMIT:
+                            skipped_samples['price_outlier'].append(sample)
                     elif reason == 'no_price':
                         skipped_no_price += 1
                         if len(skipped_samples['no_price']) < SAMPLE_LIMIT:
@@ -1323,7 +1365,8 @@ class SonarPokojowy:
                         'no_price': skipped_no_price,
                         'no_coords': skipped_no_coords,
                         'duplicate': skipped_duplicate,
-                        'excluded': skipped_excluded
+                        'excluded': skipped_excluded,
+                        'price_outlier': skipped_price_outlier
                     },
                     'samples': skipped_samples
                 })
@@ -1338,7 +1381,8 @@ class SonarPokojowy:
                 'skipped_no_price': skipped_no_price,
                 'skipped_no_coords': skipped_no_coords,
                 'skipped_duplicate': skipped_duplicate,
-                'skipped_excluded': skipped_excluded
+                'skipped_excluded': skipped_excluded,
+                'skipped_price_outlier': skipped_price_outlier
             })
 
             # Dodaj metryki geokodowania
@@ -1351,7 +1395,8 @@ class SonarPokojowy:
             print(f"   Pominięte - brak ceny: {skipped_no_price}")
             print(f"   Pominięte - brak współrzędnych: {skipped_no_coords}")
             print(f"   Pominięte - duplikaty: {skipped_duplicate}")
-            print(f"   Pominięte - wykluczone (filtr): {skipped_excluded}\n")
+            print(f"   Pominięte - wykluczone (filtr): {skipped_excluded}")
+            print(f"   Pominięte - cena-outlier (10x średnia): {skipped_price_outlier}\n")
             
             # 3. Aktualizacja bazy danych
             print("💾 Krok 3: Aktualizacja bazy danych...")
@@ -1470,6 +1515,7 @@ class SonarPokojowy:
                 'skipped_no_coords': skipped_no_coords,
                 'skipped_duplicate': skipped_duplicate,
                 'skipped_excluded': skipped_excluded,
+                'skipped_price_outlier': skipped_price_outlier,
                 'verification': verification_stats
             })
             
