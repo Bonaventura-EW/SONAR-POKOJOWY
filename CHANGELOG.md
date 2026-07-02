@@ -9,6 +9,10 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Weryfikacja nieaktywnych ofert ze śledzonych profili firmowych (2026-07-02)
+- **fix**: `_verify_inactive_offers` (`main.py`) reaktywuje ofertę na podstawie bezpośredniej weryfikacji URL (HTTP 200 + `availability: InStock`, bez markera "nieaktywne"), gdy oferta ma ustawiony `profile_name` (pochodzi ze śledzonego profilu firmowego). Wcześniej (fix 2026-05-23) weryfikacja ignorowała InStock dla wszystkich ofert, żeby uniknąć pętli reaktywacja/dezaktywacja dla anonimowych ofert wypadających z listingu — ale to samo zabezpieczenie fałszywie oznaczało jako nieaktywne żywe oferty znanych firm, które spadły w rankingu profilu (brak odświeżenia), np. `Poqui — ul. Hetmańska 5` (ID1be0ER), mimo że strona OLX nadal serwowała pełną, aktywną ofertę.
+- Uzasadnienie zawężenia do profili: ryzyko "zombie" strony (OLX trzyma InStock dla dawno zarchiwizowanych ofert) jest dużo niższe dla konkretnej, znanej firmy niż dla anonimowego listingu kategorii.
+
 ### Filtr cen-outlierów (2026-07-01)
 - **feat**: `_process_offer` odrzuca oferty z ceną >= 10x średnia cena aktywnych ofert w bazie (próg liczony raz na scan, z bazy sprzed scanu, `main.py::_compute_price_outlier_threshold`). Chroni przed literówkami/błędami parsera cen (np. "9500" zamiast "950") i ofertami nie-pokojowymi z absurdalną ceną. Nowy `_skip_reason='price_outlier'`, liczony i próbkowany osobno w `skipped_offers_sample.json` i `scan_history.json`. Filtr wyłączony gdy baza ma <10 aktywnych ofert z ceną (świeży start).
 - Audyt bazy 2026-07-01: 0 ofert w aktualnej bazie (518 aktywnych, średnia ~969 zł, próg ~9685 zł, max cena w bazie 4799 zł) spełnia to kryterium — filtr zabezpiecza na przyszłość, nie było czego czyścić.
