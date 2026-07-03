@@ -1018,6 +1018,19 @@ class SonarPokojowy:
                 if any(m in page_text_lower for m in inactive_markers):
                     return (offer, 'confirmed_inactive', None)
 
+                # FIX (2026-07-02): Dla ofert ze śledzonych profili firmowych
+                # (offer['profile_name'] ustawiony przez scrape_all_profiles) ufamy
+                # bezpośredniej weryfikacji URL - to nie anonimowy listing kategorii,
+                # tylko konkretna, znana firma. HTTP 200 + availability=InStock +
+                # brak markera nieaktywności = oferta faktycznie żyje, nawet jeśli
+                # spadła w rankingu listingu/profilu (brak odświeżenia).
+                if offer.get('profile_name') and 'availability":"https://schema.org/instock"' in response.text.lower():
+                    reactivation_data = {
+                        'last_seen': datetime.now(self.tz).isoformat(),
+                        'reactivated_at': datetime.now(self.tz).isoformat()
+                    }
+                    return (offer, 'reactivated', reactivation_data)
+
                 # HTTP 200 + brak markera = OLX trzyma stronę, ale nie ma jej w listingu.
                 # NIE reaktywujemy - oferta zostanie inactive aż wróci do listingu.
                 return (offer, 'confirmed_inactive', None)
