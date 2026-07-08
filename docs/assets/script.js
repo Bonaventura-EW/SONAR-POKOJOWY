@@ -394,9 +394,9 @@ async function loadData() {
         initDateSlider();  // Suwak dni - wymaga wypełnionego allMarkers
         initGoneSlider(); // Suwak daty zniknięcia
         setupEventListeners();
+        buildFirmProfilesTree();  // Drzewo profili firmowych PRZED filterMarkers - getEnabledProfiles czyta jego checkboxy
         filterMarkers();  // ✅ Przefiltruj markery zgodnie z początkowymi stanami checkboxów
         restackCanvasOrder();  // MAPA FIX: kwadraty pod pinezkami, nieaktywne pod aktywnymi
-        buildFirmProfilesTree();  // Drzewo profili firmowych w sidebarze
 
         // NOWE: jeśli URL ma ?offer=ID, pokaż wskazany marker
         focusOfferFromUrl();
@@ -1067,7 +1067,8 @@ function getEnabledProfiles() {
     let anyUnchecked = false;
     Object.keys(mapData.tracked_profiles).forEach(key => {
         const cb = document.getElementById('firm-profile-' + key);
-        if (cb && cb.checked) enabled.add(key);
+        // Brak checkboxa w DOM = profil włączony (checkboxy startują jako checked)
+        if (!cb || cb.checked) enabled.add(key);
         else anyUnchecked = true;
     });
     return anyUnchecked ? enabled : null; // null = wszystkie zaznaczone = brak filtra
