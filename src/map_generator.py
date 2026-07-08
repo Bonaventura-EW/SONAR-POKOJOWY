@@ -14,7 +14,10 @@ from offer_tagger import tag_offer, TAGS as OFFER_TAGS
 from shared_utils import write_json_atomic, format_datetime
 from profiles_config import TRACKED_PROFILES, FIRM_BORDER_COLOR, FIRM_BORDER_WIDTH
 
-# Definicja zakresów cenowych - 12 przedziałów z gradientem
+# Definicja zakresów cenowych - 22 przedziały.
+# Gradient zielony → ciemny fiolet rozciągnięty na 0-3000 zł (interpolacja RGB
+# z 12 historycznych anchorów), powyżej 3000 zł jeden kolor: czarny.
+# Kroki: 0-500, potem co 100 zł do 2000, potem co 200 zł do 3000.
 PRICE_RANGES = {
     'range_0_500': {
         'label': '0-500 zł',
@@ -26,67 +29,127 @@ PRICE_RANGES = {
         'label': '501-600 zł',
         'min': 501,
         'max': 600,
-        'color': '#64dd17'  # Zielony jasny
+        'color': '#37d432'
     },
     'range_601_700': {
         'label': '601-700 zł',
         'min': 601,
         'max': 700,
-        'color': '#aeea00'  # Limonkowy
+        'color': '#6bde15'
     },
     'range_701_800': {
         'label': '701-800 zł',
         'min': 701,
         'max': 800,
-        'color': '#ffd600'  # Żółty
+        'color': '#94e508'
     },
     'range_801_900': {
         'label': '801-900 zł',
         'min': 801,
         'max': 900,
-        'color': '#ffab00'  # Żółto-pomarańczowy
+        'color': '#bee600'
     },
     'range_901_1000': {
         'label': '901-1000 zł',
         'min': 901,
         'max': 1000,
-        'color': '#ff6f00'  # Pomarańczowy
+        'color': '#ebdb00'  # Żółty
     },
     'range_1001_1100': {
         'label': '1001-1100 zł',
         'min': 1001,
         'max': 1100,
-        'color': '#ff3d00'  # Pomarańczowo-czerwony
+        'color': '#ffc900'
     },
     'range_1101_1200': {
         'label': '1101-1200 zł',
         'min': 1101,
         'max': 1200,
-        'color': '#d50000'  # Czerwony
+        'color': '#ffb100'
     },
     'range_1201_1300': {
         'label': '1201-1300 zł',
         'min': 1201,
         'max': 1300,
-        'color': '#c51162'  # Czerwono-różowy
+        'color': '#ff9300'
     },
     'range_1301_1400': {
         'label': '1301-1400 zł',
         'min': 1301,
         'max': 1400,
-        'color': '#aa00ff'  # Różowo-fioletowy
+        'color': '#ff7200'  # Pomarańczowy
     },
     'range_1401_1500': {
         'label': '1401-1500 zł',
         'min': 1401,
         'max': 1500,
-        'color': '#7c4dff'  # Fioletowy jasny
+        'color': '#ff5600'
     },
-    'range_1501_plus': {
-        'label': '1501+ zł',
+    'range_1501_1600': {
+        'label': '1501-1600 zł',
         'min': 1501,
-        'max': 999999,
+        'max': 1600,
+        'color': '#fd3a00'
+    },
+    'range_1601_1700': {
+        'label': '1601-1700 zł',
+        'min': 1601,
+        'max': 1700,
+        'color': '#e61800'  # Czerwony
+    },
+    'range_1701_1800': {
+        'label': '1701-1800 zł',
+        'min': 1701,
+        'max': 1800,
+        'color': '#d3030f'
+    },
+    'range_1801_1900': {
+        'label': '1801-1900 zł',
+        'min': 1801,
+        'max': 1900,
+        'color': '#ca0c45'
+    },
+    'range_1901_2000': {
+        'label': '1901-2000 zł',
+        'min': 1901,
+        'max': 2000,
+        'color': '#be0d89'  # Różowy
+    },
+    'range_2001_2200': {
+        'label': '2001-2200 zł',
+        'min': 2001,
+        'max': 2200,
+        'color': '#af03e0'
+    },
+    'range_2201_2400': {
+        'label': '2201-2400 zł',
+        'min': 2201,
+        'max': 2400,
+        'color': '#9a1bff'  # Fioletowy
+    },
+    'range_2401_2600': {
+        'label': '2401-2600 zł',
+        'min': 2401,
+        'max': 2600,
+        'color': '#8145ff'
+    },
+    'range_2601_2800': {
+        'label': '2601-2800 zł',
+        'min': 2601,
+        'max': 2800,
+        'color': '#702af6'
+    },
+    'range_2801_3000': {
+        'label': '2801-3000 zł',
+        'min': 2801,
+        'max': 3000,
         'color': '#6200ea'  # Fioletowy ciemny
+    },
+    'range_3001_plus': {
+        'label': '3001+ zł',
+        'min': 3001,
+        'max': 999999,
+        'color': '#000000'  # Czarny
     }
 }
 
@@ -95,7 +158,7 @@ def get_price_range(price):
     for key, range_info in PRICE_RANGES.items():
         if range_info['min'] <= price <= range_info['max']:
             return key
-    return 'range_1501_plus'  # Fallback
+    return 'range_3001_plus'  # Fallback (musi być ostatnim kluczem PRICE_RANGES)
 
 
 def format_scan_datetime(iso_string):
