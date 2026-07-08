@@ -495,29 +495,24 @@ class SonarPokojowy:
 
 To **ostatni krok przed frontendem**. Bierze `data/offers.json` (flat) i tworzy `docs/data.json` (NESTED: markers[].offers[]).
 
-**12-stopniowy gradient cen** (kluczowy element wizualny):
+**22-stopniowy gradient cen** (kluczowy element wizualny) — zielony → ciemny fiolet rozciągnięty na 0–3000 zł, powyżej 3000 zł czarny. Kroki: 0–500, co 100 zł do 2000, co 200 zł do 3000:
 
 ```python
 PRICE_RANGES = {
     'range_0_500':     {'label': '0-500 zł',     'min': 0,    'max': 500,    'color': '#00c853'},  # zielony
-    'range_501_600':   {'label': '501-600 zł',   'min': 501,  'max': 600,    'color': '#64dd17'},
-    'range_601_700':   {'label': '601-700 zł',   'min': 601,  'max': 700,    'color': '#aeea00'},
-    'range_701_800':   {'label': '701-800 zł',   'min': 701,  'max': 800,    'color': '#ffd600'},  # żółty
-    'range_801_900':   {'label': '801-900 zł',   'min': 801,  'max': 900,    'color': '#ffab00'},
-    'range_901_1000':  {'label': '901-1000 zł',  'min': 901,  'max': 1000,   'color': '#ff6f00'},
-    'range_1001_1100': {'label': '1001-1100 zł', 'min': 1001, 'max': 1100,   'color': '#ff3d00'},
-    'range_1101_1200': {'label': '1101-1200 zł', 'min': 1101, 'max': 1200,   'color': '#d50000'},  # czerwony
-    'range_1201_1300': {'label': '1201-1300 zł', 'min': 1201, 'max': 1300,   'color': '#c51162'},
-    'range_1301_1400': {'label': '1301-1400 zł', 'min': 1301, 'max': 1400,   'color': '#aa00ff'},
-    'range_1401_1500': {'label': '1401-1500 zł', 'min': 1401, 'max': 1500,   'color': '#7c4dff'},
-    'range_1501_plus': {'label': '1501+ zł',     'min': 1501, 'max': 999999, 'color': '#6200ea'},  # fioletowy
+    # ... co 100 zł (kolory interpolowane RGB z historycznych 12 anchorów) ...
+    'range_901_1000':  {'label': '901-1000 zł',  'min': 901,  'max': 1000,   'color': '#ebdb00'},  # żółty
+    'range_1601_1700': {'label': '1601-1700 zł', 'min': 1601, 'max': 1700,   'color': '#e61800'},  # czerwony
+    # ... od 2000 co 200 zł ...
+    'range_2801_3000': {'label': '2801-3000 zł', 'min': 2801, 'max': 3000,   'color': '#6200ea'},  # fioletowy ciemny
+    'range_3001_plus': {'label': '3001+ zł',     'min': 3001, 'max': 999999, 'color': '#000000'},  # czarny
 }
 
 def get_price_range(price):
     for key, r in PRICE_RANGES.items():
         if r['min'] <= price <= r['max']:
             return key
-    return 'range_1501_plus'   # ⚠️ FALLBACK MUSI BYĆ OSTATNIM KLUCZEM W PRICE_RANGES
+    return 'range_3001_plus'   # ⚠️ FALLBACK MUSI BYĆ OSTATNIM KLUCZEM W PRICE_RANGES
 ```
 
 > ⚠️ Dla SONAR-MIESZKANIOWY zakresy będą wyższe (mieszkania ~2000-5000 zł). Trzeba przeskalować całe `PRICE_RANGES`. Sugerowane zakresy: 0-1500 / 1501-1750 / ... / co 250 zł / 3501+. Dokładne wartości lepiej dobrać po pierwszym skanie próbnym.
@@ -785,7 +780,7 @@ jobs:
 | `max_pages` | `main.py` (`scrape_all_pages`) | `50` | Maks. stron listingu |
 | `similarity_threshold` | `main.py` (DuplicateDetector) | `0.95` | Próg Levenshtein |
 | `LUBLIN_BBOX` | `geocoder.py` | (lat 51.18-51.30, lon 22.42-22.68) | Walidacja geokodowania |
-| `PRICE_RANGES` | `map_generator.py` | 12 zakresów 0–1501+ | Gradient kolorów |
+| `PRICE_RANGES` | `map_generator.py` | 22 zakresy 0–3001+ | Gradient kolorów (3001+ czarny) |
 | `SCAN_SCHEDULE` | `api_generator.py` | `["09:00", "15:00", "21:00"]` | Tylko do wyświetlania |
 | Cron | `scanner.yml` | `0 7,13,19 * * *` (UTC) | Faktyczny harmonogram |
 | `user_agent` | `geocoder.py` | `"sonar-pokojowy-lublin/1.0"` | **MUSI być unikalny per projekt** |
@@ -824,7 +819,7 @@ jobs:
 
 9. **Kolejność prefiksów w regex adresów: dłuższe przed krótszymi.** `ulica` przed `ul`, `aleja` przed `al`, `osiedle` przed `os`. Inaczej `ulica Narutowicza` matchnie się jako `ul + ica Narutowicza`.
 
-10. **`get_price_range()` fallback musi pasować do ostatniego klucza w `PRICE_RANGES`.** Inaczej oferty powyżej max trafią do `range_1501_plus` którego nie ma w słowniku → KeyError w frontendzie.
+10. **`get_price_range()` fallback musi pasować do ostatniego klucza w `PRICE_RANGES`.** Inaczej oferty powyżej max trafią do klucza, którego nie ma w słowniku (obecnie fallback = `range_3001_plus`) → KeyError w frontendzie.
 
 11. **Marker-level `price_range` jest redundantny.** Każda oferta niesie własny `price_range`. NIE dodawaj go do markera (różne oferty pod tym samym adresem mogą być w różnych zakresach).
 

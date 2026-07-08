@@ -9,6 +9,11 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Rozszerzona skala kolorów cen 0–3000 zł (2026-07-08)
+- **feat**: `PRICE_RANGES` (`map_generator.py`) rozszerzone z 12 do 22 przedziałów. Gradient zielony → ciemny fiolet rozciągnięty na całą skalę 0–3000 zł (kolory interpolowane RGB z dotychczasowych 12 anchorów), **powyżej 3000 zł jeden kolor: czarny**. Kroki: 0–500, co 100 zł do 2000, co 200 zł do 3000. Fallback `get_price_range()` zmieniony na `range_3001_plus`.
+- Efekt: fiolet zaczyna się od ~2000 zł zamiast dominować od 1501+ (dotąd 47 aktywnych ofert >1500 zł zlewało się w jeden fioletowy kubełek), czerwień od ~1500, typowy pokój ~950 zł jest żółty. Frontend bez zmian — legenda, popupy i liczniki czytają zakresy dynamicznie z `data.json`.
+- Wariant (kroki 100/200 zł + gradient na całość) wybrany przez Mateusza z propozycji before/after.
+
 ### Weryfikacja nieaktywnych ofert ze śledzonych profili firmowych (2026-07-02)
 - **fix**: `_verify_inactive_offers` (`main.py`) reaktywuje ofertę na podstawie bezpośredniej weryfikacji URL (HTTP 200 + `availability: InStock`, bez markera "nieaktywne"), gdy oferta ma ustawiony `profile_name` (pochodzi ze śledzonego profilu firmowego). Wcześniej (fix 2026-05-23) weryfikacja ignorowała InStock dla wszystkich ofert, żeby uniknąć pętli reaktywacja/dezaktywacja dla anonimowych ofert wypadających z listingu — ale to samo zabezpieczenie fałszywie oznaczało jako nieaktywne żywe oferty znanych firm, które spadły w rankingu profilu (brak odświeżenia), np. `Poqui — ul. Hetmańska 5` (ID1be0ER), mimo że strona OLX nadal serwowała pełną, aktywną ofertę.
 - Uzasadnienie zawężenia do profili: ryzyko "zombie" strony (OLX trzyma InStock dla dawno zarchiwizowanych ofert) jest dużo niższe dla konkretnej, znanej firmy niż dla anonimowego listingu kategorii.
