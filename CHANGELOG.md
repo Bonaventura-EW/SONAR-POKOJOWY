@@ -9,6 +9,11 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Wyróżnienie pinezek firmowych na mapie (2026-07-08)
+- **feat**: oferty firmowe (`is_firm_offer`) dostają na canvasie złotą świetlistą aureolę pod kształtem (gradient + pierścień, `_drawFirmHalo`) oraz — dla aktywnych — piktogram budynku w złotym kółku zamiast białego środka (`_drawFirmGlyph`). Wariant C wybrany przez Mateusza z propozycji A/B/C. Nieaktywne firmowe zachowują krzyżyk ×, dostają aureolę.
+- **fix**: firmowe oferty z przybliżonym adresem (kwadraty) traciły złotą obwódkę — kolor ramki był nadpisywany na biały. Teraz złota, spójnie z kroplami.
+- `_updateBounds` obu klas rozszerzone dla firm o zasięg aureoli (poprawne odświeżanie regionów canvasu). Bump cache `script.js?v=19`.
+
 ### Pinezki firm niewidoczne na świeżym wejściu (2026-07-08)
 - **fix**: `loadData()` (`script.js`) wywoływał `filterMarkers()` przed `buildFirmProfilesTree()` — `getEnabledProfiles()` nie znajdował jeszcze checkboxów profili w DOM, traktował wszystkie profile jako odznaczone (pusty Set) i wszystkie pinezki firm wypadały z warstwy na starcie strony. Pierwsza interakcja z filtrami je przywracała, więc bug był widoczny tylko na świeżym wejściu. Fix: drzewo profili budowane przed pierwszym `filterMarkers()` + `getEnabledProfiles()` traktuje brakujący checkbox jako zaznaczony (checkboxy startują jako checked). Bump cache `script.js?v=18`.
 - Weryfikacja headless (Chromium): przed fixem 0/44 pinezek firm na warstwie przy świeżym wejściu, po fixie 44/44.

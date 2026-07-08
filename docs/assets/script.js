@@ -90,6 +90,41 @@ function _drawInnerGlyph(ctx, cx, cy, r, inactive) {
     }
 }
 
+// Wyróżnienie ofert firmowych (wariant C): złota aureola pod kształtem
+// + piktogram budynku w złotym kółku zamiast białego środka (tylko aktywne).
+function _drawFirmHalo(ctx, cx, cy) {
+    if (ctx.setLineDash) ctx.setLineDash([]);
+    const g = ctx.createRadialGradient(cx, cy, 10, cx, cy, 36);
+    g.addColorStop(0, 'rgba(255,200,0,0.9)');
+    g.addColorStop(0.6, 'rgba(255,200,0,0.5)');
+    g.addColorStop(1, 'rgba(255,200,0,0)');
+    ctx.beginPath();
+    ctx.arc(cx, cy, 36, 0, Math.PI * 2);
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, cy, 26, 0, Math.PI * 2);
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = 'rgba(218,165,32,0.95)';
+    ctx.stroke();
+}
+
+function _drawFirmGlyph(ctx, cx, cy) {
+    if (ctx.setLineDash) ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+    ctx.fillStyle = '#FFD700';
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#8a6400';
+    ctx.stroke();
+    ctx.fillStyle = '#5b4000';
+    ctx.fillRect(cx - 4, cy - 5, 8, 10);                 // korpus budynku
+    ctx.fillStyle = '#FFD700';                            // okna
+    [[-2.5, -3.5], [0.8, -3.5], [-2.5, -0.8], [0.8, -0.8], [-2.5, 1.9]]
+        .forEach(([dx, dy]) => ctx.fillRect(cx + dx, cy + dy, 1.7, 1.7));
+}
+
 // Badge w prawym-górnym rogu. Priorytet: zmiana ceny (↓/↑ w kółku) > nowa (N).
 // Odpowiednik "💲↓" / "N" z mapy głównej — na canvasie czytelniejszy jako kółko.
 function _drawCornerBadge(ctx, cx, cy, o) {
@@ -120,8 +155,11 @@ function _drawCornerBadge(ctx, cx, cy, o) {
 const PinMarker = L.CircleMarker.extend({
     _updateBounds: function () {
         const p = this._point;
-        // od ostrza w górę (bąbel) + margines na badge w prawym-górnym rogu
-        this._pxBounds = new L.Bounds(p.add(L.point(-22, -60)), p.add(L.point(28, 4)));
+        // od ostrza w górę (bąbel) + margines na badge w prawym-górnym rogu;
+        // firmowe szerzej - aureola (promień 36 wokół środka bąbla)
+        this._pxBounds = this.options._firmShape
+            ? new L.Bounds(p.add(L.point(-38, -68)), p.add(L.point(38, 8)))
+            : new L.Bounds(p.add(L.point(-22, -60)), p.add(L.point(28, 4)));
     },
     _updatePath: function () {
         const r = this._renderer;
@@ -131,6 +169,7 @@ const PinMarker = L.CircleMarker.extend({
         const ctx = r._ctx;
         const x = this._point.x, y = this._point.y;     // ostrze kropli
         const ox = x - 20, oy = y - 50;                  // translacja viewBox 40×50 (ostrze 20,50)
+        if (this.options._firmShape) _drawFirmHalo(ctx, x, y - 30);
         ctx.beginPath();
         ctx.moveTo(ox + 20, oy + 0);
         ctx.bezierCurveTo(ox + 9,  oy + 0,  ox + 0,  oy + 9,  ox + 0,  oy + 20);
@@ -140,7 +179,11 @@ const PinMarker = L.CircleMarker.extend({
         ctx.closePath();
         r._fillStroke(ctx, this);                        // wypełnienie + obwódka wg options
         const o = this.options;
-        _drawInnerGlyph(ctx, x, y - 32, o._inactiveShape ? 9 : 8, o._inactiveShape);
+        if (o._firmShape && !o._inactiveShape) {
+            _drawFirmGlyph(ctx, x, y - 32);              // piktogram budynku (aktywne firmowe)
+        } else {
+            _drawInnerGlyph(ctx, x, y - 32, o._inactiveShape ? 9 : 8, o._inactiveShape);
+        }
         _drawCornerBadge(ctx, x + 17, y - 47, o);
     },
     _containsPoint: function (p) {
@@ -155,7 +198,10 @@ const PinMarker = L.CircleMarker.extend({
 const SquareMarker = L.CircleMarker.extend({
     _updateBounds: function () {
         const p = this._point;
-        this._pxBounds = new L.Bounds(p.add(L.point(-19, -22)), p.add(L.point(22, 19)));
+        // firmowe szerzej - aureola (promień 36 wokół środka kwadratu)
+        this._pxBounds = this.options._firmShape
+            ? new L.Bounds(p.add(L.point(-38, -38)), p.add(L.point(38, 38)))
+            : new L.Bounds(p.add(L.point(-19, -22)), p.add(L.point(22, 19)));
     },
     _updatePath: function () {
         const r = this._renderer;
@@ -163,11 +209,15 @@ const SquareMarker = L.CircleMarker.extend({
         const ctx = r._ctx;
         const x = this._point.x, y = this._point.y;     // środek kwadratu
         const half = 14;                                 // rect 28×28 (jak w SVG: x3 w28 viewBox 34)
+        if (this.options._firmShape) _drawFirmHalo(ctx, x, y);
         ctx.beginPath();
         ctx.rect(x - half, y - half, half * 2, half * 2);
         r._fillStroke(ctx, this);                        // wypełnienie + przerywana obwódka (_dashArray)
         if (ctx.setLineDash) ctx.setLineDash([]);
         const o = this.options;
+        if (o._firmShape && !o._inactiveShape) {
+            _drawFirmGlyph(ctx, x, y);                   // piktogram budynku (aktywne firmowe)
+        }
         if (o._inactiveShape) {
             ctx.font = '700 22px -apple-system, Segoe UI, sans-serif';
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -672,7 +722,8 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
             lineJoin: 'round',
             interactive: true,
             bubblingMouseEvents: false,
-            // dane do rysowania badge / krzyżyka na canvasie
+            // dane do rysowania badge / krzyżyka / wyróżnienia firm na canvasie
+            _firmShape: isFirmOffer,
             _inactiveShape: !isActive,
             isNewFlag: isNew && !hasPriceChange,   // N tylko gdy brak badge zmiany ceny (jak na mapie głównej)
             hasPriceChange: hasPriceChange,
@@ -681,8 +732,8 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
         };
         let markerObj;
         if (isApprox) {
-            // Kwadrat: obwódka czerwona dla nowych, inaczej biała; ramka przerywana
-            shapeOpts.color = isNew ? '#ff0000' : 'white';
+            // Kwadrat: obwódka czerwona dla nowych, złota dla firm, inaczej biała; ramka przerywana
+            shapeOpts.color = isNew ? '#ff0000' : isFirmOffer ? '#FFD700' : 'white';
             shapeOpts.weight = 3;
             shapeOpts.dashArray = '4 3';   // Leaflet (_updateDashArray) parsuje string → options._dashArray
             markerObj = new SquareMarker(coords, shapeOpts);
