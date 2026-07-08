@@ -12,6 +12,7 @@ import pytz
 
 from profiles_config import TRACKED_PROFILES
 from shared_utils import write_json_atomic, format_datetime
+from map_generator import PRICE_RANGES
 
 
 def format_date_only(iso_string: str) -> str:
@@ -350,6 +351,7 @@ def generate_profile_data(input_file: str, output_file: str):
         'profiles': profile_data,
         'timeline': timeline,
         'profile_keys': list(TRACKED_PROFILES.keys()),
+        'price_ranges': PRICE_RANGES,
         'scan_info': {
             'last': data.get('last_scan', ''),
             'next': data.get('next_scan', '')

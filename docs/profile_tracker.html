@@ -333,13 +333,12 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ── PRICE COLOR ──────────────────────────────────────────────────────
-const PRICE_RANGES = [
-    {max:500,c:'#00c853'},{max:600,c:'#64dd17'},{max:700,c:'#aeea00'},
-    {max:800,c:'#ffd600'},{max:900,c:'#ffab00'},{max:1000,c:'#ff6f00'},
-    {max:1100,c:'#ff3d00'},{max:1200,c:'#d50000'},{max:1300,c:'#c51162'},
-    {max:1400,c:'#aa00ff'},{max:1500,c:'#7c4dff'},{max:1e9,c:'#6200ea'}
-];
-function pc(p) { return (PRICE_RANGES.find(r => p <= r.max) || PRICE_RANGES.at(-1)).c; }
+// Skala ładowana dynamicznie z profile_data.json (jedno źródło: map_generator.PRICE_RANGES)
+let PRICE_RANGES = [];
+function setPriceRanges(pr) {
+    PRICE_RANGES = Object.values(pr || {}).map(r => ({ max: r.max, c: r.color }));
+}
+function pc(p) { return (PRICE_RANGES.find(r => p <= r.max) || PRICE_RANGES.at(-1) || { c: '#808080' }).c; }
 
 // ── STATE ────────────────────────────────────────────────────────────
 let profileData = null;
@@ -814,6 +813,7 @@ async function loadData() {
         const res = await fetch('profile_data.json?v=' + Date.now());
         if (!res.ok) throw new Error('HTTP ' + res.status);
         profileData = await res.json();
+        setPriceRanges(profileData.price_ranges);
 
         document.getElementById('loading').style.display = 'none';
         const mc = document.getElementById('main-content');

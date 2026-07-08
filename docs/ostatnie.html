@@ -329,23 +329,21 @@
 </div>
 
 <script>
-// Paleta kolorów cen (12 kroków) — identyczna z map_generator.py
-const PRICE_COLORS = [
-    '#1a9641','#52b74e','#8acc62','#b8e186','#d9ef8b','#ffffbf',
-    '#fee08b','#fdae61','#f46d43','#d73027','#a50026','#6b0020'
-];
-const PRICE_RANGES = [500, 600, 700, 800, 900, 1000, 1200, 1400, 1600, 1800, 2000];
-const PRICE_TEXT_COLORS = [
-    '#fff','#1a1a1a','#1a1a1a','#1a1a1a','#1a1a1a','#1a1a1a',
-    '#1a1a1a','#1a1a1a','#1a1a1a','#fff','#fff','#fff'
-];
-
+// Skala kolorów cen ładowana dynamicznie z data.json (jedno źródło: map_generator.PRICE_RANGES)
+let PRICE_SCALE = [];
+function setPriceScale(pr) {
+    PRICE_SCALE = Object.values(pr || {}).map(r => ({ max: r.max, bg: r.color }));
+}
+function textColorFor(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    const lum = 0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255);
+    return lum > 150 ? '#1a1a1a' : '#fff';
+}
 function getPriceColor(price) {
     if (!price) return { bg: '#94a3b8', text: '#fff' };
-    for (let i = 0; i < PRICE_RANGES.length; i++) {
-        if (price <= PRICE_RANGES[i]) return { bg: PRICE_COLORS[i], text: PRICE_TEXT_COLORS[i] };
-    }
-    return { bg: PRICE_COLORS[PRICE_COLORS.length - 1], text: PRICE_TEXT_COLORS[PRICE_TEXT_COLORS.length - 1] };
+    const r = PRICE_SCALE.find(x => price <= x.max) || PRICE_SCALE.at(-1);
+    if (!r) return { bg: '#94a3b8', text: '#fff' };
+    return { bg: r.bg, text: textColorFor(r.bg) };
 }
 
 function parseDate(str) {
@@ -514,6 +512,7 @@ async function loadOffers() {
         const resp = await fetch('data.json?v=' + Date.now());
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const data = await resp.json();
+        setPriceScale(data.price_ranges);
 
         const markers = data.markers || [];
         const scanInfo = data.scan_info || {};
