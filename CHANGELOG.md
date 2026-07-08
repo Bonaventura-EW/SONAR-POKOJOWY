@@ -9,6 +9,10 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Oferty firmowe: czarna obwódka zamiast aureoli i piktogramu (2026-07-08)
+- **feat**: po feedbacku Mateusza wycofany wariant C (złota aureola + piktogram budynku, wdrożony wcześniej tego dnia). Oferty firmowe oznaczane prościej: **czarna obwódka 4px** (kropla i kwadrat) zamiast białej; nowe oferty nadal czerwona. Środek wraca do białego kółka. Bump cache `script.js?v=20`.
+- Znane ograniczenie: firmowe pinezki z przedziału 3001+ (czarne wypełnienie) zlewają się obwódką z wypełnieniem — kształt pozostaje czytelny dzięki białemu kółku w środku.
+
 ### Wyróżnienie pinezek firmowych na mapie (2026-07-08)
 - **feat**: oferty firmowe (`is_firm_offer`) dostają na canvasie złotą świetlistą aureolę pod kształtem (gradient + pierścień, `_drawFirmHalo`) oraz — dla aktywnych — piktogram budynku w złotym kółku zamiast białego środka (`_drawFirmGlyph`). Wariant C wybrany przez Mateusza z propozycji A/B/C. Nieaktywne firmowe zachowują krzyżyk ×, dostają aureolę.
 - **fix**: firmowe oferty z przybliżonym adresem (kwadraty) traciły złotą obwódkę — kolor ramki był nadpisywany na biały. Teraz złota, spójnie z kroplami.
