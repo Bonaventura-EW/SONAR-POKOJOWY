@@ -9,6 +9,10 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Pinezki firm niewidoczne na świeżym wejściu (2026-07-08)
+- **fix**: `loadData()` (`script.js`) wywoływał `filterMarkers()` przed `buildFirmProfilesTree()` — `getEnabledProfiles()` nie znajdował jeszcze checkboxów profili w DOM, traktował wszystkie profile jako odznaczone (pusty Set) i wszystkie pinezki firm wypadały z warstwy na starcie strony. Pierwsza interakcja z filtrami je przywracała, więc bug był widoczny tylko na świeżym wejściu. Fix: drzewo profili budowane przed pierwszym `filterMarkers()` + `getEnabledProfiles()` traktuje brakujący checkbox jako zaznaczony (checkboxy startują jako checked). Bump cache `script.js?v=18`.
+- Weryfikacja headless (Chromium): przed fixem 0/44 pinezek firm na warstwie przy świeżym wejściu, po fixie 44/44.
+
 ### Rozszerzona skala kolorów cen 0–3000 zł (2026-07-08)
 - **feat**: `PRICE_RANGES` (`map_generator.py`) rozszerzone z 12 do 22 przedziałów. Gradient zielony → ciemny fiolet rozciągnięty na całą skalę 0–3000 zł (kolory interpolowane RGB z dotychczasowych 12 anchorów), **powyżej 3000 zł jeden kolor: czarny**. Kroki: 0–500, co 100 zł do 2000, co 200 zł do 3000. Fallback `get_price_range()` zmieniony na `range_3001_plus`.
 - Efekt: fiolet zaczyna się od ~2000 zł zamiast dominować od 1501+ (dotąd 47 aktywnych ofert >1500 zł zlewało się w jeden fioletowy kubełek), czerwień od ~1500, typowy pokój ~950 zł jest żółty. Frontend bez zmian — legenda, popupy i liczniki czytają zakresy dynamicznie z `data.json`.
