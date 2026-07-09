@@ -1,38 +1,45 @@
 {
   "system": "sonar",
   "version": "1.0.0",
-  "generatedAt": "2026-07-08T22:16:49.211287+02:00",
+  "generatedAt": "2026-07-09T12:18:44.232458+02:00",
   "status": {
-    "current": "operational",
+    "current": "degraded",
     "isHealthy": true,
-    "hasErrors": false,
-    "errorMessages": []
+    "hasErrors": true,
+    "errorMessages": [
+      "SCRAPE_PARTIAL: scraper zwrócił tylko 51 ofert (baza: 620 aktywnych, próg: 186). Prawdopodobna blokada OLX lub awaria scrapera."
+    ]
   },
   "lastScan": {
-    "id": "2026-07-08T22-15-56",
-    "timestamp": "2026-07-08T22:15:56.915198+02:00",
-    "endTimestamp": "2026-07-08T22:16:47.830669+02:00",
-    "durationSeconds": 50.92,
-    "durationFormatted": "50s",
-    "uiStatus": "success",
-    "rawStatus": "completed",
+    "id": "2026-07-09T12-18-19",
+    "timestamp": "2026-07-09T12:18:19.166328+02:00",
+    "endTimestamp": "2026-07-09T12:18:42.778612+02:00",
+    "durationSeconds": 23.61,
+    "durationFormatted": "23s",
+    "uiStatus": "failed",
+    "rawStatus": "warning",
     "offers": {
-      "found": 714,
-      "processed": 624,
-      "new": 6,
+      "found": 51,
+      "processed": 1,
+      "new": 0,
       "deactivated": null,
-      "updated": 618,
+      "updated": 1,
       "active": 620,
       "inactive": 717
     },
     "skipped": {
-      "noAddress": 26,
+      "noAddress": 0,
       "noPrice": 0,
-      "noCoords": 10,
-      "duplicates": 4
+      "noCoords": 0,
+      "duplicates": 0
     },
-    "errors": [],
-    "hasErrors": false
+    "errors": [
+      {
+        "message": "SCRAPE_PARTIAL: scraper zwrócił tylko 51 ofert (baza: 620 aktywnych, próg: 186). Prawdopodobna blokada OLX lub awaria scrapera.",
+        "timestamp": "2026-07-09T12:18:27.428123+02:00"
+      }
+    ],
+    "hasErrors": true
   },
   "schedule": {
     "times": [
@@ -41,12 +48,12 @@
       "21:00"
     ],
     "timezone": "Europe/Warsaw",
-    "nextScanAt": "2026-07-09T09:00:00+02:00"
+    "nextScanAt": "2026-07-09T15:00:00+02:00"
   },
   "statistics": {
     "totalScans": 100,
-    "successRate": 99.0,
-    "avgDurationSeconds": 51.99,
-    "avgOffersFound": 559.9
+    "successRate": 98.0,
+    "avgDurationSeconds": 51.81,
+    "avgOffersFound": 555.4
   }
 }

@@ -1,8 +1,39 @@
 {
   "system": "sonar",
-  "generatedAt": "2026-07-08T22:16:49.213189+02:00",
+  "generatedAt": "2026-07-09T12:18:44.234475+02:00",
   "count": 20,
   "scans": [
+    {
+      "id": "2026-07-09T12-18-19",
+      "timestamp": "2026-07-09T12:18:19.166328+02:00",
+      "endTimestamp": "2026-07-09T12:18:42.778612+02:00",
+      "durationSeconds": 23.61,
+      "durationFormatted": "23s",
+      "uiStatus": "failed",
+      "rawStatus": "warning",
+      "offers": {
+        "found": 51,
+        "processed": 1,
+        "new": 0,
+        "deactivated": null,
+        "updated": 1,
+        "active": 620,
+        "inactive": 717
+      },
+      "skipped": {
+        "noAddress": 0,
+        "noPrice": 0,
+        "noCoords": 0,
+        "duplicates": 0
+      },
+      "errors": [
+        {
+          "message": "SCRAPE_PARTIAL: scraper zwrócił tylko 51 ofert (baza: 620 aktywnych, próg: 186). Prawdopodobna blokada OLX lub awaria scrapera.",
+          "timestamp": "2026-07-09T12:18:27.428123+02:00"
+        }
+      ],
+      "hasErrors": true
+    },
     {
       "id": "2026-07-08T22-15-56",
       "timestamp": "2026-07-08T22:15:56.915198+02:00",
@@ -483,7 +514,7 @@
         "found": 671,
         "processed": 599,
         "new": 38,
-        "deactivated": 11,
+        "deactivated": null,
         "updated": 561,
         "active": 558,
         "inactive": 663
@@ -493,32 +524,6 @@
         "noPrice": 0,
         "noCoords": 8,
         "duplicates": 4
-      },
-      "errors": [],
-      "hasErrors": false
-    },
-    {
-      "id": "2026-07-02T17-05-44",
-      "timestamp": "2026-07-02T17:05:44.076980+02:00",
-      "endTimestamp": "2026-07-02T17:06:53.993360+02:00",
-      "durationSeconds": 69.92,
-      "durationFormatted": "1m 9s",
-      "uiStatus": "success",
-      "rawStatus": "completed",
-      "offers": {
-        "found": 635,
-        "processed": 585,
-        "new": 22,
-        "deactivated": null,
-        "updated": 563,
-        "active": 528,
-        "inactive": 655
-      },
-      "skipped": {
-        "noAddress": 35,
-        "noPrice": 0,
-        "noCoords": 9,
-        "duplicates": 6
       },
       "errors": [],
       "hasErrors": false
