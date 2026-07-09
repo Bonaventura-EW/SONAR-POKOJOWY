@@ -9,6 +9,11 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Parser: priorytet pozycyjny zamiast długości nazwy ulicy (2026-07-09)
+- **fix**: prawie wszystkie oferty profilu „stylowe pokoje-ania" dostawały adres „Chęcińskiego 1", bo każdy opis wynajmującej wymienia wszystkie jej lokalizacje („Dostępność innych lokalizacji: ul. Kurantowa 8, ul. Skołuby 10, ul. Chęcińskiego 1..."), a `extract_address` wybierał kandydata po długości nazwy — „Chęcińskiego" (12 liter) wygrywało z właściwym adresem z tytułu/leadu. Nowy wybór: prefiks ul./al./pl., potem **najwcześniejsza pozycja w tekście** (właściwy adres oferty jest na początku, listy „innych lokalizacji" na końcu).
+- **dane**: przeparsowane oferty profilu — 7 poprawionych (Paganiniego 4/11, Jutrzenki 12, Skołuby 10, Pogodna 34), 3 bez zmian (Chęcińskiego 1 ×2, Kurantowa 8); zregenerowane `docs/data.json` + `profile_data.json`.
+- **blocklista**: `całość/całości/samsung/smart/orange/światłowodowy` — szum („(całość 72m²)", „TV SAMSUNG SMART 32"), który po zmianie priorytetu wygrywałby pozycją. Golden przebudowany (2177 tekstów); efekt uboczny: adresy częściej w mianowniku z tytułu („Muzyczna 7" zamiast „Muzycznej 7"), geokoder normalizuje oba tak samo.
+
 ### Fix CI: golden zbudowany bez geopy kodował zdegradowany parser (2026-07-09)
 - **fix**: workflow Testy czerwony od PR #51 — golden był przebudowany w środowisku bez `geopy`, a `extract_from_whitelist` przy ImportError geocodera cicho wyłącza dopasowania mianownikowe (`to_nominative` → identyczność). Golden zakodował None dla 7 tekstów typu „Jagiellońskiej 33", które pełny parser (CI) rozwiązuje do „Jagiellońska". Golden przebudowany w pełnym środowisku (2171 tekstów); to samo wyjaśnia poranny pozorny „dryf cache" przy Garbarskiej.
 - **guard**: `scripts/build_golden.py` robi twardy `from geocoder import to_nominative` — budowa golden na zdegradowanym parserze pada od razu zamiast produkować fałszywą prawdę.

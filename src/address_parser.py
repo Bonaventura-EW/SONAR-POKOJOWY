@@ -532,20 +532,19 @@ class AddressParser:
                 # ul./ulica/ulicy/ulicą - pomijamy, zostawiamy samą nazwę ulicy
             
             # Dodaj do listy kandydatów z priorytetem
-            # Priorytet: 
+            # Priorytet (FIX 2026-07-09):
             # 1. Ma prefiks ul./al./pl. (najbardziej pewne)
-            # 2. Długość nazwy ulicy (dłuższa nazwa = bardziej specyficzna)
-            priority = 0
-            if has_prefix:
-                priority += 100  # Prefiks daje wysoką pewność
-            priority += len(street)  # Dłuższa nazwa = wyższy priorytet
-            
+            # 2. Pozycja w tekście — WCZEŚNIEJSZY adres wygrywa. Właściwy adres oferty
+            #    jest w tytule/leadzie; listy "inne lokalizacje: ul. X, ul. Y..." na końcu
+            #    opisu (typowe u firm z wieloma mieszkaniami) nie mogą go przebijać.
+            #    (Poprzedni tie-break "dłuższa nazwa wygrywa" wybierał najdłuższą ulicę
+            #    z całego opisu — np. "Chęcińskiego" dla oferty przy Pogodnej.)
             candidates.append({
                 'street': street,
                 'number': number,
                 'full': f"{full_address} {number}",
-                'priority': priority,
-                'has_prefix': has_prefix
+                'has_prefix': has_prefix,
+                'pos': match.start()
             })
         
         # FIX 2026-05-14: Jeśli w tekście WIDZIMY jawny prefiks ulicy (ul./al./ulica/aleja/...)
@@ -570,9 +569,9 @@ class AddressParser:
                 print(f"      ⚠️ Tekst zawiera 'ul./al./...' ale parser ma tylko matche bez prefiksu - odrzucam (fallback do street_only)")
                 candidates = []
         
-        # Jeśli znaleziono kandydatów, wybierz najlepszego (najwyższy priorytet)
+        # Jeśli znaleziono kandydatów, wybierz najlepszego: prefiks, potem najwcześniejszy
         if candidates:
-            best = max(candidates, key=lambda x: x['priority'])
+            best = max(candidates, key=lambda x: (x['has_prefix'], -x['pos']))
             return {
                 'street': best['street'],
                 'number': best['number'],
