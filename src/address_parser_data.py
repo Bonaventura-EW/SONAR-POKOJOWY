@@ -174,6 +174,12 @@ EXCLUDED_WORDS = {
     # === FIX 2026-07-09: szum odsłonięty przez priorytet pozycyjny ===
     # "(całość 72m²)" → "całość 72", "TV SAMSUNG SMART 32" → "SAMSUNG SMART 32"
     'całość', 'całości', 'samsung', 'smart', 'orange', 'światłowodowy',
+    # === FIX 2026-07-09b: śmieciowe drugie człony nazw ulic (audyt dry-run bazy) ===
+    # "Nadbystrzycka Szukasz", "Nowowiejskiego Odstąpię", "Kleeberga Koszt",
+    # "Emancypantek Zarówno", "Panorama Podnajmę"
+    # UWAGA: NIE dodawaj 'przytulna/przytulny' — ul. Przytulna to realna ulica Lublina!
+    'szukasz', 'odstąpię', 'odstapie', 'podnajmę', 'podnajme', 'zarówno',
+    'koszt', 'koszty',
 }
 
 
