@@ -21,6 +21,11 @@ sys.path.insert(0, os.path.join(REPO_ROOT, 'src'))
 
 from address_parser import AddressParser
 
+# Guard (2026-07-09): extract_from_whitelist ma cichy fallback gdy import geocodera
+# padnie (np. brak geopy) — golden zbudowany w takim srodowisku koduje zdegradowane
+# zachowanie i CI z pelnymi zaleznosciami zglasza falszywa regresje.
+from geocoder import to_nominative  # noqa: F401 — fail-fast, wynik nieuzywany
+
 # ZAMROŻONY cache (fixture) — ten sam co w test_address_parser_golden.py,
 # inaczej golden i test widzą różne whitelisty ulic. Patrz test_fixtures/README.md
 CACHE = os.path.join(REPO_ROOT, 'test_fixtures', 'geocoding_cache_golden.json')
