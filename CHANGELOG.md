@@ -9,6 +9,9 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Nowy profil firmowy: stylowe pokoje-ania (2026-07-09)
+- **feat**: dodany 7. śledzony profil OLX do `TRACKED_PROFILES` (`profiles_config.py`): „stylowe pokoje-ania" (user_id 28543245, https://www.olx.pl/oferty/uzytkownik/1WLoW/, 8 ofert w Lublinie). Propagacja automatyczna: zakładka Firmy (`profile_data.json`), warstwa firmy/agencje na mapie głównej (`tracked_profiles` w `data.json`, drzewo profili w `script.js`). Oferty profilu dostaną tag firmowy przy najbliższym scanie.
+
 ### Parser: znane ulice Lublina ze słowem z blocklisty ("Obrońców Pokoju") (2026-07-09)
 - **fix**: `extract_address()` odrzucał każdą nazwę ulicy zawierającą słowo z `EXCLUDED_WORDS` — bez wyjątku dla znanych ulic. "Obrońców Pokoju 6" przepadało, bo "pokoju" jest (słusznie) na blockliście; fallback ucinał nazwę do "Obrońców", a Nominatim geokodował to ~5,5 km od celu. Catch-22: whitelist znanych ulic (`_load_known_streets`) też filtruje excluded words, więc ulica nigdy na nią nie trafiała. Fix: (1) wyjątek `is_known_full` w ścieżce adresu z numerem (`address_parser.py`, analogiczny do istniejącego w `extract_street_only`), (2) `'obrońców pokoju'` dodane do `HARDCODED_LUBLIN_STREETS` (`address_parser_data.py`).
 - Efekt uboczny (pozytywny): "Przy Stawie 4" i podobne znane ulice z przyimkiem parsują się teraz z numerem, nie tylko street_only.

@@ -34,6 +34,11 @@ TRACKED_PROFILES = {
         'url': 'https://www.olx.pl/oferty/uzytkownik/uD2d4/',
         'user_id': 452593370,
     },
+    'stylowe_pokoje_ania': {
+        'name': 'stylowe pokoje-ania',
+        'url': 'https://www.olx.pl/oferty/uzytkownik/1WLoW/',
+        'user_id': 28543245,
+    },
 }
 
 # Kolor obwódki pinezek na mapie (jednolity dla wszystkich profili firmowych)
