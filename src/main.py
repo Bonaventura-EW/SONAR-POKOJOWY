@@ -318,11 +318,15 @@ class SonarPokojowy:
                 self._skip_detail = phrase
                 return None
         
-        # 2. Parsuj adres z pełnego tekstu (tytuł + opis)
-        address_data = self.address_parser.extract_address(full_text)
+        # 2. Parsuj adres — TYTUŁ MA PIERWSZEŃSTWO (decyzja Mateusza 2026-07-09):
+        # adres z tytułu to adres oferty; opisy firm wymieniają też inne lokalizacje
+        # i adres z opisu może dotyczyć innego mieszkania tego samego wynajmującego.
+        address_data = self.address_parser.extract_address(raw_offer['title'])
         address_precision = 'exact'  # domyślnie: dokładny adres z numerem
 
-        # Jeśli nie znaleziono adresu w tytule, spróbuj w samym opisie
+        # Tytuł bez adresu → szukaj w pełnym tekście (tytuł + opis), potem w samym opisie
+        if not address_data:
+            address_data = self.address_parser.extract_address(full_text)
         if not address_data and raw_offer.get('description'):
             print(f"      🔍 Brak adresu w tytule, szukam w opisie...")
             address_data = self.address_parser.extract_address(raw_offer['description'])
@@ -359,7 +363,8 @@ class SonarPokojowy:
                 print(f"      🔍 cached_address '{cached_full}' wygląda na bogus, próbuję re-parsować z opisu...")
                 # Przeparsuj opis od nowa
                 full_text = raw_offer.get('title', '') + ' ' + raw_offer.get('description', '')
-                reparsed = (self.address_parser.extract_address(full_text)
+                reparsed = (self.address_parser.extract_address(raw_offer.get('title', ''))
+                          or self.address_parser.extract_address(full_text)
                           or self.address_parser.extract_street_only(full_text)
                           or self.address_parser.extract_from_whitelist(full_text))
                 if reparsed:
@@ -394,7 +399,8 @@ class SonarPokojowy:
         # FALLBACK: spróbuj wyciągnąć samą ulicę (bez numeru) → marker "przybliżony"
         # Decyzja 1a: tylko jawny prefiks (ul./al./pl./os./aleja/aleje/ulica)
         if not address_data:
-            street_only = self.address_parser.extract_street_only(full_text)
+            street_only = (self.address_parser.extract_street_only(raw_offer['title'])
+                           or self.address_parser.extract_street_only(full_text))
             if not street_only and raw_offer.get('description'):
                 street_only = self.address_parser.extract_street_only(raw_offer['description'])
             if street_only:
@@ -406,7 +412,8 @@ class SonarPokojowy:
         # Trzeci fallback - jeśli żaden z poprzednich parserów nic nie złapał,
         # szukamy w tekście jakiejkolwiek znanej nazwy ulicy z bazy.
         if not address_data:
-            whitelist_match = self.address_parser.extract_from_whitelist(full_text)
+            whitelist_match = (self.address_parser.extract_from_whitelist(raw_offer['title'])
+                               or self.address_parser.extract_from_whitelist(full_text))
             if not whitelist_match and raw_offer.get('description'):
                 whitelist_match = self.address_parser.extract_from_whitelist(raw_offer['description'])
             if whitelist_match:

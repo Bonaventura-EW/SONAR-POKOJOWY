@@ -94,6 +94,7 @@ Te błędy są naprawione. Jeśli edytujesz odpowiedni kod, **zachowaj zabezpiec
 - **`skipped_offer_ids`**: inteligentne skanowanie pomija oferty z niezmienioną ceną. Ich ID **MUSZĄ** trafić do `_mark_inactive_offers()` jako `skipped_ids`, inaczej zostaną fałszywie zdeaktywowane.
 - **Inactive URL verification**: przed deaktywacją odpytaj URL OLX-a — HTTP 410 = na pewno usunięte, 404 czasem wraca, `availability: InStock` w JSON-LD = oferta nadal żywa (reaktywuj).
 - **Address parser — false addresses**: regex łapie "X minut", "Y metrów" jako ulice. Sprawdzaj `non_street_names` set i excluded words. Litera `O` vs cyfra `0` w nazwach — odrzucaj.
+- **Adres: TYTUŁ ma pierwszeństwo nad opisem** (`main.py` → `_process_offer`): opisy firm wymieniają wszystkie swoje lokalizacje ("Dostępność innych lokalizacji: ul. X, ul. Y..."), więc adres z opisu może dotyczyć innego mieszkania tego samego wynajmującego. Kolejność parsowania: tytuł → tytuł+opis → sam opis. W `extract_address` przy remisie prefiksu wygrywa WCZEŚNIEJSZA pozycja w tekście (nie dłuższa nazwa!).
 - **Genitive case streets**: polski dopełniacz ("ul. Lubelskiej" → "Lubelska") — wzorce w `address_parser.py`.
 - **Price pipeline**: JSON-LD = źródło prawdy. HTML fallback wyciąga koszty mediów albo numer ulicy jako cenę — używaj tylko gdy JSON-LD nie ma.
 - **Price range per-offer**: ceny przypisuj per-oferta, nigdy averagowane na markerze.
