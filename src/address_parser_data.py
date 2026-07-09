@@ -176,6 +176,9 @@ EXCLUDED_WORDS = {
 
 HARDCODED_LUBLIN_STREETS = {
     'rycerska',
+    # FIX 2026-07-09: "pokoju" jest w EXCLUDED_WORDS, więc ulica nigdy nie
+    # przechodzi filtra słów ani nie trafia na whitelistę z geocoding_cache.
+    'obrońców pokoju',
 }
 
 
