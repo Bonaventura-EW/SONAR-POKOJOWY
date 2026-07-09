@@ -9,6 +9,10 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Fix CI: golden zbudowany bez geopy kodował zdegradowany parser (2026-07-09)
+- **fix**: workflow Testy czerwony od PR #51 — golden był przebudowany w środowisku bez `geopy`, a `extract_from_whitelist` przy ImportError geocodera cicho wyłącza dopasowania mianownikowe (`to_nominative` → identyczność). Golden zakodował None dla 7 tekstów typu „Jagiellońskiej 33", które pełny parser (CI) rozwiązuje do „Jagiellońska". Golden przebudowany w pełnym środowisku (2171 tekstów); to samo wyjaśnia poranny pozorny „dryf cache" przy Garbarskiej.
+- **guard**: `scripts/build_golden.py` robi twardy `from geocoder import to_nominative` — budowa golden na zdegradowanym parserze pada od razu zamiast produkować fałszywą prawdę.
+
 ### Nowy profil firmowy: stylowe pokoje-ania (2026-07-09)
 - **feat**: dodany 7. śledzony profil OLX do `TRACKED_PROFILES` (`profiles_config.py`): „stylowe pokoje-ania" (user_id 28543245, https://www.olx.pl/oferty/uzytkownik/1WLoW/, 8 ofert w Lublinie). Propagacja automatyczna: zakładka Firmy (`profile_data.json`), warstwa firmy/agencje na mapie głównej (`tracked_profiles` w `data.json`, drzewo profili w `script.js`). Oferty profilu dostaną tag firmowy przy najbliższym scanie.
 
