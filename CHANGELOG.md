@@ -9,6 +9,11 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Parser: znane ulice Lublina ze słowem z blocklisty ("Obrońców Pokoju") (2026-07-09)
+- **fix**: `extract_address()` odrzucał każdą nazwę ulicy zawierającą słowo z `EXCLUDED_WORDS` — bez wyjątku dla znanych ulic. "Obrońców Pokoju 6" przepadało, bo "pokoju" jest (słusznie) na blockliście; fallback ucinał nazwę do "Obrońców", a Nominatim geokodował to ~5,5 km od celu. Catch-22: whitelist znanych ulic (`_load_known_streets`) też filtruje excluded words, więc ulica nigdy na nią nie trafiała. Fix: (1) wyjątek `is_known_full` w ścieżce adresu z numerem (`address_parser.py`, analogiczny do istniejącego w `extract_street_only`), (2) `'obrońców pokoju'` dodane do `HARDCODED_LUBLIN_STREETS` (`address_parser_data.py`).
+- Efekt uboczny (pozytywny): "Przy Stawie 4" i podobne znane ulice z przyimkiem parsują się teraz z numerem, nie tylko street_only.
+- **dane**: usunięty błędny wpis `"Obrońców"` z `geocoding_cache.json`; poprawione 2 oferty (ID1biAIE → "Obrońców Pokoju 6" exact, ID1bcDEs → "Obrońców Pokoju" street_only), zregenerowany `docs/data.json`. Golden przebudowany (`build_golden.py`) — 3 diffy to zamierzone poprawy, czwarty (Łęczyńska→None przy Garbarskiej) to wcześniejszy dryf cache, niezwiązany z fixem.
+
 ### Oferty firmowe: czarna obwódka zamiast aureoli i piktogramu (2026-07-08)
 - **feat**: po feedbacku Mateusza wycofany wariant C (złota aureola + piktogram budynku, wdrożony wcześniej tego dnia). Oferty firmowe oznaczane prościej: **czarna obwódka 4px** (kropla i kwadrat) zamiast białej; nowe oferty nadal czerwona. Środek wraca do białego kółka. Bump cache `script.js?v=20`.
 - Znane ograniczenie: firmowe pinezki z przedziału 3001+ (czarne wypełnienie) zlewają się obwódką z wypełnieniem — kształt pozostaje czytelny dzięki białemu kółku w środku.

@@ -475,14 +475,18 @@ class AddressParser:
                 continue
             
             # Sprawdź czy którekolwiek słowo w nazwie ulicy NIE jest słowem wykluczonym
+            # FIX 2026-07-09: WYJĄTEK dla znanych ulic Lublina (jak w extract_street_only) —
+            # np. "Obrońców Pokoju" zawiera blacklistowane "pokoju", ale to realna ulica.
             street_words = street.split()
+            is_known_full = ' '.join(w.lower() for w in street_words) in self._known_streets
             is_valid = True
-            
-            for word in street_words:
-                if word.lower() in excluded_words_lower:
-                    is_valid = False
-                    break
-            
+
+            if not is_known_full:
+                for word in street_words:
+                    if word.lower() in excluded_words_lower:
+                        is_valid = False
+                        break
+
             if not is_valid:
                 continue
             
