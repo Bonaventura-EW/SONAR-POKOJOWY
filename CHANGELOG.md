@@ -9,6 +9,9 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Mapa: warstwa „Przeniesione (poprzednie adresy)" domyślnie wyłączona (2026-07-12)
+- **feat** (decyzja Mateusza): checkbox warstwy startuje odznaczony (`index.html`), a `markerLayers.addrArchival` nie jest dodawana do mapy przy inicjalizacji (`script.js`, bump `?v=22`). Piny archiwalne dalej się renderują do grupy (licznik działa), a „pokaż" w historii adresu popupu automatycznie włącza warstwę + checkbox. Zweryfikowane headless: start off → toggle on działa.
+
 ### Zakładka ⭐ Ulubione: śledzenie pojedynczych ofert + wykres wyświetleń (2026-07-12)
 - **feat**: nowy moduł ulubionych (wariant B z fallbackiem przez Claude'a, wybór Mateusza). Lista: `data/favorites.json` (dopisywana na wiadomość „dodaj do ulubionych: <link>"). `src/favorites_tracker.py` robi per oferta 1 anonimowy request do OLX API v1 (`/api/v1/offers/{id}/`) i dokłada snapshot (cena, status, last_refresh) do `data/favorites_tracking.json`; wyświetlenia zbiera opcjonalnie headless Chromium (Playwright) — licznik „Wyświetlenia: N" jest doładowywany JS-em za tokenem, zwykły request go nie widzi. Brak Playwrighta ≠ błąd: snapshot zapisuje się z `views=None`.
 - **feat**: `src/favorites_generator.py` → `docs/favorites_data.json` (historia cen = zmiany, odświeżenia = zmiany last_refresh/pushup, pełna seria wyświetleń; adres/coords dołączane z `offers.json` po short_id).
