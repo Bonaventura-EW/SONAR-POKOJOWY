@@ -16,7 +16,7 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 - **feat**: gwiazdka ⭐/☆ w popupach mapy (`script.js`, blok helperów NA GÓRZE pliku — funkcje używają top-level const, więc muszą stać przed kodem inicjalizacji mapy; bump `?v=21`) + link ⭐ Ulubione w nawigacji wszystkich stron.
 - **fix**: wspólny nagłówek (`header.css?v=3`): próg ciasnego wariantu nawigacji przesunięty 1200→1400px, bo po 10. zakładce luźny wariant nachodził na tytuł przy ~1280px.
 - Pierwsza śledzona oferta: „Pokój Najem Lublin, Centrum" (Bernardyńska 24, ID1be1cg).
-- TODO (wymaga zgody na edycję workflow): krok `favorites_tracker.py` + instalacja Playwrighta w `scanner.yml` — bez tego snapshoty przybywają tylko przy ręcznych uruchomieniach.
+- **workflow** (za zgodą Mateusza): krok `Track favorites` w `scanner.yml` po generacji mapy — instaluje Playwrighta + Chromium (~2 min/run) i odpala `favorites_tracker.py`; `docs/favorites_data.json` dodany do commitowanych ścieżek. Krok jest `continue-on-error` — awaria trackera nie psuje scanu.
 
 ### Zakładka Pominięte: usunięty banner debug + ujednolicony nagłówek (2026-07-12)
 - **fix**: usunięty żółty banner „⚠️ Strona tymczasowa do analizy błędów parsera..." ze strony `skipped_debug.html` (u źródła: `src/skipped_debug_generator.py`).
