@@ -388,8 +388,8 @@ function initMap() {
     markerLayers.active.addTo(map);
     markerLayers.activeApprox.addTo(map); // domyślnie włączone
     markerLayers.firm.addTo(map);          // firmy domyślnie włączone
-    markerLayers.addrArchival.addTo(map);  // archiwalne adresy domyślnie widoczne
-    // markerLayers.inactive / inactiveApprox NIE dodajemy - domyślnie wyłączone
+    // markerLayers.inactive / inactiveApprox / addrArchival NIE dodajemy - domyślnie
+    // wyłączone (przeniesione włącza checkbox albo "pokaż" w historii adresu popupu)
     
     // Tworzenie warstw uczelni
     createUniversityLayers();
