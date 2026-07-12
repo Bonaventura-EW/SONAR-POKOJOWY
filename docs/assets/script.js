@@ -52,6 +52,43 @@ function debounce(fn, wait) {
     };
 }
 
+// === Ulubione (gwiazdka w popupie) ===
+// Lokalny zapis w localStorage — pełne śledzenie (odświeżenia/wyświetlenia)
+// wymaga dopisania oferty do data/favorites.json (zakładka ⭐ Ulubione).
+const FAVORITES_LS_KEY = 'sonar_favorites';
+
+function getLocalFavorites() {
+    try {
+        return JSON.parse(localStorage.getItem(FAVORITES_LS_KEY) || '[]');
+    } catch (e) {
+        return [];
+    }
+}
+
+function isLocalFavorite(offerId) {
+    return getLocalFavorites().some(f => f.id === offerId);
+}
+
+function toggleFavoriteStar(btn) {
+    const id = btn.dataset.oid;
+    let favs = getLocalFavorites();
+    if (favs.some(f => f.id === id)) {
+        favs = favs.filter(f => f.id !== id);
+        btn.textContent = '☆ Do ulubionych';
+        btn.style.background = 'white';
+    } else {
+        favs.push({
+            id: id,
+            url: btn.dataset.url,
+            title: btn.dataset.title || '',
+            added: new Date().toISOString().slice(0, 10),
+        });
+        btn.textContent = '⭐ W ulubionych';
+        btn.style.background = '#fef3c7';
+    }
+    localStorage.setItem(FAVORITES_LS_KEY, JSON.stringify(favs));
+}
+
 let map;
 let mapData;
 let allMarkers = [];
@@ -949,8 +986,16 @@ function createPopupContent(address, offers) {
             }
         }
 
-        // Link
+        // Link + gwiazdka ulubionych (localStorage; śledzenie przez scraper
+        // wymaga dopisania do data/favorites.json — patrz ulubione.html)
+        const isFav = isLocalFavorite(offer.id);
+        html += `<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">`;
         html += `<a href="${safeOfferUrl(offer.url)}" target="_blank" class="offer-link">🔗 Otwórz ogłoszenie</a>`;
+        html += `<button class="fav-star-btn" data-oid="${escapeHtml(offer.id)}" data-url="${safeOfferUrl(offer.url)}" data-title="${escapeHtml(address)}"`
+            + ` onclick="toggleFavoriteStar(this)"`
+            + ` style="background: ${isFav ? '#fef3c7' : 'white'}; border: 1px solid #f59e0b; color: #b45309; border-radius: 6px; padding: 3px 9px; font-size: 11px; font-weight: 600; cursor: pointer;">`
+            + `${isFav ? '⭐ W ulubionych' : '☆ Do ulubionych'}</button>`;
+        html += `</div>`;
 
         // Opis - z funkcją zwijania/rozwijania
         const maxChars = 100; // Maksymalna długość podglądu (~1-2 linie)

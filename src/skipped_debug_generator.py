@@ -238,7 +238,7 @@ def generate_skipped_debug_page(
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SONAR POKOJOWY - Pominięte oferty (debug)</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
-<link rel="stylesheet" href="assets/header.css?v=2">
+<link rel="stylesheet" href="assets/header.css?v=3">
 <style>
 * {{ box-sizing: border-box; margin: 0; padding: 0; }}
 body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fa; color: #2d3748; line-height: 1.5; }}
@@ -391,6 +391,7 @@ body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
     <a href="top5.html">🏆 Top 5</a>
     <a href="ostatnie.html">🆕 Ostatnie</a>
     <a href="profile_tracker.html">🏢 Firmy</a>
+    <a href="ulubione.html">⭐ Ulubione</a>
     <a href="skipped_debug.html" class="active">🐛 Pominięte</a>
   </nav>
 </header>

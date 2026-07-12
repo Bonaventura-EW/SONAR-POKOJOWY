@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SONAR POKOJOWY – Ulubione</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="assets/header.css?v=3">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #f8fafc;
+        color: #1e293b;
+        line-height: 1.5;
+    }
+    .container { max-width: 1100px; margin: 24px auto; padding: 0 20px; }
+    .page-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+    .page-head h2 { font-size: 20px; font-weight: 700; }
+    .page-head .updated { font-size: 12px; color: #64748b; margin-left: auto; }
+
+    .fav-card {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+        padding: 18px 20px;
+        margin-bottom: 18px;
+    }
+    .fav-title-row { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+    .fav-title { font-size: 16px; font-weight: 700; flex: 1; min-width: 200px; }
+    .fav-title a { color: #1e293b; text-decoration: none; }
+    .fav-title a:hover { color: #667eea; }
+    .status-badge {
+        font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 12px;
+        text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;
+    }
+    .status-badge.active { background: #dcfce7; color: #15803d; }
+    .status-badge.removed, .status-badge.unknown { background: #fee2e2; color: #b91c1c; }
+    .status-badge.other { background: #e2e8f0; color: #475569; }
+    .fav-meta { font-size: 12px; color: #64748b; margin-top: 4px; display: flex; gap: 14px; flex-wrap: wrap; }
+
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+    .chip {
+        background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;
+        padding: 6px 12px; display: flex; flex-direction: column; min-width: 90px;
+    }
+    .chip .v { font-size: 15px; font-weight: 700; color: #1d4ed8; }
+    .chip .v.dim { color: #64748b; font-weight: 600; }
+    .chip .l { font-size: 10px; color: #3b82f6; text-transform: uppercase; letter-spacing: 0.4px; }
+
+    .price-history-row { font-size: 12px; color: #475569; margin: 4px 0 8px; }
+    .price-history-row b { color: #1e293b; }
+
+    .chart-block { margin-top: 12px; }
+    .chart-block h4 { font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .chart-wrap { position: relative; height: 220px; }
+    .chart-empty {
+        border: 1px dashed #cbd5e1; border-radius: 8px; padding: 22px;
+        text-align: center; color: #94a3b8; font-size: 13px; background: #f8fafc;
+    }
+    details.data-table { margin-top: 8px; font-size: 12px; color: #475569; }
+    details.data-table summary { cursor: pointer; color: #667eea; }
+    details.data-table table { border-collapse: collapse; margin-top: 6px; }
+    details.data-table td, details.data-table th { border: 1px solid #e2e8f0; padding: 3px 10px; text-align: right; }
+    details.data-table th { background: #f1f5f9; font-weight: 600; }
+
+    .section-h { font-size: 15px; font-weight: 700; margin: 30px 0 10px; color: #334155; }
+    .local-box {
+        background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px;
+        padding: 14px 16px; font-size: 13px; color: #78350f;
+    }
+    .local-item { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid #fde68a; flex-wrap: wrap; }
+    .local-item:last-child { border-bottom: none; }
+    .local-item a { color: #92400e; word-break: break-all; flex: 1; min-width: 200px; }
+    .copy-btn {
+        background: #f59e0b; color: white; border: none; border-radius: 6px;
+        padding: 5px 10px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap;
+    }
+    .copy-btn:hover { background: #d97706; }
+    .empty-state { text-align: center; padding: 50px 20px; color: #94a3b8; }
+</style>
+</head>
+<body>
+
+<header class="sp-header">
+  <div class="sp-brand">
+    <svg class="sp-brand-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="spRb-fav" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#1a3a1a"/>
+          <stop offset="100%" stop-color="#0a1a0a"/>
+        </radialGradient>
+        <linearGradient id="spRs-fav" x1="50%" y1="50%" x2="100%" y2="50%">
+          <stop offset="0%" stop-color="#00ff00" stop-opacity="0.8"/>
+          <stop offset="100%" stop-color="#00ff00" stop-opacity="0"/>
+        </linearGradient>
+        <mask id="spRm-fav"><circle cx="32" cy="32" r="28" fill="white"/></mask>
+      </defs>
+      <circle cx="32" cy="32" r="32" fill="url(#spRb-fav)"/>
+      <circle cx="32" cy="32" r="30" fill="none" stroke="#00ff00" stroke-width="0.5" opacity="0.6"/>
+      <circle cx="32" cy="32" r="22" fill="none" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+      <circle cx="32" cy="32" r="14" fill="none" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+      <line x1="32" y1="4" x2="32" y2="60" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+      <line x1="4" y1="32" x2="60" y2="32" stroke="#00ff00" stroke-width="0.3" opacity="0.3"/>
+      <g mask="url(#spRm-fav)">
+        <path d="M32,32 L32,4 A28,28 0 0,1 60,32 Z" fill="url(#spRs-fav)" opacity="0.6">
+          <animateTransform attributeName="transform" type="rotate" from="0 32 32" to="360 32 32" dur="3s" repeatCount="indefinite"/>
+        </path>
+      </g>
+      <circle cx="22" cy="18" r="1.5" fill="#00ff00">
+        <animate attributeName="opacity" values="0.8;0.3;0.8" dur="1.5s" repeatCount="indefinite"/>
+      </circle>
+    </svg>
+    <h1>
+      <span class="sp-b">SONAR POKOJOWY</span>
+      <span class="sp-s">·</span>
+      <span class="sp-p">⭐ Ulubione</span>
+    </h1>
+  </div>
+  <nav>
+    <a href="index.html">🗺️ Mapa</a>
+    <a href="analytics.html">📈 Analityka</a>
+    <a href="trend.html">📉 Indeks</a>
+    <a href="monitoring.html">📊 Monitoring</a>
+    <a href="market_analysis.html">🔍 Analiza Rynku</a>
+    <a href="top5.html">🏆 Top 5</a>
+    <a href="ostatnie.html">🆕 Ostatnie</a>
+    <a href="profile_tracker.html">🏢 Firmy</a>
+    <a href="ulubione.html" class="active">⭐ Ulubione</a>
+    <a href="skipped_debug.html">🐛 Pominięte</a>
+  </nav>
+</header>
+
+<div class="container">
+  <div class="page-head">
+    <h2>⭐ Ulubione oferty</h2>
+    <span class="updated" id="updated"></span>
+  </div>
+
+  <div id="fav-list"></div>
+
+  <div class="section-h">☆ Gwiazdki z mapy (tylko w tej przeglądarce)</div>
+  <div class="local-box" id="local-box">
+    <div id="local-list"></div>
+    <div id="local-empty" style="display:none">Brak lokalnych gwiazdek. Klikaj ⭐ w popupach na mapie —
+      pojawią się tutaj, a żeby scraper zaczął je śledzić, wyślij Claude'owi wiadomość
+      „dodaj do ulubionych: &lt;link&gt;".</div>
+  </div>
+</div>
+
+<script>
+const CHART_COLOR = '#667eea';
+const LS_KEY = 'sonar_favorites';
+
+function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c =>
+        ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function statusBadge(status) {
+    if (status === 'active') return '<span class="status-badge active">Aktywna</span>';
+    if (status === 'removed') return '<span class="status-badge removed">Usunięta z OLX</span>';
+    if (status === 'unknown') return '<span class="status-badge unknown">Nieznany</span>';
+    return `<span class="status-badge other">${escapeHtml(status)}</span>`;
+}
+
+function renderFavorites(data) {
+    document.getElementById('updated').textContent =
+        data.generated ? `Aktualizacja: ${data.generated}` : '';
+    const list = document.getElementById('fav-list');
+
+    if (!data.favorites || data.favorites.length === 0) {
+        list.innerHTML = '<div class="empty-state">Brak śledzonych ulubionych.<br>' +
+            'Wyślij Claude\'owi: „dodaj do ulubionych: &lt;link OLX&gt;".</div>';
+        return;
+    }
+
+    data.favorites.forEach((f, idx) => {
+        const card = document.createElement('div');
+        card.className = 'fav-card';
+
+        const priceStr = f.current_price != null ? `${f.current_price} zł` : '—';
+        const viewsStr = f.current_views != null ? f.current_views : '—';
+        const meta = [];
+        if (f.address) meta.push(`📍 ${escapeHtml(f.address)}`);
+        if (f.added) meta.push(`⭐ dodano ${escapeHtml(f.added)}`);
+        if (f.created) meta.push(`📅 wystawiona ${escapeHtml(f.created)}`);
+        if (f.valid_to) meta.push(`⏳ ważna do ${escapeHtml(f.valid_to)}`);
+        if (f.last_checked) meta.push(`🔎 sprawdzona ${escapeHtml(f.last_checked)}`);
+
+        let priceHist = '';
+        if ((f.price_history || []).length > 1) {
+            priceHist = '<div class="price-history-row">📊 Historia cen: <b>' +
+                f.price_history.map(p => `${p.price} zł (${escapeHtml(p.date)})`).join(' → ') +
+                '</b></div>';
+        }
+
+        let chartHtml;
+        const vh = f.views_history || [];
+        if (vh.length >= 2) {
+            chartHtml = `<div class="chart-wrap"><canvas id="views-chart-${idx}"></canvas></div>
+                <details class="data-table"><summary>Tabela pomiarów (${vh.length})</summary>
+                <table><tr><th>Pomiar</th><th>Wyświetlenia</th></tr>` +
+                vh.map(v => `<tr><td>${escapeHtml(v.date)}</td><td>${v.views}</td></tr>`).join('') +
+                '</table></details>';
+        } else if (vh.length === 1) {
+            chartHtml = `<div class="chart-empty">Jeden pomiar: <b>${vh[0].views}</b> wyświetleń
+                (${escapeHtml(vh[0].date)}). Wykres pojawi się po kolejnym scanie.</div>`;
+        } else {
+            chartHtml = '<div class="chart-empty">Brak pomiarów wyświetleń — pojawią się po najbliższym scanie (3× dziennie).</div>';
+        }
+
+        card.innerHTML = `
+            <div class="fav-title-row">
+                <div class="fav-title"><a href="${escapeHtml(f.url)}" target="_blank" rel="noopener">${escapeHtml(f.title)} ↗</a></div>
+                ${statusBadge(f.status)}
+            </div>
+            <div class="fav-meta">${meta.join(' · ')}</div>
+            <div class="chips">
+                <div class="chip"><span class="v">${priceStr}</span><span class="l">Cena</span></div>
+                <div class="chip"><span class="v ${f.refresh_count ? '' : 'dim'}">${f.refresh_count}</span><span class="l">Odświeżenia</span></div>
+                <div class="chip"><span class="v ${f.current_views != null ? '' : 'dim'}">${viewsStr}</span><span class="l">Wyświetlenia</span></div>
+                <div class="chip"><span class="v dim">${f.snapshots_count}</span><span class="l">Pomiary</span></div>
+            </div>
+            ${priceHist}
+            ${(f.refresh_events || []).length ? `<div class="price-history-row">🔄 Odświeżenia: <b>${f.refresh_events.map(r => escapeHtml(r.date)).join(', ')}</b></div>` : ''}
+            <div class="chart-block">
+                <h4>👁️ Wyświetlenia w czasie</h4>
+                ${chartHtml}
+            </div>`;
+        list.appendChild(card);
+
+        if (vh.length >= 2) {
+            new Chart(document.getElementById(`views-chart-${idx}`), {
+                type: 'line',
+                data: {
+                    labels: vh.map(v => v.date),
+                    datasets: [{
+                        data: vh.map(v => v.views),
+                        borderColor: CHART_COLOR,
+                        backgroundColor: 'rgba(102, 126, 234, 0.08)',
+                        borderWidth: 2,
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                        pointHitRadius: 12,
+                        pointBackgroundColor: CHART_COLOR,
+                        fill: true,
+                        tension: 0.2,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            displayColors: false,
+                            callbacks: {
+                                label: ctx => `${ctx.parsed.y} wyświetleń`,
+                            }
+                        }
+                    },
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            grid: { color: '#f1f5f9' },
+                            ticks: { color: '#64748b', font: { size: 11 }, precision: 0 }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 45 }
+                        }
+                    }
+                }
+            });
+        }
+    });
+}
+
+function renderLocalStars(trackedIds) {
+    let stars = [];
+    try { stars = JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch (e) {}
+    const untracked = stars.filter(s => !trackedIds.has((s.id || '').split('-ID').pop()));
+    const listEl = document.getElementById('local-list');
+    const emptyEl = document.getElementById('local-empty');
+
+    if (untracked.length === 0) {
+        emptyEl.style.display = 'block';
+        return;
+    }
+    untracked.forEach(s => {
+        const row = document.createElement('div');
+        row.className = 'local-item';
+        const msg = `dodaj do ulubionych: ${s.url}`;
+        row.innerHTML = `<a href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(s.title || s.url)}</a>
+            <button class="copy-btn">📋 Kopiuj wiadomość dla Claude'a</button>`;
+        row.querySelector('.copy-btn').addEventListener('click', function () {
+            navigator.clipboard.writeText(msg).then(() => {
+                this.textContent = '✅ Skopiowano';
+                setTimeout(() => { this.textContent = '📋 Kopiuj wiadomość dla Claude\'a'; }, 2000);
+            });
+        });
+        listEl.appendChild(row);
+    });
+}
+
+fetch('favorites_data.json?t=' + Date.now())
+    .then(r => r.ok ? r.json() : { favorites: [] })
+    .then(data => {
+        renderFavorites(data);
+        const trackedIds = new Set((data.favorites || []).map(f => f.short_id));
+        renderLocalStars(trackedIds);
+    })
+    .catch(() => {
+        renderFavorites({ favorites: [] });
+        renderLocalStars(new Set());
+    });
+</script>
+</body>
+</html>
