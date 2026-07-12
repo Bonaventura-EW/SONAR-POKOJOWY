@@ -47,8 +47,10 @@
   border-color: #ef4444;
   box-shadow: 0 2px 6px rgba(190,18,60,0.25);
 }
-/* Węższe laptopy: jeszcze ciaśniejsze przyciski, ale wciąż JEDEN rząd */
-@media (max-width: 1200px) {
+/* Węższe laptopy: jeszcze ciaśniejsze przyciski, ale wciąż JEDEN rząd.
+   Próg 1400px (nie 1200): po dodaniu 10. zakładki (⭐ Ulubione) luźny wariant
+   nachodził na tytuł przy ~1280px. */
+@media (max-width: 1400px) {
   .sp-header { gap: 10px; padding: 12px 16px; }
   .sp-header nav { gap: 2px; }
   .sp-header nav a { padding: 5px 7px; font-size: 11px; }

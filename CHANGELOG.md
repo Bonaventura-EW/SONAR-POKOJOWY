@@ -9,6 +9,19 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Zakładka ⭐ Ulubione: śledzenie pojedynczych ofert + wykres wyświetleń (2026-07-12)
+- **feat**: nowy moduł ulubionych (wariant B z fallbackiem przez Claude'a, wybór Mateusza). Lista: `data/favorites.json` (dopisywana na wiadomość „dodaj do ulubionych: <link>"). `src/favorites_tracker.py` robi per oferta 1 anonimowy request do OLX API v1 (`/api/v1/offers/{id}/`) i dokłada snapshot (cena, status, last_refresh) do `data/favorites_tracking.json`; wyświetlenia zbiera opcjonalnie headless Chromium (Playwright) — licznik „Wyświetlenia: N" jest doładowywany JS-em za tokenem, zwykły request go nie widzi. Brak Playwrighta ≠ błąd: snapshot zapisuje się z `views=None`.
+- **feat**: `src/favorites_generator.py` → `docs/favorites_data.json` (historia cen = zmiany, odświeżenia = zmiany last_refresh/pushup, pełna seria wyświetleń; adres/coords dołączane z `offers.json` po short_id).
+- **feat**: `docs/ulubione.html` — karty ofert ze statami jak w Firmach + wykres liniowy wyświetleń w czasie (Chart.js, kolor #667eea zwalidowany na jasnym tle) i tabela pomiarów. Sekcja „Gwiazdki z mapy": ulubione zapisane lokalnie (localStorage), z przyciskiem kopiującym gotową wiadomość dla Claude'a.
+- **feat**: gwiazdka ⭐/☆ w popupach mapy (`script.js`, blok helperów NA GÓRZE pliku — funkcje używają top-level const, więc muszą stać przed kodem inicjalizacji mapy; bump `?v=21`) + link ⭐ Ulubione w nawigacji wszystkich stron.
+- **fix**: wspólny nagłówek (`header.css?v=3`): próg ciasnego wariantu nawigacji przesunięty 1200→1400px, bo po 10. zakładce luźny wariant nachodził na tytuł przy ~1280px.
+- Pierwsza śledzona oferta: „Pokój Najem Lublin, Centrum" (Bernardyńska 24, ID1be1cg).
+- **workflow** (za zgodą Mateusza): krok `Track favorites` w `scanner.yml` po generacji mapy — instaluje Playwrighta + Chromium (~2 min/run) i odpala `favorites_tracker.py`; `docs/favorites_data.json` dodany do commitowanych ścieżek. Krok jest `continue-on-error` — awaria trackera nie psuje scanu.
+
+### Zakładka Pominięte: usunięty banner debug + ujednolicony nagłówek (2026-07-12)
+- **fix**: usunięty żółty banner „⚠️ Strona tymczasowa do analizy błędów parsera..." ze strony `skipped_debug.html` (u źródła: `src/skipped_debug_generator.py`).
+- **fix**: belka nagłówka zakładki Pominięte używa teraz wspólnego `assets/header.css` (klasa `sp-header`) zamiast własnego, większego inline CSS — identyczny rozmiar jak w pozostałych zakładkach. Przy okazji dodany brakujący link 📉 Indeks w nawigacji.
+
 ### Parser: priorytet pozycyjny zamiast długości nazwy ulicy (2026-07-09)
 - **feat**: TYTUŁ ma pierwszeństwo nad opisem (`main.py` → `_process_offer`, decyzja Mateusza): kolejność parsowania adresu to tytuł → tytuł+opis → sam opis, we wszystkich trzech stopniach (`extract_address`/`extract_street_only`/`extract_from_whitelist`) oraz w re-parsingu bogus cache. Adres z tytułu to adres oferty; adres z opisu może dotyczyć innej lokalizacji tego samego wynajmującego.
 - **fix**: prawie wszystkie oferty profilu „stylowe pokoje-ania" dostawały adres „Chęcińskiego 1", bo każdy opis wynajmującej wymienia wszystkie jej lokalizacje („Dostępność innych lokalizacji: ul. Kurantowa 8, ul. Skołuby 10, ul. Chęcińskiego 1..."), a `extract_address` wybierał kandydata po długości nazwy — „Chęcińskiego" (12 liter) wygrywało z właściwym adresem z tytułu/leadu. Nowy wybór: prefiks ul./al./pl., potem **najwcześniejsza pozycja w tekście** (właściwy adres oferty jest na początku, listy „innych lokalizacji" na końcu).
