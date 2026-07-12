@@ -238,22 +238,10 @@ def generate_skipped_debug_page(
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SONAR POKOJOWY - Pominięte oferty (debug)</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="assets/header.css?v=2">
 <style>
 * {{ box-sizing: border-box; margin: 0; padding: 0; }}
 body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f7fa; color: #2d3748; line-height: 1.5; }}
-header {{ background: linear-gradient(120deg, #fb923c 0%, #ef4444 50%, #ec4899 100%); color: white; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; box-shadow: 0 2px 12px rgba(239,68,68,0.25); }}
-header .sp-brand {{ display: flex; align-items: center; gap: 12px; min-width: 0; }}
-header .sp-brand-svg {{ width: 32px; height: 32px; flex-shrink: 0; }}
-header h1 {{ margin: 0; font-size: 18px; font-weight: 700; color: white; display: inline-flex; align-items: baseline; gap: 0; white-space: nowrap; }}
-header h1 .sp-b {{ font-weight: 800; letter-spacing: 0.5px; }}
-header h1 .sp-s {{ opacity: 0.5; margin: 0 8px; font-weight: 300; }}
-header h1 .sp-p {{ font-weight: 500; opacity: 0.95; }}
-header nav {{ display: flex; gap: 4px; flex-wrap: wrap; }}
-header nav a {{ color: #be123c; text-decoration: none; padding: 7px 13px; border-radius: 10px; font-size: 13px; font-weight: 600; background: rgba(255,255,255,0.88); border: 1px solid rgba(255,255,255,0.4); transition: background 0.15s, box-shadow 0.15s; }}
-header nav a:hover {{ background: white; }}
-header nav a.active {{ background: white; color: #9f1239; border-color: #ef4444; box-shadow: 0 2px 6px rgba(190,18,60,0.25); }}
-@media (max-width: 768px) {{ header {{ padding: 12px 16px; }} header h1 {{ font-size: 16px; }} header nav a {{ padding: 6px 10px; font-size: 12px; }} }}
-.banner {{ background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 24px; color: #78350f; font-size: 14px; }}
 .container {{ max-width: 1400px; margin: 24px auto; padding: 0 24px; }}
 .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }}
 .stat-card {{ background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid; }}
@@ -359,7 +347,7 @@ header nav a.active {{ background: white; color: #9f1239; border-color: #ef4444;
 </head>
 <body>
 
-<header>
+<header class="sp-header">
   <div class="sp-brand">
     <svg class="sp-brand-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
       <defs>
@@ -397,6 +385,7 @@ header nav a.active {{ background: white; color: #9f1239; border-color: #ef4444;
   <nav>
     <a href="index.html">🗺️ Mapa</a>
     <a href="analytics.html">📈 Analityka</a>
+    <a href="trend.html">📉 Indeks</a>
     <a href="monitoring.html">📊 Monitoring</a>
     <a href="market_analysis.html">🔍 Analiza Rynku</a>
     <a href="top5.html">🏆 Top 5</a>
@@ -405,11 +394,6 @@ header nav a.active {{ background: white; color: #9f1239; border-color: #ef4444;
     <a href="skipped_debug.html" class="active">🐛 Pominięte</a>
   </nav>
 </header>
-
-<div class="banner">
-  ⚠️ <strong>Strona tymczasowa</strong> do analizy błędów parsera. Pokazuje oferty które scraper pobrał ale nie trafiły na mapę.
-  Zostanie usunięta po naprawie głównych problemów.
-</div>
 
 <div class="container">
   <div class="stats-grid">
