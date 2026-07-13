@@ -102,9 +102,35 @@ def fetch_api_snapshot(numeric_id: int) -> dict | None:
     }
 
 
+def _views_from_network(payloads: list) -> int | None:
+    """Wyciągnij licznik z przechwyconych odpowiedzi page-views (JSON)."""
+    for payload in payloads:
+        try:
+            data = json.loads(payload)
+        except (ValueError, TypeError):
+            continue
+        # szukaj rekurencyjnie klucza z 'view' w nazwie o wartości int
+        stack = [data]
+        while stack:
+            node = stack.pop()
+            if isinstance(node, dict):
+                for k, v in node.items():
+                    if isinstance(v, int) and 'view' in str(k).lower():
+                        return v
+                    stack.append(v)
+            elif isinstance(node, list):
+                stack.extend(node)
+    return None
+
+
 def fetch_views(favorites: list) -> dict:
     """Licznik wyświetleń per short_id przez headless Chromium.
-    Zwraca {} gdy Playwright niedostępny albo przeglądarka padnie."""
+
+    Licznik "Wyświetlenia: N" jest lazy-loaded (montuje się dopiero gdy
+    stopka wejdzie w viewport) i zasilany autoryzowanym requestem
+    page-views, więc: stopniowy scroll (nie teleport na dół), klik w banner
+    cookies, czekanie na doładowanie + nasłuch odpowiedzi sieciowej jako
+    drugie źródło. Zwraca {} gdy Playwright/przeglądarka niedostępne."""
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
@@ -116,28 +142,84 @@ def fetch_views(favorites: list) -> dict:
         with sync_playwright() as p:
             browser = p.chromium.launch(
                 headless=True, args=['--no-sandbox', '--disable-dev-shm-usage'])
-            context = browser.new_context(user_agent=HEADERS['User-Agent'])
+            context = browser.new_context(
+                user_agent=HEADERS['User-Agent'],
+                viewport={'width': 1280, 'height': 900},
+                locale='pl-PL')
             page = context.new_page()
+
+            # w handlerze eventu sync API nie wolno blokować (resp.text()
+            # dopiero po ustabilizowaniu strony) — zbieramy same obiekty
+            captured = []
+
+            def on_response(resp):
+                if 'page-views' in resp.url or 'pageview' in resp.url.lower():
+                    captured.append(resp)
+
+            page.on('response', on_response)
+
             for fav in favorites:
+                sid = fav['short_id']
                 try:
+                    captured.clear()
                     page.goto(fav['url'], wait_until='domcontentloaded',
-                              timeout=45000)
-                    page.wait_for_timeout(2500)
-                    # licznik jest lazy-loaded na dole strony
-                    page.mouse.wheel(0, 30000)
-                    page.wait_for_timeout(4000)
+                              timeout=60000)
+                    page.wait_for_timeout(2000)
+
+                    # banner cookies (OneTrust) potrafi blokować stronę
+                    try:
+                        page.click('#onetrust-accept-btn-handler', timeout=3000)
+                        page.wait_for_timeout(800)
+                    except Exception:
+                        pass
+
+                    # stopniowy scroll na dół — lazy-load licznika triggeruje
+                    # IntersectionObserver, teleport na dół go omija
+                    page_height = page.evaluate('document.body.scrollHeight')
+                    step = 900
+                    pos = 0
+                    while pos < page_height:
+                        pos += step
+                        page.evaluate(f'window.scrollTo(0, {pos})')
+                        page.wait_for_timeout(400)
+                        page_height = page.evaluate('document.body.scrollHeight')
+
+                    # czekaj aż licznik dostanie liczbę (montuje się async)
+                    try:
+                        page.wait_for_function(
+                            "() => /Wyświetlenia:\\s*[\\d\\s\\u00a0]+/.test(document.body.innerText)",
+                            timeout=15000)
+                    except Exception:
+                        pass
+
                     body = page.evaluate('document.body.innerText')
-                    m = VIEWS_PATTERN.search(body)
+                    m = VIEWS_PATTERN.search(body.replace(' ', ' '))
                     if m:
-                        views[fav['short_id']] = int(
-                            re.sub(r'\D', '', m.group(1)))
-                        print(f"   👁️ {fav['short_id']}: "
-                              f"{views[fav['short_id']]} wyświetleń")
-                    else:
-                        print(f"   ⚠️ {fav['short_id']}: licznik wyświetleń "
-                              f"nie pojawił się na stronie")
+                        views[sid] = int(re.sub(r'\D', '', m.group(1)))
+                        print(f"   👁️ {sid}: {views[sid]} wyświetleń (DOM)")
+                        continue
+
+                    # fallback: odpowiedź sieciowa page-views
+                    payloads = []
+                    for resp in captured:
+                        try:
+                            payloads.append(resp.text())
+                        except Exception:
+                            pass
+                    net = _views_from_network(payloads)
+                    if net is not None:
+                        views[sid] = net
+                        print(f"   👁️ {sid}: {views[sid]} wyświetleń (network)")
+                        continue
+
+                    # diagnostyka do logów Actions — co poszło nie tak
+                    label_present = 'Wyświetlenia' in body
+                    print(f"   ⚠️ {sid}: licznik wyświetleń nie pojawił się "
+                          f"(label w DOM: {label_present}, "
+                          f"odpowiedzi page-views: {len(captured)}, "
+                          f"długość strony: {len(body)} zn.)")
                 except Exception as e:
-                    print(f"   ⚠️ Wyświetlenia {fav['short_id']}: {e}")
+                    print(f"   ⚠️ Wyświetlenia {sid}: {e}")
             browser.close()
     except Exception as e:
         print(f"   ⚠️ Chromium niedostępny ({e}) — pomijam wyświetlenia.")

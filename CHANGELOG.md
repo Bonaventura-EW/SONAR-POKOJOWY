@@ -9,6 +9,11 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Fix zbierania wyświetleń ulubionych (2026-07-13)
+- **fix**: pierwsze 3 snapshoty miały `views=None` — licznik „Wyświetlenia: N" na OLX montuje się przez IntersectionObserver dopiero, gdy stopka wejdzie w viewport, a `fetch_views` teleportował scrollem od razu na dół, omijając trigger. Teraz: stopniowy scroll (kroki ~900px), klik w banner cookies (OneTrust), `wait_for_function` na liczbę w DOM + nasłuch odpowiedzi sieciowej `page-views` jako drugie źródło, diagnostyka w logach Actions gdy licznik nieobecny.
+- Zweryfikowane runem workflow na branchu (dispatch z ref=branch): snapshot 22:15 ma `views: 64`. Zakładka pokazuje ostatni znany pomiar w kafelku Wyświetlenia.
+- **fix (`scanner.yml`)**: pętla retry pushu gubiła wyniki scanu przy wyścigu z równoległym runem — po nieudanym rebase kolejne `git pull` padało na „Pulling is not possible because you have unmerged files" (run 22:05 stracił scan). Teraz: `git rebase --abort` przed każdą próbą (sprząta stan) + `git pull --rebase -X theirs` (przy konflikcie na plikach danych wygrywa świeży scan).
+
 ### Mapa: warstwa „Przeniesione (poprzednie adresy)" domyślnie wyłączona (2026-07-12)
 - **feat** (decyzja Mateusza): checkbox warstwy startuje odznaczony (`index.html`), a `markerLayers.addrArchival` nie jest dodawana do mapy przy inicjalizacji (`script.js`, bump `?v=22`). Piny archiwalne dalej się renderują do grupy (licznik działa), a „pokaż" w historii adresu popupu automatycznie włącza warstwę + checkbox. Zweryfikowane headless: start off → toggle on działa.
 
