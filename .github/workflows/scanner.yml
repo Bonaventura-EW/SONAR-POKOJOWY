@@ -96,10 +96,15 @@ jobs:
           else
             git commit -m "🤖 Automatyczny scan: $(TZ='Europe/Warsaw' date +'%Y-%m-%d %H:%M')" || true
             # Ktoś mógł wpushować w trakcie scanu — rebase przed pushem,
-            # z retry żeby nie stracić wyników scanu na chwilowym błędzie
+            # z retry żeby nie stracić wyników scanu na chwilowym błędzie.
+            # -X theirs: przy konflikcie na plikach danych (offers.json itd.)
+            # wygrywa świeży scan. rebase --abort przed każdą próbą sprząta
+            # stan po nieudanym rebase — bez tego kolejne git pull pada na
+            # "Pulling is not possible because you have unmerged files".
             pushed=false
             for i in 1 2 3; do
-              if git pull --rebase origin main && git push; then
+              git rebase --abort 2>/dev/null || true
+              if git pull --rebase -X theirs origin main && git push; then
                 pushed=true
                 break
               fi
