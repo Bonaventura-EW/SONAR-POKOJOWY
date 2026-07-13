@@ -32,6 +32,23 @@ class AddressParser:
         re.UNICODE | re.IGNORECASE
     )
     
+    # FIX 2026-07-13: złożenia "N-pokojowa/N-osobowy/N-piętrowe" — cyfra to liczba
+    # pokoi/osób/pięter (NIE numer domu), a poprzedzająca je nazwa-przymiotnik
+    # (Przytulna, Słoneczna, Zielona...) opisuje ofertę, nie jest ulicą.
+    # _NUM_ROOMCOUNT: dopasowanie ZARAZ po numerze ("...2" + "-pokojowa").
+    # _ADJ_ROOMCOUNT: dopasowanie ZARAZ po nazwie-przymiotniku ("Przytulna" + " 2-pokojowa").
+    # Prefiks ulicy tuż przed nazwą (dla whitelist: legalna ulica z małej litery,
+    # np. "ul zana", "ul.żarnowiecka" — po strip interpunkcji "ul żarnowiecka").
+    _WL_PREFIX_BEFORE = re.compile(
+        r'(?:ul\.?|ulic\w*|al\.?|alej\w*|pl\.?|plac\w*|os\.?|osiedl\w*)\s*$',
+        re.IGNORECASE | re.UNICODE
+    )
+    _ROOMCOUNT_WORDS = r'(?:pokojow|osobow|pi[eę]trow|poziomow|izbow)'
+    _NUM_ROOMCOUNT = re.compile(rf'^[-‐‑‒–]\s*{_ROOMCOUNT_WORDS}', re.IGNORECASE | re.UNICODE)
+    # myślnik opcjonalny: extract_from_whitelist zamienia interpunkcję na spacje,
+    # więc "2-pokojowa" trafia tu jako "2 pokojowa".
+    _ADJ_ROOMCOUNT = re.compile(rf'^\s+\d+\s*[-‐‑‒–]?\s*{_ROOMCOUNT_WORDS}', re.IGNORECASE | re.UNICODE)
+
     # NOWY: Wzorzec dla polskich nazwisk w dopełniaczu (Langiewicza, Słowackiego, Czuby itd.)
     # Łapie: "[Nazwisko kończące się na -a/-cza/-sza/-ego/-iego/-owej/-skiej] + numer"
     POLISH_SURNAME_PATTERN = re.compile(
@@ -86,6 +103,17 @@ class AddressParser:
     _DIGIT_CAPITAL_SPLIT = re.compile(r'(?<=\d)(?=[A-ZĄĘĆŁŃÓŚŹŻ][a-ząęćłńóśźż])')
     _MULTIPLE_WHITESPACE = re.compile(r'\s+')
 
+    # FIX 2026-07-13: "boczna ul. X" = przecznica ulicy X — mieszkanie stoi przy
+    # bocznej uliczce, NIE przy X. Opisy typu "Lokalizacja: boczna ul. Nałęczowskiej"
+    # nie dają realnego adresu → usuwamy nazwę ulicy PO "boczna ul./ulica/al." zanim
+    # dojdzie do parsera, żeby ŻADNA ścieżka (extract_address/street_only/whitelist)
+    # nie postawiła oferty na X. Zachowujemy sam prefiks (grupa 1), gubimy ulicę (grupa 2).
+    _BOCZNA_STREET = re.compile(
+        r'(boczn[aąey][a-ząęćłńóśźż]*\s+(?:ul\.?|ulic[a-ząęćłńóśźż]*|al\.?|alej[a-ząęćłńóśźż]*)\s+)'
+        r'[A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]+',
+        re.UNICODE
+    )
+
     # === FIX 2026-05-26 (A): mapa dzielnic Lublina ===
     # Klucz: kanoniczna nazwa dzielnicy (przekazywana do geocodera, który zwróci centroid).
     # Wartość: lista form/wariantów (lowercase), w tym miejscownik/dopełniacz/potoczne nazwy.
@@ -137,6 +165,8 @@ class AddressParser:
         text = cls._CAMELCASE_SPLIT.sub(' ', text)
         # Rozdziel cyfrę od wielkiej litery: 100D → 100 D
         text = cls._DIGIT_CAPITAL_SPLIT.sub(' ', text)
+        # FIX 2026-07-13: usuń nazwę ulicy po "boczna ul./ulica/al." (przecznica ≠ adres)
+        text = cls._BOCZNA_STREET.sub(r'\1', text)
         # Normalizacja spacji: deduplikacja podwójnych spacji, taby, newliny
         text = cls._MULTIPLE_WHITESPACE.sub(' ', text)
         return text.strip()
@@ -244,16 +274,26 @@ class AddressParser:
         
         # FIX 2026-05-14: preprocessing — rozdziel sklejone tokeny i znormalizuj spacje.
         text = self._normalize_text(text)
-        
-        # Normalizacja tekstu: znaki interpunkcyjne na spacje
-        normalized_raw = re.sub(r'[^\w\sśćłąęóżźńŚĆŁĄĘÓŻŹŃ]', ' ', text).lower()
+
+        # Normalizacja tekstu: znaki interpunkcyjne na spacje (zachowaj wielkość liter
+        # w wersji _cap, potrzebną do filtra rzeczownika własnego niżej).
+        normalized_cap = re.sub(r'[^\w\sśćłąęóżźńŚĆŁĄĘÓŻŹŃ]', ' ', text)
+        words_cap = normalized_cap.split()
+        normalized_raw = normalized_cap.lower()
         words_raw = normalized_raw.split()
         words_set_raw = set(words_raw)
-        
+
+        # FIX 2026-07-13: nazwa ulicy to rzeczownik własny → w oryginale pisana z
+        # wielkiej litery. Zbieramy (lowercase) słowa, które wystąpiły z wielkiej litery,
+        # i tylko one mogą być jednowyrazowym dopasowaniem ulicy. Chroni przed
+        # przymiotnikami-które-są-ulicami użytymi opisowo: "w spokojnej okolicy"
+        # (spokojnej z małej) NIE jest ul. Spokojna, ale "na Spokojnej" (z wielkiej) tak.
+        cap_words_raw = {w.lower() for w in words_cap if w[:1].isupper()}
+
         # === KROK 1: EXACT MATCH (bez transformacji) ===
         # Najczęstszy przypadek: cache i tekst mają tę samą formę nazwy.
-        candidates = self._find_in_text(words_set_raw, normalized_raw)
-        
+        candidates = self._find_in_text(words_set_raw, normalized_raw, cap_words_raw)
+
         # === KROK 2: NOMINATIVE MATCH (z transformacją do mianownika) ===
         # Jeśli exact nic nie znalazł, próbujemy z mianownikiem ('Lipowej' → 'Lipowa').
         if not candidates:
@@ -261,19 +301,25 @@ class AddressParser:
                 from geocoder import to_nominative
             except ImportError:
                 to_nominative = lambda x: x
-            
-            # Transformacja per-word (tylko dla słów ≥4 znaków)
+
+            # Transformacja per-word (tylko dla słów ≥4 znaków); jednocześnie budujemy
+            # zbiór dozwolonych słów-mianowników pochodzących ze słów z wielkiej litery.
             nominative_words = []
-            for w in words_raw:
+            cap_words_nom = set()
+            for w in words_cap:
+                wl = w.lower()
                 if len(w) >= 4 and w[0].isalpha():
-                    nominative_words.append(to_nominative(w).lower())
+                    nom = to_nominative(wl).lower()
                 else:
-                    nominative_words.append(w)
-            
+                    nom = wl
+                nominative_words.append(nom)
+                if w[:1].isupper():
+                    cap_words_nom.add(nom)
+
             normalized_nom = ' '.join(nominative_words)
             words_set_nom = set(nominative_words)
-            
-            candidates = self._find_in_text(words_set_nom, normalized_nom)
+
+            candidates = self._find_in_text(words_set_nom, normalized_nom, cap_words_nom)
         
         if not candidates:
             return None
@@ -289,16 +335,39 @@ class AddressParser:
             'full': best_street
         }
     
-    def _find_in_text(self, words_set: set, text: str) -> list:
+    def _find_in_text(self, words_set: set, text: str, cap_words: set = None) -> list:
         """
         Pomocnicza: szuka znanych ulic w danym tekście.
         Zwraca listę kandydatów (street_lower, score=length).
+
+        cap_words: (opcjonalny) zbiór słów (lowercase), które w oryginale wystąpiły
+            z wielkiej litery. Jednowyrazowe dopasowanie ulicy jest przyjmowane tylko
+            gdy słowo należy do tego zbioru (rzeczownik własny), co odsiewa
+            przymiotniki-ulice użyte opisowo ("spokojnej", "zielonej" z małej litery).
         """
         candidates = []
         for street_lower in self._known_streets:
             street_words = street_lower.split()
             if len(street_words) == 1:
                 if street_lower in words_set:
+                    occ = list(re.finditer(r'\b' + re.escape(street_lower) + r'\b', text))
+                    # FIX 2026-07-13: pomiń, gdy KAŻDE wystąpienie słowa jest
+                    # przymiotnikiem opisującym ofertę ("Przytulna 2-pokojowa" =
+                    # przytulne mieszkanie, nie ul. Przytulna). Sygnał: bezpośrednio
+                    # następujące złożenie "N-pokojowa/N-osobowy".
+                    if occ and all(self._ADJ_ROOMCOUNT.match(text[m.end():m.end() + 20]) for m in occ):
+                        continue
+                    # FIX 2026-07-13: nazwa ulicy to rzeczownik własny — przyjmij tylko
+                    # gdy słowo wystąpiło z WIELKIEJ litery ("na Spokojnej") LUB po
+                    # PREFIKSIE ulicy ("ul zana", "ul żarnowiecka"). Bez tego przymiotniki-
+                    # ulice użyte opisowo z małej ("w spokojnej okolicy", "kuchnia
+                    # elektryczna") lądowały jako adres.
+                    if cap_words is not None:
+                        is_proper = street_lower in cap_words or any(
+                            self._WL_PREFIX_BEFORE.search(text[:m.start()]) for m in occ
+                        )
+                        if not is_proper:
+                            continue
                     candidates.append((street_lower, len(street_lower)))
             else:
                 pattern = r'\b' + re.escape(street_lower) + r'\b'
@@ -440,7 +509,15 @@ class AddressParser:
             prefix = match.group(1)  # może być None
             street = match.group(2).strip()
             number = match.group(3).strip()
-            
+
+            # FIX 2026-07-13: numer będący częścią złożenia "N-pokojowa"/"N-osobowy"/
+            # "N-piętrowe" to liczba pokoi/osób/pięter, NIE numer domu. Tytuł
+            # "Przytulna 2-pokojowa Stancja" dawał adres "Przytulna 2", bo "Przytulna"
+            # to realna ulica Lublina (celowo nie na blockliście), a "2" z "2-pokojowa"
+            # wpadało we wzorzec numeru. Odrzuć, gdy zaraz po numerze jest to złożenie.
+            if self._NUM_ROOMCOUNT.match(text[match.end(3):match.end(3) + 12]):
+                continue
+
             # FIX 2026-05-13: jeśli prefix jest None ale street zaczyna się od formy prefiksu
             # (np. 'ulicy Kryształowej'), oddziel prefiks od nazwy ulicy.
             # Dzieje się tak gdy regex matchuje bez prefiksu (opcjonalnego) i pochłania
@@ -604,6 +681,12 @@ class AddressParser:
         for match in surname_matches:
             street = match.group(1).strip()
             number = match.group(2).strip()
+
+            # FIX 2026-07-13: ten sam guard co wyżej — "Przytulna 2-pokojowa" wpada tu,
+            # bo "Przytulna" kończy się na "-a" (wzorzec dopełniacza). "2" z "2-pokojowa"
+            # to liczba pokoi, nie numer domu.
+            if self._NUM_ROOMCOUNT.match(text[match.end(2):match.end(2) + 12]):
+                continue
 
             # Sprawdź minimum 5 liter (żeby wykluczyć "Pokoja 5" itp.)
             if len(street) < 5:
