@@ -602,6 +602,36 @@ class SonarPokojowy:
         # ('Bajkowa'/'Bajkowej' ≈ 0.80) NIE jest zmianą.
         return difflib.SequenceMatcher(None, o_st, n_st).ratio() < 0.75
     
+    def _track_refresh(self, existing: Dict, new_refresh: str) -> bool:
+        """Rejestruje odświeżenie (bump/pushup) oferty firmowej — max 1/dzień.
+
+        `new_refresh` = data ostatniego pushup/odświeżenia z API OLX
+        (api_last_refresh, format ISO). Działa dla dwóch wywołań:
+        pełnej aktualizacji (_update_existing_offer) oraz ofert pominiętych
+        przez inteligentne skanowanie (_mark_inactive_offers), więc bump bez
+        zmiany ceny też jest łapany. Zwraca True gdy dodano nową datę.
+        """
+        if not new_refresh or not existing.get('profile_name'):
+            return False
+        try:
+            new_refresh_date = new_refresh[:10]  # 'YYYY-MM-DD'
+            stored_raw = existing.get('last_refresh_date', '')
+            stored_date = stored_raw[:10] if stored_raw else ''
+            refresh_dates = existing.get('refresh_dates', [])
+
+            # Nowa data odświeżenia — max 1/dzień
+            if (new_refresh_date and new_refresh_date != stored_date
+                    and new_refresh_date not in refresh_dates):
+                refresh_dates.append(new_refresh_date)
+                existing['refresh_dates'] = refresh_dates
+                existing['refresh_count'] = len(refresh_dates)
+                existing['last_refresh_date'] = new_refresh
+                print(f"      🔄 Odświeżenie #{existing['refresh_count']}: {new_refresh_date}")
+                return True
+        except (ValueError, TypeError, AttributeError):
+            pass
+        return False
+
     def _update_existing_offer(self, existing: Dict, new_data: Dict):
         """Aktualizuje istniejące ogłoszenie z inteligentnym zarządzaniem ceną."""
         now = datetime.now(self.tz).isoformat()
@@ -769,26 +799,11 @@ class SonarPokojowy:
             existing['profile_name'] = new_profile
             print(f"      🏢 Przypisano profil: {new_profile}")
 
-        # Śledź odświeżenia (bump) dla ofert firmowych
-        # api_last_refresh = data ostatniego pushup/odświeżenia z API OLX
-        new_refresh = new_data.get('api_last_refresh', '')
-        if new_refresh and existing.get('profile_name'):
-            # Wyciągnij tylko datę (YYYY-MM-DD) z ISO timestamp
-            try:
-                new_refresh_date = new_refresh[:10]  # 'YYYY-MM-DD'
-                stored_date = existing.get('last_refresh_date', '')[:10] if existing.get('last_refresh_date') else ''
-                refresh_dates = existing.get('refresh_dates', [])
-
-                if new_refresh_date and new_refresh_date != stored_date:
-                    # Nowa data odświeżenia — max 1/dzień
-                    if new_refresh_date not in refresh_dates:
-                        refresh_dates.append(new_refresh_date)
-                        existing['refresh_dates'] = refresh_dates
-                        existing['refresh_count'] = len(refresh_dates)
-                        existing['last_refresh_date'] = new_refresh
-                        print(f"      🔄 Odświeżenie #{existing['refresh_count']}: {new_refresh_date}")
-            except (ValueError, TypeError, AttributeError):
-                pass
+        # Śledź odświeżenia (bump) dla ofert firmowych.
+        # _process_offer zapisuje świeże api_last_refresh pod kluczem
+        # 'last_refresh_date' (patrz szablon nowej oferty), więc czytamy TEN
+        # klucz — nie 'api_last_refresh', którego przetworzona oferta nie ma.
+        self._track_refresh(existing, new_data.get('last_refresh_date', ''))
 
         # Śledź reaktywacje — inkrementuj licznik przy każdej reaktywacji
         if was_inactive:
@@ -844,18 +859,23 @@ class SonarPokojowy:
                 print(f"⚠️ Błąd obliczania days_active dla oferty {offer.get('id')}: {e}")
                 offer['days_active'] = 0
     
-    def _mark_inactive_offers(self, current_offer_ids: List[str], skipped_offer_ids: List[str] = None):
+    def _mark_inactive_offers(self, current_offer_ids: List[str], skipped_offer_ids: List[str] = None,
+                              skipped_refresh_map: Dict[str, str] = None):
         """
         Oznacza ogłoszenia jako nieaktywne jeśli nie ma ich w bieżącym scanie.
         Reaktywuje oferty które pojawiły się ponownie (w skipped_ids).
-        
+
         Args:
             current_offer_ids: Lista ID ofert które zostały przetworzone (nowe + zaktualizowane)
             skipped_offer_ids: Lista ID ofert które zostały pominięte przez inteligentne skanowanie
+            skipped_refresh_map: id oferty pominiętej → api_last_refresh (do śledzenia bumpów
+                                 bez zmiany ceny — oferta skipped nie przechodzi _update_existing_offer)
         """
         if skipped_offer_ids is None:
             skipped_offer_ids = []
-        
+        if skipped_refresh_map is None:
+            skipped_refresh_map = {}
+
         # Wszystkie oferty które powinny być aktywne = przetworzone + pominięte
         all_active_ids = set(current_offer_ids + skipped_offer_ids)
         skipped_set = set(skipped_offer_ids)
@@ -900,9 +920,13 @@ class SonarPokojowy:
                         # Reaktywacja oferty która była nieaktywna
                         offer['active'] = True
                         offer['reactivated_at'] = now
+                        offer['reactivation_count'] = offer.get('reactivation_count', 0) + 1
                         reactivated_from_skipped += 1
                     # Aktualizuj last_seen dla skipped ofert
                     offer['last_seen'] = now
+                    # Śledź odświeżenie (bump) — skipped nie wchodzi w _update_existing_offer,
+                    # więc bez tego bump bez zmiany ceny nigdy nie trafia do licznika
+                    self._track_refresh(offer, skipped_refresh_map.get(offer['id'], ''))
             elif offer['active']:
                 # Oferta nie jest w scanie - dezaktywuj
                 offer['active'] = False
@@ -1069,6 +1093,7 @@ class SonarPokojowy:
                         offer['last_seen'] = reactivation_data['last_seen']
                         offer['reactivated_at'] = reactivation_data['reactivated_at']
                         offer['reactivation_source'] = 'verification'
+                        offer['reactivation_count'] = offer.get('reactivation_count', 0) + 1
                         with stats_lock:
                             stats['reactivated'] += 1
                         reactivated_ids.append(offer.get('id', 'unknown'))
@@ -1173,6 +1198,12 @@ class SonarPokojowy:
                         if r['url'].split('?')[0] == clean_url:
                             r['profile_key'] = p_offer['profile_key']
                             r['profile_name'] = p_offer['profile_name']
+                            # Regular scan (HTML) nie zna api_last_refresh — przenieś z API v1,
+                            # inaczej skipped oferty firmowe nie mają skąd wziąć daty bumpu
+                            if p_offer.get('api_last_refresh'):
+                                r['api_last_refresh'] = p_offer['api_last_refresh']
+                            if p_offer.get('api_created') and not r.get('api_created'):
+                                r['api_created'] = p_offer['api_created']
                             profile_tag_count += 1
                             break
                 else:
@@ -1457,10 +1488,16 @@ class SonarPokojowy:
             # Oznacz nieaktywne (ale pominij oferty które były skipped - one są nadal aktywne)
             # UWAGA: raw_offers nie mają klucza 'id', trzeba go wyciągnąć z URL
             skipped_ids = [
-                offer['url'].split('/')[-1].split('.')[0] 
-                for offer in raw_offers 
+                offer['url'].split('/')[-1].split('.')[0]
+                for offer in raw_offers
                 if offer.get('skipped', False)
             ]
+            # Mapa id → api_last_refresh dla ofert pominiętych (śledzenie bumpów bez zmiany ceny)
+            skipped_refresh_map = {
+                offer['url'].split('/')[-1].split('.')[0]: offer.get('api_last_refresh')
+                for offer in raw_offers
+                if offer.get('skipped', False) and offer.get('api_last_refresh')
+            }
 
             # ZABEZPIECZENIE: Ochrona przed masową dezaktywacją przy blokadzie OLX
             # (Cloudflare, rate limit, pusta odpowiedź, itp.)
@@ -1490,7 +1527,7 @@ class SonarPokojowy:
                     f"Prawdopodobna blokada OLX lub awaria scrapera."
                 )
             else:
-                self._mark_inactive_offers(current_offer_ids, skipped_ids)
+                self._mark_inactive_offers(current_offer_ids, skipped_ids, skipped_refresh_map)
             
             # Aktualizuj days_active dla WSZYSTKICH ofert
             self._update_days_active()
