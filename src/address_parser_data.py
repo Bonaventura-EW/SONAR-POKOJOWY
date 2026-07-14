@@ -188,6 +188,19 @@ HARDCODED_LUBLIN_STREETS = {
     # FIX 2026-07-09: "pokoju" jest w EXCLUDED_WORDS, więc ulica nigdy nie
     # przechodzi filtra słów ani nie trafia na whitelistę z geocoding_cache.
     'obrońców pokoju',
+    # FIX 2026-07-14: realna ulica Lublina; forma kanoniczna (dopełniacz).
+    'batalionów chłopskich',
+}
+
+
+# Aliasy nazw ulic: forma jak piszą wynajmujący → forma kanoniczna (geokodowalna).
+# Klucze i wartości lowercase. Głównie mianownik→dopełniacz dla ulic, których
+# Nominatim NIE zna w formie mianownikowej — np. wynajmujący pisze w tytule
+# "ul. Bataliony Chłopskie 16" (mianownik), a geokoduje się tylko dopełniacz
+# "Batalionów Chłopskich". Bez aliasu poprawny adres z tytułu ginie na
+# geokodowaniu i przegrywa z fałszywym fallbackiem (np. "Spokojna" z "spokojna okolica").
+STREET_ALIASES = {
+    'bataliony chłopskie': 'batalionów chłopskich',
 }
 
 

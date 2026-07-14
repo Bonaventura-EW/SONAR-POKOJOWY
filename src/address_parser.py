@@ -48,6 +48,11 @@ class AddressParser:
     # myślnik opcjonalny: extract_from_whitelist zamienia interpunkcję na spacje,
     # więc "2-pokojowa" trafia tu jako "2 pokojowa".
     _ADJ_ROOMCOUNT = re.compile(rf'^\s+\d+\s*[-‐‑‒–]?\s*{_ROOMCOUNT_WORDS}', re.IGNORECASE | re.UNICODE)
+    # FIX 2026-07-14: "<Przymiotnik> okolica" opisuje dzielnicę, nie ulicę
+    # ("Spokojna okolica", "Cicha okolicy", "Zielona okolicę"). Dopasowanie ZARAZ
+    # po nazwie ulicy. Łapie wielką literę na początku zdania ("OKOLICA - Spokojna
+    # okolica"), której nie odsiewa filtr rzeczownika własnego.
+    _OKOLICA_AFTER = re.compile(r'^\s+okolic', re.IGNORECASE | re.UNICODE)
 
     # NOWY: Wzorzec dla polskich nazwisk w dopełniaczu (Langiewicza, Słowackiego, Czuby itd.)
     # Łapie: "[Nazwisko kończące się na -a/-cza/-sza/-ego/-iego/-owej/-skiej] + numer"
@@ -66,6 +71,10 @@ class AddressParser:
     # FIX 2026-05-26 (B): hardcoded ulice Lublina, których brak w geocoding_cache.
     # Lowercase. Merge'owane z _known_streets w __init__.
     HARDCODED_LUBLIN_STREETS = _apd.HARDCODED_LUBLIN_STREETS
+
+    # FIX 2026-07-14: aliasy nazw ulic (mianownik→dopełniacz itp.) — dane w
+    # address_parser_data.py. Stosowane w _canonicalize_street na wyniku ekstraktorów.
+    STREET_ALIASES = _apd.STREET_ALIASES
 
     # Pattern dla ekstrakcji ulicy BEZ numeru (decyzja 1a — tylko z jawnym prefiksem)
     # Wymaga: prefiks + nazwa ulicy (1-3 słowa)
@@ -252,6 +261,20 @@ class AddressParser:
             print(f"⚠️ Nie udało się załadować whitelist z {cache_path}: {e}")
             return set()
     
+    def _canonicalize_street(self, street: str) -> str:
+        """Mapuje wariant zapisu ulicy na formę kanoniczną (geokodowalną).
+
+        Np. mianownik 'Bataliony Chłopskie' → dopełniacz 'Batalionów Chłopskich'.
+        Bez zmian, gdy ulicy nie ma w STREET_ALIASES. Zwraca w polskiej normie
+        kapitalizacji (każde słowo z wielkiej).
+        """
+        if not street:
+            return street
+        canon = self.STREET_ALIASES.get(street.lower())
+        if not canon:
+            return street
+        return ' '.join(w.capitalize() for w in canon.split())
+
     def extract_from_whitelist(self, text: str) -> Optional[Dict[str, Optional[str]]]:
         """
         Fix #4 (2026-05-11): trzeci fallback parsera.
@@ -356,6 +379,15 @@ class AddressParser:
                     # przytulne mieszkanie, nie ul. Przytulna). Sygnał: bezpośrednio
                     # następujące złożenie "N-pokojowa/N-osobowy".
                     if occ and all(self._ADJ_ROOMCOUNT.match(text[m.end():m.end() + 20]) for m in occ):
+                        continue
+                    # FIX 2026-07-14: pomiń, gdy KAŻDE wystąpienie to "<nazwa> okolica"
+                    # ("Spokojna okolica" = spokojna dzielnica, nie ul. Spokojna) i NIE
+                    # jest wprowadzone prefiksem ulicy (ul./al. — wtedy to jednak adres).
+                    if occ and all(
+                        self._OKOLICA_AFTER.match(text[m.end():m.end() + 15])
+                        and not self._WL_PREFIX_BEFORE.search(text[:m.start()])
+                        for m in occ
+                    ):
                         continue
                     # FIX 2026-07-13: nazwa ulicy to rzeczownik własny — przyjmij tylko
                     # gdy słowo wystąpiło z WIELKIEJ litery ("na Spokojnej") LUB po
@@ -590,6 +622,9 @@ class AddressParser:
             # Normalizacja: usuwamy wielokrotne spacje
             street = ' '.join(street.split())
             number = ' '.join(number.split())
+            # FIX 2026-07-14: kanonizacja formy ulicy (mianownik→dopełniacz) PRZED
+            # zbudowaniem full_address, żeby geokoder dostał formę, którą zna Nominatim.
+            street = self._canonicalize_street(street)
             
             # NOWE: Buduj pełny adres z prefixem (jeśli jest)
             full_address = street
@@ -866,6 +901,8 @@ class AddressParser:
 
             # Normalizacja kapitalizacji — każde słowo z dużej litery
             street = ' '.join(w.capitalize() for w in street_words)
+            # FIX 2026-07-14: kanonizacja formy ulicy (mianownik→dopełniacz)
+            street = self._canonicalize_street(street)
 
             # Mapowanie prefiksu na formę używaną przez geocoder
             prefix_lower = prefix_raw.lower().rstrip('.')
