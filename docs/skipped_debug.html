@@ -168,7 +168,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     
         <div class="stat-card no_address">
           <div class="label">Brak adresu</div>
-          <div class="value">44</div>
+          <div class="value">46</div>
           <div class="sub">parser nie znalazł żadnej ulicy w opisie</div>
         </div>
         
@@ -186,7 +186,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         
         <div class="stat-card duplicate">
           <div class="label">Duplikaty</div>
-          <div class="value">3</div>
+          <div class="value">4</div>
           <div class="sub">ten sam pokój 2× w wynikach</div>
         </div>
         
@@ -201,14 +201,47 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="filter-bar">
     <label for="category-filter">Kategoria:</label>
     <select id="category-filter">
-      <option value="all">Wszystkie (59 próbek)</option><option value="no_address">Brak adresu (44)</option><option value="no_coords">Brak współrzędnych (11)</option><option value="excluded">Wykluczone (filtr) (0)</option><option value="duplicate">Duplikaty (3)</option><option value="no_price">Brak ceny (1)</option>
+      <option value="all">Wszystkie (62 próbek)</option><option value="no_address">Brak adresu (46)</option><option value="no_coords">Brak współrzędnych (11)</option><option value="excluded">Wykluczone (filtr) (0)</option><option value="duplicate">Duplikaty (4)</option><option value="no_price">Brak ceny (1)</option>
     </select>
     <label for="search-input">Szukaj:</label>
     <input type="text" id="search-input" placeholder="filtruj po tytule/opisie/URL...">
-    <span class="timestamp">Aktualizacja: 2026-07-15 16:42</span>
+    <span class="timestamp">Aktualizacja: 2026-07-15 21:52</span>
   </div>
 
   <div class="offer-list" id="offer-list">
+    
+    <div class="offer" data-category="duplicate" data-search="pokój 1-osobowy pieszo 3 min do up pl 12 min do umcs kul ">
+      <div class="offer-header">
+        <span class="badge duplicate">duplikat</span>
+        <div class="offer-title">Pokój 1-osobowy PIESZO 3 min do UP PL 12 min do UMCS KUL</div>
+        
+      </div>
+      
+      <div class="offer-meta"><span class="parsed-addr">parsed: "Letniej 2"</span></div>
+      
+        <div class="duplicate-compare">
+          <div class="duplicate-compare-title">
+            🔗 Porównaj oferty
+            <span class="similarity-pill">95.6% podobne</span>
+          </div>
+          <div class="duplicate-compare-grid">
+            <div class="duplicate-side this">
+              <div class="role-label">⚠️ Odrzucone (duplikat)</div>
+              <strong>Pokój 1-osobowy PIESZO 3 min do UP PL 12 min do UMCS KUL</strong>
+              <a href="https://www.olx.pl/d/oferta/pokoj-1-osobowy-pieszo-3-min-do-up-pl-12-min-do-umcs-kul-CID3-ID1boZe9.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="url">www.olx.pl/d/oferta/pokoj-1-osobowy-pieszo-3-min-do-up-pl-12-min-do-umcs-kul-CID3-ID1boZe9.html?search_reason=search%7Corganic ↗</a>
+              <div class="meta">parsed: Letniej 2 · cena: 1080 zł</div>
+            </div>
+            <div class="duplicate-arrow">≈</div>
+            <div class="duplicate-side original">
+              <div class="role-label">✅ Pozostawione na mapie</div>
+              <strong>ID: pokoj-1-osobowy-z-balkonem-pieszo-3-min-do-up-pl-12-min-do-umcs-CID3-ID1brY5B</strong>
+              <a href="https://www.olx.pl/d/oferta/pokoj-1-osobowy-z-balkonem-pieszo-3-min-do-up-pl-12-min-do-umcs-CID3-ID1brY5B.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="url">www.olx.pl/d/oferta/pokoj-1-osobowy-z-balkonem-pieszo-3-min-do-up-pl-12-min-do-umcs-CID3-ID1brY5B.html?search_reason=search%7Corganic ↗</a>
+              <div class="meta">adres: Letniej 2 · cena: 1080 zł</div>
+            </div>
+          </div>
+        </div>
+        
+    </div>
     
     <div class="offer" data-category="duplicate" data-search="pokój wieniawa ulica skautów ">
       <div class="offer-header">
@@ -331,6 +364,39 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       
     </div>
     
+    <div class="offer" data-category="no_address" data-search="pokój jednoosobowy blisko uczelni pokój jednoosobowy blisko uczelni lublin szukasz pokoju od października? mamy propozycje idealne dla studentów!zaczynasz studia, wracasz na uczelnię albo po prostu chcesz zmienić mieszkanie? napisz do nas — mamy dostępne pokoje w różnych lokalizacjach, blisko uczelni, komunikacji miejskiej i najważniejszych punktów w lublinie.w naszej ofercie znajdziesz zarówno spokojne mieszkania, idealne do nauki i odpoczynku, jak i miejsca z bardziej studencką atmosferą. dzięki różnym wariantom łatwiej dopasu">
+      <div class="offer-header">
+        <span class="badge no_address">brak adresu</span>
+        <div class="offer-title">Pokój jednoosobowy blisko uczelni</div>
+        <a href="https://www.olx.pl/d/oferta/pokoj-jednoosobowy-blisko-uczelni-CID3-ID1bqCc4.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+      </div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój jednoosobowy blisko uczelni Lublin Szukasz pokoju od października? Mamy propozycje idealne dla studentów!Zaczynasz studia, wracasz na uczelnię albo po prostu chcesz zmienić mieszkanie? Napisz do nas — mamy dostępne pokoje w różnych lokalizacjach, blisko uczelni, komunikacji miejskiej i najważniejszych punktów w Lublinie.W naszej ofercie znajdziesz zarówno spokojne mieszkania, idealne do nauki i odpoczynku, jak i miejsca z bardziej studencką atmosferą. Dzięki różnym wariantom łatwiej dopasu</div>
+      
+      
+    </div>
+    
+    <div class="offer" data-category="no_address" data-search="pokój na wynajem od pażdziernika, blisko umcs, kul, um pokój na wynajem od pażdziernika, blisko umcs, kul, um lublin szukasz pokoju od października? idealnie dla studentów!zaczynasz studia albo wracasz na uczelnię i szukasz pokoju na wynajem od października? napisz do nas, mamy dostępne różne propozycje pokoi dla studentów w wygodnych lokalizacjach.pokoje sprawdzą się dla osób, które chcą mieszkać blisko uczelni, komunikacji miejskiej i najważniejszych punktów w mieście. dostępne są różne opcje, zarówno dla osób szukających spokojnego miejsca do nau">
+      <div class="offer-header">
+        <span class="badge no_address">brak adresu</span>
+        <div class="offer-title">Pokój na wynajem od pażdziernika, blisko UMCS, KUL, UM</div>
+        <a href="https://www.olx.pl/d/oferta/pokoj-na-wynajem-od-pazdziernika-blisko-umcs-kul-um-CID3-ID1aUMC4.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+      </div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój na wynajem od pażdziernika, blisko UMCS, KUL, UM Lublin Szukasz pokoju od października? Idealnie dla studentów!Zaczynasz studia albo wracasz na uczelnię i szukasz pokoju na wynajem od października? Napisz do nas, mamy dostępne różne propozycje pokoi dla studentów w wygodnych lokalizacjach.Pokoje sprawdzą się dla osób, które chcą mieszkać blisko uczelni, komunikacji miejskiej i najważniejszych punktów w mieście. Dostępne są różne opcje, zarówno dla osób szukających spokojnego miejsca do nau</div>
+      
+      
+    </div>
+    
+    <div class="offer" data-category="no_address" data-search="dwa pokoje do wynajecia dwa pokoje do wynajecia lublin witam mam do wynajęcia dwa pokoje,na pietrze miesci sie trzy pokoje: jeden zamieszkaly przez chlopaka, jeden pokoj duzy ,drugi mniejszy ,osobne wejscie ,kuchnia łazienka do dyspozycji .zapraszam osoby które lubia spokoj i tylko zainteresowane  jest to dom jednorodzinny ,blisko przystanek, parking pod domem biurom dziekuje">
+      <div class="offer-header">
+        <span class="badge no_address">brak adresu</span>
+        <div class="offer-title">Dwa pokoje do wynajecia</div>
+        <a href="https://www.olx.pl/d/oferta/dwa-pokoje-do-wynajecia-CID3-ID1bmLtM.html?search_reason=search%7Cpromoted" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+      </div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Dwa pokoje do wynajecia Lublin Witam mam do wynajęcia dwa pokoje,Na pietrze miesci sie trzy pokoje: jeden zamieszkaly przez chlopaka, jeden pokoj duzy ,drugi mniejszy ,osobne wejscie ,kuchnia łazienka do dyspozycji .zapraszam osoby które lubia spokoj i tylko zainteresowane  Jest to dom jednorodzinny ,blisko przystanek, parking pod domem Biurom dziekuje</div>
+      
+      
+    </div>
+    
     <div class="offer" data-category="no_address" data-search="pokój dla studenta blisko uczelni ! pokój dla studenta blisko uczelni ! lublin jeśli szukasz swojego nowego miejsca do wynajmu od października to oferta idealna dla ciebie !wszystkie nasze mieszkania znajdują się w pobliżu najpopularniejszych lubelskich uczelni takich jak umcs, kul, um, up czy akademia wincentego pola  i są zamieszkiwane przez młode osoby.ponadto w pobliżu znajdziesz wiele punktów usługowych, sklepów, paczkomatów i przystanków komunikacji miejskiej.każdy pokój jest w pełni wyposażony, dostosowany do potrzeb studen">
       <div class="offer-header">
         <span class="badge no_address">brak adresu</span>
@@ -364,6 +430,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       
     </div>
     
+    <div class="offer" data-category="no_address" data-search="pokój w centrum - umcs, pl, up, um, pokój w centrum - umcs, pl, up, um, lublin świetna lokalizacja w centrum lublina!blisko politechnika, um, up, umcs, kul, galeria handlowa plaza, żabka, basen mosir, przystanki autubusowe i trolejbusowe.pokój jest z oknem skierowanym na podwórze oraz dobre nasłonecznienie.pokój jednoosobowy w mieszkaniu 5 pokojowym. (4 studentki mieszkają w pozostałych pokojach)wspólna kuchnia z płytą ceramiczną, mikrofalą i pojemną lodówką.łazienka: prysznic, umywalka + wcdodatkowa toaleta z umywalkąnajem na okr">
+      <div class="offer-header">
+        <span class="badge no_address">brak adresu</span>
+        <div class="offer-title">Pokój w centrum - UMCS, PL, UP, UM,</div>
+        <a href="https://www.olx.pl/d/oferta/pokoj-w-centrum-umcs-pl-up-um-CID3-ID1bpGFs.html?search_reason=search%7Cpromoted" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+      </div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój w centrum - UMCS, PL, UP, UM, Lublin Świetna lokalizacja w centrum Lublina!Blisko Politechnika, UM, UP, UMCS, KUL, galeria handlowa plaza, żabka, basen Mosir, przystanki autubusowe i trolejbusowe.Pokój jest z oknem skierowanym na podwórze oraz dobre nasłonecznienie.Pokój jednoosobowy w mieszkaniu 5 pokojowym. (4 studentki mieszkają w pozostałych pokojach)Wspólna kuchnia z płytą ceramiczną, mikrofalą i pojemną lodówką.Łazienka: prysznic, umywalka + wcDodatkowa toaleta z umywalkąNajem na okr</div>
+      
+      
+    </div>
+    
     <div class="offer" data-category="no_address" data-search="pokój dla studenta lublin pokój dla studenta lublin lublin szukasz pokoju od października? idealnie dla studentów!zaczynasz studia albo wracasz na uczelnię i szukasz pokoju na wynajem od października? napisz do nas, mamy dostępne różne propozycje pokoi dla studentów w wygodnych lokalizacjach.pokoje sprawdzą się dla osób, które chcą mieszkać blisko uczelni, komunikacji miejskiej i najważniejszych punktów w mieście. dostępne są różne opcje, zarówno dla osób szukających spokojnego miejsca do nauki, jak i dla tych, które chc">
       <div class="offer-header">
         <span class="badge no_address">brak adresu</span>
@@ -371,28 +448,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <a href="https://www.olx.pl/d/oferta/pokoj-dla-studenta-lublin-CID3-ID1boXg1.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
       </div>
       <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój dla studenta Lublin Lublin Szukasz pokoju od października? Idealnie dla studentów!Zaczynasz studia albo wracasz na uczelnię i szukasz pokoju na wynajem od października? Napisz do nas, mamy dostępne różne propozycje pokoi dla studentów w wygodnych lokalizacjach.Pokoje sprawdzą się dla osób, które chcą mieszkać blisko uczelni, komunikacji miejskiej i najważniejszych punktów w mieście. Dostępne są różne opcje, zarówno dla osób szukających spokojnego miejsca do nauki, jak i dla tych, które chc</div>
-      
-      
-    </div>
-    
-    <div class="offer" data-category="no_address" data-search="wynajmę pokój  duży wynajmę pokój  duży lublin witam mam do wynajęcia pokój w mieszkaniu 3 pokojowymwszystkie inf na smsa">
-      <div class="offer-header">
-        <span class="badge no_address">brak adresu</span>
-        <div class="offer-title">Wynajmę pokój  duży</div>
-        <a href="https://www.olx.pl/d/oferta/wynajme-pokoj-duzy-CID3-ID1bqwKc.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Wynajmę pokój  duży Lublin Witam mam do wynajęcia pokój w mieszkaniu 3 pokojowymWszystkie inf na smsa</div>
-      
-      
-    </div>
-    
-    <div class="offer" data-category="no_address" data-search="pokój na wynajem od pażdziernika, blisko umcs, kul, um pokój na wynajem od pażdziernika, blisko umcs, kul, um lublin szukasz pokoju od października? idealnie dla studentów!zaczynasz studia albo wracasz na uczelnię i szukasz pokoju na wynajem od października? napisz do nas, mamy dostępne różne propozycje pokoi dla studentów w wygodnych lokalizacjach.pokoje sprawdzą się dla osób, które chcą mieszkać blisko uczelni, komunikacji miejskiej i najważniejszych punktów w mieście. dostępne są różne opcje, zarówno dla osób szukających spokojnego miejsca do nau">
-      <div class="offer-header">
-        <span class="badge no_address">brak adresu</span>
-        <div class="offer-title">Pokój na wynajem od pażdziernika, blisko UMCS, KUL, UM</div>
-        <a href="https://www.olx.pl/d/oferta/pokoj-na-wynajem-od-pazdziernika-blisko-umcs-kul-um-CID3-ID1aUMC4.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój na wynajem od pażdziernika, blisko UMCS, KUL, UM Lublin Szukasz pokoju od października? Idealnie dla studentów!Zaczynasz studia albo wracasz na uczelnię i szukasz pokoju na wynajem od października? Napisz do nas, mamy dostępne różne propozycje pokoi dla studentów w wygodnych lokalizacjach.Pokoje sprawdzą się dla osób, które chcą mieszkać blisko uczelni, komunikacji miejskiej i najważniejszych punktów w mieście. Dostępne są różne opcje, zarówno dla osób szukających spokojnego miejsca do nau</div>
       
       
     </div>
@@ -419,68 +474,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       
     </div>
     
-    <div class="offer" data-category="no_address" data-search="mieszkanie 2-pokojowe mieszkanie 2-pokojowe lublin mieszkanie wykończone w wysokim standardzie, w pełni umeblowane i wyposażone w sprzęt rtv/agd.w spokojnej i bezpiecznej okolicy w otoczeniu zieleni.lokal znajduje się na 1 piętrze budynku mieszkalnego z dostępem do ogrodzonego ogrodu i z dobrym dojazdem do centrum.dwa pokoje, kuchnia, łazienka z toaletą, przedpokój.wyposażenie:w kuchni: zmywarka, lodówka, zamrażarka, kuchenka mikrofalowa, płyta grzewcza, zlew, okap, meble pod wymiar itd.w salonie: telewizor 55 cali, ">
+    <div class="offer" data-category="no_address" data-search="pokój dla studenta lublin pokój dla studenta lublin lublin szukasz pokoju od października? idealnie dla studentów!zaczynasz studia albo wracasz na uczelnię i szukasz pokoju na wynajem od października? napisz do nas, mamy dostępne różne propozycje pokoi dla studentów w wygodnych lokalizacjach.pokoje sprawdzą się dla osób, które chcą mieszkać blisko uczelni, komunikacji miejskiej i najważniejszych punktów w mieście. dostępne są różne opcje, zarówno dla osób szukających spokojnego miejsca do nauki, jak i dla tych, które chc">
       <div class="offer-header">
         <span class="badge no_address">brak adresu</span>
-        <div class="offer-title">Mieszkanie 2-pokojowe</div>
-        <a href="https://www.olx.pl/d/oferta/mieszkanie-2-pokojowe-CID3-ID1brAwS.html?search_reason=search%7Cpromoted" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+        <div class="offer-title">Pokój dla studenta Lublin</div>
+        <a href="https://www.olx.pl/d/oferta/pokoj-dla-studenta-lublin-CID3-ID1boXg1.html?search_reason=search%7Cpromoted" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
       </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Mieszkanie 2-pokojowe Lublin Mieszkanie wykończone w wysokim standardzie, w pełni umeblowane i wyposażone w sprzęt rtv/AGD.W spokojnej i bezpiecznej okolicy w otoczeniu zieleni.Lokal znajduje się na 1 piętrze budynku mieszkalnego z dostępem do ogrodzonego ogrodu i z dobrym dojazdem do Centrum.Dwa pokoje, kuchnia, łazienka z toaletą, przedpokój.Wyposażenie:W kuchni: zmywarka, lodówka, zamrażarka, kuchenka mikrofalowa, płyta grzewcza, zlew, okap, meble pod wymiar itd.W salonie: Telewizor 55 cali, </div>
-      
-      
-    </div>
-    
-    <div class="offer" data-category="no_address" data-search="pokój w centrum - umcs, pl, up, um, pokój w centrum - umcs, pl, up, um, lublin świetna lokalizacja w centrum lublina!blisko politechnika, um, up, umcs, kul, galeria handlowa plaza, żabka, basen mosir, przystanki autubusowe i trolejbusowe.pokój jest z oknem skierowanym na podwórze oraz dobre nasłonecznienie.pokój jednoosobowy w mieszkaniu 5 pokojowym. (4 studentki mieszkają w pozostałych pokojach)wspólna kuchnia z płytą ceramiczną, mikrofalą i pojemną lodówką.łazienka: prysznic, umywalka + wcdodatkowa toaleta z umywalkąnajem na okr">
-      <div class="offer-header">
-        <span class="badge no_address">brak adresu</span>
-        <div class="offer-title">Pokój w centrum - UMCS, PL, UP, UM,</div>
-        <a href="https://www.olx.pl/d/oferta/pokoj-w-centrum-umcs-pl-up-um-CID3-ID1bpGFs.html?search_reason=search%7Cpromoted" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój w centrum - UMCS, PL, UP, UM, Lublin Świetna lokalizacja w centrum Lublina!Blisko Politechnika, UM, UP, UMCS, KUL, galeria handlowa plaza, żabka, basen Mosir, przystanki autubusowe i trolejbusowe.Pokój jest z oknem skierowanym na podwórze oraz dobre nasłonecznienie.Pokój jednoosobowy w mieszkaniu 5 pokojowym. (4 studentki mieszkają w pozostałych pokojach)Wspólna kuchnia z płytą ceramiczną, mikrofalą i pojemną lodówką.Łazienka: prysznic, umywalka + wcDodatkowa toaleta z umywalkąNajem na okr</div>
-      
-      
-    </div>
-    
-    <div class="offer" data-category="no_address" data-search="duży pokój z balkonem dla pary lub 1os.  rondo krwiodawców duży pokój z balkonem dla pary lub 1os.  rondo krwiodawców lublin wynajmę duży pokój z balkonem dla pary, w mieszkaniu 4 pokojowym.w pokoju jest biurko oraz tv.pokój dostępny od ręki.pokój zamykany na klucz.blisko ronda krwiodawców, blisko umcs, kulcena dla pary 1350 zł miesięcznie + prąd wg. rachunków dzielony na pozostałe pokojecena dla 1 os. 1200 zł + prąd wg. rachunków dzielony na pozostałe pokoje.internet, woda i gaz w cenie.">
-      <div class="offer-header">
-        <span class="badge no_address">brak adresu</span>
-        <div class="offer-title">Duży pokój z balkonem dla pary lub 1os.  Rondo Krwiodawców</div>
-        <a href="https://www.olx.pl/d/oferta/duzy-pokoj-z-balkonem-dla-pary-lub-1os-rondo-krwiodawcow-CID3-ID1bg7fq.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Duży pokój z balkonem dla pary lub 1os.  Rondo Krwiodawców Lublin Wynajmę duży pokój z balkonem dla pary, w mieszkaniu 4 pokojowym.W pokoju jest biurko oraz TV.Pokój dostępny od ręki.Pokój zamykany na klucz.Blisko ronda Krwiodawców, blisko UMCS, KULCena dla pary 1350 zł miesięcznie + prąd wg. rachunków dzielony na pozostałe pokojeCena dla 1 os. 1200 zł + prąd wg. rachunków dzielony na pozostałe pokoje.Internet, woda i gaz w cenie.</div>
-      
-      
-    </div>
-    
-    <div class="offer" data-category="no_address" data-search="2 pokoje w domku dla studentek lub uczennic 2 pokoje w domku dla studentek lub uczennic lublin piętro w domku przy ul. e. plater. mieszkanie składa się z trzech pokoi z kuchnią i łazienką. umeblowane i wyposażone w podstawowe sprzęty. w kuchni duża pojemna lodówka, piekarnik, mikrofala, opiekacz itd. w łazience kabina natryskowa, pralka automatyczna. aktualnie jeden pokój jest zajęty przez studentkę ii roku. z pozostałych dwóch pokoi jeden jest większy i ew. mogą mieszkać dwie osoby. do opłaty za wynajęcie pokoju doliczam przypadającą czę">
-      <div class="offer-header">
-        <span class="badge no_address">brak adresu</span>
-        <div class="offer-title">2 pokoje w domku dla studentek lub uczennic</div>
-        <a href="https://www.olx.pl/d/oferta/2-pokoje-w-domku-dla-studentek-lub-uczennic-CID3-ID1bqAZk.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">2 pokoje w domku dla studentek lub uczennic Lublin Piętro w domku przy ul. E. Plater. Mieszkanie składa się z trzech pokoi z kuchnią i łazienką. Umeblowane i wyposażone w podstawowe sprzęty. W kuchni duża pojemna lodówka, piekarnik, mikrofala, opiekacz itd. W łazience kabina natryskowa, pralka automatyczna. Aktualnie jeden pokój jest zajęty przez studentkę II roku. Z pozostałych dwóch pokoi jeden jest większy i ew. mogą mieszkać dwie osoby. Do opłaty za wynajęcie pokoju doliczam przypadającą czę</div>
-      
-      
-    </div>
-    
-    <div class="offer" data-category="no_address" data-search="dwa pokoje do wynajecia dwa pokoje do wynajecia lublin witam mam do wynajęcia dwa pokoje,na pietrze miesci sie trzy pokoje: jeden zamieszkaly przez chlopaka, jeden pokoj duzy ,drugi mniejszy ,osobne wejscie ,kuchnia łazienka do dyspozycji .zapraszam osoby które lubia spokoj i tylko zainteresowane  jest to dom jednorodzinny ,blisko przystanek, parking pod domem biurom dziekuje">
-      <div class="offer-header">
-        <span class="badge no_address">brak adresu</span>
-        <div class="offer-title">Dwa pokoje do wynajecia</div>
-        <a href="https://www.olx.pl/d/oferta/dwa-pokoje-do-wynajecia-CID3-ID1bmLtM.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Dwa pokoje do wynajecia Lublin Witam mam do wynajęcia dwa pokoje,Na pietrze miesci sie trzy pokoje: jeden zamieszkaly przez chlopaka, jeden pokoj duzy ,drugi mniejszy ,osobne wejscie ,kuchnia łazienka do dyspozycji .zapraszam osoby które lubia spokoj i tylko zainteresowane  Jest to dom jednorodzinny ,blisko przystanek, parking pod domem Biurom dziekuje</div>
-      
-      
-    </div>
-    
-    <div class="offer" data-category="no_address" data-search="pokój w domu jednorodzinnym pokój w domu jednorodzinnym lublin oferuję do wynajęcia umeblowany jednoosobowy pokój. pokój znajduje się w jasnym wnętrzu z białymi ścianami. przez duże okna wpada dużo naturalnego światła. z okna roztacza się widok na ogród, co sprzyja relaksowi. mieszkanie ma drewniane podłogi, które nadają przytulny klimat. idealne dla osób pracujących, które cenią sobie komfort i spokojne otoczenie. nie czekaj, zadzwoń i umów się na prezentację pokoju!">
-      <div class="offer-header">
-        <span class="badge no_address">brak adresu</span>
-        <div class="offer-title">Pokój w domu jednorodzinnym</div>
-        <a href="https://www.olx.pl/d/oferta/pokoj-w-domu-jednorodzinnym-CID3-ID1bq9ER.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój w domu jednorodzinnym Lublin Oferuję do wynajęcia umeblowany jednoosobowy pokój. Pokój znajduje się w jasnym wnętrzu z białymi ścianami. Przez duże okna wpada dużo naturalnego światła. Z okna roztacza się widok na ogród, co sprzyja relaksowi. Mieszkanie ma drewniane podłogi, które nadają przytulny klimat. Idealne dla osób pracujących, które cenią sobie komfort i spokojne otoczenie. Nie czekaj, zadzwoń i umów się na prezentację pokoju!</div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój dla studenta Lublin Lublin Szukasz pokoju od października? Idealnie dla studentów!Zaczynasz studia albo wracasz na uczelnię i szukasz pokoju na wynajem od października? Napisz do nas, mamy dostępne różne propozycje pokoi dla studentów w wygodnych lokalizacjach.Pokoje sprawdzą się dla osób, które chcą mieszkać blisko uczelni, komunikacji miejskiej i najważniejszych punktów w mieście. Dostępne są różne opcje, zarówno dla osób szukających spokojnego miejsca do nauki, jak i dla tych, które chc</div>
       
       
     </div>
@@ -496,13 +496,57 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       
     </div>
     
-    <div class="offer" data-category="no_address" data-search="pokój dla studenta blisko uczelni ! pokój dla studenta blisko uczelni ! lublin jeśli szukasz swojego nowego miejsca do wynajmu od października to oferta idealna dla ciebie !wszystkie nasze mieszkania znajdują się w pobliżu najpopularniejszych lubelskich uczelni takich jak umcs, kul, um, up czy akademia wincentego pola  i są zamieszkiwane przez młode osoby.ponadto w pobliżu znajdziesz wiele punktów usługowych, sklepów, paczkomatów i przystanków komunikacji miejskiej.każdy pokój jest w pełni wyposażony, dostosowany do potrzeb studen">
+    <div class="offer" data-category="no_address" data-search="wynajmę pokój  duży wynajmę pokój  duży lublin witam mam do wynajęcia pokój w mieszkaniu 3 pokojowymwszystkie inf na smsa">
       <div class="offer-header">
         <span class="badge no_address">brak adresu</span>
-        <div class="offer-title">Pokój dla studenta blisko uczelni !</div>
-        <a href="https://www.olx.pl/d/oferta/pokoj-dla-studenta-blisko-uczelni-CID3-ID1brlr7.html?search_reason=search%7Cpromoted" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+        <div class="offer-title">Wynajmę pokój  duży</div>
+        <a href="https://www.olx.pl/d/oferta/wynajme-pokoj-duzy-CID3-ID1bqwKc.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
       </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój dla studenta blisko uczelni ! Lublin Jeśli szukasz swojego nowego miejsca do wynajmu od października to oferta idealna dla ciebie !Wszystkie nasze mieszkania znajdują się w pobliżu najpopularniejszych lubelskich uczelni takich jak UMCS, KUL, UM, UP czy Akademia Wincentego Pola  i są zamieszkiwane przez młode osoby.Ponadto w pobliżu znajdziesz wiele punktów usługowych, sklepów, paczkomatów i przystanków komunikacji miejskiej.Każdy pokój jest w pełni wyposażony, dostosowany do potrzeb studen</div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Wynajmę pokój  duży Lublin Witam mam do wynajęcia pokój w mieszkaniu 3 pokojowymWszystkie inf na smsa</div>
+      
+      
+    </div>
+    
+    <div class="offer" data-category="no_address" data-search="duży pokój z balkonem dla pary lub 1os.  rondo krwiodawców duży pokój z balkonem dla pary lub 1os.  rondo krwiodawców lublin wynajmę duży pokój z balkonem dla pary, w mieszkaniu 4 pokojowym.w pokoju jest biurko oraz tv.pokój dostępny od ręki.pokój zamykany na klucz.blisko ronda krwiodawców, blisko umcs, kulcena dla pary 1350 zł miesięcznie + prąd wg. rachunków dzielony na pozostałe pokojecena dla 1 os. 1200 zł + prąd wg. rachunków dzielony na pozostałe pokoje.internet, woda i gaz w cenie.">
+      <div class="offer-header">
+        <span class="badge no_address">brak adresu</span>
+        <div class="offer-title">Duży pokój z balkonem dla pary lub 1os.  Rondo Krwiodawców</div>
+        <a href="https://www.olx.pl/d/oferta/duzy-pokoj-z-balkonem-dla-pary-lub-1os-rondo-krwiodawcow-CID3-ID1bg7fq.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+      </div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Duży pokój z balkonem dla pary lub 1os.  Rondo Krwiodawców Lublin Wynajmę duży pokój z balkonem dla pary, w mieszkaniu 4 pokojowym.W pokoju jest biurko oraz TV.Pokój dostępny od ręki.Pokój zamykany na klucz.Blisko ronda Krwiodawców, blisko UMCS, KULCena dla pary 1350 zł miesięcznie + prąd wg. rachunków dzielony na pozostałe pokojeCena dla 1 os. 1200 zł + prąd wg. rachunków dzielony na pozostałe pokoje.Internet, woda i gaz w cenie.</div>
+      
+      
+    </div>
+    
+    <div class="offer" data-category="no_address" data-search="dwa pokoje do wynajecia dwa pokoje do wynajecia lublin witam mam do wynajęcia dwa pokoje,na pietrze miesci sie trzy pokoje: jeden zamieszkaly przez chlopaka, jeden pokoj duzy ,drugi mniejszy ,osobne wejscie ,kuchnia łazienka do dyspozycji .zapraszam osoby które lubia spokoj i tylko zainteresowane  jest to dom jednorodzinny ,blisko przystanek, parking pod domem biurom dziekuje">
+      <div class="offer-header">
+        <span class="badge no_address">brak adresu</span>
+        <div class="offer-title">Dwa pokoje do wynajecia</div>
+        <a href="https://www.olx.pl/d/oferta/dwa-pokoje-do-wynajecia-CID3-ID1bmLtM.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+      </div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Dwa pokoje do wynajecia Lublin Witam mam do wynajęcia dwa pokoje,Na pietrze miesci sie trzy pokoje: jeden zamieszkaly przez chlopaka, jeden pokoj duzy ,drugi mniejszy ,osobne wejscie ,kuchnia łazienka do dyspozycji .zapraszam osoby które lubia spokoj i tylko zainteresowane  Jest to dom jednorodzinny ,blisko przystanek, parking pod domem Biurom dziekuje</div>
+      
+      
+    </div>
+    
+    <div class="offer" data-category="no_address" data-search="2 pokoje w domku dla studentek lub uczennic 2 pokoje w domku dla studentek lub uczennic lublin piętro w domku przy ul. e. plater. mieszkanie składa się z trzech pokoi z kuchnią i łazienką. umeblowane i wyposażone w podstawowe sprzęty. w kuchni duża pojemna lodówka, piekarnik, mikrofala, opiekacz itd. w łazience kabina natryskowa, pralka automatyczna. aktualnie jeden pokój jest zajęty przez studentkę ii roku. z pozostałych dwóch pokoi jeden jest większy i ew. mogą mieszkać dwie osoby. do opłaty za wynajęcie pokoju doliczam przypadającą czę">
+      <div class="offer-header">
+        <span class="badge no_address">brak adresu</span>
+        <div class="offer-title">2 pokoje w domku dla studentek lub uczennic</div>
+        <a href="https://www.olx.pl/d/oferta/2-pokoje-w-domku-dla-studentek-lub-uczennic-CID3-ID1bqAZk.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+      </div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">2 pokoje w domku dla studentek lub uczennic Lublin Piętro w domku przy ul. E. Plater. Mieszkanie składa się z trzech pokoi z kuchnią i łazienką. Umeblowane i wyposażone w podstawowe sprzęty. W kuchni duża pojemna lodówka, piekarnik, mikrofala, opiekacz itd. W łazience kabina natryskowa, pralka automatyczna. Aktualnie jeden pokój jest zajęty przez studentkę II roku. Z pozostałych dwóch pokoi jeden jest większy i ew. mogą mieszkać dwie osoby. Do opłaty za wynajęcie pokoju doliczam przypadającą czę</div>
+      
+      
+    </div>
+    
+    <div class="offer" data-category="no_address" data-search="kawalerka 25m² do wynajecia kawalerka 25m² do wynajecia lublin wynajmę kawalerkę 25m² dla pary lub samotnej osoby. wszystkie media, światłowód, pełne umeblowanie, doskonała lokalizacja, do wynajęcia od zaraz.">
+      <div class="offer-header">
+        <span class="badge no_address">brak adresu</span>
+        <div class="offer-title">Kawalerka 25m² do wynajecia</div>
+        <a href="https://www.olx.pl/d/oferta/kawalerka-25m-do-wynajecia-CID3-ID1bsXO1.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+      </div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Kawalerka 25m² do wynajecia Lublin Wynajmę kawalerkę 25m² dla pary lub samotnej osoby. Wszystkie media, światłowód, pełne umeblowanie, doskonała lokalizacja, do wynajęcia od zaraz.</div>
       
       
     </div>
@@ -518,35 +562,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       
     </div>
     
-    <div class="offer" data-category="no_address" data-search="wynajmę pokój w mieszkaniu studenckim blisko kul, umcs wynajmę pokój w mieszkaniu studenckim blisko kul, umcs lublin oferuję do wynajęcia 2 umeblowane pokoje jednoosobowy, idealne dla kobiet/ studentów.pokoje znajdują się w komfortowym mieszkaniu ze świeżą wyremontowaną łazienką, kuchnią i przedpokojem (wymieniona cała armatura, instalacje elektryczne).mieszkanie usytuowane jest w atrakcyjnej lokalizacji, blisko centrum. w pobliżu znajdziesz pełną infrastrukturę osiedlową oraz bardzo dobre połączenie komunikacyjne do centrum lub na uczelnię umcs/ ku">
+    <div class="offer" data-category="no_address" data-search="pokój w domu jednorodzinnym pokój w domu jednorodzinnym lublin oferuję do wynajęcia umeblowany jednoosobowy pokój. pokój znajduje się w jasnym wnętrzu z białymi ścianami. przez duże okna wpada dużo naturalnego światła. z okna roztacza się widok na ogród, co sprzyja relaksowi. mieszkanie ma drewniane podłogi, które nadają przytulny klimat. idealne dla osób pracujących, które cenią sobie komfort i spokojne otoczenie. nie czekaj, zadzwoń i umów się na prezentację pokoju!">
       <div class="offer-header">
         <span class="badge no_address">brak adresu</span>
-        <div class="offer-title">Wynajmę pokój w mieszkaniu studenckim blisko KUL, UMCS</div>
-        <a href="https://www.olx.pl/d/oferta/wynajme-pokoj-w-mieszkaniu-studenckim-blisko-kul-umcs-CID3-ID1bhaR1.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+        <div class="offer-title">Pokój w domu jednorodzinnym</div>
+        <a href="https://www.olx.pl/d/oferta/pokoj-w-domu-jednorodzinnym-CID3-ID1bq9ER.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
       </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Wynajmę pokój w mieszkaniu studenckim blisko KUL, UMCS Lublin Oferuję do wynajęcia 2 umeblowane pokoje jednoosobowy, idealne dla kobiet/ studentów.Pokoje znajdują się w komfortowym mieszkaniu ze świeżą wyremontowaną łazienką, kuchnią i przedpokojem (wymieniona cała armatura, instalacje elektryczne).Mieszkanie usytuowane jest w atrakcyjnej lokalizacji, blisko centrum. W pobliżu znajdziesz pełną infrastrukturę osiedlową oraz bardzo dobre połączenie komunikacyjne do centrum lub na uczelnię UMCS/ KU</div>
-      
-      
-    </div>
-    
-    <div class="offer" data-category="no_address" data-search="pokój dla studenta lublin pokój dla studenta lublin lublin szukasz pokoju od października? idealnie dla studentów!zaczynasz studia albo wracasz na uczelnię i szukasz pokoju na wynajem od października? napisz do nas, mamy dostępne różne propozycje pokoi dla studentów w wygodnych lokalizacjach.pokoje sprawdzą się dla osób, które chcą mieszkać blisko uczelni, komunikacji miejskiej i najważniejszych punktów w mieście. dostępne są różne opcje, zarówno dla osób szukających spokojnego miejsca do nauki, jak i dla tych, które chc">
-      <div class="offer-header">
-        <span class="badge no_address">brak adresu</span>
-        <div class="offer-title">Pokój dla studenta Lublin</div>
-        <a href="https://www.olx.pl/d/oferta/pokoj-dla-studenta-lublin-CID3-ID1boXg1.html?search_reason=search%7Cpromoted" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój dla studenta Lublin Lublin Szukasz pokoju od października? Idealnie dla studentów!Zaczynasz studia albo wracasz na uczelnię i szukasz pokoju na wynajem od października? Napisz do nas, mamy dostępne różne propozycje pokoi dla studentów w wygodnych lokalizacjach.Pokoje sprawdzą się dla osób, które chcą mieszkać blisko uczelni, komunikacji miejskiej i najważniejszych punktów w mieście. Dostępne są różne opcje, zarówno dla osób szukających spokojnego miejsca do nauki, jak i dla tych, które chc</div>
-      
-      
-    </div>
-    
-    <div class="offer" data-category="no_address" data-search="pokój jednoosobowy blisko uczelni pokój jednoosobowy blisko uczelni lublin szukasz pokoju od października? mamy propozycje idealne dla studentów!zaczynasz studia, wracasz na uczelnię albo po prostu chcesz zmienić mieszkanie? napisz do nas — mamy dostępne pokoje w różnych lokalizacjach, blisko uczelni, komunikacji miejskiej i najważniejszych punktów w lublinie.w naszej ofercie znajdziesz zarówno spokojne mieszkania, idealne do nauki i odpoczynku, jak i miejsca z bardziej studencką atmosferą. dzięki różnym wariantom łatwiej dopasu">
-      <div class="offer-header">
-        <span class="badge no_address">brak adresu</span>
-        <div class="offer-title">Pokój jednoosobowy blisko uczelni</div>
-        <a href="https://www.olx.pl/d/oferta/pokoj-jednoosobowy-blisko-uczelni-CID3-ID1bqCc4.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój jednoosobowy blisko uczelni Lublin Szukasz pokoju od października? Mamy propozycje idealne dla studentów!Zaczynasz studia, wracasz na uczelnię albo po prostu chcesz zmienić mieszkanie? Napisz do nas — mamy dostępne pokoje w różnych lokalizacjach, blisko uczelni, komunikacji miejskiej i najważniejszych punktów w Lublinie.W naszej ofercie znajdziesz zarówno spokojne mieszkania, idealne do nauki i odpoczynku, jak i miejsca z bardziej studencką atmosferą. Dzięki różnym wariantom łatwiej dopasu</div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój w domu jednorodzinnym Lublin Oferuję do wynajęcia umeblowany jednoosobowy pokój. Pokój znajduje się w jasnym wnętrzu z białymi ścianami. Przez duże okna wpada dużo naturalnego światła. Z okna roztacza się widok na ogród, co sprzyja relaksowi. Mieszkanie ma drewniane podłogi, które nadają przytulny klimat. Idealne dla osób pracujących, które cenią sobie komfort i spokojne otoczenie. Nie czekaj, zadzwoń i umów się na prezentację pokoju!</div>
       
       
     </div>
@@ -562,6 +584,28 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       
     </div>
     
+    <div class="offer" data-category="no_address" data-search="pokój jednoosobowy blisko uczelni pokój jednoosobowy blisko uczelni lublin szukasz pokoju od października? mamy propozycje idealne dla studentów!zaczynasz studia, wracasz na uczelnię albo po prostu chcesz zmienić mieszkanie? napisz do nas — mamy dostępne pokoje w różnych lokalizacjach, blisko uczelni, komunikacji miejskiej i najważniejszych punktów w lublinie.w naszej ofercie znajdziesz zarówno spokojne mieszkania, idealne do nauki i odpoczynku, jak i miejsca z bardziej studencką atmosferą. dzięki różnym wariantom łatwiej dopasu">
+      <div class="offer-header">
+        <span class="badge no_address">brak adresu</span>
+        <div class="offer-title">Pokój jednoosobowy blisko uczelni</div>
+        <a href="https://www.olx.pl/d/oferta/pokoj-jednoosobowy-blisko-uczelni-CID3-ID1bqCc4.html?search_reason=search%7Cpromoted" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+      </div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój jednoosobowy blisko uczelni Lublin Szukasz pokoju od października? Mamy propozycje idealne dla studentów!Zaczynasz studia, wracasz na uczelnię albo po prostu chcesz zmienić mieszkanie? Napisz do nas — mamy dostępne pokoje w różnych lokalizacjach, blisko uczelni, komunikacji miejskiej i najważniejszych punktów w Lublinie.W naszej ofercie znajdziesz zarówno spokojne mieszkania, idealne do nauki i odpoczynku, jak i miejsca z bardziej studencką atmosferą. Dzięki różnym wariantom łatwiej dopasu</div>
+      
+      
+    </div>
+    
+    <div class="offer" data-category="no_address" data-search="pokój dla studenta blisko uczelni ! pokój dla studenta blisko uczelni ! lublin jeśli szukasz swojego nowego miejsca do wynajmu od października to oferta idealna dla ciebie !wszystkie nasze mieszkania znajdują się w pobliżu najpopularniejszych lubelskich uczelni takich jak umcs, kul, um, up czy akademia wincentego pola  i są zamieszkiwane przez młode osoby.ponadto w pobliżu znajdziesz wiele punktów usługowych, sklepów, paczkomatów i przystanków komunikacji miejskiej.każdy pokój jest w pełni wyposażony, dostosowany do potrzeb studen">
+      <div class="offer-header">
+        <span class="badge no_address">brak adresu</span>
+        <div class="offer-title">Pokój dla studenta blisko uczelni !</div>
+        <a href="https://www.olx.pl/d/oferta/pokoj-dla-studenta-blisko-uczelni-CID3-ID1brlr7.html?search_reason=search%7Cpromoted" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+      </div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój dla studenta blisko uczelni ! Lublin Jeśli szukasz swojego nowego miejsca do wynajmu od października to oferta idealna dla ciebie !Wszystkie nasze mieszkania znajdują się w pobliżu najpopularniejszych lubelskich uczelni takich jak UMCS, KUL, UM, UP czy Akademia Wincentego Pola  i są zamieszkiwane przez młode osoby.Ponadto w pobliżu znajdziesz wiele punktów usługowych, sklepów, paczkomatów i przystanków komunikacji miejskiej.Każdy pokój jest w pełni wyposażony, dostosowany do potrzeb studen</div>
+      
+      
+    </div>
+    
     <div class="offer" data-category="no_address" data-search="jednoosobowy pokój w ogrodzonym bloku blisko um jednoosobowy pokój w ogrodzonym bloku blisko um lublin do wynajęcia jasny, umeblowany pokój w komfortowym, 3-pokojowym mieszkaniu.nieruchomość znajduje się w kameralnym, małym bloku, co gwarantuje spokój i prywatność.największe atuty oferty:bezpieczeństwo i prywatność: teren wokół bloku jest w całości ogrodzony.parking w cenie: do dyspozycji mieszkańców jest prywatna działka, na której bez problemu i bezpiecznie zaparkujesz samochód.świetna lokalizacja: idealny punkt dla studentów kierunków medy">
       <div class="offer-header">
         <span class="badge no_address">brak adresu</span>
@@ -569,6 +613,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <a href="https://www.olx.pl/d/oferta/jednoosobowy-pokoj-w-ogrodzonym-bloku-blisko-um-CID3-ID1bbfXz.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
       </div>
       <div class="offer-desc" onclick="this.classList.toggle('expanded')">Jednoosobowy pokój w ogrodzonym bloku blisko UM Lublin Do wynajęcia jasny, umeblowany pokój w komfortowym, 3-pokojowym mieszkaniu.Nieruchomość znajduje się w kameralnym, małym bloku, co gwarantuje spokój i prywatność.Największe atuty oferty:Bezpieczeństwo i prywatność: Teren wokół bloku jest w całości ogrodzony.Parking w cenie: Do dyspozycji mieszkańców jest prywatna działka, na której bez problemu i bezpiecznie zaparkujesz samochód.Świetna lokalizacja: Idealny punkt dla studentów kierunków medy</div>
+      
+      
+    </div>
+    
+    <div class="offer" data-category="no_address" data-search="mieszkanie 2-pokojowe mieszkanie 2-pokojowe lublin mieszkanie wykończone w wysokim standardzie, w pełni umeblowane i wyposażone w sprzęt rtv/agd.w spokojnej i bezpiecznej okolicy w otoczeniu zieleni.lokal znajduje się na 1 piętrze budynku mieszkalnego z dostępem do ogrodzonego ogrodu i z dobrym dojazdem do centrum.dwa pokoje, kuchnia, łazienka z toaletą, przedpokój.wyposażenie:w kuchni: zmywarka, lodówka, zamrażarka, kuchenka mikrofalowa, płyta grzewcza, zlew, okap, meble pod wymiar itd.w salonie: telewizor 55 cali, ">
+      <div class="offer-header">
+        <span class="badge no_address">brak adresu</span>
+        <div class="offer-title">Mieszkanie 2-pokojowe</div>
+        <a href="https://www.olx.pl/d/oferta/mieszkanie-2-pokojowe-CID3-ID1brAwS.html?search_reason=search%7Cpromoted" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+      </div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Mieszkanie 2-pokojowe Lublin Mieszkanie wykończone w wysokim standardzie, w pełni umeblowane i wyposażone w sprzęt rtv/AGD.W spokojnej i bezpiecznej okolicy w otoczeniu zieleni.Lokal znajduje się na 1 piętrze budynku mieszkalnego z dostępem do ogrodzonego ogrodu i z dobrym dojazdem do Centrum.Dwa pokoje, kuchnia, łazienka z toaletą, przedpokój.Wyposażenie:W kuchni: zmywarka, lodówka, zamrażarka, kuchenka mikrofalowa, płyta grzewcza, zlew, okap, meble pod wymiar itd.W salonie: Telewizor 55 cali, </div>
       
       
     </div>
@@ -595,17 +650,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       
     </div>
     
-    <div class="offer" data-category="no_address" data-search="pokój jednoosobowy blisko uczelni pokój jednoosobowy blisko uczelni lublin szukasz pokoju od października? mamy propozycje idealne dla studentów!zaczynasz studia, wracasz na uczelnię albo po prostu chcesz zmienić mieszkanie? napisz do nas — mamy dostępne pokoje w różnych lokalizacjach, blisko uczelni, komunikacji miejskiej i najważniejszych punktów w lublinie.w naszej ofercie znajdziesz zarówno spokojne mieszkania, idealne do nauki i odpoczynku, jak i miejsca z bardziej studencką atmosferą. dzięki różnym wariantom łatwiej dopasu">
-      <div class="offer-header">
-        <span class="badge no_address">brak adresu</span>
-        <div class="offer-title">Pokój jednoosobowy blisko uczelni</div>
-        <a href="https://www.olx.pl/d/oferta/pokoj-jednoosobowy-blisko-uczelni-CID3-ID1bqCc4.html?search_reason=search%7Cpromoted" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój jednoosobowy blisko uczelni Lublin Szukasz pokoju od października? Mamy propozycje idealne dla studentów!Zaczynasz studia, wracasz na uczelnię albo po prostu chcesz zmienić mieszkanie? Napisz do nas — mamy dostępne pokoje w różnych lokalizacjach, blisko uczelni, komunikacji miejskiej i najważniejszych punktów w Lublinie.W naszej ofercie znajdziesz zarówno spokojne mieszkania, idealne do nauki i odpoczynku, jak i miejsca z bardziej studencką atmosferą. Dzięki różnym wariantom łatwiej dopasu</div>
-      
-      
-    </div>
-    
     <div class="offer" data-category="no_address" data-search="pokój jednoosobowy pokój jednoosobowy lublin oferuję pokój do wynajęcia w dobrej lokalizacji blisko miasteczka akademickiego. pokój jest umeblowany i gotowy do wprowadzenia. kuchnia w pełni wyposażona z aneksem jadalnym. łazienka wyposażona jest w prysznic, pralkę oraz podstawowe udogodnienia. koszt wynajmu to 850 pln. mieszkanie jest 3 pokojowe z dużym przestrzennym holem. ogrzewanie z sieci i internet w cenie wynajmu. zachęcam do kontaktu i umówienia się na oglądanie pokoju!">
       <div class="offer-header">
         <span class="badge no_address">brak adresu</span>
@@ -624,6 +668,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <a href="https://www.olx.pl/d/oferta/wynajme-1-os-pokoj-w-wysokim-standardzie-w-centrum-lublina-CID3-ID14ZgTq.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
       </div>
       <div class="offer-desc" onclick="this.classList.toggle('expanded')">Wynajmę 1-os pokój w wysokim standardzie w centrum Lublina Lublin Wynajmę jednoosobowy, przestronny, nieprzechodni pokój, zamykany na klucz. Do pokoju przynależy bardzo duży balkon, gdzie można się zrelaksować. W mieszkanie sa 3-pokojowe jednoosobowe wyposażone w nowe meble. Kuchnia i łazienka w zabudowie meblowej. Blok jest na nowym, zamkniętym i cichym osiedlu. W pobliżu znajdziesz atrakcyjne tereny do spaceru.Z racji  bardzo dobrej lokalizacji w centrum miasta, nie musisz martwić się o komuni</div>
+      
+      
+    </div>
+    
+    <div class="offer" data-category="no_address" data-search="wynajmę pokój w mieszkaniu studenckim blisko kul, umcs wynajmę pokój w mieszkaniu studenckim blisko kul, umcs lublin oferuję do wynajęcia 2 umeblowane pokoje jednoosobowy, idealne dla kobiet/ studentów.pokoje znajdują się w komfortowym mieszkaniu ze świeżą wyremontowaną łazienką, kuchnią i przedpokojem (wymieniona cała armatura, instalacje elektryczne).mieszkanie usytuowane jest w atrakcyjnej lokalizacji, blisko centrum. w pobliżu znajdziesz pełną infrastrukturę osiedlową oraz bardzo dobre połączenie komunikacyjne do centrum lub na uczelnię umcs/ ku">
+      <div class="offer-header">
+        <span class="badge no_address">brak adresu</span>
+        <div class="offer-title">Wynajmę pokój w mieszkaniu studenckim blisko KUL, UMCS</div>
+        <a href="https://www.olx.pl/d/oferta/wynajme-pokoj-w-mieszkaniu-studenckim-blisko-kul-umcs-CID3-ID1bhaR1.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+      </div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Wynajmę pokój w mieszkaniu studenckim blisko KUL, UMCS Lublin Oferuję do wynajęcia 2 umeblowane pokoje jednoosobowy, idealne dla kobiet/ studentów.Pokoje znajdują się w komfortowym mieszkaniu ze świeżą wyremontowaną łazienką, kuchnią i przedpokojem (wymieniona cała armatura, instalacje elektryczne).Mieszkanie usytuowane jest w atrakcyjnej lokalizacji, blisko centrum. W pobliżu znajdziesz pełną infrastrukturę osiedlową oraz bardzo dobre połączenie komunikacyjne do centrum lub na uczelnię UMCS/ KU</div>
       
       
     </div>
@@ -793,17 +848,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       
     </div>
     
-    <div class="offer" data-category="no_coords" data-search="pokój na wynajem dla studenta - wszystkie opłaty w cenie - blisko uczelni umcs, kul, up - miasteczko akademickie lublin - w pełni umeblowane + agd pokój na wynajem dla studenta - wszystkie opłaty w cenie - blisko uczelni umcs, kul, up - miasteczko akademickie lublin - w pełni umeblowane + agd lublin pokoje 1-osobowe dla studentów – miasteczko akademickie, lublindo wynajęcia komfortowe, w pełni umeblowane pokoje 1-osobowe w mieszkaniach 4- i 5-pokojowych. w pełni wyposażone w agd.każde mieszkanie oferuje:• 4 lub 5 pokoi,• 2 łazienki,• w pełni wyposażoną kuchnię,• pralkę.świetna lokalizacja – miasteczko akademickie:• ok. 5 minut pieszo do re">
-      <div class="offer-header">
-        <span class="badge no_coords">brak współrzędnych</span>
-        <div class="offer-title">Pokój na wynajem dla studenta - wszystkie opłaty w cenie - blisko uczelni UMCS, KUL, UP - miasteczko akademickie Lublin - w pełni umeblowane + AGD</div>
-        <a href="https://www.olx.pl/d/oferta/pokoj-na-wynajem-dla-studenta-wszystkie-oplaty-w-cenie-blisko-uczelni-umcs-kul-up-miasteczko-akademickie-lublin-w-pelni-umeblowane-agd-CID3-ID1bj9Hf.html?search_reason=search%7Cpromoted" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój na wynajem dla studenta - wszystkie opłaty w cenie - blisko uczelni UMCS, KUL, UP - miasteczko akademickie Lublin - w pełni umeblowane + AGD Lublin Pokoje 1-osobowe dla studentów – Miasteczko Akademickie, LublinDo wynajęcia komfortowe, w pełni umeblowane pokoje 1-osobowe w mieszkaniach 4- i 5-pokojowych. W pełni wyposażone w AGD.Każde mieszkanie oferuje:• 4 lub 5 pokoi,• 2 łazienki,• w pełni wyposażoną kuchnię,• pralkę.Świetna lokalizacja – Miasteczko Akademickie:• ok. 5 minut pieszo do Re</div>
-      <div class="offer-meta"><span class="parsed-addr">parsed: "mieszkaniach 4"</span></div>
-      
-    </div>
-    
     <div class="offer" data-category="no_coords" data-search="pokój dla studentki pokój dla studentki lublin oferuję umeblowany pokój dla studentki w przestronnym mieszkaniu. wysokiej jakości wykończenie sprawia, że poczujesz się tutaj komfortowo. pokój wyposażony w duże wygodne łóżko, pojemną szafę ikea, biurko, krzesło, stolik i komodę. w mieszkaniu jest szybki internet. w kuchni znajdziesz niezbędne sprzęty, takie jak czajnik elektryczny, mikrofalówka, lodówka, zmywarka i piekarnik, naczynia, sztućce. w mieszkaniu jest suszarka do ubrań, żelazko, odkurzacz, mop.  łazienka ">
       <div class="offer-header">
         <span class="badge no_coords">brak współrzędnych</span>
@@ -812,6 +856,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       </div>
       <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój dla studentki Lublin Oferuję umeblowany pokój dla studentki w przestronnym mieszkaniu. Wysokiej jakości wykończenie sprawia, że poczujesz się tutaj komfortowo. Pokój wyposażony w duże wygodne łóżko, pojemną szafę ikea, biurko, krzesło, stolik i komodę. W mieszkaniu jest szybki Internet. W kuchni znajdziesz niezbędne sprzęty, takie jak czajnik elektryczny, mikrofalówka, lodówka, zmywarka i piekarnik, naczynia, sztućce. W mieszkaniu jest suszarka do ubrań, żelazko, odkurzacz, mop.  Łazienka </div>
       <div class="offer-meta"><span class="parsed-addr">parsed: "zaliczkowo 250z"</span></div>
+      
+    </div>
+    
+    <div class="offer" data-category="no_coords" data-search="wynajmę pokój 10 m2 wynajmę pokój 10 m2 lublin zwolnił się pokój na ulicy nałeczowkiej 20 dostępny od 01.08.2026. internet .wysoki standard nowe budownictwo na 6 piętrze z windą.plus czynsz.">
+      <div class="offer-header">
+        <span class="badge no_coords">brak współrzędnych</span>
+        <div class="offer-title">Wynajmę pokój 10 m2</div>
+        <a href="https://www.olx.pl/d/oferta/wynajme-pokoj-10-m2-CID3-ID1bsBFg.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+      </div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Wynajmę pokój 10 m2 Lublin Zwolnił się pokój na ulicy Nałeczowkiej 20 dostępny od 01.08.2026. internet .wysoki standard nowe budownictwo na 6 piętrze z windą.plus czynsz.</div>
+      <div class="offer-meta"><span class="parsed-addr">parsed: "Nałeczowkiej 20"</span></div>
       
     </div>
     
@@ -830,21 +885,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       <div class="offer-header">
         <span class="badge no_coords">brak współrzędnych</span>
         <div class="offer-title">Pokój na wynajem dla studenta - wszystkie opłaty w cenie - blisko uczelni UMCS, KUL, UP - miasteczko akademickie Lublin - w pełni umeblowane + AGD</div>
-        <a href="https://www.olx.pl/d/oferta/pokoj-na-wynajem-dla-studenta-wszystkie-oplaty-w-cenie-blisko-uczelni-umcs-kul-up-miasteczko-akademickie-lublin-w-pelni-umeblowane-agd-CID3-ID1bj9Hf.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+        <a href="https://www.olx.pl/d/oferta/pokoj-na-wynajem-dla-studenta-wszystkie-oplaty-w-cenie-blisko-uczelni-umcs-kul-up-miasteczko-akademickie-lublin-w-pelni-umeblowane-agd-CID3-ID1bj9Hf.html?search_reason=search%7Cpromoted" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
       </div>
       <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój na wynajem dla studenta - wszystkie opłaty w cenie - blisko uczelni UMCS, KUL, UP - miasteczko akademickie Lublin - w pełni umeblowane + AGD Lublin Pokoje 1-osobowe dla studentów – Miasteczko Akademickie, LublinDo wynajęcia komfortowe, w pełni umeblowane pokoje 1-osobowe w mieszkaniach 4- i 5-pokojowych. W pełni wyposażone w AGD.Każde mieszkanie oferuje:• 4 lub 5 pokoi,• 2 łazienki,• w pełni wyposażoną kuchnię,• pralkę.Świetna lokalizacja – Miasteczko Akademickie:• ok. 5 minut pieszo do Re</div>
       <div class="offer-meta"><span class="parsed-addr">parsed: "mieszkaniach 4"</span></div>
-      
-    </div>
-    
-    <div class="offer" data-category="no_coords" data-search="wynajmę pokój/pokoje osobie uczącej się lub pracującej wynajmę pokój/pokoje osobie uczącej się lub pracującej lublin oferuję umeblowany pokój w widnym 4- pokojowym mieszkaniu. duże okna zapewniają dużo naturalnego światła, a z nich roztacza się widok na miasto. pokój urządzony jest w skandynawskim stylu, co nadaje mu przytulny charakter.w okolicy znajdziesz wszystko, co potrzebne. to idealne miejsce dla osób ceniących wygodę i bliskość do miejskiego życia. nie czekaj, skontaktuj się i umów na oglądaniew pobliżu znajdują się uniwersytety umcs, kul, u">
-      <div class="offer-header">
-        <span class="badge no_coords">brak współrzędnych</span>
-        <div class="offer-title">wynajmę pokój/pokoje osobie uczącej się lub pracującej</div>
-        <a href="https://www.olx.pl/d/oferta/wynajme-pokoj-pokoje-osobie-uczacej-sie-lub-pracujacej-CID3-ID1bnQ8B.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Wynajmę pokój/pokoje osobie uczącej się lub pracującej Lublin Oferuję umeblowany pokój w widnym 4- pokojowym mieszkaniu. Duże okna zapewniają dużo naturalnego światła, a z nich roztacza się widok na miasto. Pokój urządzony jest w skandynawskim stylu, co nadaje mu przytulny charakter.W okolicy znajdziesz wszystko, co potrzebne. To idealne miejsce dla osób ceniących wygodę i bliskość do miejskiego życia. Nie czekaj, skontaktuj się i umów na oglądanieW pobliżu znajdują się uniwersytety UMCS, KUL, U</div>
-      <div class="offer-meta"><span class="parsed-addr">parsed: "należy doliczyć 1/4"</span></div>
       
     </div>
     
@@ -859,6 +903,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       
     </div>
     
+    <div class="offer" data-category="no_coords" data-search="wynajmę pokój/pokoje osobie uczącej się lub pracującej wynajmę pokój/pokoje osobie uczącej się lub pracującej lublin oferuję umeblowany pokój w widnym 4- pokojowym mieszkaniu. duże okna zapewniają dużo naturalnego światła, a z nich roztacza się widok na miasto. pokój urządzony jest w skandynawskim stylu, co nadaje mu przytulny charakter.w okolicy znajdziesz wszystko, co potrzebne. to idealne miejsce dla osób ceniących wygodę i bliskość do miejskiego życia. nie czekaj, skontaktuj się i umów na oglądaniew pobliżu znajdują się uniwersytety umcs, kul, u">
+      <div class="offer-header">
+        <span class="badge no_coords">brak współrzędnych</span>
+        <div class="offer-title">wynajmę pokój/pokoje osobie uczącej się lub pracującej</div>
+        <a href="https://www.olx.pl/d/oferta/wynajme-pokoj-pokoje-osobie-uczacej-sie-lub-pracujacej-CID3-ID1bnQ8B.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+      </div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Wynajmę pokój/pokoje osobie uczącej się lub pracującej Lublin Oferuję umeblowany pokój w widnym 4- pokojowym mieszkaniu. Duże okna zapewniają dużo naturalnego światła, a z nich roztacza się widok na miasto. Pokój urządzony jest w skandynawskim stylu, co nadaje mu przytulny charakter.W okolicy znajdziesz wszystko, co potrzebne. To idealne miejsce dla osób ceniących wygodę i bliskość do miejskiego życia. Nie czekaj, skontaktuj się i umów na oglądanieW pobliżu znajdują się uniwersytety UMCS, KUL, U</div>
+      <div class="offer-meta"><span class="parsed-addr">parsed: "należy doliczyć 1/4"</span></div>
+      
+    </div>
+    
     <div class="offer" data-category="no_coords" data-search="wynajmę pokój/pokoje osobie uczącej się lub pracującej wynajmę pokój/pokoje osobie uczącej się lub pracującej lublin oferuję umeblowany pokój w widnym 4- pokojowym mieszkaniu. duże okna zapewniają dużo naturalnego światła, a z nich roztacza się widok na miasto. pokój urządzony jest w skandynawskim stylu, co nadaje mu przytulny charakter. podłoga pokryta jest drewnem, co dodaje ciepła. w okolicy znajdziesz wszystko, co potrzebne. to idealne miejsce dla osób ceniących wygodę i bliskość do miejskiego życia. nie czekaj, skontaktuj się i umów na oglądani">
       <div class="offer-header">
         <span class="badge no_coords">brak współrzędnych</span>
@@ -870,14 +925,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       
     </div>
     
-    <div class="offer" data-category="no_coords" data-search="wynajmę pokój 10 m2 wynajmę pokój 10 m2 lublin zwolnił się pokój na ulicy nałeczowkiej 20 dostępny od 01.08.2026. internet .wysoki standard nowe budownictwo na 6 piętrze z windą.plus czynsz.">
+    <div class="offer" data-category="no_coords" data-search="pokój na wynajem dla studenta - wszystkie opłaty w cenie - blisko uczelni umcs, kul, up - miasteczko akademickie lublin - w pełni umeblowane + agd pokój na wynajem dla studenta - wszystkie opłaty w cenie - blisko uczelni umcs, kul, up - miasteczko akademickie lublin - w pełni umeblowane + agd lublin pokoje 1-osobowe dla studentów – miasteczko akademickie, lublindo wynajęcia komfortowe, w pełni umeblowane pokoje 1-osobowe w mieszkaniach 4- i 5-pokojowych. w pełni wyposażone w agd.każde mieszkanie oferuje:• 4 lub 5 pokoi,• 2 łazienki,• w pełni wyposażoną kuchnię,• pralkę.świetna lokalizacja – miasteczko akademickie:• ok. 5 minut pieszo do re">
       <div class="offer-header">
         <span class="badge no_coords">brak współrzędnych</span>
-        <div class="offer-title">Wynajmę pokój 10 m2</div>
-        <a href="https://www.olx.pl/d/oferta/wynajme-pokoj-10-m2-CID3-ID1bsBFg.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+        <div class="offer-title">Pokój na wynajem dla studenta - wszystkie opłaty w cenie - blisko uczelni UMCS, KUL, UP - miasteczko akademickie Lublin - w pełni umeblowane + AGD</div>
+        <a href="https://www.olx.pl/d/oferta/pokoj-na-wynajem-dla-studenta-wszystkie-oplaty-w-cenie-blisko-uczelni-umcs-kul-up-miasteczko-akademickie-lublin-w-pelni-umeblowane-agd-CID3-ID1bj9Hf.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
       </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Wynajmę pokój 10 m2 Lublin Zwolnił się pokój na ulicy Nałeczowkiej 20 dostępny od 01.08.2026. internet .wysoki standard nowe budownictwo na 6 piętrze z windą.plus czynsz.</div>
-      <div class="offer-meta"><span class="parsed-addr">parsed: "Nałeczowkiej 20"</span></div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój na wynajem dla studenta - wszystkie opłaty w cenie - blisko uczelni UMCS, KUL, UP - miasteczko akademickie Lublin - w pełni umeblowane + AGD Lublin Pokoje 1-osobowe dla studentów – Miasteczko Akademickie, LublinDo wynajęcia komfortowe, w pełni umeblowane pokoje 1-osobowe w mieszkaniach 4- i 5-pokojowych. W pełni wyposażone w AGD.Każde mieszkanie oferuje:• 4 lub 5 pokoi,• 2 łazienki,• w pełni wyposażoną kuchnię,• pralkę.Świetna lokalizacja – Miasteczko Akademickie:• ok. 5 minut pieszo do Re</div>
+      <div class="offer-meta"><span class="parsed-addr">parsed: "mieszkaniach 4"</span></div>
       
     </div>
     
