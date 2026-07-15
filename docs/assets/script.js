@@ -395,30 +395,41 @@ function initMap() {
     createUniversityLayers();
 }
 
+// Fetch data.json z retry i backoffem.
+// GitHub Pages redeployuje się 3×/dobę (commity scanu) i w oknie deploya
+// potrafi na kilka sekund zrzucać requesty (TypeError "Failed to fetch")
+// albo zwracać 5xx. Bez retry jeden taki blip = zepsuta mapa + alert.
+// Backoff: 0.5s / 1.5s / 3s (obejmuje też błędy sieci, nie tylko !ok).
+async function fetchDataWithRetry(baseUrl, delays = [500, 1500, 3000]) {
+    let lastError = null;
+    for (let attempt = 0; attempt <= delays.length; attempt++) {
+        try {
+            const urlWithCache = `${baseUrl}?v=${new Date().getTime()}`;
+            const response = await fetch(urlWithCache);
+            if (response.ok) return response;
+            lastError = new Error(`HTTP error! status: ${response.status}`);
+        } catch (error) {
+            // TypeError "Failed to fetch" - blip sieci/CDN, próbujemy dalej
+            lastError = error;
+        }
+        if (attempt < delays.length) {
+            console.warn(`⚠️ Fetch data.json nie udał się (próba ${attempt + 1}), ponawiam za ${delays[attempt]}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delays[attempt]));
+        }
+    }
+    throw lastError;
+}
+
 // Wczytanie danych
 async function loadData() {
     try {
         // Użyj absolutnej ścieżki dla GitHub Pages
-        const baseUrl = window.location.pathname.includes('/SONAR-POKOJOWY/') 
-            ? '/SONAR-POKOJOWY/data.json' 
+        const baseUrl = window.location.pathname.includes('/SONAR-POKOJOWY/')
+            ? '/SONAR-POKOJOWY/data.json'
             : '/data.json';
-        
-        // Próba 1: Z cache-busting
-        const timestamp = new Date().getTime();
-        const urlWithCache = `${baseUrl}?v=${timestamp}`;
-        
-        let response = await fetch(urlWithCache);
-        
-        // Jeśli 404, spróbuj bez cache-busting
-        if (!response.ok) {
-            console.warn('⚠️ Fetch z cache-busting nie udał się, próbuję bez...');
-            response = await fetch(baseUrl);
-        }
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
+
+        const response = await fetchDataWithRetry(baseUrl);
+
         const text = await response.text();
         mapData = JSON.parse(text);
         
