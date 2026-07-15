@@ -227,6 +227,9 @@
         .ver-body .spark-prices { font-size: 10px; color: #475569; }
         .ver-counters { display: flex; gap: 12px; font-size: 10px; }
         .vc { color: #475569; } .vc b { color: #d97706; } .vc.reakt b { color: #92400e; }
+        /* Pasek odświeżeń wewnątrz bieżącej wersji adresu — wariant kompaktowy */
+        .ver .refresh-row { border-top: 0.5px solid #dcefe3; margin-top: 6px; }
+        .ver .refresh-row .history-label { width: auto; font-size: 9px; text-transform: uppercase; }
         .change { display: flex; align-items: center; gap: 6px; margin: 2px 0 5px 20px; font-size: 10px; color: #7c3aed; flex-wrap: wrap; }
         .change b { color: #0f172a; }
         .change .ico { color: #a855f7; }
@@ -586,7 +589,7 @@ function verSpark(history) {
         + '</svg>';
 }
 
-function verCard(v, offerId, vIndex) {
+function verCard(v, offerId, vIndex, o) {
     const status = v.active
         ? '<span class="ver-status st-active">AKTYWNA</span>'
         : '<span class="ver-status st-ended">' + (v.current ? 'NIEAKTYWNA' : 'ZAKOŃCZONA') + '</span>';
@@ -612,7 +615,11 @@ function verCard(v, offerId, vIndex) {
         + '<div class="ver-body">'
         +   '<div class="spark-wrap"><span class="spark-label">Ceny</span>' + verSpark(v.price_history) + '<span class="spark-prices">' + priceList + '</span></div>'
         +   '<div class="ver-counters"><span class="vc">🔄 odświeżenia: <b>' + (v.refresh_count || 0) + '</b></span><span class="vc reakt">♻ reaktywacje: <b>' + (v.reactivation_count || 0) + '</b></span></div>'
-        + '</div></div>';
+        + '</div>'
+        // Pasek odświeżeń (14 dni) tylko dla wersji bieżącej — top-level refresh_dates
+        // opisują właśnie ją (liczniki i daty resetują się przy zmianie adresu)
+        + (v.current && o ? buildRefreshBars(o.refresh_dates, o.refresh_count, o.last_refresh_date) : '')
+        + '</div>';
 }
 
 function focusArchival(offerId, vIndex) {
@@ -628,7 +635,7 @@ function buildVersions(o) {
     const offerId = o.id || o.url;
     let html = '<div class="versions"><div class="versions-h">📜 Historia ogłoszenia — ' + vers.length + ' wersje adresu</div>';
     vers.forEach((v, i) => {
-        html += verCard(v, offerId, i);
+        html += verCard(v, offerId, i, o);
         if (i < vers.length - 1) {
             const older = vers[i + 1];
             const oldP = (older.price_history.at(-1) || {}).price;

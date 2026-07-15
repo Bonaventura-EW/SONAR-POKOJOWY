@@ -9,6 +9,10 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Firmy: słupki odświeżeń (14 dni) w bieżącej wersji adresu (2026-07-15)
+- **feat (wariant A, wybór Mateusza po before/after)**: karty z historią wersji adresu (`profile_tracker.html`) pokazywały dla każdej wersji tylko liczniki („odświeżenia: N"), bez paska 14 dni jak w kartach bez zmiany adresu. Teraz bieżąca (zielona) wersja dostaje pasek `buildRefreshBars` pod statami — top-level `refresh_dates` opisują właśnie ją, bo liczniki i daty odświeżeń resetują się przy zmianie adresu. Stare wersje bez zmian (liczniki). Pasek nadal znika przy `refresh_count=0`.
+- Zweryfikowane headless (Chromium + lokalny Leaflet): karta Batalionów Chłopskich 16 — 14 słupków, hit 15.07, „ostatnie: 15.07 14:09" w nowym formacie; karta Romanowskiego 58 — 3 hity; stare wersje 0 słupków; karty bez wersji (Paganiniego 12) bez zmian.
+
 ### Ceny ofert firmowych: JSON-LD bez progu 50% + dzielnice-"miejscowości" OLX + cena przy reaktywacji (2026-07-15)
 - **fix (P1 — zgłoszenie Mateusza — Paganiniego 12 ID195dLc: baza 600 zł, OLX 920 zł)**: bezpiecznik w `_update_existing_offer` odrzucał zmianę ceny ≥50% jako błąd parsera, a podwyżka 600→920 to +53% — baza trzymała starą cenę, więc każdy scan liczył tę samą różnicę i blokada była WIECZNA (log: „PODEJRZANA zmiana ceny: 600 → 920 zł (53.3%) - IGNORUJĘ"). Fix: cena z JSON-LD świeżo pobranej strony (źródło prawdy) aktualizuje bez limitu %; próg 50% zostaje dla słabszych źródeł (HTML fallback, parser tekstowy).
 - **fix (P2 — Batalionów Chłopskich 16 ID16ZeYm: baza 780 zł, OLX 900 zł)**: OLX lokalizuje to ogłoszenie w `city="Szerokie"` (dzielnica Lublina jako osobna „miejscowość"), więc filtr `city == "Lublin"` w `_fetch_profile_offers_api` wycinał je z API profilu, a w listingu wyszukiwarki też go nie ma. Efekt: każdy scan dezaktywował ofertę, po czym weryfikacja URL reaktywowała ją BEZ aktualizacji ceny (ping-pong `reactivation_count=7`, cena zamrożona od 03.06). Fix: filtr przepuszcza `LUBLIN_CITY_NAMES` = Lublin + dzielnice z `LUBLIN_DISTRICTS`.
