@@ -632,6 +632,52 @@ class SonarPokojowy:
             pass
         return False
 
+    def _apply_price_change(self, offer: Dict, new_price: int, new_source: str,
+                            update_reason: str):
+        """
+        Zapisuje zmianę ceny w rekordzie oferty: previous_price, trend,
+        history + history_full. Wspólne dla _update_existing_offer oraz
+        reaktywacji przez weryfikację URL (_verify_inactive_offers).
+        """
+        now = datetime.now(self.tz).isoformat()
+        price = offer['price']
+        old_price = price['current']
+
+        price['previous_price'] = old_price
+        price['price_changed_at'] = now
+
+        # Określ kierunek zmiany
+        if new_price < old_price:
+            price['price_trend'] = 'down'
+            print(f"      📉 Cena SPADŁA: {old_price} → {new_price} zł (↓{old_price - new_price} zł)")
+        else:
+            price['price_trend'] = 'up'
+            print(f"      📈 Cena WZROSŁA: {old_price} → {new_price} zł (↑{new_price - old_price} zł)")
+        print(f"      📝 Powód zmiany: {update_reason}")
+
+        price['current'] = new_price
+        price['source'] = new_source
+
+        # Dodaj do historii
+        price['history'].append(new_price)
+
+        # Zapis pełnej historii z timestampami
+        if 'history_full' not in price:
+            # Backfill dla starych ofert które jeszcze nie mają history_full
+            price['history_full'] = []
+            # Pierwsza znana cena = pierwszy wpis history (data first_seen)
+            if price['history']:
+                price['history_full'].append({
+                    'price': price['history'][0],
+                    'date': offer.get('first_seen', now),
+                    'approximated': False
+                })
+        price['history_full'].append({
+            'price': new_price,
+            'date': now,
+            'approximated': False
+        })
+
     def _update_existing_offer(self, existing: Dict, new_data: Dict):
         """Aktualizuje istniejące ogłoszenie z inteligentnym zarządzaniem ceną."""
         now = datetime.now(self.tz).isoformat()
@@ -703,8 +749,15 @@ class SonarPokojowy:
         elif new_priority == old_priority and old_price != new_price:
             # To samo źródło ale inna cena - sprawdź czy zmiana sensowna
             price_diff_percent = abs(new_price - old_price) / old_price * 100
-            
-            if price_diff_percent < 50:  # Max 50% zmiany
+
+            if new_source == 'JSON-LD (OLX)':
+                # JSON-LD ze świeżo pobranej strony oferty = źródło prawdy, bez limitu %.
+                # Próg 50% blokował realne podwyżki (600→920 zł = 53%) NA ZAWSZE,
+                # bo baza trzymała starą cenę i każdy kolejny scan liczył tę samą różnicę.
+                should_update = True
+                update_reason = f"Zmiana ceny (JSON-LD): {old_price} → {new_price} zł ({price_diff_percent:.1f}%)"
+                print(f"      💰 {update_reason}")
+            elif price_diff_percent < 50:  # Max 50% zmiany dla słabszych źródeł
                 should_update = True
                 update_reason = f"Zmiana ceny (to samo źródło): {old_price} → {new_price} zł ({price_diff_percent:.1f}%)"
                 print(f"      💰 {update_reason}")
@@ -719,43 +772,8 @@ class SonarPokojowy:
             print(f"      ✓ Cena bez zmian: {old_price} zł")
         
         if should_update and old_price != new_price:
-            # NOWE: Zapisz poprzednią cenę przed aktualizacją
-            existing['price']['previous_price'] = old_price
-            existing['price']['price_changed_at'] = now
-            
-            # Określ kierunek zmiany
-            if new_price < old_price:
-                existing['price']['price_trend'] = 'down'
-                print(f"      📉 Cena SPADŁA: {old_price} → {new_price} zł (↓{old_price - new_price} zł)")
-                print(f"      📝 Powód zmiany: {update_reason}")
-            else:
-                existing['price']['price_trend'] = 'up'
-                print(f"      📈 Cena WZROSŁA: {old_price} → {new_price} zł (↑{new_price - old_price} zł)")
-                print(f"      📝 Powód zmiany: {update_reason}")
-            
-            existing['price']['current'] = new_price
-            existing['price']['source'] = new_source
-            
-            # Dodaj do historii
-            existing['price']['history'].append(new_price)
-            
-            # NOWE 2026-05-17: zapis pełnej historii z timestampami
-            if 'history_full' not in existing['price']:
-                # Backfill dla starych ofert które jeszcze nie mają history_full
-                existing['price']['history_full'] = []
-                # Pierwsza znana cena = pierwszy wpis history (data first_seen)
-                if existing['price']['history']:
-                    existing['price']['history_full'].append({
-                        'price': existing['price']['history'][0],
-                        'date': existing.get('first_seen', now),
-                        'approximated': False
-                    })
-            existing['price']['history_full'].append({
-                'price': new_price,
-                'date': now,
-                'approximated': False
-            })
-        
+            self._apply_price_change(existing, new_price, new_source, update_reason)
+
         # Zawsze aktualizuj media_info (może się zmienić niezależnie)
         existing['price']['media_info'] = new_data['price']['media_info']
         
@@ -1060,6 +1078,21 @@ class SonarPokojowy:
                         'last_seen': datetime.now(self.tz).isoformat(),
                         'reactivated_at': datetime.now(self.tz).isoformat()
                     }
+                    # FIX (2026-07-15): przy reaktywacji zaktualizuj też cenę z JSON-LD
+                    # już pobranej strony. Dla ofert niewidocznych w listingu/API profilu
+                    # (np. OLX city="Szerokie") weryfikacja to JEDYNA ścieżka dotykająca
+                    # rekordu — bez tego cena była zamrożona mimo zmiany na OLX.
+                    try:
+                        ld_script = soup.find('script', {'type': 'application/ld+json'})
+                        if ld_script and ld_script.string:
+                            ld_price = (json.loads(ld_script.string).get('offers') or {}).get('price')
+                            if ld_price:
+                                ld_price = int(float(ld_price))
+                                # Ten sam zakres sanity co w scraperze
+                                if 200 <= ld_price <= 5000:
+                                    reactivation_data['price'] = ld_price
+                    except (ValueError, TypeError, json.JSONDecodeError):
+                        pass
                     return (offer, 'reactivated', reactivation_data)
 
                 # HTTP 200 + brak markera = OLX trzyma stronę, ale nie ma jej w listingu.
@@ -1094,6 +1127,13 @@ class SonarPokojowy:
                         offer['reactivated_at'] = reactivation_data['reactivated_at']
                         offer['reactivation_source'] = 'verification'
                         offer['reactivation_count'] = offer.get('reactivation_count', 0) + 1
+                        # Cena z JSON-LD strony oferty (jeśli weryfikacja ją wyciągnęła)
+                        verified_price = reactivation_data.get('price')
+                        if verified_price and verified_price != offer.get('price', {}).get('current'):
+                            self._apply_price_change(
+                                offer, verified_price, 'JSON-LD (OLX)',
+                                'Reaktywacja przez weryfikację URL — cena z JSON-LD'
+                            )
                         with stats_lock:
                             stats['reactivated'] += 1
                         reactivated_ids.append(offer.get('id', 'unknown'))
