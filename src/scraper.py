@@ -15,6 +15,13 @@ from urllib.parse import urljoin
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 
+from address_parser_data import LUBLIN_DISTRICTS
+
+# OLX potrafi zlokalizować ogłoszenie w dzielnicy Lublina jako osobnej
+# "miejscowości" (np. city="Szerokie"). Filtr profili musi je przepuszczać,
+# inaczej oferta znika ze scanu i jej cena nigdy się nie aktualizuje.
+LUBLIN_CITY_NAMES = {'lublin'} | {d.lower() for d in LUBLIN_DISTRICTS}
+
 class OLXScraper:
     BASE_URL = "https://www.olx.pl/nieruchomosci/stancje-pokoje/lublin/"
     
@@ -494,8 +501,9 @@ class OLXScraper:
 
                     city_name = (api_offer.get('location', {}) or {}).get('city', {}).get('name', '')
                     
-                    # Filtr: tylko Lublin (profil może mieć oferty z całej Polski)
-                    if city_name and city_name.lower() != 'lublin':
+                    # Filtr: tylko Lublin + jego dzielnice-"miejscowości" OLX
+                    # (profil może mieć oferty z całej Polski)
+                    if city_name and city_name.lower() not in LUBLIN_CITY_NAMES:
                         continue
 
                     offer = {
