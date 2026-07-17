@@ -9,6 +9,9 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: dodana oferta Paganiniego 11 (2026-07-17)
+- **feat** (zgłoszenie Mateusza): do `data/favorites.json` dopisana oferta „2 pokoje jednoosobowe do wynajęcia, Czechów Dolny, ul. Paganiniego 11" (short_id `1bomFK`, numeric_id `1084479556`). `favorites_tracker.py` zacznie zbierać snapshoty (cena/status/odświeżenia/wyświetlenia) przy najbliższym scanie; karta pojawi się w zakładce Ulubione po pierwszym pomiarze.
+
 ### Nowy profil firmowy: MAT (2026-07-17)
 - **feat** (zgłoszenie Mateusza): dodany 8. śledzony profil OLX do `TRACKED_PROFILES` (`profiles_config.py`): „MAT" (user_id 67948084, konto firmowe, https://www.olx.pl/oferty/uzytkownik/4B6oQ/). W chwili dodania profil ma 0 aktywnych ofert (`total_elements=0` w API v1) — konfiguracja jest wyprzedzająca: oferty dostaną tag firmowy i trafią do warstwy/zakładki przy najbliższym scanie, gdy się pojawią. Propagacja automatyczna: zakładka Firmy (`profile_data.json` — profil renderuje się jako pusta karta, licznik 0), warstwa firmy/agencje na mapie głównej (`tracked_profiles` w `data.json`, drzewo profili w `script.js` — checkbox z licznikiem 0). Zregenerowane `docs/data.json` + `docs/profile_data.json` (7→8 profili).
 
