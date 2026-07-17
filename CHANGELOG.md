@@ -9,6 +9,12 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Docs: pułapki tej sesji dopisane do CLAUDE.md (2026-07-17)
+- **docs**: do CLAUDE.md dopisane 3 lekcje z tej sesji, żeby nie wracały: (1) `extract_street_only` — ulica ZNANA bije NIEZNANĄ bez względu na pozycję (punkt orientacyjny wygrywa z faktycznym adresem); (2) golden test pokazujący regresje → NAJPIERW sprawdź zależności (`geopy`/`pytz`), nie golden; (3) `test_address_parser_golden.py` dopisany do listy testów + note o SessionStart hooku. Plus 2 nowe wiersze w decision tree.
+
+### Ulubione: dodana oferta Głęboka/Miasteczko (2026-07-17)
+- **feat** (zgłoszenie Mateusza): do `data/favorites.json` dopisana „Politechnika, Miasteczko, Głęboka z balkonem" (short_id `1bubFQ`, numeric_id `1085867246`). Tracker zacznie zbierać snapshoty przy najbliższym scanie.
+
 ### Infra: SessionStart hook auto-instaluje zależności w web-sesji (2026-07-17)
 - **fix (zgłoszenie Mateusza „ogarnij to")**: `.claude/setup.sh` (instalacja `requirements.txt`) istniał, ale NIC go nie uruchamiało — brakowało `.claude/settings.json` z hookiem. Świeży kontener web-sesji startował bez `geopy`/`pytz`, więc `from geocoder import to_nominative` padał po cichu, krok „mianownik" w `address_parser` przestawał działać i `test_address_parser_golden.py` pokazywał 13 **fałszywych** regresji (whitelist→None dla Czeremchowej/Smyczkowej/Szewskiej… — form dopełniaczowych, które bez mianownika nie trafiały w fixture). To NIE był przestarzały golden — po instalacji zależności golden = 2255/2255, 0 regresji.
 - **fix**: dodany `.claude/settings.json` z hookiem `SessionStart` → `.claude/hooks/session-start.sh` (web-only guard `CLAUDE_CODE_REMOTE`, deleguje do `setup.sh`). Każda przyszła web-sesja dostaje zależności przed startem, pułapka fałszywych regresji znika. Zwalidowane: hook exit 0 („Wszystkie zależności OK"), golden 2255/2255, `test_integration.py` OK. Zadziała globalnie po merge do `main`.

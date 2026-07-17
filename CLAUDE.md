@@ -96,6 +96,7 @@ Te błędy są naprawione. Jeśli edytujesz odpowiedni kod, **zachowaj zabezpiec
 - **Address parser — false addresses**: regex łapie "X minut", "Y metrów" jako ulice. Sprawdzaj `non_street_names` set i excluded words. Litera `O` vs cyfra `0` w nazwach — odrzucaj.
 - **Adres: TYTUŁ ma pierwszeństwo nad opisem** (`main.py` → `_process_offer`): opisy firm wymieniają wszystkie swoje lokalizacje ("Dostępność innych lokalizacji: ul. X, ul. Y..."), więc adres z opisu może dotyczyć innego mieszkania tego samego wynajmującego. Kolejność parsowania: tytuł → tytuł+opis → sam opis. W `extract_address` przy remisie prefiksu wygrywa WCZEŚNIEJSZA pozycja w tekście (nie dłuższa nazwa!).
 - **Genitive case streets**: polski dopełniacz ("ul. Lubelskiej" → "Lubelska") — wzorce w `address_parser.py`.
+- **`extract_street_only` — ulica ZNANA bije NIEZNANĄ bez względu na pozycję**: `priority_class=2` (ulica w whiteliście/cache) wygrywa z `priority_class=1` (nieznana) niezależnie od kolejności w tekście. Pułapka: orientacyjny punkt ("10 min od biurowców przy **ul. Zana**") bije faktyczny adres ("mieści się przy **ul. Magdaleny Brzeskiej**"), gdy realna ulica NIE jest w whiteliście (a jest tylko krótsza forma w cache). Fix: dodaj realną ulicę do `HARDCODED_LUBLIN_STREETS` (`address_parser_data.py`) — także formy dwuczłonowe ("magdaleny brzeskiej"), bo `extract_street_only` wyciąga oba wyrazy po "ul.". Po zmianie: `python test_address_parser_golden.py`. (2026-07-17, ID1buaHj)
 - **Price pipeline**: JSON-LD = źródło prawdy. HTML fallback wyciąga koszty mediów albo numer ulicy jako cenę — używaj tylko gdy JSON-LD nie ma.
 - **Price range per-offer**: ceny przypisuj per-oferta, nigdy averagowane na markerze.
 - **Geocoding cache**: usuwając wpisy z `offers.json`, **usuń też** odpowiadające wpisy z `geocoding_cache.json`. Inaczej stare/błędne współrzędne wrócą.
@@ -112,6 +113,7 @@ Te błędy są naprawione. Jeśli edytujesz odpowiedni kod, **zachowaj zabezpiec
 - **Workflow ID**: `238181145`. Trigger: `POST /repos/.../actions/workflows/238181145/dispatches` z body `{"ref":"main"}` → status `204` = OK.
 - **`conclusion=success` w API jest niewiarygodne**: zawsze sprawdzaj logi bezpośrednio. Prawda o skanach jest w `data/scan_history.json`.
 - **Logi Actions → Azure blob**: `GET` na endpoint logów zwraca `Location` header z URL-em Azure blob, pobierz przez `curl`.
+- **Golden test pokazuje regresje → NAJPIERW sprawdź zależności, nie golden**: `test_address_parser_golden.py` w świeżej web-sesji BEZ zainstalowanego `requirements.txt` (brak `geopy`/`pytz`) daje **fałszywe** regresje. `from geocoder import to_nominative` pada po cichu (`except ImportError`), krok "mianownik" w parserze umiera, więc formy dopełniaczowe (Czeremchowej, Smyczkowej, Szewskiej…) nie trafiają w mianownikowy fixture → `whitelist→None`. To **NIE** jest przestarzały golden. Setup odpala się automatycznie przez SessionStart hook (`.claude/settings.json` → `.claude/hooks/session-start.sh` → `.claude/setup.sh`); jeśli i tak widzisz te regresje, ręcznie `pip install -r requirements.txt --break-system-packages` i sprawdź ponownie. Golden zdrowy = 2255/2255. (2026-07-17)
 
 ---
 
@@ -134,11 +136,13 @@ python monitoring_generator.py
 ```
 
 ### Testy (w root, nie w `tests/`)
+> Zależności instaluje SessionStart hook (`.claude/hooks/session-start.sh`). Bez nich golden daje FAŁSZYWE regresje — patrz pułapka wyżej.
 ```bash
 python test_integration.py
 python test_analytics.py
 python test_monitoring.py
 python test_price_fix.py
+python test_address_parser_golden.py   # regresja parsera na 2255 realnych tekstach (zdrowy = 0 rozbieżności)
 ```
 
 ### Trigger scanu przez API (gdy nie chcesz czekać na cron)
@@ -174,7 +178,9 @@ git push
 | "data wygląda jak NaN/Invalid" | `parseDateString()` w `docs/*.html` — PL format |
 | "scan się nie odpalił" | `data/scan_history.json` (truth), potem logi Actions |
 | "duplikaty na mapie" | `src/duplicate_detector.py` — threshold Levenshtein 95% |
-| "OCR / parser łapie bzdury" | `src/address_parser_data.py` → `EXCLUDED_WORDS` (blocklista). Po zmianie: `python test_address_parser_golden.py` (regresja na 1255 realnych tekstach). Zmiana zamierzona → `python scripts/build_golden.py`. |
+| "OCR / parser łapie bzdury" | `src/address_parser_data.py` → `EXCLUDED_WORDS` (blocklista). Po zmianie: `python test_address_parser_golden.py` (regresja na 2255 realnych tekstach). Zmiana zamierzona → `python scripts/build_golden.py`. |
+| "marker na złej ulicy obok prawdziwej" (punkt orientacyjny wygrał) | `extract_street_only` — ulica ZNANA bije NIEZNANĄ bez względu na pozycję. Dodaj realną ulicę (też dwuczłonową) do `HARDCODED_LUBLIN_STREETS`. Patrz pułapka Backend/pipeline. |
+| "golden test nagle pokazuje regresje" | NAJPIERW `pip install -r requirements.txt` (brak `geopy`/`pytz` → fałszywe regresje), dopiero potem podejrzewaj golden. Zdrowy = 2255/2255. |
 
 ---
 
