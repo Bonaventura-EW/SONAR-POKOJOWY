@@ -190,6 +190,12 @@ HARDCODED_LUBLIN_STREETS = {
     'obrońców pokoju',
     # FIX 2026-07-14: realna ulica Lublina; forma kanoniczna (dopełniacz).
     'batalionów chłopskich',
+    # FIX 2026-07-17: realna ulica Lublina (LSM/Rury). W cache jest tylko
+    # "Brzeskiej", ale extract_street_only wyciąga z "ul. Magdaleny Brzeskiej"
+    # obie części — bez tego dwuczłonowa forma była "nieznana" (priority_class=1)
+    # i przegrywała z orientacyjną "ul. Zana" (znaną, class=2), mimo że adres jest
+    # wcześniej w tekście. Nominatim zna pełną formę → geokoduje się poprawnie.
+    'magdaleny brzeskiej',
 }
 
 
