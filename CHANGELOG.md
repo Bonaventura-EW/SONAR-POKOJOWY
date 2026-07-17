@@ -9,6 +9,9 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: dni odświeżeń na wykresie wyświetleń (2026-07-17)
+- **feat (po akceptacji before/after)**: wykres „👁️ Wyświetlenia w czasie" (`docs/ulubione.html`) dostaje pionowe, bursztynowe (`#f59e0b`) przerywane linie w momentach odświeżenia/podbicia oferty na OLX, z etykietą dnia (🔄 DD.MM) nad linią. Pozycja X interpolowana po czasie między pomiarami (dokładny moment odświeżenia, nie zaokrąglany do najbliższego punktu). Własny plugin Chart.js `refreshMarkerPlugin` (`afterDatasetsDraw`), dane per oferta z `f.refresh_events` + `viewsIso`; bez nowych zależności. Legenda pod nagłówkiem gdy oferta ma odświeżenia; `layout.padding.top` na etykiety. Dotyczy **każdej** śledzonej oferty (obecnej i przyszłej) — zmiana w pętli renderującej karty. Zweryfikowane headless (Chromium + lokalny Chart.js): 2 linie w poprawnych pozycjach, etykiety, legenda, 0 błędów JS.
+
 ### Ulubione: dodana oferta Paganiniego 11 (2026-07-17)
 - **feat** (zgłoszenie Mateusza): do `data/favorites.json` dopisana oferta „2 pokoje jednoosobowe do wynajęcia, Czechów Dolny, ul. Paganiniego 11" (short_id `1bomFK`, numeric_id `1084479556`). `favorites_tracker.py` zacznie zbierać snapshoty (cena/status/odświeżenia/wyświetlenia) przy najbliższym scanie; karta pojawi się w zakładce Ulubione po pierwszym pomiarze.
 

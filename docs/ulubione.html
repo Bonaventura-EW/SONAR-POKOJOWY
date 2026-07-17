@@ -54,6 +54,8 @@
 
     .chart-block { margin-top: 12px; }
     .chart-block h4 { font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .refresh-legend { font-size: 11px; color: #f59e0b; display: inline-flex; align-items: center; gap: 6px; margin: -2px 0 8px; }
+    .refresh-legend .rl-dash { width: 18px; height: 0; border-top: 1.6px dashed #f59e0b; display: inline-block; }
     .chart-wrap { position: relative; height: 220px; }
     .chart-empty {
         border: 1px dashed #cbd5e1; border-radius: 8px; padding: 22px;
@@ -151,7 +153,55 @@
 
 <script>
 const CHART_COLOR = '#667eea';
+const REFRESH_COLOR = '#f59e0b';
 const LS_KEY = 'sonar_favorites';
+
+// Plugin: pionowe linie na wykresie wyświetleń w momentach odświeżenia oferty.
+// Pozycja X interpolowana po czasie między pomiarami (nie zaokrąglana do punktu),
+// nad linią etykieta dnia (🔄 DD.MM). Dane per oferta w options.plugins.refreshMarkers.
+const refreshMarkerPlugin = {
+    id: 'refreshMarkers',
+    afterDatasetsDraw(chart, args, opts) {
+        const events = (opts && opts.events) || [];
+        const iso = (opts && opts.viewsIso) || [];
+        if (!events.length || iso.length < 2) return;
+        const { ctx, chartArea, scales } = chart;
+        const xScale = scales.x;
+        const times = iso.map(s => new Date(s).getTime());
+        const n = times.length;
+        events.forEach(ev => {
+            const rt = new Date(ev.date_iso).getTime();
+            if (isNaN(rt)) return;
+            let px;
+            if (rt <= times[0]) px = xScale.getPixelForValue(0);
+            else if (rt >= times[n - 1]) px = xScale.getPixelForValue(n - 1);
+            else {
+                let i = 0;
+                while (i < n - 1 && times[i + 1] < rt) i++;
+                const span = (times[i + 1] - times[i]) || 1;
+                const p0 = xScale.getPixelForValue(i);
+                const p1 = xScale.getPixelForValue(i + 1);
+                px = p0 + (p1 - p0) * ((rt - times[i]) / span);
+            }
+            ctx.save();
+            ctx.beginPath();
+            ctx.setLineDash([4, 4]);
+            ctx.strokeStyle = REFRESH_COLOR;
+            ctx.lineWidth = 1.5;
+            ctx.moveTo(px, chartArea.top);
+            ctx.lineTo(px, chartArea.bottom);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = REFRESH_COLOR;
+            ctx.font = '600 10px -apple-system, BlinkMacSystemFont, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'alphabetic';
+            const day = String(ev.date || '').split(' ')[0].split('.').slice(0, 2).join('.');
+            ctx.fillText('🔄 ' + day, px, chartArea.top - 6);
+            ctx.restore();
+        });
+    }
+};
 
 function escapeHtml(s) {
     return String(s ?? '').replace(/[&<>"']/g, c =>
@@ -227,6 +277,7 @@ function renderFavorites(data) {
             ${(f.refresh_events || []).length ? `<div class="price-history-row">🔄 Odświeżenia: <b>${f.refresh_events.map(r => escapeHtml(r.date)).join(', ')}</b></div>` : ''}
             <div class="chart-block">
                 <h4>👁️ Wyświetlenia w czasie</h4>
+                ${(vh.length >= 2 && (f.refresh_events || []).length) ? '<div class="refresh-legend"><span class="rl-dash"></span> pionowa linia = dzień odświeżenia oferty</div>' : ''}
                 ${chartHtml}
             </div>`;
         list.appendChild(card);
@@ -234,6 +285,7 @@ function renderFavorites(data) {
         if (vh.length >= 2) {
             new Chart(document.getElementById(`views-chart-${idx}`), {
                 type: 'line',
+                plugins: [refreshMarkerPlugin],
                 data: {
                     labels: vh.map(v => v.date),
                     datasets: [{
@@ -252,6 +304,7 @@ function renderFavorites(data) {
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    layout: { padding: { top: 18 } },
                     plugins: {
                         legend: { display: false },
                         tooltip: {
@@ -259,6 +312,10 @@ function renderFavorites(data) {
                             callbacks: {
                                 label: ctx => `${ctx.parsed.y} wyświetleń`,
                             }
+                        },
+                        refreshMarkers: {
+                            events: f.refresh_events || [],
+                            viewsIso: vh.map(v => v.date_iso),
                         }
                     },
                     interaction: { mode: 'index', intersect: false },
