@@ -56,6 +56,9 @@
     .chart-block h4 { font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
     .refresh-legend { font-size: 11px; color: #f59e0b; display: inline-flex; align-items: center; gap: 6px; margin: -2px 0 8px; }
     .refresh-legend .rl-dash { width: 18px; height: 0; border-top: 1.6px dashed #f59e0b; display: inline-block; }
+    .chart-wrap-sm { height: 170px; }
+    .price-up { color: #dc2626; font-weight: 700; }
+    .price-down { color: #16a34a; font-weight: 700; }
     .chart-wrap { position: relative; height: 220px; }
     .chart-empty {
         border: 1px dashed #cbd5e1; border-radius: 8px; padding: 22px;
@@ -154,6 +157,7 @@
 <script>
 const CHART_COLOR = '#667eea';
 const REFRESH_COLOR = '#f59e0b';
+const PRICE_COLOR = '#0d9488';
 const LS_KEY = 'sonar_favorites';
 
 // Plugin: pionowe linie na wykresie wyświetleń w momentach odświeżenia oferty.
@@ -240,14 +244,32 @@ function renderFavorites(data) {
         if (f.last_checked) meta.push(`🔎 sprawdzona ${escapeHtml(f.last_checked)}`);
 
         let priceHist = '';
-        if ((f.price_history || []).length > 1) {
-            priceHist = '<div class="price-history-row">📊 Historia cen: <b>' +
-                f.price_history.map(p => `${p.price} zł (${escapeHtml(p.date)})`).join(' → ') +
-                '</b></div>';
+        const ph = f.price_history || [];
+        if (ph.length > 1) {
+            let seq = `<b>${ph[0].price} zł</b>`;
+            for (let i = 1; i < ph.length; i++) {
+                const arrow = ph[i].price < ph[i - 1].price
+                    ? '<span class="price-down">↓</span>'
+                    : ph[i].price > ph[i - 1].price
+                        ? '<span class="price-up">↑</span>'
+                        : '→';
+                seq += ` ${arrow} <b>${ph[i].price} zł</b>`;
+            }
+            const delta = ph[ph.length - 1].price - ph[0].price;
+            const deltaStr = delta === 0 ? '' :
+                ` <span class="${delta < 0 ? 'price-down' : 'price-up'}">(${delta < 0 ? '−' : '+'}${Math.abs(delta)} zł od dodania)</span>`;
+            priceHist = `<div class="price-history-row">📊 Historia cen: ${seq}${deltaStr}</div>`;
         }
 
         let chartHtml;
         const vh = f.views_history || [];
+        // Śr. przyrost wyświetleń między pomiarami = (ostatnie − pierwsze) / (pomiary − 1)
+        let avgGrowthStr = '—', avgGrowthDim = 'dim';
+        if (vh.length >= 2) {
+            const g = (vh[vh.length - 1].views - vh[0].views) / (vh.length - 1);
+            avgGrowthStr = (g > 0 ? '+' : g < 0 ? '−' : '') + Math.abs(g).toFixed(1).replace('.', ',');
+            avgGrowthDim = '';
+        }
         if (vh.length >= 2) {
             chartHtml = `<div class="chart-wrap"><canvas id="views-chart-${idx}"></canvas></div>
                 <details class="data-table"><summary>Tabela pomiarów (${vh.length})</summary>
@@ -272,8 +294,13 @@ function renderFavorites(data) {
                 <div class="chip"><span class="v ${f.refresh_count ? '' : 'dim'}">${f.refresh_count}</span><span class="l">Odświeżenia</span></div>
                 <div class="chip"><span class="v ${f.current_views != null ? '' : 'dim'}">${viewsStr}</span><span class="l">Wyświetlenia</span></div>
                 <div class="chip"><span class="v dim">${f.snapshots_count}</span><span class="l">Pomiary</span></div>
+                <div class="chip"><span class="v ${avgGrowthDim}">${avgGrowthStr}</span><span class="l">Śr. przyrost</span></div>
             </div>
             ${priceHist}
+            ${ph.length >= 2 ? `<div class="chart-block">
+                <h4>💰 Cena w czasie</h4>
+                <div class="chart-wrap chart-wrap-sm"><canvas id="price-chart-${idx}"></canvas></div>
+            </div>` : ''}
             ${(f.refresh_events || []).length ? `<div class="price-history-row">🔄 Odświeżenia: <b>${f.refresh_events.map(r => escapeHtml(r.date)).join(', ')}</b></div>` : ''}
             <div class="chart-block">
                 <h4>👁️ Wyświetlenia w czasie</h4>
@@ -324,6 +351,50 @@ function renderFavorites(data) {
                             beginAtZero: false,
                             grid: { color: '#f1f5f9' },
                             ticks: { color: '#64748b', font: { size: 11 }, precision: 0 }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 45 }
+                        }
+                    }
+                }
+            });
+        }
+
+        if (ph.length >= 2) {
+            new Chart(document.getElementById(`price-chart-${idx}`), {
+                type: 'line',
+                data: {
+                    labels: [...ph.map(p => p.date), 'teraz'],
+                    datasets: [{
+                        data: [...ph.map(p => p.price), f.current_price],
+                        borderColor: PRICE_COLOR,
+                        backgroundColor: 'rgba(13, 148, 136, 0.08)',
+                        borderWidth: 2,
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                        pointHitRadius: 12,
+                        pointBackgroundColor: PRICE_COLOR,
+                        stepped: 'before',
+                        fill: true,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            displayColors: false,
+                            callbacks: { label: ctx => `${ctx.parsed.y} zł` }
+                        }
+                    },
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            grid: { color: '#f1f5f9' },
+                            ticks: { color: '#64748b', font: { size: 11 } }
                         },
                         x: {
                             grid: { display: false },
