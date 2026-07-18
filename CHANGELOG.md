@@ -9,6 +9,9 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: dodane 2 oferty — LSM (studenckie) i Organowa 5 (2026-07-18)
+- **feat** (zgłoszenie Mateusza): do `data/favorites.json` dopisane dwie oferty: „Pokój jednoosobowy na LSM, idealny dla studentów PL/UMCS/UP/KUL" (short_id `1bw9sZ`, numeric_id `1086097089`) oraz „Pokój jednoosobowy ul. Organowa 5, blisko UM" (short_id `1bwa88`, numeric_id `1086099640`). Tracker zacznie zbierać snapshoty przy najbliższym scanie.
+
 ### Ulubione: kafelek „Śr. przyrost" + wykres ceny w czasie (2026-07-18)
 - **feat (po akceptacji before/after)**: karta ulubionej oferty (`docs/ulubione.html`) dostaje 5. kafelek **Śr. przyrost** — średni wzrost wyświetleń między pomiarami `(ostatnie − pierwsze) / (pomiary − 1)`, format `+N,N` (znak, 1 miejsce po przecinku), wyszarzony `—` gdy < 2 pomiary. Liczony w JS z `views_history`.
 - **feat**: nowy wykres **💰 Cena w czasie** — Chart.js `stepped: 'before'` (cena trzyma poziom aż do zmiany), kolor morski (`#0d9488`), ostatni schodek dociągnięty do „teraz" (bieżąca cena). Pokazywany **tylko gdy cena się zmieniła** (`price_history.length ≥ 2`); gdy stała — jak dotąd, sam kafelek Cena. Czysty frontend z istniejącego `price_history` + `current_price`, bez zmian w generatorze.
