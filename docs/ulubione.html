@@ -38,6 +38,16 @@
     .status-badge.active { background: #dcfce7; color: #15803d; }
     .status-badge.removed, .status-badge.unknown { background: #fee2e2; color: #b91c1c; }
     .status-badge.other { background: #e2e8f0; color: #475569; }
+    /* Przycisk profilu/firmy — dla śledzonych firm klikalny, prowadzi do zakładki Firmy */
+    .profile-btn {
+        display: inline-flex; align-items: center; gap: 5px;
+        font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 12px;
+        white-space: nowrap; text-decoration: none;
+        background: #fef3c7; color: #92400e; border: 1px solid #fde68a;
+    }
+    a.profile-btn:hover { background: #fde68a; }
+    a.profile-btn::after { content: '→'; font-weight: 400; }
+    .profile-btn.private { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
     .fav-meta { font-size: 12px; color: #64748b; margin-top: 4px; display: flex; gap: 14px; flex-wrap: wrap; }
 
     .chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
@@ -261,6 +271,17 @@ function renderFavorites(data) {
             priceHist = `<div class="price-history-row">📊 Historia cen: ${seq}${deltaStr}</div>`;
         }
 
+        // Przycisk profilu: śledzona firma → klik przenosi do zakładki Firmy (podzakładka firmy),
+        // firma spoza śledzonych → sam badge z nazwą, brak profilu → szary "Prywatne".
+        let profileBtn;
+        if (f.profile_key) {
+            profileBtn = `<a class="profile-btn" href="profile_tracker.html#${escapeHtml(f.profile_key)}" title="Przejdź do profilu firmy w zakładce Firmy">🏢 ${escapeHtml(f.profile_name)}</a>`;
+        } else if (f.profile_name) {
+            profileBtn = `<span class="profile-btn">🏢 ${escapeHtml(f.profile_name)}</span>`;
+        } else {
+            profileBtn = '<span class="profile-btn private">👤 Prywatne</span>';
+        }
+
         let chartHtml;
         const vh = f.views_history || [];
         // Śr. przyrost wyświetleń między pomiarami = (ostatnie − pierwsze) / (pomiary − 1)
@@ -286,6 +307,7 @@ function renderFavorites(data) {
         card.innerHTML = `
             <div class="fav-title-row">
                 <div class="fav-title"><a href="${escapeHtml(f.url)}" target="_blank" rel="noopener">${escapeHtml(f.title)} ↗</a></div>
+                ${profileBtn}
                 ${statusBadge(f.status)}
             </div>
             <div class="fav-meta">${meta.join(' · ')}</div>
