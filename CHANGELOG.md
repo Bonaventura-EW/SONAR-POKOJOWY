@@ -9,6 +9,11 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: przycisk profilu/firmy na karcie (2026-07-19)
+- **feat (zgłoszenie Mateusza)**: karta ulubionej oferty (`docs/ulubione.html`) pokazuje w wierszu tytułu, obok badge'a statusu, przycisk z profilem źródłowym ogłoszenia. Śledzona firma → klikalny bursztynowy przycisk „🏢 Nazwa →" prowadzący do zakładki Firmy z otwartą podzakładką tej firmy (istniejący deep-link `profile_tracker.html#klucz`); firma spoza śledzonych → sam badge z nazwą (bez linku); oferta bez profilu → szary badge „👤 Prywatne".
+- **feat**: fix u źródła — `favorites_generator.py` dokłada do `docs/favorites_data.json` pola `profile_name` (z `offers.json`) i `profile_key` (mapowanie nazwa→klucz przez `TRACKED_PROFILES` z `profiles_config.py`).
+- Zweryfikowane headless (Chromium, lokalny Chart.js/Leaflet): 4 przyciski firmowe (MAT×2, stylowe pokoje-ania, Artymiuk) z poprawnymi hashami, 1 badge „Prywatne", klik `#mat` otwiera zakładkę MAT w Firmach, 0 błędów JS, wykresy bez regresji.
+
 ### Ulubione: dodane 2 oferty — LSM (studenckie) i Organowa 5 (2026-07-18)
 - **feat** (zgłoszenie Mateusza): do `data/favorites.json` dopisane dwie oferty: „Pokój jednoosobowy na LSM, idealny dla studentów PL/UMCS/UP/KUL" (short_id `1bw9sZ`, numeric_id `1086097089`) oraz „Pokój jednoosobowy ul. Organowa 5, blisko UM" (short_id `1bwa88`, numeric_id `1086099640`). Tracker zacznie zbierać snapshoty przy najbliższym scanie.
 

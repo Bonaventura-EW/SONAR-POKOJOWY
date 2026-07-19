@@ -13,11 +13,15 @@ Z surowych snapshotów wyprowadza per oferta:
 import json
 from datetime import datetime
 
+from profiles_config import TRACKED_PROFILES
 from shared_utils import (DATA_DIR, DOCS_DIR, OFFERS_FILE, TZ,
                           format_datetime, write_json_atomic)
 
 TRACKING_FILE = DATA_DIR / 'favorites_tracking.json'
 OUTPUT_FILE = DOCS_DIR / 'favorites_data.json'
+
+# nazwa profilu (jak w offers.json 'profile_name') → klucz zakładki w profile_tracker.html
+PROFILE_KEY_BY_NAME = {cfg['name'].lower(): key for key, cfg in TRACKED_PROFILES.items()}
 
 
 def _load_json(path, default):
@@ -71,10 +75,13 @@ def _build_favorite(short_id: str, entry: dict, base_offer: dict | None) -> dict
     last = snapshots[-1] if snapshots else {}
     address = None
     coords = None
+    profile_name = None
     if base_offer:
         addr = base_offer.get('address', {}) or {}
         address = addr.get('full') or None
         coords = addr.get('coords') or None
+        profile_name = base_offer.get('profile_name') or None
+    profile_key = PROFILE_KEY_BY_NAME.get(profile_name.lower()) if profile_name else None
 
     return {
         'short_id': short_id,
@@ -93,6 +100,8 @@ def _build_favorite(short_id: str, entry: dict, base_offer: dict | None) -> dict
         'last_checked': format_datetime(last.get('ts', '')),
         'address': address,
         'coords': coords,
+        'profile_name': profile_name,
+        'profile_key': profile_key,
         'in_database': base_offer is not None,
         'snapshots_count': len(snapshots),
     }
