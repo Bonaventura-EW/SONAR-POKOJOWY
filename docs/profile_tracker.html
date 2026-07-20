@@ -168,6 +168,10 @@
         .badge-new { background: #dc2626; color: white; }
         .badge-inactive { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
         .badge-reakt { background: rgba(245,158,11,0.1); color: #92400e; border: 1px solid rgba(245,158,11,0.3); }
+        .reakt-sub { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; margin-top: 4px; font-size: 10px; }
+        .reakt-sub .lbl { color: #b45309; font-weight: 600; }
+        .reakt-sub .d { background: rgba(245,158,11,0.12); color: #92400e; border-radius: 3px; padding: 0 5px; font-weight: 600; }
+        .reakt-sub .older { color: #b45309; opacity: 0.7; }
         .meta-txt { font-size: 10px; color: #475569; }
         .meta-days { font-size: 10px; font-weight: 600; }
         .meta-days.fresh { color: #334155; }
@@ -674,6 +678,17 @@ function buildRow(o) {
         ? '<span class="badge badge-reakt">♻ reaktywacja ×' + o.reactivation_count + '</span>'
         : '';
 
+    // Linijka z datami reaktywacji (wariant C). Historycznie znamy tylko ostatnią datę,
+    // więc gdy licznik > liczba dat, brakujące pokazujemy jako "+N wcześniej".
+    const reaktDates = o.reactivation_dates || [];
+    const reaktUnknown = Math.max(0, (o.reactivation_count || 0) - reaktDates.length);
+    const reaktSub = reaktDates.length
+        ? '<div class="reakt-sub"><span class="lbl">♻ daty:</span>'
+            + reaktDates.map(d => '<span class="d">' + d + '</span>').join('')
+            + (reaktUnknown ? '<span class="older">+' + reaktUnknown + ' wcześniej</span>' : '')
+            + '</div>'
+        : '';
+
     const inactiveBadge = !o.active ? '<span class="badge badge-inactive">NIEAKTYWNE</span>' : '';
 
     const trendHtml = trend
@@ -716,6 +731,7 @@ function buildRow(o) {
         + '<a class="olx-link" href="' + o.url + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">OLX ↗</a>'
         + (o.lat && o.lon ? '<a class="map-pin-btn" href="index.html?loc=' + o.lat + ',' + o.lon + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Pokaż na głównej mapie">📍 Mapa</a>' : '')
         + '</div>'
+        + reaktSub
         // Gdy są wersje — sekcja wersji zastępuje pojedynczy wykres/odświeżenia (każda wersja ma własne)
         + (hasVersions
             ? buildVersions(o)

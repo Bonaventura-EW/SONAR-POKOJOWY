@@ -44,6 +44,11 @@ TRACKED_PROFILES = {
         'url': 'https://www.olx.pl/oferty/uzytkownik/4B6oQ/',
         'user_id': 67948084,
     },
+    'myrent': {
+        'name': 'MyRent',
+        'url': 'https://www.olx.pl/oferty/uzytkownik/56DT9/',
+        'user_id': 75464983,
+    },
 }
 
 # Kolor obwódki pinezek na mapie (jednolity dla wszystkich profili firmowych)

@@ -248,6 +248,12 @@ def generate_profile_data(input_file: str, output_file: str):
             'refresh_dates': offer.get('refresh_dates', []),
             'last_refresh_date': offer.get('last_refresh_date', ''),
             'reactivation_count': offer.get('reactivation_count', 0),
+            # Daty reaktywacji (DD.MM.YYYY). Historycznie znamy tylko ostatnią,
+            # więc len(dates) może być < reactivation_count → front pokazuje "+N wcześniej".
+            'reactivation_dates': [
+                format_datetime(d, fmt='%d.%m.%Y')
+                for d in offer.get('reactivation_dates', [])
+            ],
             # Wersje adresu (Faza 1): zmiany adresu tego samego listingu OLX
             'address_change_count': offer.get('address_change_count', 0),
             'address_changed_at': format_datetime(offer.get('address_changed_at', '')),
