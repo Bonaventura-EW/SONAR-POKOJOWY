@@ -291,6 +291,17 @@ function renderFavorites(data) {
             avgGrowthStr = (g > 0 ? '+' : g < 0 ? '−' : '') + Math.abs(g).toFixed(1).replace('.', ',');
             avgGrowthDim = '';
         }
+        // Śr. przyrost dzienny = (ostatnie − pierwsze) / dni między pierwszym a ostatnim pomiarem
+        // (date_iso jest w ISO 8601 ze strefą — new Date() parsuje bez parseDateString)
+        let dailyGrowthStr = '—', dailyGrowthDim = 'dim';
+        if (vh.length >= 2 && vh[0].date_iso && vh[vh.length - 1].date_iso) {
+            const spanDays = (new Date(vh[vh.length - 1].date_iso) - new Date(vh[0].date_iso)) / 86400000;
+            if (spanDays > 0) {
+                const gd = (vh[vh.length - 1].views - vh[0].views) / spanDays;
+                dailyGrowthStr = (gd > 0 ? '+' : gd < 0 ? '−' : '') + Math.abs(gd).toFixed(1).replace('.', ',');
+                dailyGrowthDim = '';
+            }
+        }
         if (vh.length >= 2) {
             chartHtml = `<div class="chart-wrap"><canvas id="views-chart-${idx}"></canvas></div>
                 <details class="data-table"><summary>Tabela pomiarów (${vh.length})</summary>
@@ -316,7 +327,8 @@ function renderFavorites(data) {
                 <div class="chip"><span class="v ${f.refresh_count ? '' : 'dim'}">${f.refresh_count}</span><span class="l">Odświeżenia</span></div>
                 <div class="chip"><span class="v ${f.current_views != null ? '' : 'dim'}">${viewsStr}</span><span class="l">Wyświetlenia</span></div>
                 <div class="chip"><span class="v dim">${f.snapshots_count}</span><span class="l">Pomiary</span></div>
-                <div class="chip"><span class="v ${avgGrowthDim}">${avgGrowthStr}</span><span class="l">Śr. przyrost</span></div>
+                <div class="chip"><span class="v ${avgGrowthDim}">${avgGrowthStr}</span><span class="l">Śr. przyrost/pomiar</span></div>
+                <div class="chip"><span class="v ${dailyGrowthDim}">${dailyGrowthStr}</span><span class="l">Śr. przyrost/dzień</span></div>
             </div>
             ${priceHist}
             ${ph.length >= 2 ? `<div class="chart-block">

@@ -9,6 +9,10 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: kafelek „Śr. przyrost/dzień" (2026-07-20)
+- **feat (zgłoszenie Mateusza)**: karta ulubionej oferty (`docs/ulubione.html`) dostaje 6. kafelek **Śr. przyrost/dzień** — średni dzienny wzrost wyświetleń `(ostatnie − pierwsze) / dni między pierwszym a ostatnim pomiarem` (z `date_iso`, ISO 8601 — parsowane natywnie przez `new Date()`, bez pułapki formatu PL). Format `+N,N` jak w sąsiednim kafelku, wyszarzony `—` gdy < 2 pomiary lub zerowy odstęp czasu. To inna wartość niż przyrost między pomiarami: przy 3 scanach dziennie ~3× wyższa.
+- **ui**: dotychczasowa etykieta „Śr. przyrost" → **„Śr. przyrost/pomiar"**, żeby oba kafelki się nie myliły.
+
 ### Ulubione: przycisk profilu/firmy na karcie (2026-07-19)
 - **feat (zgłoszenie Mateusza)**: karta ulubionej oferty (`docs/ulubione.html`) pokazuje w wierszu tytułu, obok badge'a statusu, przycisk z profilem źródłowym ogłoszenia. Śledzona firma → klikalny bursztynowy przycisk „🏢 Nazwa →" prowadzący do zakładki Firmy z otwartą podzakładką tej firmy (istniejący deep-link `profile_tracker.html#klucz`); firma spoza śledzonych → sam badge z nazwą (bez linku); oferta bez profilu → szary badge „👤 Prywatne".
 - **feat**: fix u źródła — `favorites_generator.py` dokłada do `docs/favorites_data.json` pola `profile_name` (z `offers.json`) i `profile_key` (mapowanie nazwa→klucz przez `TRACKED_PROFILES` z `profiles_config.py`).
