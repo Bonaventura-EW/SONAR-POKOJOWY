@@ -9,6 +9,10 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: wykres „Przyrost dzienny" (2026-07-20)
+- **feat (zgłoszenie Mateusza)**: pod wykresem wyświetleń nowy wykres słupkowy **📈 Przyrost dzienny** — słupek na dzień kalendarzowy, wartość = ostatni pomiar dnia − ostatni pomiar dnia poprzedniego (grupowanie po `date_iso`). Pierwszy dzień śledzenia nie ma poprzednika — liczony od pierwszego pomiaru, oznaczony jaśniejszym słupkiem + dopiskiem w tooltipie „(dzień częściowy)". Kolor jak wykres wyświetleń (`#667eea`, ta sama encja). Pokazywany gdy ≥ 2 dni pomiarów.
+- Zweryfikowane headless (Chromium, lokalny Chart.js): 5 wykresów słupkowych, suma słupków każdej karty = różnica wyświetleń od pierwszego pomiaru, 0 błędów JS.
+
 ### Ulubione: kafelek „Śr. przyrost/dzień" (2026-07-20)
 - **feat (zgłoszenie Mateusza)**: karta ulubionej oferty (`docs/ulubione.html`) dostaje 6. kafelek **Śr. przyrost/dzień** — średni dzienny wzrost wyświetleń `(ostatnie − pierwsze) / dni między pierwszym a ostatnim pomiarem` (z `date_iso`, ISO 8601 — parsowane natywnie przez `new Date()`, bez pułapki formatu PL). Format `+N,N` jak w sąsiednim kafelku, wyszarzony `—` gdy < 2 pomiary lub zerowy odstęp czasu. To inna wartość niż przyrost między pomiarami: przy 3 scanach dziennie ~3× wyższa.
 - **ui**: dotychczasowa etykieta „Śr. przyrost" → **„Śr. przyrost/pomiar"**, żeby oba kafelki się nie myliły.
