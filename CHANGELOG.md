@@ -9,6 +9,13 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Firmy: daty reaktywacji zamiast samego licznika ×N (2026-07-20)
+- **feat (zgłoszenie Mateusza)**: badge „♻ reaktywacja ×N" w `docs/profile_tracker.html` mówił *ile razy*, ale nie *kiedy*. Pod wierszem meta dochodzi linijka „♻ daty: [data] …" (wariant C, jak sub-line adresu) z datami reaktywacji (`DD.MM.YYYY`). Badge z licznikiem zostaje.
+- **backend (`main.py`)**: nowe pole `reactivation_dates` — lista dat reaktywacji. Dopisywane we wszystkich 3 ścieżkach reaktywacji (`_update_existing_offer`, skipped w `_mark_inactive_offers`, weryfikacja URL w `_verify_inactive_offers`), inicjalizowane w szablonie nowej oferty i w snapshocie wersji, resetowane przy zmianie adresu (jak pozostałe liczniki wersji).
+- **dane**: backfill (`scripts/archive/backfill_reactivation_dates.py`, idempotentny) — 661 ofert dostało `reactivation_dates=[reactivated_at]` (jedyna znana data), 8 ofert z `count>0` bez daty → pusta lista. Historii **wielokrotnych** reaktywacji nie da się odtworzyć (nigdy nie zapisywana, patrz 2026-07-13), więc gdy `reactivation_count > len(reactivation_dates)` front pokazuje brakujące jako „+N wcześniej"; przyszłe reaktywacje zapiszą pełne daty. Backup: `data/backups/offers.backup_reactivation_dates_*`.
+- **frontend (`profile_generator.py`)**: `profile_data.json` dostaje `reactivation_dates` (sformatowane `DD.MM.YYYY`).
+- Zweryfikowane headless (Chromium + lokalny Leaflet): profil „Dawny Patron" — Niecała 4 `×2` → „♻ daty: 19.07.2026 +1 wcześniej", Ogrodowa 8 `×1` → „♻ daty: 21.05.2026" bez „+N", oferty bez reaktywacji bez linijki, 0 błędów JS.
+
 ### Ulubione: dodane 3 oferty — Przy Stawie, Langiewicza, Nowowiejskiego (2026-07-20)
 - **feat** (zgłoszenie Mateusza): do `data/favorites.json` dopisane trzy oferty: „Pokój w mieszkaniu 2-pokojowym, blisko UMCS/KUL/UP — ul. Przy Stawie" (short_id `1biza2`, numeric_id `1083097594`), „Przytulny pokój po remoncie, 5 min od UMCS/KUL/UP — ul. Langiewicza" (short_id `1biJym`, numeric_id `1083137542`) oraz „Przestronny pokój po remoncie, blisko centrum — ul. Feliksa Nowowiejskiego" (short_id `1bnkW7`, numeric_id `1084234493`). Tracker zacznie zbierać snapshoty przy najbliższym scanie.
 
