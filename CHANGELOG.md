@@ -9,6 +9,9 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: dodana oferta — Faraona 6 (MyRent) (2026-07-20)
+- **feat (zgłoszenie Mateusza)**: do `data/favorites.json` dopisana oferta „Pokoje do wynajęcia od września — ul. Faraona 6, 3 wolne pokoje, bez prowizji, blisko uczelni" (short_id `1bv4ph`, numeric_id `1086315967`; profil MyRent). Tracker zacznie zbierać snapshoty przy najbliższym scanie.
+
 ### Firmy: dodana firma MyRent do śledzonych profili (2026-07-20)
 - **feat (zgłoszenie Mateusza)**: nowy profil `myrent` w `src/profiles_config.py` — MyRent, `https://www.olx.pl/oferty/uzytkownik/56DT9/`, `user_id=75464983` (rozwiązany ze slugu `56DT9` z HTML profilu: `"seller":{"data":{"id":75464983}}`; zweryfikowany przez OLX API v1 — 11 ofert, pokoje w Lublinie). Tab pojawia się od razu (pusty), oferty zbiorą się przy najbliższym scanie.
 
