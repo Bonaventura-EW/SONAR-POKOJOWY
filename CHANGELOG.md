@@ -9,6 +9,9 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: dodane 3 oferty — Przy Stawie, Langiewicza, Nowowiejskiego (2026-07-20)
+- **feat** (zgłoszenie Mateusza): do `data/favorites.json` dopisane trzy oferty: „Pokój w mieszkaniu 2-pokojowym, blisko UMCS/KUL/UP — ul. Przy Stawie" (short_id `1biza2`, numeric_id `1083097594`), „Przytulny pokój po remoncie, 5 min od UMCS/KUL/UP — ul. Langiewicza" (short_id `1biJym`, numeric_id `1083137542`) oraz „Przestronny pokój po remoncie, blisko centrum — ul. Feliksa Nowowiejskiego" (short_id `1bnkW7`, numeric_id `1084234493`). Tracker zacznie zbierać snapshoty przy najbliższym scanie.
+
 ### Ulubione: wykres „Przyrost dzienny" (2026-07-20)
 - **feat (zgłoszenie Mateusza)**: pod wykresem wyświetleń nowy wykres słupkowy **📈 Przyrost dzienny** — słupek na dzień kalendarzowy, wartość = ostatni pomiar dnia − ostatni pomiar dnia poprzedniego (grupowanie po `date_iso`). Pierwszy dzień śledzenia nie ma poprzednika — liczony od pierwszego pomiaru, oznaczony jaśniejszym słupkiem + dopiskiem w tooltipie „(dzień częściowy)". Kolor jak wykres wyświetleń (`#667eea`, ta sama encja). Pokazywany gdy ≥ 2 dni pomiarów.
 - Zweryfikowane headless (Chromium, lokalny Chart.js): 5 wykresów słupkowych, suma słupków każdej karty = różnica wyświetleń od pierwszego pomiaru, 0 błędów JS.
