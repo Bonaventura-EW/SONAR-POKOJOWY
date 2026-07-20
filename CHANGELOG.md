@@ -9,6 +9,9 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Firmy: dodana firma MyRent do śledzonych profili (2026-07-20)
+- **feat (zgłoszenie Mateusza)**: nowy profil `myrent` w `src/profiles_config.py` — MyRent, `https://www.olx.pl/oferty/uzytkownik/56DT9/`, `user_id=75464983` (rozwiązany ze slugu `56DT9` z HTML profilu: `"seller":{"data":{"id":75464983}}`; zweryfikowany przez OLX API v1 — 11 ofert, pokoje w Lublinie). Tab pojawia się od razu (pusty), oferty zbiorą się przy najbliższym scanie.
+
 ### Firmy: daty reaktywacji zamiast samego licznika ×N (2026-07-20)
 - **feat (zgłoszenie Mateusza)**: badge „♻ reaktywacja ×N" w `docs/profile_tracker.html` mówił *ile razy*, ale nie *kiedy*. Pod wierszem meta dochodzi linijka „♻ daty: [data] …" (wariant C, jak sub-line adresu) z datami reaktywacji (`DD.MM.YYYY`). Badge z licznikiem zostaje.
 - **backend (`main.py`)**: nowe pole `reactivation_dates` — lista dat reaktywacji. Dopisywane we wszystkich 3 ścieżkach reaktywacji (`_update_existing_offer`, skipped w `_mark_inactive_offers`, weryfikacja URL w `_verify_inactive_offers`), inicjalizowane w szablonie nowej oferty i w snapshocie wersji, resetowane przy zmianie adresu (jak pozostałe liczniki wersji).
