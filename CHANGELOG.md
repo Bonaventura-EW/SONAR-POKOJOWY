@@ -9,6 +9,12 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: kafelek „Śr. przyrost/dzień" pokazywał absurdy (+1158/dzień) (2026-07-20)
+- **fix (zgłoszenie Mateusza)**: kafelek na karcie ulubionej oferty (`docs/ulubione.html`) potrafił pokazać **+1158,1/dzień** — oferta Faraona 6 miała 2 pomiary oddalone o ~7 min (53 → 59 wyświetleń) tego samego dnia.
+- **root cause**: metryka liczyła `(ostatnie − pierwsze) / dni_między_pomiarami` z `date_iso`. Przy pod-dobowym oknie (7 min ≈ 0,005 dnia) dzielenie +6 przez ułamek doby ekstrapolowało tempo na całą dobę → absurd. Matematycznie „poprawne", ale z 7 minut nie da się oszacować dziennego tempa.
+- **fix**: kafelek liczy teraz tak samo jak sąsiedni wykres słupkowy „📈 Przyrost dzienny" — porównuje **stany na koniec dnia kalendarzowego**: `(ostatni_pomiar_ostatniego_dnia − ostatni_pomiar_pierwszego_dnia) / (liczba_dni − 1)` (grupowanie po `date_iso`, reuse istniejących `dayLast`/`dayKeys`). Gdy wszystkie pomiary są z jednego dnia → „—" (za mało danych; bieżące tempo pokazuje „przyrost/pomiar"). Model wg Mateusza: wczoraj 100 → dziś 130 = +30/dzień.
+- Zweryfikowane headless (Node, replika logiki): przykład Mateusza (100→130 przez dobę) = **+30,0**; Faraona 6 (2 pomiary, ten sam dzień) = **„—"** (było +1158,1); 3 świeże ulubione (dni=1) = „—" (było +25,6/+39,4/+17,7); oferty z ≥2 dniami (LSM, Organowa, Czechów, Głęboka, Centrum) = wartości spójne, bez ekstrapolacji (+12,5/+18,0/+26,3/+63,0/+7,8). `test_integration.py` PASS.
+
 ### Adres: oferta ID1buaHj (Magdaleny Brzeskiej) na mapie stała na Zana (2026-07-20)
 - **fix (zgłoszenie Mateusza)**: `politechnika-m-brzeskiej-z-balkonem-…-ID1buaHj` — realny adres „ul. Magdaleny Brzeskiej", a marker stał na „Zana" (punkt orientacyjny z opisu: „10 min od biurowców przy ul. Zana").
 - **root cause**: to była zastana, nieświeża DANA, nie regresja kodu. Fix parsera (dodanie `magdaleny brzeskiej` do `HARDCODED_LUBLIN_STREETS`) był już w kodzie od 2026-07-17 i `extract_street_only` na tym opisie zwraca poprawnie „Magdaleny Brzeskiej". Ale rekord w `data/offers.json` miał scache'owany stary wynik „Zana" sprzed fixu, a smart-scan pomija tę ofertę (cena bez zmian), więc nigdy się nie przeparsowała. „Zana" to realna ulica → nie łapie jej ścieżka re-parse bogus-adresów.
