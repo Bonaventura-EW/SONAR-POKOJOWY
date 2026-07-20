@@ -9,6 +9,12 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Mapa: liczniki zakresów cenowych i grup zmian nie liczyły ofert firmowych (2026-07-20)
+- **fix (zgłoszenie Mateusza)**: gdy na mapie odznaczone były warstwy „Aktywne/Nieaktywne oferty" i zostawiona tylko warstwa „Firmy / Agencje", liczniki przy „Zakresy cenowe" oraz „Grupy zmian" (Cena spadła/wzrosła, Nowa oferta, Bez zmian) pokazywały wszędzie `(0)` — mimo że markery firmowe były widoczne na mapie.
+- **root cause**: `updatePriceRangeCounts()` i `updateBadgeCounts()` (`docs/assets/script.js`) miały własną, uproszczoną logikę filtra warstw — sprawdzały tylko `layer-active`/`layer-inactive`/`*-approx`, **ignorując** warstwę Firmy (`isFirmOffer`/`layer-firm`/profile). Aktywna oferta firmowa wpadała do gałęzi zwykłych aktywnych i była zerowana, gdy `layer-active` był odznaczony. `filterMarkers()` (rzeczywiste wyświetlanie) miał poprawną, firmo-świadomą logikę — liczniki się z nią rozjeżdżały.
+- **fix**: wyodrębniony wspólny helper `getLayerFilterState()` + `itemPassesLayerFilter(item, state)` — jedno źródło prawdy dla filtra warstw (aktywne/nieaktywne/przybliżone/firmy + wybór profili firmowych). Używany teraz w `filterMarkers()`, `updatePriceRangeCounts()` i `updateBadgeCounts()`, więc oferty firmowe **liczą się tak samo, jak są wyświetlane**. Bump `script.js?v=23` → `v=24` (wymuszenie reloadu).
+- Zweryfikowane headless (Node VM na realnym `script.js`, mock DOM): scenariusz „tylko Firmy zaznaczone" → zakresy `901-1000=2`, `1201-1300=1`, `0-500=0` (oferta prywatna niewidoczna), grupy zmian `Nowa=1`, `Cena spadła=1`, `Bez zmian=1`, `Cena wzrosła=0`; odznaczenie profilu MyRent → jego oferta znika z liczników. Wszystkie asercje PASS.
+
 ### Ulubione: dodana oferta — Faraona 6 (MyRent) (2026-07-20)
 - **feat (zgłoszenie Mateusza)**: do `data/favorites.json` dopisana oferta „Pokoje do wynajęcia od września — ul. Faraona 6, 3 wolne pokoje, bez prowizji, blisko uczelni" (short_id `1bv4ph`, numeric_id `1086315967`; profil MyRent). Tracker zacznie zbierać snapshoty przy najbliższym scanie.
 
