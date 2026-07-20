@@ -9,6 +9,12 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Adres: oferta ID1buaHj (Magdaleny Brzeskiej) na mapie stała na Zana (2026-07-20)
+- **fix (zgłoszenie Mateusza)**: `politechnika-m-brzeskiej-z-balkonem-…-ID1buaHj` — realny adres „ul. Magdaleny Brzeskiej", a marker stał na „Zana" (punkt orientacyjny z opisu: „10 min od biurowców przy ul. Zana").
+- **root cause**: to była zastana, nieświeża DANA, nie regresja kodu. Fix parsera (dodanie `magdaleny brzeskiej` do `HARDCODED_LUBLIN_STREETS`) był już w kodzie od 2026-07-17 i `extract_street_only` na tym opisie zwraca poprawnie „Magdaleny Brzeskiej". Ale rekord w `data/offers.json` miał scache'owany stary wynik „Zana" sprzed fixu, a smart-scan pomija tę ofertę (cena bez zmian), więc nigdy się nie przeparsowała. „Zana" to realna ulica → nie łapie jej ścieżka re-parse bogus-adresów.
+- **fix (dane)**: skorygowany JEDEN rekord przez faktyczny pipeline (parser `extract_street_only` → geocoder), nie ręcznie: `address` = `Magdaleny Brzeskiej`, coords `(51.2332228, 22.5364355)` (rejon LSM/Rury, obok „Brzeskiej 8" z cache). `geocoding_cache.json` dostał wpis `Magdaleny Brzeskiej`. Zregenerowane `docs/data.json` + `docs/profile_data.json`. Backup: `data/backups/offers.backup_fix_brzeskiej_*`.
+- Zweryfikowane: golden 2255/2255 (bez zmian kodu parsera), `test_integration.py` PASS, marker w `docs/data.json` na poprawnych koordynatach.
+
 ### Mapa: liczniki zakresów cenowych i grup zmian nie liczyły ofert firmowych (2026-07-20)
 - **fix (zgłoszenie Mateusza)**: gdy na mapie odznaczone były warstwy „Aktywne/Nieaktywne oferty" i zostawiona tylko warstwa „Firmy / Agencje", liczniki przy „Zakresy cenowe" oraz „Grupy zmian" (Cena spadła/wzrosła, Nowa oferta, Bez zmian) pokazywały wszędzie `(0)` — mimo że markery firmowe były widoczne na mapie.
 - **root cause**: `updatePriceRangeCounts()` i `updateBadgeCounts()` (`docs/assets/script.js`) miały własną, uproszczoną logikę filtra warstw — sprawdzały tylko `layer-active`/`layer-inactive`/`*-approx`, **ignorując** warstwę Firmy (`isFirmOffer`/`layer-firm`/profile). Aktywna oferta firmowa wpadała do gałęzi zwykłych aktywnych i była zerowana, gdy `layer-active` był odznaczony. `filterMarkers()` (rzeczywiste wyświetlanie) miał poprawną, firmo-świadomą logikę — liczniki się z nią rozjeżdżały.
