@@ -291,23 +291,24 @@ function renderFavorites(data) {
             avgGrowthStr = (g > 0 ? '+' : g < 0 ? '−' : '') + Math.abs(g).toFixed(1).replace('.', ',');
             avgGrowthDim = '';
         }
-        // Śr. przyrost dzienny = (ostatnie − pierwsze) / dni między pierwszym a ostatnim pomiarem
-        // (date_iso jest w ISO 8601 ze strefą — new Date() parsuje bez parseDateString)
-        let dailyGrowthStr = '—', dailyGrowthDim = 'dim';
-        if (vh.length >= 2 && vh[0].date_iso && vh[vh.length - 1].date_iso) {
-            const spanDays = (new Date(vh[vh.length - 1].date_iso) - new Date(vh[0].date_iso)) / 86400000;
-            if (spanDays > 0) {
-                const gd = (vh[vh.length - 1].views - vh[0].views) / spanDays;
-                dailyGrowthStr = (gd > 0 ? '+' : gd < 0 ? '−' : '') + Math.abs(gd).toFixed(1).replace('.', ',');
-                dailyGrowthDim = '';
-            }
-        }
-        // Przyrosty dzienne do wykresu słupkowego: ostatni pomiar każdego dnia kalendarzowego,
-        // przyrost dnia = różnica vs ostatni pomiar dnia poprzedniego.
-        // Pierwszy dzień nie ma poprzednika — liczony od pierwszego pomiaru (częściowy, jaśniejszy słupek).
+        // Przyrosty dzienne: ostatni pomiar każdego dnia kalendarzowego (grupowanie po date_iso).
+        // views_history jest chronologiczne → Map.set zostawia ostatni pomiar dnia.
         const dayLast = new Map();
         vh.forEach(v => { if (v.date_iso) dayLast.set(v.date_iso.slice(0, 10), v.views); });
         const dayKeys = [...dayLast.keys()].sort();
+        // Śr. przyrost dzienny = (ostatni pomiar ostatniego dnia − ostatni pomiar pierwszego dnia)
+        // / liczba dni między nimi (dayKeys − 1). Porównujemy stany NA KONIEC DNIA — nie ekstrapolujemy
+        // pod-dobowego okienka (7 min → cała doba dawało absurdalne +1158/dzień). Gdy wszystkie pomiary
+        // są z jednego dnia kalendarzowego → „—" (za mało danych; bieżące tempo pokazuje „przyrost/pomiar").
+        let dailyGrowthStr = '—', dailyGrowthDim = 'dim';
+        if (dayKeys.length >= 2) {
+            const gd = (dayLast.get(dayKeys[dayKeys.length - 1]) - dayLast.get(dayKeys[0])) / (dayKeys.length - 1);
+            dailyGrowthStr = (gd > 0 ? '+' : gd < 0 ? '−' : '') + Math.abs(gd).toFixed(1).replace('.', ',');
+            dailyGrowthDim = '';
+        }
+        // Przyrosty dzienne do wykresu słupkowego: przyrost dnia = ostatni pomiar dnia − ostatni pomiar
+        // dnia poprzedniego. Pierwszy dzień nie ma poprzednika — liczony od pierwszego pomiaru
+        // (częściowy, jaśniejszy słupek).
         const dailyBars = [];
         if (dayKeys.length >= 2) {
             for (let i = 0; i < dayKeys.length; i++) {
