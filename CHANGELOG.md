@@ -9,6 +9,12 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Firmy: archiwalne ogłoszenia sortowane po dacie zniknięcia (2026-07-21)
+- **fix (zgłoszenie Mateusza)**: w zakładce Firmy sekcja „ogłoszenia archiwalne" sortowała nieaktywne oferty po `first_seen` (data pojawienia się) malejąco — na górze była oferta, która *pojawiła się* najpóźniej, a nie ta, która *zniknęła* jako ostatnia. Oczekiwane: ostatnio zniknięte na górze.
+- **root cause**: `profile_generator.py` — `inactive_sorted` używał klucza `first_seen_iso`. Front (`profile_tracker.html`) tylko filtruje `prof.offers` w kolejności z JSON-a, więc porządek pochodzi z backendu.
+- **fix**: `offer_entry` dostaje pole `last_seen_iso` (surowy ISO), a nieaktywne oferty sortowane są po nim malejąco (`last_seen` nieaktywnej oferty = ostatni raz widziana = kiedy zniknęła). Aktywne bez zmian (po `first_seen` malejąco). Zregenerowane `docs/profile_data.json`.
+- Zweryfikowane na realnych danych: profil „Poqui" (ze screenshotu) → Pogodnej 36 (20.07) → Obrońców Pokoju 21 (19.07) → Hetmańskiej 5 (01.07) → Pogodnej 36 (29.05) → Przytulna 6A / Granata 13 (24.05). `test_integration.py` PASS.
+
 ### Ulubione: kafelek „Śr. przyrost/dzień" pokazywał absurdy (+1158/dzień) (2026-07-20)
 - **fix (zgłoszenie Mateusza)**: kafelek na karcie ulubionej oferty (`docs/ulubione.html`) potrafił pokazać **+1158,1/dzień** — oferta Faraona 6 miała 2 pomiary oddalone o ~7 min (53 → 59 wyświetleń) tego samego dnia.
 - **root cause**: metryka liczyła `(ostatnie − pierwsze) / dni_między_pomiarami` z `date_iso`. Przy pod-dobowym oknie (7 min ≈ 0,005 dnia) dzielenie +6 przez ułamek doby ekstrapolowało tempo na całą dobę → absurd. Matematycznie „poprawne", ale z 7 minut nie da się oszacować dziennego tempa.
