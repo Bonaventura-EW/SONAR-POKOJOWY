@@ -9,6 +9,11 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Mapa: kompresja popupów + tytuł ogłoszenia w 2. wierszu (2026-07-21)
+- **feat (po akceptacji before/after)**: popup oferty na mapie głównej ~40% niższy i węższy (380→350 px, margines wewn. 20→10 px, padding karty 16→9 px). Te same informacje i ikony 1:1: mniejsze fonty/odstępy, „▼ Pokaż całość" jako link w linii opisu zamiast przycisku w ramce, daty zawijane obok siebie zamiast 3 osobnych wierszy, fioletowa linia nagłówka schodzi pod tytuł.
+- **feat**: **tytuł ogłoszenia w 2. wierszu** nagłówka popupu (`.popup-title`; przy kilku ofertach pod adresem — `.offer-item-title` per karta). Fix u źródła: scraper nie zapisuje tytułu osobno (skleja z opisem — stąd „…Czechowie! OpisPokój do wynajęcia…"), więc `map_generator.py` odzyskuje go z prefiksu opisu walidowanego **slugiem URL-a** (zamrożony tytuł z chwili publikacji) + 2 fallbacki: marker „Opis" i zdublowany tytuł na początku treści (sprzedawca zmienił tytuł po publikacji → slug nieaktualny). Pokrycie: **1529/1532 (99,8%)**; bez tytułu → wiersz się nie renderuje. Nowe pole `title` w `docs/data.json`, `description` czyszczone z powtórzonego tytułu i sklejki „Opis".
+- Zweryfikowane headless (Chromium, lokalny Leaflet): popup aktywnej i nieaktywnej oferty (Paganiniego 12: tytuł „Wolny pokój od zaraz na Czechowie!", czysty opis), rozwijanie opisu, 374×330 px, 0 błędów JS; `test_integration.py` OK.
+
 ### Firmy: archiwalne ogłoszenia sortowane po dacie zniknięcia (2026-07-21)
 - **fix (zgłoszenie Mateusza)**: w zakładce Firmy sekcja „ogłoszenia archiwalne" sortowała nieaktywne oferty po `first_seen` (data pojawienia się) malejąco — na górze była oferta, która *pojawiła się* najpóźniej, a nie ta, która *zniknęła* jako ostatnia. Oczekiwane: ostatnio zniknięte na górze.
 - **root cause**: `profile_generator.py` — `inactive_sorted` używał klucza `first_seen_iso`. Front (`profile_tracker.html`) tylko filtruje `prof.offers` w kolejności z JSON-a, więc porządek pochodzi z backendu.
