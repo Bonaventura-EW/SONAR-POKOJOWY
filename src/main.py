@@ -551,6 +551,7 @@ class SonarPokojowy:
             'refresh_dates': [],         # lista dat odświeżeń ['YYYY-MM-DD', ...]
             'last_refresh_date': raw_offer.get('api_last_refresh', ''),
             'reactivation_count': 0,     # ile razy reaktywowano po zniknięciu
+            'reactivation_dates': [],    # daty reaktywacji ['YYYY-MM-DDT...', ...]
         }
     
     def _find_existing_offer(self, offer_id: str) -> Dict:
@@ -704,6 +705,7 @@ class SonarPokojowy:
                 'refresh_count': existing.get('refresh_count', 0),
                 'refresh_dates': list(existing.get('refresh_dates', [])),
                 'reactivation_count': existing.get('reactivation_count', 0),
+                'reactivation_dates': list(existing.get('reactivation_dates', [])),
                 'last_price': existing.get('price', {}).get('current'),
             }
 
@@ -823,9 +825,10 @@ class SonarPokojowy:
         # klucz — nie 'api_last_refresh', którego przetworzona oferta nie ma.
         self._track_refresh(existing, new_data.get('last_refresh_date', ''))
 
-        # Śledź reaktywacje — inkrementuj licznik przy każdej reaktywacji
+        # Śledź reaktywacje — inkrementuj licznik i dopisz datę przy każdej reaktywacji
         if was_inactive:
             existing['reactivation_count'] = existing.get('reactivation_count', 0) + 1
+            existing.setdefault('reactivation_dates', []).append(now)
             print(f"      ♻️ Reaktywacja #{existing['reactivation_count']}")
 
         # === OTWARCIE NOWEJ WERSJI po zmianie adresu ===
@@ -861,6 +864,7 @@ class SonarPokojowy:
             existing['refresh_dates'] = []
             existing['last_refresh_date'] = ''
             existing['reactivation_count'] = 0
+            existing['reactivation_dates'] = []
             existing.pop('reactivated_at', None)
 
     def _update_days_active(self):
@@ -939,6 +943,7 @@ class SonarPokojowy:
                         offer['active'] = True
                         offer['reactivated_at'] = now
                         offer['reactivation_count'] = offer.get('reactivation_count', 0) + 1
+                        offer.setdefault('reactivation_dates', []).append(now)
                         reactivated_from_skipped += 1
                     # Aktualizuj last_seen dla skipped ofert
                     offer['last_seen'] = now
@@ -1127,6 +1132,7 @@ class SonarPokojowy:
                         offer['reactivated_at'] = reactivation_data['reactivated_at']
                         offer['reactivation_source'] = 'verification'
                         offer['reactivation_count'] = offer.get('reactivation_count', 0) + 1
+                        offer.setdefault('reactivation_dates', []).append(reactivation_data['reactivated_at'])
                         # Cena z JSON-LD strony oferty (jeśli weryfikacja ją wyciągnęła)
                         verified_price = reactivation_data.get('price')
                         if verified_price and verified_price != offer.get('price', {}).get('current'):

@@ -291,6 +291,36 @@ function renderFavorites(data) {
             avgGrowthStr = (g > 0 ? '+' : g < 0 ? '−' : '') + Math.abs(g).toFixed(1).replace('.', ',');
             avgGrowthDim = '';
         }
+        // Przyrosty dzienne: ostatni pomiar każdego dnia kalendarzowego (grupowanie po date_iso).
+        // views_history jest chronologiczne → Map.set zostawia ostatni pomiar dnia.
+        const dayLast = new Map();
+        vh.forEach(v => { if (v.date_iso) dayLast.set(v.date_iso.slice(0, 10), v.views); });
+        const dayKeys = [...dayLast.keys()].sort();
+        // Śr. przyrost dzienny = (ostatni pomiar ostatniego dnia − ostatni pomiar pierwszego dnia)
+        // / liczba dni między nimi (dayKeys − 1). Porównujemy stany NA KONIEC DNIA — nie ekstrapolujemy
+        // pod-dobowego okienka (7 min → cała doba dawało absurdalne +1158/dzień). Gdy wszystkie pomiary
+        // są z jednego dnia kalendarzowego → „—" (za mało danych; bieżące tempo pokazuje „przyrost/pomiar").
+        let dailyGrowthStr = '—', dailyGrowthDim = 'dim';
+        if (dayKeys.length >= 2) {
+            const gd = (dayLast.get(dayKeys[dayKeys.length - 1]) - dayLast.get(dayKeys[0])) / (dayKeys.length - 1);
+            dailyGrowthStr = (gd > 0 ? '+' : gd < 0 ? '−' : '') + Math.abs(gd).toFixed(1).replace('.', ',');
+            dailyGrowthDim = '';
+        }
+        // Przyrosty dzienne do wykresu słupkowego: przyrost dnia = ostatni pomiar dnia − ostatni pomiar
+        // dnia poprzedniego. Pierwszy dzień nie ma poprzednika — liczony od pierwszego pomiaru
+        // (częściowy, jaśniejszy słupek).
+        const dailyBars = [];
+        if (dayKeys.length >= 2) {
+            for (let i = 0; i < dayKeys.length; i++) {
+                const prev = i === 0 ? vh[0].views : dayLast.get(dayKeys[i - 1]);
+                dailyBars.push({
+                    label: dayKeys[i].slice(8, 10) + '.' + dayKeys[i].slice(5, 7),
+                    diff: dayLast.get(dayKeys[i]) - prev,
+                    partial: i === 0,
+                });
+            }
+        }
+
         if (vh.length >= 2) {
             chartHtml = `<div class="chart-wrap"><canvas id="views-chart-${idx}"></canvas></div>
                 <details class="data-table"><summary>Tabela pomiarów (${vh.length})</summary>
@@ -316,7 +346,8 @@ function renderFavorites(data) {
                 <div class="chip"><span class="v ${f.refresh_count ? '' : 'dim'}">${f.refresh_count}</span><span class="l">Odświeżenia</span></div>
                 <div class="chip"><span class="v ${f.current_views != null ? '' : 'dim'}">${viewsStr}</span><span class="l">Wyświetlenia</span></div>
                 <div class="chip"><span class="v dim">${f.snapshots_count}</span><span class="l">Pomiary</span></div>
-                <div class="chip"><span class="v ${avgGrowthDim}">${avgGrowthStr}</span><span class="l">Śr. przyrost</span></div>
+                <div class="chip"><span class="v ${avgGrowthDim}">${avgGrowthStr}</span><span class="l">Śr. przyrost/pomiar</span></div>
+                <div class="chip"><span class="v ${dailyGrowthDim}">${dailyGrowthStr}</span><span class="l">Śr. przyrost/dzień</span></div>
             </div>
             ${priceHist}
             ${ph.length >= 2 ? `<div class="chart-block">
@@ -328,7 +359,11 @@ function renderFavorites(data) {
                 <h4>👁️ Wyświetlenia w czasie</h4>
                 ${(vh.length >= 2 && (f.refresh_events || []).length) ? '<div class="refresh-legend"><span class="rl-dash"></span> pionowa linia = dzień odświeżenia oferty</div>' : ''}
                 ${chartHtml}
-            </div>`;
+            </div>
+            ${dailyBars.length ? `<div class="chart-block">
+                <h4>📈 Przyrost dzienny</h4>
+                <div class="chart-wrap chart-wrap-sm"><canvas id="daily-chart-${idx}"></canvas></div>
+            </div>` : ''}`;
         list.appendChild(card);
 
         if (vh.length >= 2) {
@@ -377,6 +412,48 @@ function renderFavorites(data) {
                         x: {
                             grid: { display: false },
                             ticks: { color: '#64748b', font: { size: 11 }, maxRotation: 45 }
+                        }
+                    }
+                }
+            });
+        }
+
+        if (dailyBars.length) {
+            new Chart(document.getElementById(`daily-chart-${idx}`), {
+                type: 'bar',
+                data: {
+                    labels: dailyBars.map(d => d.label),
+                    datasets: [{
+                        data: dailyBars.map(d => d.diff),
+                        backgroundColor: dailyBars.map(d => d.partial ? 'rgba(102, 126, 234, 0.3)' : 'rgba(102, 126, 234, 0.75)'),
+                        borderColor: CHART_COLOR,
+                        borderWidth: 1,
+                        borderRadius: 4,
+                        maxBarThickness: 36,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            displayColors: false,
+                            callbacks: {
+                                label: ctx => `${ctx.parsed.y > 0 ? '+' : ''}${ctx.parsed.y} wyświetleń`
+                                    + (dailyBars[ctx.dataIndex].partial ? ' (dzień częściowy — od pierwszego pomiaru)' : ''),
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f1f5f9' },
+                            ticks: { color: '#64748b', font: { size: 11 }, precision: 0 }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#64748b', font: { size: 11 } }
                         }
                     }
                 }

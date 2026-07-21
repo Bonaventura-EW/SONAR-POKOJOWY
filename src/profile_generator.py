@@ -238,6 +238,7 @@ def generate_profile_data(input_file: str, output_file: str):
             'first_seen': format_datetime(offer.get('first_seen', '')),
             'first_seen_iso': offer.get('first_seen', ''),
             'last_seen': format_datetime(offer.get('last_seen', '')),
+            'last_seen_iso': offer.get('last_seen', ''),
             'days_active': offer.get('days_active', 0),
             'active': is_active,
             'is_new': False,  # obliczone poniżej
@@ -248,6 +249,12 @@ def generate_profile_data(input_file: str, output_file: str):
             'refresh_dates': offer.get('refresh_dates', []),
             'last_refresh_date': offer.get('last_refresh_date', ''),
             'reactivation_count': offer.get('reactivation_count', 0),
+            # Daty reaktywacji (DD.MM.YYYY). Historycznie znamy tylko ostatnią,
+            # więc len(dates) może być < reactivation_count → front pokazuje "+N wcześniej".
+            'reactivation_dates': [
+                format_datetime(d, fmt='%d.%m.%Y')
+                for d in offer.get('reactivation_dates', [])
+            ],
             # Wersje adresu (Faza 1): zmiany adresu tego samego listingu OLX
             'address_change_count': offer.get('address_change_count', 0),
             'address_changed_at': format_datetime(offer.get('address_changed_at', '')),
@@ -311,16 +318,13 @@ def generate_profile_data(input_file: str, output_file: str):
             pdata['stats']['newest_date'] = format_date_only(max(dates))
             pdata['stats']['oldest_date'] = format_date_only(min(dates))
 
-        # Posortuj oferty: aktywne pierwsze, potem po dacie malejąco
-        pdata['offers'].sort(key=lambda o: (
-            0 if o['active'] else 1,
-            o.get('first_seen_iso', '') or ''
-        ), reverse=False)
-        # Aktywne najpierw, w ramach tej samej aktywności - najnowsze pierwsze
+        # Aktywne najpierw (najnowsze wg first_seen), potem archiwalne.
+        # Archiwalne sortujemy po last_seen malejąco: ta, która zniknęła
+        # jako ostatnia, jest na górze (zgłoszenie Mateusza).
         active_sorted = sorted([o for o in poffers if o['active']],
                                key=lambda o: o.get('first_seen_iso', ''), reverse=True)
         inactive_sorted = sorted([o for o in poffers if not o['active']],
-                                 key=lambda o: o.get('first_seen_iso', ''), reverse=True)
+                                 key=lambda o: o.get('last_seen_iso', '') or '', reverse=True)
         pdata['offers'] = active_sorted + inactive_sorted
 
     total_firm = sum(p['stats']['total'] for p in profile_data.values())

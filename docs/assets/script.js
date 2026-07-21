@@ -1149,6 +1149,40 @@ function getProfileKeyForOffer(profileName) {
     ) || null;
 }
 
+// Jedno źródło prawdy dla filtra warstw (aktywne/nieaktywne/przybliżone/firmy).
+// Używane przez filterMarkers() ORAZ liczniki (updatePriceRangeCounts / updateBadgeCounts),
+// żeby oferty firmowe LICZYŁY się tak samo, jak są WYŚWIETLANE na mapie.
+// Bez tego: gdy odznaczone "Aktywne oferty" a zaznaczone "Firmy / Agencje",
+// oferty firmowe wpadały do gałęzi zwykłych aktywnych i były zerowane w licznikach.
+function getLayerFilterState() {
+    return {
+        showActive: document.getElementById('layer-active')?.checked ?? true,
+        showInactive: document.getElementById('layer-inactive')?.checked ?? true,
+        showActiveApprox: document.getElementById('layer-active-approx')?.checked ?? false,
+        showInactiveApprox: document.getElementById('layer-inactive-approx')?.checked ?? false,
+        showFirm: document.getElementById('layer-firm')?.checked ?? true,
+        showFirmInactive: document.getElementById('layer-firm-inactive')?.checked ?? false,
+        enabledProfiles: getEnabledProfiles() // null = wszystkie profile włączone (brak filtra)
+    };
+}
+
+function itemPassesLayerFilter(item, s) {
+    if (item.isFirmOffer && item.isActive) {
+        if (!s.showFirm) return false;
+        if (s.enabledProfiles !== null) {
+            const offerProfile = getProfileKeyForOffer(item.originalOffer?.profile_name);
+            return offerProfile ? s.enabledProfiles.has(offerProfile) : false;
+        }
+        return true;
+    } else if (item.isFirmOffer && !item.isActive) {
+        return s.showFirmInactive;
+    } else if (item.isApprox) {
+        return item.isActive ? s.showActiveApprox : s.showInactiveApprox;
+    } else {
+        return item.isActive ? s.showActive : s.showInactive;
+    }
+}
+
 function onFirmLayerToggle() {
     const showFirm = document.getElementById('layer-firm')?.checked ?? true;
     // Synchronizuj checkboxy profili
@@ -1234,32 +1268,17 @@ function filterMarkers() {
         firm: 0,
         firmInactive: 0
     };
-    
+
+    // Stan filtra warstw - policzony raz przed pętlą (wspólne źródło prawdy)
+    const layerState = getLayerFilterState();
+
     // Filtruj markery
     allMarkers.forEach(item => {
         let visible = true;
         
-        // Filtr aktywne/nieaktywne - osobne checkboxy dla exact i approx
-        // (sprawdzane PÓŹNIEJ - na końcu, po policzeniu warstw)
-        const showFirm = document.getElementById('layer-firm')?.checked ?? true;
-        const enabledProfiles = getEnabledProfiles(); // null = wszystkie
-        let passesLayerFilter = true;
-        if (item.isFirmOffer && item.isActive) {
-            if (!showFirm) {
-                passesLayerFilter = false;
-            } else if (enabledProfiles !== null) {
-                const offerProfile = getProfileKeyForOffer(item.originalOffer?.profile_name);
-                passesLayerFilter = offerProfile ? enabledProfiles.has(offerProfile) : false;
-            }
-        } else if (item.isFirmOffer && !item.isActive) {
-            passesLayerFilter = showFirmInactive;
-        } else if (item.isApprox) {
-            if (item.isActive) passesLayerFilter = showActiveApprox;
-            else passesLayerFilter = showInactiveApprox;
-        } else {
-            if (item.isActive) passesLayerFilter = showActive;
-            else passesLayerFilter = showInactive;
-        }
+        // Filtr aktywne/nieaktywne/przybliżone/firmy - wspólny helper (patrz itemPassesLayerFilter)
+        // (sprawdzany PÓŹNIEJ - na końcu, po policzeniu warstw)
+        const passesLayerFilter = itemPassesLayerFilter(item, layerState);
         
         // B1: Filtr tagów
         if (visible) {
@@ -1929,47 +1948,38 @@ function updatePriceRangeCounts() {
     if (!mapData || !mapData.price_ranges) return;
     
     // Pobierz aktualne ustawienia filtrów (oprócz zakresów cenowych)
-    const showActive = document.getElementById('layer-active')?.checked ?? true;
-    const showInactive = document.getElementById('layer-inactive')?.checked ?? true;
-    const showActiveApprox = document.getElementById('layer-active-approx')?.checked ?? false;
-    const showInactiveApprox = document.getElementById('layer-inactive-approx')?.checked ?? false;
-    
+    const layerState = getLayerFilterState();
+
     const showPokoj = document.getElementById('layer-tag-pokoj')?.checked ?? true;
     const showKawalerka = document.getElementById('layer-tag-kawalerka')?.checked ?? true;
     const showMieszkanie = document.getElementById('layer-tag-mieszkanie')?.checked ?? true;
-    
+
     const showPriceDown = document.getElementById('badge-filter-price-down')?.checked ?? true;
     const showPriceUp = document.getElementById('badge-filter-price-up')?.checked ?? true;
     const showNew = document.getElementById('badge-filter-new')?.checked ?? true;
     const showUnchanged = document.getElementById('badge-filter-unchanged')?.checked ?? true;
-    
+
     const timeFilter = document.getElementById('time-filter')?.value || 'all';
     let cutoffDate = null;
     if (timeFilter !== 'all') {
         const daysAgo = parseInt(timeFilter);
         cutoffDate = new Date(Date.now() - (daysAgo * 24 * 60 * 60 * 1000));
     }
-    
+
     const priceMin = parseInt(document.getElementById('price-min')?.value) || 0;
     const priceMax = parseInt(document.getElementById('price-max')?.value) || 999999;
-    
+
     const searchTerm = (document.getElementById('search-input')?.value || '').toLowerCase();
-    
+
     // Inicjalizuj liczniki dla każdego zakresu
     const counts = {};
     Object.keys(mapData.price_ranges).forEach(key => { counts[key] = 0; });
-    
+
     // Iteruj po wszystkich ofertach (allMarkers = oferty 1:1)
     allMarkers.forEach(item => {
-        // Filtr aktywne/nieaktywne - osobne checkboxy dla exact i approx
-        if (item.isApprox) {
-            if (item.isActive && !showActiveApprox) return;
-            if (!item.isActive && !showInactiveApprox) return;
-        } else {
-            if (item.isActive && !showActive) return;
-            if (!item.isActive && !showInactive) return;
-        }
-        
+        // Filtr warstw (aktywne/nieaktywne/przybliżone/firmy) - wspólny helper
+        if (!itemPassesLayerFilter(item, layerState)) return;
+
         // Filtr tagów
         const tag = item.primaryTag || 'pokoj';
         if (tag === 'pokoj' && !showPokoj) return;
@@ -2039,42 +2049,33 @@ function updateBadgeCounts() {
     }
     
     // Pobierz aktualne ustawienia wszystkich filtrów (oprócz samych checkboxów legendy)
-    const showActive = document.getElementById('layer-active')?.checked ?? true;
-    const showInactive = document.getElementById('layer-inactive')?.checked ?? true;
-    const showActiveApprox = document.getElementById('layer-active-approx')?.checked ?? false;
-    const showInactiveApprox = document.getElementById('layer-inactive-approx')?.checked ?? false;
-    
+    const layerState = getLayerFilterState();
+
     const showPokoj = document.getElementById('layer-tag-pokoj')?.checked ?? true;
     const showKawalerka = document.getElementById('layer-tag-kawalerka')?.checked ?? true;
     const showMieszkanie = document.getElementById('layer-tag-mieszkanie')?.checked ?? true;
-    
+
     const timeFilter = document.getElementById('time-filter')?.value || 'all';
     let cutoffDate = null;
     if (timeFilter !== 'all') {
         const daysAgo = parseInt(timeFilter);
         cutoffDate = new Date(Date.now() - (daysAgo * 24 * 60 * 60 * 1000));
     }
-    
+
     const selectedRanges = Array.from(document.querySelectorAll('.price-range-filter:checked'))
         .map(cb => cb.dataset.range);
-    
+
     const priceMin = parseInt(document.getElementById('price-min')?.value) || 0;
     const priceMax = parseInt(document.getElementById('price-max')?.value) || 999999;
-    
+
     const searchTerm = (document.getElementById('search-input')?.value || '').toLowerCase();
-    
+
     const counts = { priceDown: 0, priceUp: 0, isNew: 0, unchanged: 0 };
-    
+
     allMarkers.forEach(item => {
-        // Filtr aktywne/nieaktywne
-        if (item.isApprox) {
-            if (item.isActive && !showActiveApprox) return;
-            if (!item.isActive && !showInactiveApprox) return;
-        } else {
-            if (item.isActive && !showActive) return;
-            if (!item.isActive && !showInactive) return;
-        }
-        
+        // Filtr warstw (aktywne/nieaktywne/przybliżone/firmy) - wspólny helper
+        if (!itemPassesLayerFilter(item, layerState)) return;
+
         // Filtr tagów
         const tag = item.primaryTag || 'pokoj';
         if (tag === 'pokoj' && !showPokoj) return;
