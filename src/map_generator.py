@@ -5,6 +5,7 @@ Przekształca data.json → map_data.json z formatem wymaganym przez frontend
 """
 
 import json
+import re
 from datetime import datetime
 from collections import defaultdict
 from pathlib import Path
@@ -202,6 +203,101 @@ def _build_addr_versions(offer):
     return out
 
 
+# ── Tytuł ogłoszenia ────────────────────────────────────────────────────
+# Scraper nie zapisuje tytułu osobno — skleja go z opisem (tytuł z og:title
+# + treść, w której OLX często powtarza tytuł, a starsze scrapy mają marker
+# "Opis"). Tytuł odzyskujemy z prefiksu opisu, walidując go slugiem URL-a
+# (slug = zamrożony tytuł z chwili publikacji). Fallbacki łapią oferty,
+# którym sprzedawca zmienił tytuł po publikacji (slug nieaktualny).
+
+_PL_FOLD = str.maketrans('ąćęłńóśźż', 'acelnoszz')
+
+
+def _fold_char(c):
+    c = c.lower().translate(_PL_FOLD)
+    return c if c.isalnum() and c.isascii() else ''
+
+
+def _match_folded_prefix(text, folded_target):
+    """Indeks w text tuż za pokryciem całego folded_target (porównanie po
+    znakach alfanumerycznych, bez diakrytyków i wielkości liter) albo None
+    przy rozjeździe/końcu tekstu."""
+    fi = 0
+    for i, ch in enumerate(text):
+        f = _fold_char(ch)
+        if not f:
+            continue
+        if f == folded_target[fi]:
+            fi += 1
+            if fi == len(folded_target):
+                return i + 1
+        else:
+            return None
+    return None
+
+
+def extract_title(url, desc):
+    """Zwraca (title, clean_desc). Gdy tytułu nie da się pewnie wyciąć:
+    (None, desc) — frontend nie pokaże wiersza tytułu."""
+    if not desc:
+        return None, desc
+    title = None
+    body = None
+
+    # 1) Slug URL-a = zamrożony tytuł (99% bazy)
+    slug = url.split('/')[-1].split('.')[0] if url else ''
+    slug = re.sub(r'-CID\d+-ID\w+$', '', slug)
+    folded_slug = ''.join(_fold_char(c) for c in slug)
+    if len(folded_slug) >= 8:
+        cut = _match_folded_prefix(desc, folded_slug)
+        if cut:
+            title = desc[:cut].strip(' \t-–—,.:;|')
+            body = desc[cut:]
+
+    # 2) Marker "Opis" (starsze scrapy: tytuł + "Opis" + treść)
+    if title is None:
+        p = desc.find('Opis')
+        if 10 <= p <= 150:
+            title = desc[:p].strip(' \t-–—,.:;|')
+            body = desc[p:]
+
+    # 3) Zdublowany tytuł na początku opisu (OLX powtarza tytuł w treści)
+    if title is None:
+        folded = []
+        idx_map = []  # pozycja folded → indeks w desc tuż za znakiem
+        for i, ch in enumerate(desc[:400]):
+            f = _fold_char(ch)
+            if f:
+                folded.append(f)
+                idx_map.append(i + 1)
+        fs = ''.join(folded)
+        for k in range(min(90, len(fs) // 2), 11, -1):
+            if fs[k:2 * k] == fs[:k]:
+                cut = idx_map[k - 1]
+                if cut >= len(desc) or not desc[cut].isalnum():
+                    title = desc[:cut].strip(' \t-–—,.:;|')
+                    body = desc[cut:]
+                    break
+
+    if not title or len(title) < 8:
+        return None, desc
+
+    # Sprzątanie treści: powtórzenia tytułu, marker "Opis", wiodące śmieci
+    folded_title = ''.join(_fold_char(c) for c in title)
+    for _ in range(3):
+        b = body.lstrip(' \t-–—,.:;|')
+        if b.startswith('Opis'):
+            b = b[4:]
+        cut2 = _match_folded_prefix(b, folded_title) if folded_title else None
+        if cut2:
+            body = b[cut2:]
+        else:
+            body = b
+            break
+    body = body.strip()
+    return title, (body if len(body) >= 20 else desc)
+
+
 def generate_map_data(input_file, output_file):
     """Główna funkcja generująca map_data.json"""
     
@@ -274,7 +370,10 @@ def generate_map_data(input_file, output_file):
         title_from_url = url.split('/')[-1].split('.')[0].replace('-', ' ') if url else ''
         
         tag_result = tag_offer(title_from_url, description_text)
-        
+
+        # Tytuł ogłoszenia + opis bez powtórzonego tytułu/sklejki "Opis"
+        offer_title, clean_description = extract_title(url, description_text)
+
         offer_data = {
             'id': offer.get('id'),
             'url': offer.get('url'),
@@ -290,7 +389,8 @@ def generate_map_data(input_file, output_file):
             'days_active': offer.get('days_active', 0),  # Dni aktywności
             'active': offer.get('active', True),
             'is_new': is_new,  # ✅ Obliczone na podstawie daty
-            'description': offer.get('description', ''),  # Pełny opis (frontend się sam obcina)
+            'title': offer_title,  # Tytuł ogłoszenia (None gdy nie do odzyskania)
+            'description': clean_description,  # Pełny opis bez tytułu (frontend się sam obcina)
             'reactivated': offer.get('reactivated_at') is not None,  # Czy była reaktywowana
             'reactivated_at': format_datetime(offer.get('reactivated_at', '')) if offer.get('reactivated_at') else None,
             # Precyzja adresu: 'exact' (z numerem) lub 'street_only' (środek ulicy)

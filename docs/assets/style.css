@@ -283,8 +283,8 @@ body {
 }
 
 .leaflet-popup-content {
-    margin: 20px;
-    max-width: 380px;
+    margin: 10px 10px 12px;
+    max-width: 350px;
 }
 
 .leaflet-popup-tip {
@@ -297,21 +297,47 @@ body {
 }
 
 .offer-popup h3 {
-    margin: 0 0 16px 0;
-    font-size: 18px;
+    margin: 0 0 9px 0;
+    font-size: 16px;
     color: #212529;
-    border-bottom: 3px solid #667eea;
-    padding-bottom: 8px;
+    border-bottom: 2px solid #667eea;
+    padding-bottom: 7px;
     font-weight: 700;
     letter-spacing: -0.3px;
 }
 
+/* Tytuł ogłoszenia w 2. wierszu — fioletowa linia schodzi pod tytuł */
+.offer-popup.with-title h3 {
+    border-bottom: none;
+    padding-bottom: 0;
+    margin-bottom: 2px;
+}
+
+.popup-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    line-height: 1.35;
+    border-bottom: 2px solid #667eea;
+    padding-bottom: 7px;
+    margin-bottom: 9px;
+}
+
+/* Tytuł per-oferta gdy kilka ofert pod jednym adresem */
+.offer-item-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    line-height: 1.35;
+    margin-bottom: 5px;
+}
+
 .offer-item {
-    margin-bottom: 16px;
-    padding: 16px;
+    margin-bottom: 10px;
+    padding: 8px 9px;
     background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-    border-radius: 12px;
-    border-left: 4px solid #667eea;
+    border-radius: 9px;
+    border-left: 3px solid #667eea;
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     transition: all 0.3s;
 }
@@ -327,11 +353,11 @@ body {
 }
 
 .offer-price {
-    font-size: 22px;
+    font-size: 18px;
     font-weight: 800;
     color: #667eea;
-    margin-bottom: 8px;
-    letter-spacing: -0.5px;
+    margin-bottom: 2px;
+    letter-spacing: -0.4px;
 }
 
 .offer-price.inactive {
@@ -339,19 +365,19 @@ body {
 }
 
 .price-history {
-    font-size: 12px;
+    font-size: 11px;
     color: #6c757d;
     font-style: italic;
 }
 
 .media-info {
-    font-size: 12px;
+    font-size: 11px;
     color: #495057;
     background: #e9ecef;
-    padding: 6px 12px;
-    border-radius: 6px;
+    padding: 3px 9px;
+    border-radius: 5px;
     display: inline-block;
-    margin-top: 8px;
+    margin-top: 7px;
     font-weight: 500;
 }
 
@@ -388,13 +414,13 @@ body {
 
 .offer-link {
     display: inline-block;
-    margin-top: 12px;
-    padding: 10px 20px;
+    margin-top: 0;
+    padding: 6px 14px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     text-decoration: none;
-    border-radius: 8px;
-    font-size: 13px;
+    border-radius: 7px;
+    font-size: 12px;
     font-weight: 600;
     transition: all 0.3s;
     box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
@@ -406,30 +432,30 @@ body {
 }
 
 .offer-description {
-    margin-top: 12px;
-    font-size: 13px;
+    margin-top: 8px;
+    font-size: 12px;
     color: #495057;
-    line-height: 1.6;
+    line-height: 1.5;
 }
 
 .offer-dates {
-    margin-top: 12px;
-    font-size: 11px;
+    margin-top: 8px;
+    font-size: 10.5px;
     color: #6c757d;
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    flex-wrap: wrap;
+    gap: 3px 10px;
 }
 
 .inactive-badge {
     display: inline-block;
     background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
     color: white;
-    padding: 4px 12px;
-    border-radius: 6px;
-    font-size: 11px;
+    padding: 2px 9px;
+    border-radius: 5px;
+    font-size: 10px;
     font-weight: 700;
-    margin-bottom: 8px;
+    margin-bottom: 5px;
     box-shadow: 0 2px 6px rgba(255, 107, 107, 0.3);
 }
 
@@ -473,26 +499,19 @@ body {
 }
 
 /* Styl dla linku "Pokaż całość" / "Zwiń" */
+/* Link w linii opisu (bez ramki/tła — kompresja pionowa) */
 .show-more-link {
     color: #667eea;
-    font-size: 13px;
+    font-size: 11.5px;
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;
-    display: inline-block;
-    margin-top: 8px;
-    padding: 6px 12px;
-    background: #f8f9fa;
-    border-radius: 6px;
+    white-space: nowrap;
     transition: all 0.2s;
-    border: 1px solid #e9ecef;
 }
 
 .show-more-link:hover {
-    background: #667eea;
-    color: white;
-    text-decoration: none;
-    border-color: #667eea;
+    text-decoration: underline;
 }
 
 /* Styl dla filtra czasowego - EXTREME COMPACT */

@@ -740,7 +740,7 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
 
         // Popup LAZY (HTML dopiero przy kliknięciu). offset podnosi popup nad kształt.
         markerObj.bindPopup(() => createPopupContent(address, [offer]),
-            { maxWidth: 400, offset: L.point(0, isApprox ? -12 : -40) });
+            { maxWidth: 350, offset: L.point(0, isApprox ? -12 : -40) });
 
         // Dodaj do odpowiedniej warstwy
         // Priorytet: firma > approx > exact
@@ -901,11 +901,24 @@ function createPopupContent(address, offers) {
     let html = `<div class="offer-popup">`;
     html += `<h3>📍 ${escapeHtml(address)}</h3>`;
 
+    // Tytuł ogłoszenia w 2. wierszu nagłówka (jedna oferta) — fioletowa
+    // linia schodzi pod tytuł (klasa with-title na kontenerze steruje CSS)
+    const singleTitle = offers.length === 1 ? offers[0].title : null;
+    if (singleTitle) {
+        html = html.replace('"offer-popup"', '"offer-popup with-title"');
+        html += `<div class="popup-title">${escapeHtml(singleTitle)}</div>`;
+    }
+
     offers.forEach(offer => {
         const isActive = offer.active;
 
         html += `<div class="offer-item ${isActive ? '' : 'inactive'}" data-offer-id="${escapeHtml(offer.id)}">`;
-        
+
+        // Przy wielu ofertach pod jednym adresem tytuł idzie do karty oferty
+        if (!singleTitle && offer.title) {
+            html += `<div class="offer-item-title">${escapeHtml(offer.title)}</div>`;
+        }
+
         if (!isActive) {
             html += `<div class="inactive-badge">❌ Nieaktywne</div>`;
         }
@@ -918,7 +931,7 @@ function createPopupContent(address, offers) {
             const trendSign = offer.price_trend === 'down' ? '' : '+';
             
             html += `<div class="offer-price ${isActive ? '' : 'inactive'}">`;
-            html += `💰 <strong style="font-size: 1.2em;">${offer.price} zł</strong>`;
+            html += `💰 <strong style="font-size: 1.15em;">${offer.price} zł</strong>`;
             html += `<span style="color: ${trendColor}; font-weight: bold; margin-left: 8px;">`;
             html += `${trendIcon} ${trendSign}${priceDiff} zł</span>`;
             html += `</div>`;
@@ -975,7 +988,7 @@ function createPopupContent(address, offers) {
             const tagColors = { pokoj: '#3b82f6', kawalerka: '#10b981', mieszkanie: '#8b5cf6' };
             
             const primary = offer.tags.primary;
-            html += `<div class="offer-tag" style="margin: 8px 0; display: inline-block; padding: 4px 10px; background: ${tagColors[primary]}22; border: 1px solid ${tagColors[primary]}; border-radius: 12px; font-size: 12px; color: ${tagColors[primary]}; font-weight: 600;">`;
+            html += `<div class="offer-tag" style="margin: 7px 0 0 6px; display: inline-block; padding: 3px 9px; background: ${tagColors[primary]}22; border: 1px solid ${tagColors[primary]}; border-radius: 11px; font-size: 11px; color: ${tagColors[primary]}; font-weight: 600;">`;
             html += `${tagIcons[primary] || ''} ${tagLabels[primary] || primary}`;
             if (offer.tags.secondary && offer.tags.secondary.length > 0) {
                 html += ` <span style="opacity: 0.7;">+ ${offer.tags.secondary.map(t => tagLabels[t] || t).join(', ')}</span>`;
@@ -1000,7 +1013,7 @@ function createPopupContent(address, offers) {
         // Link + gwiazdka ulubionych (localStorage; śledzenie przez scraper
         // wymaga dopisania do data/favorites.json — patrz ulubione.html)
         const isFav = isLocalFavorite(offer.id);
-        html += `<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">`;
+        html += `<div style="display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 8px;">`;
         html += `<a href="${safeOfferUrl(offer.url)}" target="_blank" class="offer-link">🔗 Otwórz ogłoszenie</a>`;
         html += `<button class="fav-star-btn" data-oid="${escapeHtml(offer.id)}" data-url="${safeOfferUrl(offer.url)}" data-title="${escapeHtml(address)}"`
             + ` onclick="toggleFavoriteStar(this)"`
@@ -1020,12 +1033,11 @@ function createPopupContent(address, offers) {
             html += `
                 <div class="offer-description">
                     <div id="${uniqueId}-short">
-                        📝 ${escapeHtml(shortDescription)}...
-                        <br><a href="javascript:void(0)" onclick="toggleDescription('${uniqueId}')" class="show-more-link">▼ Pokaż całość</a>
+                        📝 ${escapeHtml(shortDescription)}... <a href="javascript:void(0)" onclick="toggleDescription('${uniqueId}')" class="show-more-link">▼ Pokaż całość</a>
                     </div>
                     <div id="${uniqueId}-full" style="display: none;">
                         📝 ${escapeHtml(offer.description)}
-                        <br><a href="javascript:void(0)" onclick="toggleDescription('${uniqueId}')" class="show-more-link">▲ Zwiń</a>
+                        <a href="javascript:void(0)" onclick="toggleDescription('${uniqueId}')" class="show-more-link">▲ Zwiń</a>
                     </div>
                 </div>
             `;
@@ -1033,18 +1045,18 @@ function createPopupContent(address, offers) {
             html += `<div class="offer-description">📝 ${escapeHtml(offer.description)}</div>`;
         }
 
-        // Daty
+        // Daty (zawijane obok siebie — kompresja pionowa)
         if (isActive) {
             html += `<div class="offer-dates">`;
-            html += `📅 Dodano: ${escapeHtml(offer.first_seen)}<br>`;
-            html += `📅 Ostatnio widziane: ${escapeHtml(offer.last_seen)}<br>`;
-            html += `⏱️ Dni aktywności: ${offer.days_active}`;
+            html += `<span>📅 Dodano: ${escapeHtml(offer.first_seen)}</span>`;
+            html += `<span>📅 Ostatnio widziane: ${escapeHtml(offer.last_seen)}</span>`;
+            html += `<span>⏱️ Dni aktywności: ${offer.days_active}</span>`;
             html += `</div>`;
         } else {
             html += `<div class="offer-dates">`;
-            html += `📅 Aktywna przez: ${offer.days_active} dni<br>`;
-            html += `📅 Nieaktywna od: ${escapeHtml(offer.last_seen)}<br>`;
-            html += `💰 Ostatnia cena: ${offer.price} zł`;
+            html += `<span>📅 Aktywna przez: ${offer.days_active} dni</span>`;
+            html += `<span>📅 Nieaktywna od: ${escapeHtml(offer.last_seen)}</span>`;
+            html += `<span>💰 Ostatnia cena: ${offer.price} zł</span>`;
             html += `</div>`;
         }
         
