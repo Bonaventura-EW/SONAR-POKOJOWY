@@ -238,6 +238,7 @@ def generate_profile_data(input_file: str, output_file: str):
             'first_seen': format_datetime(offer.get('first_seen', '')),
             'first_seen_iso': offer.get('first_seen', ''),
             'last_seen': format_datetime(offer.get('last_seen', '')),
+            'last_seen_iso': offer.get('last_seen', ''),
             'days_active': offer.get('days_active', 0),
             'active': is_active,
             'is_new': False,  # obliczone poniżej
@@ -317,16 +318,13 @@ def generate_profile_data(input_file: str, output_file: str):
             pdata['stats']['newest_date'] = format_date_only(max(dates))
             pdata['stats']['oldest_date'] = format_date_only(min(dates))
 
-        # Posortuj oferty: aktywne pierwsze, potem po dacie malejąco
-        pdata['offers'].sort(key=lambda o: (
-            0 if o['active'] else 1,
-            o.get('first_seen_iso', '') or ''
-        ), reverse=False)
-        # Aktywne najpierw, w ramach tej samej aktywności - najnowsze pierwsze
+        # Aktywne najpierw (najnowsze wg first_seen), potem archiwalne.
+        # Archiwalne sortujemy po last_seen malejąco: ta, która zniknęła
+        # jako ostatnia, jest na górze (zgłoszenie Mateusza).
         active_sorted = sorted([o for o in poffers if o['active']],
                                key=lambda o: o.get('first_seen_iso', ''), reverse=True)
         inactive_sorted = sorted([o for o in poffers if not o['active']],
-                                 key=lambda o: o.get('first_seen_iso', ''), reverse=True)
+                                 key=lambda o: o.get('last_seen_iso', '') or '', reverse=True)
         pdata['offers'] = active_sorted + inactive_sorted
 
     total_firm = sum(p['stats']['total'] for p in profile_data.values())
