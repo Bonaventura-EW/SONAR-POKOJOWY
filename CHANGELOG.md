@@ -9,6 +9,11 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Mapa: fix nakładania napisów na pasku filtrów dat (2026-07-22)
+- **fix (zgłoszenie Mateusza)**: po dodaniu przycisków dzień w lewo/prawo etykiety granic (`22.07.2026`) nachodziły na „Wybrany dzień", a przy ciasnym oknie/zoomie całe grupy filtrów wchodziły na siebie. **Root cause**: (1) granice suwaka *dodania* miały pełny rok (`formatDayPL`), (2) `.date-slider-readout` dawał się ściskać (brak `flex-shrink:0`), (3) `.date-filter-group` mógł kurczyć się poniżej treści (`flex:1`) → nakładanie zamiast przewijania.
+- **fix**: granice suwaka dodania skrócone do `DD.MM` (współdzielony helper `formatDayMonth`, spójnie z suwakiem zniknięcia); `flex-shrink:0` na `.date-slider-readout` i `.date-slider-toggle`; `min-width:40px` na obu suwakach (pod naciskiem kurczy się suwak, nie etykiety); `.date-filter-group` → `flex:1 0 auto` (grupy nie kurczą się poniżej treści, pasek przewija się poziomo przy ciasnym oknie).
+- Zweryfikowane headless (Chromium, 1100/1280/1366/1500 px): brak nakładania w żadnej grupie, przy 1100 px pasek przewija się poziomo. Zmiany tylko frontend (`assets/script.js`, `assets/style.css`).
+
 ### Ulubione: +2 oferty (2026-07-22)
 - **feat (zgłoszenie Mateusza)**: dodane do `data/favorites.json` — `1bycCH` (Miasteczko, Legionowa z balkonem) i `1bybLl` (Krasińskiego, pokój N1, UMCS). `numeric_id` pobrane z OLX z góry (`1086824207`, `1086820899`), więc tracker ma komplet od pierwszego snapshotu.
 

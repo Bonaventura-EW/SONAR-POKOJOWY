@@ -269,6 +269,13 @@ function formatDayPL(date) {
     return `${d}.${m}.${date.getFullYear()}`;
 }
 
+// Krótki format granic suwaka (bez roku) - żeby etykiety nie rozpychały paska
+function formatDayMonth(date) {
+    const d = String(date.getDate()).padStart(2, '0');
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    return `${d}.${m}`;
+}
+
 // Warstwy uczelni
 let universityLayers = {};
 const universities = {
@@ -1511,8 +1518,8 @@ function initDateSlider() {
     slider.max = days.length - 1;
     slider.value = days.length - 1;
 
-    minLabel.textContent = formatDayPL(days[0]);
-    maxLabel.textContent = formatDayPL(days[days.length - 1]);
+    minLabel.textContent = formatDayMonth(days[0]);
+    maxLabel.textContent = formatDayMonth(days[days.length - 1]);
 
     // 5. Zbuduj histogram
     histogram.innerHTML = '';
@@ -1702,9 +1709,8 @@ function initGoneSlider() {
     slider.value = days.length - 1;
     slider.disabled = false;
 
-    const boundDayMonth = d => String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
-    document.getElementById('date-gone-min').textContent = boundDayMonth(days[0]);
-    document.getElementById('date-gone-max').textContent = boundDayMonth(days[days.length - 1]);
+    document.getElementById('date-gone-min').textContent = formatDayMonth(days[0]);
+    document.getElementById('date-gone-max').textContent = formatDayMonth(days[days.length - 1]);
 
     updateGoneSliderReadout();
 
