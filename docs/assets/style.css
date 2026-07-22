@@ -624,6 +624,35 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
+/* Przyciski krokowania dnia (suwak zniknięcia) */
+.date-step-btn {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-size: 16px;
+    line-height: 1;
+    font-weight: 700;
+    color: #b45309;
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s ease, transform 0.05s ease;
+    user-select: none;
+}
+
+.date-step-btn:hover {
+    background: #fde68a;
+}
+
+.date-step-btn:active {
+    transform: scale(0.92);
+}
+
 #date-slider {
     flex: 1;
     height: 4px;

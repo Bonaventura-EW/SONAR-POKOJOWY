@@ -1671,8 +1671,9 @@ function initGoneSlider() {
     slider.value = days.length - 1;
     slider.disabled = false;
 
-    document.getElementById('date-gone-min').textContent = sortedKeys[0].slice(5).replace('-', '.');
-    document.getElementById('date-gone-max').textContent = sortedKeys[sortedKeys.length - 1].slice(5).replace('-', '.');
+    const boundDayMonth = d => String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
+    document.getElementById('date-gone-min').textContent = boundDayMonth(days[0]);
+    document.getElementById('date-gone-max').textContent = boundDayMonth(days[days.length - 1]);
 
     updateGoneSliderReadout();
 
@@ -1690,8 +1691,35 @@ function initGoneSlider() {
         filterMarkersDebounced();    // przebudowa markerów po puszczeniu suwaka
     });
 
+    // Przyciski: dzień w lewo / w prawo
+    const prevBtn = document.getElementById('date-gone-prev');
+    const nextBtn = document.getElementById('date-gone-next');
+    if (prevBtn) prevBtn.addEventListener('click', () => stepGoneDay(-1));
+    if (nextBtn) nextBtn.addEventListener('click', () => stepGoneDay(1));
+
     document.getElementById('date-gone-control').style.opacity = '0.4';
     buildGoneHistogram();
+}
+
+// Przesuń wybrany dzień zniknięcia o delta (-1 = w lewo, +1 = w prawo)
+// Auto-włącza filtr, żeby klikanie od razu było widoczne na mapie.
+function stepGoneDay(delta) {
+    const slider = document.getElementById('date-gone-slider');
+    if (!slider || !goneSliderState.days.length) return;
+
+    if (!goneSliderState.enabled) {
+        goneSliderState.enabled = true;
+        const enableCb = document.getElementById('date-gone-enable');
+        if (enableCb) enableCb.checked = true;
+        document.getElementById('date-gone-control').style.opacity = '1';
+    }
+
+    const maxIdx = goneSliderState.days.length - 1;
+    const idx = Math.max(0, Math.min(maxIdx, goneSliderState.selectedIndex + delta));
+    goneSliderState.selectedIndex = idx;
+    slider.value = idx;
+    updateGoneSliderReadout();
+    filterMarkers();
 }
 
 function updateGoneSliderReadout() {
