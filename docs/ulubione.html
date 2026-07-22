@@ -394,7 +394,16 @@ function renderFavorites(data) {
                         tooltip: {
                             displayColors: false,
                             callbacks: {
-                                label: ctx => `${ctx.parsed.y} wyświetleń`,
+                                // Druga linia: na której stronie listingu OLX była
+                                // oferta w momencie pomiaru (sort domyślny). Brak
+                                // strony (oferta nieaktywna/spoza kategorii, stare
+                                // pomiary) → linijka się nie pokazuje.
+                                label: ctx => {
+                                    const lines = [`${ctx.parsed.y} wyświetleń`];
+                                    const p = (vh[ctx.dataIndex] || {}).page;
+                                    if (p != null) lines.push(`📄 strona ${p}`);
+                                    return lines;
+                                },
                             }
                         },
                         refreshMarkers: {

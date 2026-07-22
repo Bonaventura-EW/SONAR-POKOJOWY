@@ -26,6 +26,12 @@ from shared_utils import DATA_DIR, TZ, write_json_atomic
 
 FAVORITES_FILE = DATA_DIR / 'favorites.json'
 TRACKING_FILE = DATA_DIR / 'favorites_tracking.json'
+LISTING_POSITIONS_FILE = DATA_DIR / 'listing_positions.json'
+# Mapa pozycji jest zapisywana przez main.py na starcie scanu. Tracker leci
+# w tym samym runie kilka minut później, więc świeża. Powyżej tego progu
+# (tracker odpalony solo, bez świeżego scanu) strony pomijamy — lepiej brak
+# strony niż nieaktualna.
+LISTING_MAX_AGE_H = 12
 
 API_URL = 'https://www.olx.pl/api/v1/offers/{numeric_id}/'
 HEADERS = {
@@ -49,6 +55,28 @@ def load_tracking() -> dict:
         return {}
     with open(TRACKING_FILE, 'r', encoding='utf-8') as f:
         return json.load(f)
+
+
+def load_listing_positions() -> dict:
+    """Mapa short_id → numer strony listingu OLX z ostatniego scanu.
+    Zwraca {} gdy pliku brak, jest niepoprawny lub przeterminowany
+    (tracker bez świeżego scanu) — wtedy 'page' w snapshocie zostaje None."""
+    if not LISTING_POSITIONS_FILE.exists():
+        return {}
+    try:
+        with open(LISTING_POSITIONS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except (ValueError, OSError):
+        return {}
+    try:
+        scanned = datetime.fromisoformat(data.get('scanned_at', ''))
+        age_h = (datetime.now(TZ) - scanned).total_seconds() / 3600
+        if age_h > LISTING_MAX_AGE_H:
+            print(f"   ℹ️ listing_positions.json sprzed {age_h:.1f}h — pomijam strony.")
+            return {}
+    except (ValueError, TypeError):
+        return {}
+    return data.get('positions', {})
 
 
 def resolve_numeric_id(url: str) -> int | None:
@@ -234,6 +262,7 @@ def track_favorites() -> bool:
 
     print(f"⭐ Śledzenie {len(favorites)} ulubionych ofert...")
     tracking = load_tracking()
+    listing_positions = load_listing_positions()
     now_iso = datetime.now(TZ).isoformat()
 
     # Uzupełnij brakujące numeric_id (nowe wpisy dodane samym URL-em)
@@ -275,6 +304,7 @@ def track_favorites() -> bool:
         if snap.get('title'):
             entry['title'] = snap['title']
 
+        page = listing_positions.get(short_id)
         entry['snapshots'].append({
             'ts': now_iso,
             'status': snap.get('status', ''),
@@ -284,10 +314,12 @@ def track_favorites() -> bool:
             'valid_to': snap.get('valid_to', ''),
             'created': snap.get('created', ''),
             'views': views_map.get(short_id),
+            'page': page,
         })
         label = snap.get('status', '?')
         price = snap.get('price')
-        print(f"   ✅ {short_id}: {label}, cena {price if price is not None else '—'}")
+        page_txt = f", strona {page}" if page is not None else ""
+        print(f"   ✅ {short_id}: {label}, cena {price if price is not None else '—'}{page_txt}")
 
     write_json_atomic(TRACKING_FILE, tracking)
     print(f"💾 Zapisano {TRACKING_FILE}")

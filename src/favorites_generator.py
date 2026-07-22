@@ -70,7 +70,8 @@ def _build_favorite(short_id: str, entry: dict, base_offer: dict | None) -> dict
         views = snap.get('views')
         if views is not None:
             views_history.append({'date': format_datetime(ts, '%d.%m %H:%M'),
-                                  'date_iso': ts, 'views': views})
+                                  'date_iso': ts, 'views': views,
+                                  'page': snap.get('page')})
 
     last = snapshots[-1] if snapshots else {}
     address = None
@@ -95,6 +96,8 @@ def _build_favorite(short_id: str, entry: dict, base_offer: dict | None) -> dict
         'refresh_events': refresh_events,
         'views_history': views_history,
         'current_views': views_history[-1]['views'] if views_history else None,
+        'current_page': next((s.get('page') for s in reversed(snapshots)
+                              if s.get('page') is not None), None),
         'created': format_datetime(last.get('created', '')),
         'valid_to': format_datetime(last.get('valid_to', '')),
         'last_checked': format_datetime(last.get('ts', '')),
