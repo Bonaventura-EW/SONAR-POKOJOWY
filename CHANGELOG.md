@@ -9,6 +9,9 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Indeks: polskie miesiące na osi X obu wykresów (2026-07-22)
+- **fix (zgłoszenie Mateusza)**: oś czasu pokazywała angielskie skróty miesięcy (May/Jun/Jul). Dodany polski locale ApexCharts (`sty/lut/mar/…`, dni tygodnia + polskie etykiety toolbara) i `defaultLocale: 'pl'` na **obu** wykresach `trend.html` (Indeks + Odpływ) — spójnie, bez mieszania języków.
+
 ### Indeks: drugi wykres — odpływ ofert (ile znika z rynku) (2026-07-22)
 - **feat (zgłoszenie Mateusza, po akceptacji podglądu)**: pod istniejącym Indeksem podaży na `trend.html` doszła **druga karta „📉 Odpływ ofert"** — dzienny odpływ (ile ofert zniknęło danego dnia) jako **czerwona linia** + **pomarańczowa średnia krocząca z 7 dni** (wygładza szum, pokazuje trend nasilenia znikania). Pierwotny wykres przyrostu (niebieski Indeks) **nietknięty**.
 - **jak**: `src/trend_generator.py` — nowa `build_outflow(offers)`: „zniknięcie" = oferta nieaktywna, której `last_seen` przypada danego dnia; seria dzienna + trailing average 7 dni, ten sam start `RELIABLE_START` (16.05) i to samo źródło co Indeks. Wynik ląduje jako klucz `outflow` w `docs/trend_data.json` (`daily`, `avg`, `total`, `rate`, `max_day`, `max_ts`, `max_label`). `docs/trend.html` — druga karta `#chart2` + osobny render ApexCharts na końcu istniejącego IIFE (reużycie tego samego `fetch`, logika pierwszego wykresu bez zmian).
