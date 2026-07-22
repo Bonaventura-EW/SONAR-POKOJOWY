@@ -9,6 +9,10 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Mapa: przyciski dzień w lewo/prawo także na filtrze daty dodania (2026-07-22)
+- **feat (zgłoszenie Mateusza)**: te same przyciski `‹` / `›` co przy filtrze zniknięcia dodane po bokach suwaka „Filtruj po dacie dodania". Krok o jeden dzień, auto-włączają filtr przy pierwszym kliknięciu (ustawiają checkbox, klasy `enabled`/histogram, odblokowują suwak), klamrują się na krańcach. Nowa funkcja `stepAddedDay(delta)`; wariant koloru `.date-step-btn-added` (niebieski, pod suwak dodania).
+- Zmiany tylko frontend (`docs/index.html`, `assets/script.js`, `assets/style.css`).
+
 ### Mapa: filtr daty zniknięcia — format DD.MM + przyciski dzień w lewo/prawo (2026-07-22)
 - **fix (zgłoszenie Mateusza)**: granice suwaka „Filtruj po dacie zniknięcia" pokazywały datę odwrotnie (`07.21` zamiast `21.07`). **Root cause**: `docs/assets/script.js` (`initGoneSlider`) formatował granice przez `sortedKeys[...].slice(5).replace('-','.')`, co z klucza `YYYY-MM-DD` dawało `MM.DD`. Fix: formatowanie z obiektu `Date` jako `DD.MM` (suwak daty *dodania* obok był już poprawny — używa `formatDayPL`).
 - **feat**: przyciski `‹` / `›` po bokach suwaka zniknięcia — krok o jeden dzień w lewo/prawo. Auto-włączają filtr przy pierwszym kliknięciu, żeby efekt był od razu widoczny; klamrują się na krańcach zakresu. Nowa funkcja `stepGoneDay(delta)`, styl `.date-step-btn` w `docs/assets/style.css` (kolor pomarańczowy suwaka).

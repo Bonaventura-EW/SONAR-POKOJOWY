@@ -1560,10 +1560,41 @@ function initDateSlider() {
         filterMarkersDebounced();    // przebudowa markerów po puszczeniu suwaka
     });
 
+    // Przyciski: dzień w lewo / w prawo
+    const prevBtn = document.getElementById('date-added-prev');
+    const nextBtn = document.getElementById('date-added-next');
+    if (prevBtn) prevBtn.addEventListener('click', () => stepAddedDay(-1));
+    if (nextBtn) nextBtn.addEventListener('click', () => stepAddedDay(1));
+
     // 7. Stan początkowy - wyłączony
     control.classList.remove('enabled');
     histogram.classList.add('disabled');
     updateDateSliderReadout();
+}
+
+// Przesuń wybrany dzień dodania o delta (-1 = w lewo, +1 = w prawo)
+// Auto-włącza filtr, żeby klikanie od razu było widoczne na mapie.
+function stepAddedDay(delta) {
+    const slider = document.getElementById('date-slider');
+    if (!slider || !dateSliderState.days.length) return;
+
+    if (!dateSliderState.enabled) {
+        dateSliderState.enabled = true;
+        const enableCb = document.getElementById('date-filter-enable');
+        const control = document.getElementById('date-slider-control');
+        const histogram = document.getElementById('date-slider-histogram');
+        if (enableCb) enableCb.checked = true;
+        if (control) control.classList.add('enabled');
+        if (histogram) histogram.classList.remove('disabled');
+        slider.disabled = false;
+    }
+
+    const maxIdx = dateSliderState.days.length - 1;
+    const idx = Math.max(0, Math.min(maxIdx, dateSliderState.selectedIndex + delta));
+    dateSliderState.selectedIndex = idx;
+    slider.value = idx;
+    updateDateSliderReadout();
+    filterMarkers();
 }
 
 // Aktualizuje wyświetlaną datę i licznik po zmianie suwaka / checkboxa
