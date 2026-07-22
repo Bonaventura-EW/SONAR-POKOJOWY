@@ -81,6 +81,62 @@ def build_series(offers):
     return series
 
 
+def build_outflow(offers):
+    """Dzienny odpływ ofert (ile zniknęło danego dnia) + średnia krocząca 7 dni.
+
+    „Zniknięcie" = oferta nieaktywna, której `last_seen` przypada danego dnia —
+    to ostatni dzień, w którym żyła. Liczymy narastająco tak samo jak Indeks:
+    od RELIABLE_START do dziś, dzień po dniu. Druga seria to trailing average
+    z 7 dni — wygładza dzienny szum i pokazuje trend nasilenia znikania.
+    """
+    spans, today = build_spans(offers)
+    if not spans:
+        return None
+    start = max(RELIABLE_START, min(s for s, _ in spans))
+
+    dep = {}
+    for o in offers:
+        if o.get('active') or not o.get('last_seen'):
+            continue
+        try:
+            d = _d(o['last_seen'])
+        except (ValueError, TypeError):
+            continue
+        if d >= start:
+            dep[d] = dep.get(d, 0) + 1
+
+    days = []
+    day = start
+    while day <= today:
+        days.append(day)
+        day += timedelta(days=1)
+
+    vals = [dep.get(d, 0) for d in days]
+    daily = [[_day_ms(d), v] for d, v in zip(days, vals)]
+
+    avg = []
+    for i, d in enumerate(days):
+        window = vals[max(0, i - 6):i + 1]
+        avg.append([_day_ms(d), round(sum(window) / len(window), 1)])
+
+    total = sum(vals)
+    ndays = len(days)
+    mx = max(vals) if vals else 0
+    # dzień rekordu: ostatnie (najświeższe) wystąpienie maksimum
+    max_idx = max((i for i, v in enumerate(vals) if v == mx), default=0)
+    max_day_date = days[max_idx] if days else start
+
+    return {
+        'daily': daily,
+        'avg': avg,
+        'total': total,
+        'rate': round(total / ndays, 1) if ndays else 0,
+        'max_day': mx,
+        'max_ts': _day_ms(max_day_date),
+        'max_label': max_day_date.strftime('%d.%m'),
+    }
+
+
 def _value_at_or_before(series, target_ms):
     best = None
     for ms, val in series:
@@ -149,11 +205,15 @@ def generate_trend_data(base_dir: Path = None) -> bool:
         'points': len(series),
         'deltas': compute_deltas(series),
         'series': series,
+        'outflow': build_outflow(offers),
     }
 
     write_json_atomic(output_file, out)
+    of = out['outflow'] or {}
     print(f"✅ trend_data.json: {len(series)} dni od {RELIABLE_START}, "
-          f"teraz={current}, max={mx}, min={mn}")
+          f"teraz={current}, max={mx}, min={mn}; "
+          f"odpływ: łącznie={of.get('total')}, śr={of.get('rate')}/dzień, "
+          f"rekord={of.get('max_day')} ({of.get('max_label')})")
     return True
 
 
