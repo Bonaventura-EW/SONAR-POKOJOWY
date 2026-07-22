@@ -448,6 +448,7 @@ async function loadData() {
         updateStats();  // Wywołaj PO createMarkers(), żeby allMarkers był wypełniony
         initDateSlider();  // Suwak dni - wymaga wypełnionego allMarkers
         initGoneSlider(); // Suwak daty zniknięcia
+        initDateModeToggle(); // Przełącznik trybu (po init suwaków - steruje ich checkboxami)
         setupEventListeners();
         buildFirmProfilesTree();  // Drzewo profili firmowych PRZED filterMarkers - getEnabledProfiles czyta jego checkboxy
         filterMarkers();  // ✅ Przefiltruj markery zgodnie z początkowymi stanami checkboxów
@@ -1454,9 +1455,57 @@ function searchAndZoom() {
     filterMarkers();
 }
 
+// ===== Wspólny histogram jako przesuwne okno =====
+// Wybrany dzień zawsze na środku, po bokach HISTO_WIN dni w każdą stronę.
+// Realnie dni jest ~145 — okno pokazuje tylko okolicę, nie ściska wszystkiego.
+const HISTO_WIN = 10;
+function renderWindowedHisto(container, days, countsMap, selectedIndex, active, onPick) {
+    if (!container) return;
+    if (!days || !days.length) { container.innerHTML = ''; return; }
+    const max = Math.max(1, ...days.map(d => countsMap[dayKey(d)] || 0));
+    let html = '';
+    for (let o = -HISTO_WIN; o <= HISTO_WIN; o++) {
+        const j = selectedIndex + o;
+        if (j < 0 || j >= days.length) {
+            html += '<div class="hbar empty"></div>';
+            continue;
+        }
+        const d = days[j];
+        const c = countsMap[dayKey(d)] || 0;
+        const h = Math.max(3, Math.round((c / max) * 20));
+        const isCenter = (o === 0);
+        html += `<div class="hbar${isCenter && active ? ' active' : ''}" data-idx="${j}"`
+            + ` title="${formatDayMonth(d)}: ${c} ${pluralOffers(c)}" style="height:${h}px"></div>`;
+    }
+    container.innerHTML = html;
+    container.querySelectorAll('.hbar[data-idx]').forEach(b => {
+        b.addEventListener('click', () => onPick(parseInt(b.dataset.idx, 10)));
+    });
+}
+
+// Wybór dnia klikiem w słupek (tylko gdy tryb aktywny)
+function pickAddedDay(i) {
+    if (!dateSliderState.enabled || !dateSliderState.days.length) return;
+    const slider = document.getElementById('date-slider');
+    i = Math.max(0, Math.min(dateSliderState.days.length - 1, i));
+    dateSliderState.selectedIndex = i;
+    if (slider) slider.value = i;
+    updateDateSliderReadout();
+    filterMarkers();
+}
+function pickGoneDay(i) {
+    if (!goneSliderState.enabled || !goneSliderState.days.length) return;
+    const slider = document.getElementById('date-gone-slider');
+    i = Math.max(0, Math.min(goneSliderState.days.length - 1, i));
+    goneSliderState.selectedIndex = i;
+    if (slider) slider.value = i;
+    updateGoneSliderReadout();
+    filterMarkers();
+}
+
 // ===== Inicjalizacja suwaka dni =====
 // Buduje zakres dni od najstarszego first_seen do DZISIAJ,
-// zlicza oferty per dzień i renderuje mini-histogram.
+// zlicza oferty per dzień i renderuje mini-histogram (przesuwne okno).
 function initDateSlider() {
     const slider = document.getElementById('date-slider');
     const enableCb = document.getElementById('date-filter-enable');
@@ -1521,27 +1570,8 @@ function initDateSlider() {
     minLabel.textContent = formatDayMonth(days[0]);
     maxLabel.textContent = formatDayMonth(days[days.length - 1]);
 
-    // 5. Zbuduj histogram
+    // 5. Histogram (przesuwne okno) renderuje updateDateSliderReadout()
     histogram.innerHTML = '';
-    const maxCount = Math.max(1, ...Object.values(counts));
-
-    days.forEach((d, i) => {
-        const c = counts[dayKey(d)];
-        const bar = document.createElement('div');
-        bar.className = 'bar' + (c === 0 ? ' empty' : '');
-        const pct = c === 0 ? 8 : Math.max(15, Math.round((c / maxCount) * 100));
-        bar.style.height = pct + '%';
-        bar.dataset.index = i;
-        bar.title = `${formatDayPL(d)}: ${c} ofert`;
-        bar.addEventListener('click', () => {
-            if (!dateSliderState.enabled) return;
-            slider.value = i;
-            dateSliderState.selectedIndex = i;
-            updateDateSliderReadout();
-            filterMarkers();
-        });
-        histogram.appendChild(bar);
-    });
 
     // 6. Listenery (tylko raz)
     enableCb.addEventListener('change', () => {
@@ -1614,12 +1644,8 @@ function updateDateSliderReadout() {
     const idx = dateSliderState.selectedIndex;
     const days = dateSliderState.days;
 
-    // Podświetl aktywny słupek
-    if (histogram) {
-        Array.from(histogram.children).forEach((bar, i) => {
-            bar.classList.toggle('active', dateSliderState.enabled && i === idx);
-        });
-    }
+    // Histogram jako przesuwne okno (wybrany dzień na środku)
+    renderWindowedHisto(histogram, days, dateSliderState.countsPerDay, idx, dateSliderState.enabled, pickAddedDay);
 
     if (!dateSliderState.enabled || idx < 0 || idx >= days.length) {
         dateEl.textContent = '—';
@@ -1771,31 +1797,50 @@ function updateGoneSliderReadout() {
         return;
     }
     const day = days[idx];
-    const k = dayKey(day);
-    const count = goneSliderState.countsPerDay[k] || 0;
-    const dd = String(day.getDate()).padStart(2, '0');
-    const mm = String(day.getMonth() + 1).padStart(2, '0');
-    const dayNames = ['niedziela', 'poniedziałek', 'wtorek', 'środa', 'czwartek', 'piątek', 'sobota'];
-    const dayName = dayNames[day.getDay()];
-    dateEl.innerHTML = `${dd}.${mm}.${day.getFullYear()}<br><span style="font-size:0.8em;opacity:0.7;">${dayName}</span>`;
-    countEl.textContent = `${count} ofert`;
+    const count = goneSliderState.countsPerDay[dayKey(day)] || 0;
+    dateEl.textContent = formatDayPL(day);
+    dateEl.classList.add('active');
+    countEl.textContent = `${count} ${pluralOffers(count)}`;
     buildGoneHistogram();
 }
 
 function buildGoneHistogram() {
     const container = document.getElementById('date-gone-histogram');
-    if (!container) return;
-    const days = goneSliderState.days;
-    if (!days.length) return;
-    const max = Math.max(...days.map(d => goneSliderState.countsPerDay[dayKey(d)] || 0));
-    const idx = goneSliderState.selectedIndex;
-    container.innerHTML = days.map((d, i) => {
-        const k = dayKey(d);
-        const cnt = goneSliderState.countsPerDay[k] || 0;
-        const h = max > 0 ? Math.max(2, Math.round((cnt / max) * 20)) : 2;
-        return `<div class="histogram-bar${i === idx && goneSliderState.enabled ? ' active' : ''}"
-            style="height:${h}px" title="${k}: ${cnt} ofert"></div>`;
-    }).join('');
+    renderWindowedHisto(container, goneSliderState.days, goneSliderState.countsPerDay,
+        goneSliderState.selectedIndex, goneSliderState.enabled, pickGoneDay);
+}
+
+// ===== Przełącznik trybu filtra dat =====
+// Jeden panel na raz: "Bez filtra" | "Dodania" | "Zniknięcia".
+// Steruje istniejącą logiką przez ukryte checkboxy — nie da się włączyć obu naraz.
+function initDateModeToggle() {
+    const seg = document.getElementById('date-mode-seg');
+    if (!seg) return;
+    const groupAdded = document.getElementById('group-added');
+    const groupGone = document.getElementById('group-gone');
+    const hint = document.getElementById('date-mode-hint');
+    const cbAdded = document.getElementById('date-filter-enable');
+    const cbGone = document.getElementById('date-gone-enable');
+    const btns = Array.from(seg.querySelectorAll('button'));
+
+    function setMode(mode) {
+        btns.forEach(b => {
+            const on = b.dataset.mode === mode;
+            b.classList.toggle('active', on);
+            b.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        const added = mode === 'added';
+        const gone = mode === 'gone';
+        if (groupAdded) groupAdded.hidden = !added;
+        if (groupGone) groupGone.hidden = !gone;
+        if (hint) hint.hidden = (mode !== 'off');
+        // Sterowanie istniejącą logiką filtrów przez ukryte checkboxy (tylko jeden aktywny)
+        if (cbAdded && cbAdded.checked !== added) { cbAdded.checked = added; cbAdded.dispatchEvent(new Event('change')); }
+        if (cbGone && cbGone.checked !== gone) { cbGone.checked = gone; cbGone.dispatchEvent(new Event('change')); }
+    }
+
+    btns.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+    setMode('off');
 }
 
 // Setup event listeners
