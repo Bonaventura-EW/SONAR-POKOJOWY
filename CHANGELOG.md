@@ -9,6 +9,11 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Mapa: filtr daty zniknięcia — format DD.MM + przyciski dzień w lewo/prawo (2026-07-22)
+- **fix (zgłoszenie Mateusza)**: granice suwaka „Filtruj po dacie zniknięcia" pokazywały datę odwrotnie (`07.21` zamiast `21.07`). **Root cause**: `docs/assets/script.js` (`initGoneSlider`) formatował granice przez `sortedKeys[...].slice(5).replace('-','.')`, co z klucza `YYYY-MM-DD` dawało `MM.DD`. Fix: formatowanie z obiektu `Date` jako `DD.MM` (suwak daty *dodania* obok był już poprawny — używa `formatDayPL`).
+- **feat**: przyciski `‹` / `›` po bokach suwaka zniknięcia — krok o jeden dzień w lewo/prawo. Auto-włączają filtr przy pierwszym kliknięciu, żeby efekt był od razu widoczny; klamrują się na krańcach zakresu. Nowa funkcja `stepGoneDay(delta)`, styl `.date-step-btn` w `docs/assets/style.css` (kolor pomarańczowy suwaka).
+- Zmiany tylko frontend (`docs/index.html`, `assets/script.js`, `assets/style.css`) — `data.json` bez zmian.
+
 ### Scanner: auto-retry po częściowym scrape (blokada OLX) (2026-07-22)
 - **feat (zgłoszenie Mateusza)**: gdy scrape zwróci podejrzanie mało ofert (np. skan 21.07 22:13 — listing OLX dał 0, tylko 75 z profili → `SCRAPE_PARTIAL`, próg 30% aktywnych), workflow **automatycznie ponawia scan po 3 min**. Wcześniej taki run zostawał ze `status=warning` do następnego crona (do 6 h dziury).
 - **jak**: nowe kroki w `.github/workflows/scanner.yml` — `Wykryj częściowy scrape` czyta ostatni wpis `data/scan_history.json` i wykrywa marker `SCRAPE_PARTIAL`/`SCRAPE_BLOCKED` (niezawodny sygnał: realny rynek nigdy nie spada <30% aktywnych z dnia na dzień) → `Auto-retry` robi `sleep 180` i drugi `python main.py` w tym samym jobie. Generatory poniżej lecą już na danych z retry.
