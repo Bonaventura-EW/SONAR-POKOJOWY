@@ -113,6 +113,19 @@
             stara baza zaniżona przez survivorship). MAX/MIN/zakres liczone automatycznie; zmiany 6M/1Y pojawią się,
             gdy uzbieramy dłuższą historię.
         </div>
+
+        <div class="card" style="margin-top:22px">
+            <h2>📉 Odpływ ofert &ndash; ile znika z rynku</h2>
+            <div class="sub" id="outLabel">Dzienny odpływ + średnia 7-dniowa</div>
+            <div id="chart2"><div class="loading">Ładowanie danych…</div></div>
+        </div>
+
+        <div class="foot">
+            <strong>Skąd dane:</strong> dla każdego dnia liczba ofert, które tego dnia zniknęły z rynku
+            (oferta nieaktywna, jej <code>last_seen</code> = ten dzień). Czerwona linia to dzienny odpływ,
+            pomarańczowa to średnia krocząca z 7 dni — wygładza dzienny szum i pokazuje trend nasilenia znikania.
+            Ten sam start <strong>16.05.2026</strong> i to samo źródło co Indeks powyżej.
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.49.1/dist/apexcharts.min.js"></script>
@@ -155,6 +168,19 @@
         const cur = d.current, mx = d.max, mn = d.min;
         const unit = d.unit || 'ofert';
 
+        // Etykiety MAX/MIN/teraz potrafią się nakładać, gdy „teraz" = MAX lub MIN
+        // (dziś cur == max). Wtedy pomijamy redundantną etykietę „teraz" —
+        // ta sama wartość jest już na linii MAX/MIN i w nagłówku strony.
+        const range = (mx - mn) || 1;
+        const curNearEdge = Math.abs(cur - mx) <= range * 0.07 || Math.abs(cur - mn) <= range * 0.07;
+        const yAnnotations = [
+            { y: mx, borderColor: '#e8624c', strokeDashArray: 5, label: { text: 'MAX: ' + mx, style: { background: '#e8624c', color: '#fff', fontSize: '12px', fontWeight: 600 }, position: 'left', offsetX: 64 } },
+            { y: mn, borderColor: '#37c26b', strokeDashArray: 5, label: { text: 'MIN: ' + mn, style: { background: '#37c26b', color: '#08210f', fontSize: '12px', fontWeight: 600 }, position: 'left', offsetX: 64 } }
+        ];
+        if (!curNearEdge) {
+            yAnnotations.push({ y: cur, borderColor: '#5a7bc4', strokeDashArray: 3, label: { text: String(cur), style: { background: '#5a7bc4', color: '#fff', fontSize: '12px', fontWeight: 700 }, position: 'left', offsetX: 40 } });
+        }
+
         const options = {
             chart: {
                 type: 'area', height: 520, background: 'transparent',
@@ -188,11 +214,7 @@
             yaxis: { labels: { style: { colors: '#8b93a7' }, formatter: function (v) { return Math.round(v); } }, tickAmount: 5 },
             tooltip: { theme: 'dark', x: { format: 'dd.MM.yyyy' }, y: { formatter: function (v) { return v + ' ' + unit; } } },
             annotations: {
-                yaxis: [
-                    { y: mx, borderColor: '#e8624c', strokeDashArray: 5, label: { text: 'MAX: ' + mx, style: { background: '#e8624c', color: '#fff', fontSize: '12px', fontWeight: 600 }, position: 'left', offsetX: 64 } },
-                    { y: mn, borderColor: '#37c26b', strokeDashArray: 5, label: { text: 'MIN: ' + mn, style: { background: '#37c26b', color: '#08210f', fontSize: '12px', fontWeight: 600 }, position: 'left', offsetX: 64 } },
-                    { y: cur, borderColor: '#5a7bc4', strokeDashArray: 3, label: { text: String(cur), style: { background: '#5a7bc4', color: '#fff', fontSize: '12px', fontWeight: 700 }, position: 'left', offsetX: 40 } }
-                ],
+                yaxis: yAnnotations,
                 points: [
                     { x: d.max_ts, y: mx, marker: { size: 5, fillColor: '#e8624c', strokeColor: '#fff', strokeWidth: 1 } },
                     { x: d.min_ts, y: mn, marker: { size: 5, fillColor: '#37c26b', strokeColor: '#fff', strokeWidth: 1 } }
@@ -202,6 +224,49 @@
 
         document.getElementById('chart').innerHTML = '';
         new ApexCharts(document.querySelector('#chart'), options).render();
+
+        // --- drugi wykres: dzienny odpływ ofert + średnia krocząca 7 dni ---
+        const of = d.outflow;
+        if (of && of.daily && of.daily.length) {
+            document.getElementById('outLabel').innerHTML =
+                'Znika średnio <b>' + String(of.rate).replace('.', ',') + '/dzień</b>, ' +
+                'rekord <b>' + of.max_day + '</b> (' + of.max_label + '). ' +
+                'Pomarańczowa = wygładzony trend (7 dni).';
+
+            const opts2 = {
+                chart: {
+                    type: 'line', height: 380, background: 'transparent',
+                    fontFamily: 'inherit', foreColor: '#8b93a7',
+                    toolbar: { show: true, tools: { download: true, selection: true, zoom: true, zoomin: true, zoomout: true, pan: true, reset: true } },
+                    animations: { enabled: true, speed: 550 },
+                    zoom: { enabled: true }
+                },
+                theme: { mode: 'dark' },
+                series: [
+                    { name: 'Znikło danego dnia', data: of.daily },
+                    { name: 'Średnia 7 dni', data: of.avg }
+                ],
+                colors: ['#e8624c', '#f0a35e'],
+                stroke: { curve: ['straight', 'smooth'], width: [2, 3] },
+                dataLabels: { enabled: false },
+                markers: { size: 0, hover: { size: 5 } },
+                grid: { borderColor: '#3a4255', strokeDashArray: 4, xaxis: { lines: { show: true } }, yaxis: { lines: { show: true } } },
+                xaxis: {
+                    type: 'datetime', axisBorder: { show: false }, axisTicks: { color: '#3a4255' },
+                    labels: {
+                        datetimeUTC: false, style: { colors: '#8b93a7' },
+                        datetimeFormatter: { year: 'yyyy', month: "MMM 'yy", day: 'dd MMM', hour: 'HH:mm' }
+                    }
+                },
+                yaxis: { min: 0, tickAmount: 4, labels: { style: { colors: '#8b93a7' }, formatter: function (v) { return Math.round(v); } } },
+                legend: { labels: { colors: '#8b93a7' }, markers: { radius: 12 }, itemMargin: { horizontal: 10 } },
+                tooltip: { theme: 'dark', shared: true, x: { format: 'dd.MM.yyyy' }, y: { formatter: function (v) { return v + ' ofert'; } } }
+            };
+            document.getElementById('chart2').innerHTML = '';
+            new ApexCharts(document.querySelector('#chart2'), opts2).render();
+        } else {
+            document.getElementById('chart2').innerHTML = '<div class="loading">Brak danych o odpływie.</div>';
+        }
     })();
     </script>
 </body>

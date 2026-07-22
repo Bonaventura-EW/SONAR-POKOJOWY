@@ -9,6 +9,12 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Indeks: drugi wykres — odpływ ofert (ile znika z rynku) (2026-07-22)
+- **feat (zgłoszenie Mateusza, po akceptacji podglądu)**: pod istniejącym Indeksem podaży na `trend.html` doszła **druga karta „📉 Odpływ ofert"** — dzienny odpływ (ile ofert zniknęło danego dnia) jako **czerwona linia** + **pomarańczowa średnia krocząca z 7 dni** (wygładza szum, pokazuje trend nasilenia znikania). Pierwotny wykres przyrostu (niebieski Indeks) **nietknięty**.
+- **jak**: `src/trend_generator.py` — nowa `build_outflow(offers)`: „zniknięcie" = oferta nieaktywna, której `last_seen` przypada danego dnia; seria dzienna + trailing average 7 dni, ten sam start `RELIABLE_START` (16.05) i to samo źródło co Indeks. Wynik ląduje jako klucz `outflow` w `docs/trend_data.json` (`daily`, `avg`, `total`, `rate`, `max_day`, `max_ts`, `max_label`). `docs/trend.html` — druga karta `#chart2` + osobny render ApexCharts na końcu istniejącego IIFE (reużycie tego samego `fetch`, logika pierwszego wykresu bez zmian).
+- **dane (na 22.07)**: łącznie znikło **711** ofert od startu, śr. **10,5/dzień**, rekord **28** (22.07). Kontekst churn: przez okno weszło 1109 nowych, więc netto rynek rośnie (odpływ nie przewyższa napływu) — 711 > stan startowy 343 to efekt wymiany populacji, nie błąd.
+- Zweryfikowane: `python src/trend_generator.py` OK, `test_integration.py` przechodzi, podgląd 1:1 całej strony zaakceptowany.
+
 ### Ulubione: powód braku strony dla ofert spoza listingu pokoi (2026-07-22)
 - **feat (zgłoszenie Mateusza)**: gdy aktywna ulubiona oferta nie ma „strony", bo została wystawiona **poza listingiem pokoi** (np. w kategorii „mieszkania" — jak „Politechnika, Miasteczko, Głęboka", firma Artymiuk, `offer_type=mieszkanie`), tooltip pokazuje **„📄 poza listingiem pokoi (mieszkania)"** zamiast pustki. `fetch_listing_positions` przechodzi tylko listing pokoi, więc takich ofert tam nie ma.
 - **jak**: `favorites_generator.py` — nowe pole `page_absent_reason` z `offer_type` bazy (`_OFFER_TYPE_LABEL`; `None`/`pokoj` → brak powodu, więc zwykłe pokoje bez fałszywej noty). `docs/ulubione.html` — tooltip dokłada powód gdy `page == null` a `page_absent_reason` jest. Zero dodatkowych zapytań (kategoria już w `offers.json`).
