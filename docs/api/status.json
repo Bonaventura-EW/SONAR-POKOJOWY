@@ -1,45 +1,38 @@
 {
   "system": "sonar",
   "version": "1.0.0",
-  "generatedAt": "2026-07-21T22:16:25.936648+02:00",
+  "generatedAt": "2026-07-22T09:09:54.836821+02:00",
   "status": {
-    "current": "degraded",
+    "current": "operational",
     "isHealthy": true,
-    "hasErrors": true,
-    "errorMessages": [
-      "SCRAPE_PARTIAL: scraper zwrócił tylko 75 ofert (baza: 694 aktywnych, próg: 208). Prawdopodobna blokada OLX lub awaria scrapera."
-    ]
+    "hasErrors": false,
+    "errorMessages": []
   },
   "lastScan": {
-    "id": "2026-07-21T22-13-28",
-    "timestamp": "2026-07-21T22:13:28.739874+02:00",
-    "endTimestamp": "2026-07-21T22:14:09.584618+02:00",
-    "durationSeconds": 40.84,
-    "durationFormatted": "40s",
-    "uiStatus": "failed",
-    "rawStatus": "warning",
+    "id": "2026-07-22T09-06-38",
+    "timestamp": "2026-07-22T09:06:38.921925+02:00",
+    "endTimestamp": "2026-07-22T09:07:56.204219+02:00",
+    "durationSeconds": 77.28,
+    "durationFormatted": "1m 17s",
+    "uiStatus": "success",
+    "rawStatus": "completed",
     "offers": {
-      "found": 75,
-      "processed": 3,
-      "new": 0,
+      "found": 880,
+      "processed": 741,
+      "new": 16,
       "deactivated": null,
-      "updated": 3,
-      "active": 694,
-      "inactive": 881
+      "updated": 725,
+      "active": 725,
+      "inactive": 866
     },
     "skipped": {
-      "noAddress": 0,
-      "noPrice": 0,
-      "noCoords": 0,
-      "duplicates": 0
+      "noAddress": 49,
+      "noPrice": 1,
+      "noCoords": 9,
+      "duplicates": 6
     },
-    "errors": [
-      {
-        "message": "SCRAPE_PARTIAL: scraper zwrócił tylko 75 ofert (baza: 694 aktywnych, próg: 208). Prawdopodobna blokada OLX lub awaria scrapera.",
-        "timestamp": "2026-07-21T22:13:51.282067+02:00"
-      }
-    ],
-    "hasErrors": true
+    "errors": [],
+    "hasErrors": false
   },
   "schedule": {
     "times": [
@@ -48,12 +41,12 @@
       "21:00"
     ],
     "timezone": "Europe/Warsaw",
-    "nextScanAt": "2026-07-22T09:00:00+02:00"
+    "nextScanAt": "2026-07-22T15:00:00+02:00"
   },
   "statistics": {
     "totalScans": 100,
     "successRate": 97.0,
-    "avgDurationSeconds": 65.63,
-    "avgOffersFound": 691.1
+    "avgDurationSeconds": 65.9,
+    "avgOffersFound": 694.1
   }
 }
