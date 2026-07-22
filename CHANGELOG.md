@@ -9,6 +9,10 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: powód braku strony dla ofert spoza listingu pokoi (2026-07-22)
+- **feat (zgłoszenie Mateusza)**: gdy aktywna ulubiona oferta nie ma „strony", bo została wystawiona **poza listingiem pokoi** (np. w kategorii „mieszkania" — jak „Politechnika, Miasteczko, Głęboka", firma Artymiuk, `offer_type=mieszkanie`), tooltip pokazuje **„📄 poza listingiem pokoi (mieszkania)"** zamiast pustki. `fetch_listing_positions` przechodzi tylko listing pokoi, więc takich ofert tam nie ma.
+- **jak**: `favorites_generator.py` — nowe pole `page_absent_reason` z `offer_type` bazy (`_OFFER_TYPE_LABEL`; `None`/`pokoj` → brak powodu, więc zwykłe pokoje bez fałszywej noty). `docs/ulubione.html` — tooltip dokłada powód gdy `page == null` a `page_absent_reason` jest. Zero dodatkowych zapytań (kategoria już w `offers.json`).
+
 ### Ulubione: numer strony listingu OLX per pomiar (2026-07-22)
 - **feat (zgłoszenie Mateusza)**: w tooltipie wykresu „Wyświetlenia w czasie" (karta ulubionej) druga linijka **„📄 strona N"** — na której stronie wyników OLX była oferta w momencie pomiaru. **Sort „od najnowszych"** → pozycja **organiczna** (bez zaburzenia płatnymi wyróżnieniami), możliwie najbliższa realnej kolejności oferty.
 - **jak**: `scraper.py` — nowa `fetch_listing_positions(sort)`: osobne, **równoległe** przejście samego listingu (strona 1 sekwencyjnie → liczba stron z paginatora, strony 2..N przez `ThreadPoolExecutor`; bez pobierania szczegółów ofert). `main.py` po scanie zapisuje mapę `short_id → strona` + `sort` do `data/listing_positions.json`. `favorites_tracker.py` wczytuje mapę (guard świeżości 12 h — tracker odpalony solo bez scanu nie dokleja przeterminowanej strony) i dopisuje `page` do snapshotu. `favorites_generator.py` przenosi `page` do punktów `views_history` + wystawia `current_page`. `docs/ulubione.html` — callback tooltipa dokłada linijkę gdy `page != null`.
