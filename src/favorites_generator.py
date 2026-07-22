@@ -23,6 +23,14 @@ OUTPUT_FILE = DOCS_DIR / 'favorites_data.json'
 # nazwa profilu (jak w offers.json 'profile_name') → klucz zakładki w profile_tracker.html
 PROFILE_KEY_BY_NAME = {cfg['name'].lower(): key for key, cfg in TRACKED_PROFILES.items()}
 
+# offer_type (offers.json) → etykieta kategorii do tooltipu, gdy oferta jest
+# poza listingiem pokoi i przez to nie ma "strony"
+_OFFER_TYPE_LABEL = {
+    'mieszkanie': 'mieszkania',
+    'dom': 'domy',
+    'dzialka': 'działki',
+}
+
 
 def _load_json(path, default):
     if not path.exists():
@@ -77,12 +85,22 @@ def _build_favorite(short_id: str, entry: dict, base_offer: dict | None) -> dict
     address = None
     coords = None
     profile_name = None
+    offer_type = None
     if base_offer:
         addr = base_offer.get('address', {}) or {}
         address = addr.get('full') or None
         coords = addr.get('coords') or None
         profile_name = base_offer.get('profile_name') or None
+        offer_type = base_offer.get('offer_type')
     profile_key = PROFILE_KEY_BY_NAME.get(profile_name.lower()) if profile_name else None
+
+    # Powód braku "strony" gdy oferta jest AKTYWNA, a mimo to nie ma pozycji:
+    # została wystawiona poza listingiem pokoi (np. w kategorii "mieszkania"),
+    # który przechodzi fetch_listing_positions. offer_type=None to zwykły pokój
+    # z listingu → brak powodu (strona wynika z pozycji albo z nieaktywności).
+    page_absent_reason = None
+    if offer_type and offer_type not in ('pokoj', 'pokoje'):
+        page_absent_reason = _OFFER_TYPE_LABEL.get(offer_type, 'inna kategoria')
 
     return {
         'short_id': short_id,
@@ -98,6 +116,7 @@ def _build_favorite(short_id: str, entry: dict, base_offer: dict | None) -> dict
         'current_views': views_history[-1]['views'] if views_history else None,
         'current_page': next((s.get('page') for s in reversed(snapshots)
                               if s.get('page') is not None), None),
+        'page_absent_reason': page_absent_reason,
         'created': format_datetime(last.get('created', '')),
         'valid_to': format_datetime(last.get('valid_to', '')),
         'last_checked': format_datetime(last.get('ts', '')),
