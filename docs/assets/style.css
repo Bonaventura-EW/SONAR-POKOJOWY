@@ -576,11 +576,11 @@ body {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    /* grow: tak (wypełnij pasek), shrink: nie (nie kurcz poniżej treści -> brak
-       nakładania grup; przy ciasnym oknie/zoomie pasek się przewija) */
-    flex: 1 0 auto;
-    min-width: 300px;
+    /* aktywny panel wypełnia pasek; suwak (min-width:40) absorbuje ściskanie */
+    flex: 1 1 auto;
+    min-width: 0;
 }
+.date-filter-group[hidden] { display: none; }
 
 .date-filter-row {
     display: flex;
@@ -588,6 +588,52 @@ body {
     gap: 14px;
     min-height: 28px;
 }
+
+/* Przełącznik trybu filtra dat */
+.date-mode-seg {
+    display: inline-flex;
+    padding: 2px;
+    gap: 2px;
+    border-radius: 9px;
+    background: #eef2f7;
+    border: 1px solid #d6dde5;
+    flex: none;
+}
+.date-mode-seg button {
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    border: 0;
+    cursor: pointer;
+    padding: 6px 11px;
+    border-radius: 7px;
+    color: #64748b;
+    background: transparent;
+    transition: background 0.16s ease, color 0.16s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+.date-mode-seg button:hover { color: #334155; }
+.date-mode-seg button[data-mode="off"].active {
+    background: #ffffff; color: #0f172a; box-shadow: 0 1px 3px rgba(15,23,42,0.12);
+}
+.date-mode-seg button[data-mode="added"].active {
+    background: #0ea5e9; color: #ffffff; box-shadow: 0 1px 3px rgba(15,23,42,0.12);
+}
+.date-mode-seg button[data-mode="gone"].active {
+    background: #f59e0b; color: #3a2408; box-shadow: 0 1px 3px rgba(15,23,42,0.12);
+}
+.date-mode-seg button:focus-visible { outline: 2px solid #0ea5e9; outline-offset: 2px; }
+
+.date-mode-hint {
+    font-size: 12px;
+    color: #94a3b8;
+    white-space: nowrap;
+    flex: none;
+}
+.date-mode-hint[hidden] { display: none; }
 
 .date-slider-toggle {
     display: flex;
@@ -780,39 +826,51 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
+/* Histogram jako przesuwne okno PO PRAWEJ (wybrany dzień na środku) */
 .date-slider-histogram {
     display: flex;
     align-items: flex-end;
     gap: 2px;
     height: 22px;
-    padding: 0 2px;
+    flex: none;
+    width: 190px;
+    padding-left: 11px;
+    margin-left: 2px;
+    border-left: 1px solid #d6dde5;
+    position: relative;
 }
-
-.date-slider-histogram .bar {
+/* kreska środka okna */
+.date-slider-histogram::after {
+    content: "";
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    left: calc(11px + (100% - 11px) / 2);
+    width: 0;
+    border-left: 1px dashed rgba(15,23,42,0.22);
+    transform: translateX(-0.5px);
+    pointer-events: none;
+}
+.date-slider-histogram .hbar {
     flex: 1;
-    min-width: 3px;
+    min-width: 0;
     background: #cbd5e1;
     border-radius: 2px 2px 0 0;
     cursor: pointer;
-    transition: background 0.1s ease;
+    transition: background 0.1s ease, height 0.12s ease;
 }
-
-.date-slider-histogram .bar.empty {
+.date-slider-histogram .hbar.empty {
     background: #e2e8f0;
+    opacity: 0.5;
+    cursor: default;
 }
-
-.date-slider-histogram .bar.active {
-    background: #0ea5e9;
-}
-
-.date-slider-histogram .bar:hover:not(.disabled) {
-    background: #0284c7;
-}
-
-.date-slider-histogram.disabled .bar {
-    cursor: not-allowed;
-    background: #e2e8f0;
-}
+/* kolor aktywnego (środkowego) słupka = tryb */
+#group-added .date-slider-histogram .hbar.active { background: #0ea5e9; }
+#group-added .date-slider-histogram .hbar:hover:not(.empty) { background: #0284c7; }
+#group-gone .date-slider-histogram .hbar.active { background: #f59e0b; }
+#group-gone .date-slider-histogram .hbar:hover:not(.empty) { background: #d97706; }
+/* licznik w trybie zniknięcia - pomarańczowy */
+#group-gone .date-slider-count { color: #b45309; background: #fef3c7; }
 
 @media (max-width: 768px) {
     .date-slider-bar {

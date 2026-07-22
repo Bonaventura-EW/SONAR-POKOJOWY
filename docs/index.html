@@ -67,16 +67,26 @@
     </nav>
   </header>
 
-        <!-- Paski filtra dat -->
+        <!-- Pasek filtra dat: przełącznik trybu + jeden panel -->
         <div class="date-slider-bar">
 
-            <!-- Filtr daty dodania -->
-            <div class="date-filter-group">
+            <!-- Przełącznik trybu (Bez filtra / Dodania / Zniknięcia) -->
+            <div class="date-mode-seg" id="date-mode-seg" role="tablist" aria-label="Tryb filtra dat">
+                <button type="button" data-mode="off" class="active" role="tab" aria-selected="true">Bez filtra</button>
+                <button type="button" data-mode="added" role="tab" aria-selected="false">📥 Dodania</button>
+                <button type="button" data-mode="gone" role="tab" aria-selected="false">📤 Zniknięcia</button>
+            </div>
+
+            <!-- Ukryte checkboxy: sterowane przez przełącznik, zachowują istniejącą logikę filtra -->
+            <input type="checkbox" id="date-filter-enable" hidden>
+            <input type="checkbox" id="date-gone-enable" hidden>
+
+            <!-- Podpowiedź gdy filtr wyłączony -->
+            <span class="date-mode-hint" id="date-mode-hint">— na mapie wszystkie oferty</span>
+
+            <!-- Panel: data dodania -->
+            <div class="date-filter-group" id="group-added" hidden>
                 <div class="date-filter-row">
-                    <label class="date-slider-toggle">
-                        <input type="checkbox" id="date-filter-enable">
-                        <span>Filtruj po dacie dodania</span>
-                    </label>
                     <div class="date-slider-control" id="date-slider-control">
                         <button type="button" class="date-step-btn date-step-btn-added" id="date-added-prev" title="Poprzedni dzień" aria-label="Poprzedni dzień">‹</button>
                         <span class="date-slider-bound" id="date-slider-min">—</span>
@@ -89,20 +99,13 @@
                         <span class="date-slider-date" id="date-slider-current">—</span>
                         <span class="date-slider-count" id="date-slider-count">— ofert</span>
                     </div>
+                    <div class="date-slider-histogram" id="date-slider-histogram"></div>
                 </div>
-                <div class="date-slider-histogram" id="date-slider-histogram"></div>
             </div>
 
-            <!-- Separator -->
-            <div style="width:1px;background:#d6dde5;align-self:stretch;flex-shrink:0;"></div>
-
-            <!-- Filtr daty zniknięcia -->
-            <div class="date-filter-group">
+            <!-- Panel: data zniknięcia -->
+            <div class="date-filter-group" id="group-gone" hidden>
                 <div class="date-filter-row">
-                    <label class="date-slider-toggle">
-                        <input type="checkbox" id="date-gone-enable">
-                        <span>Filtruj po dacie zniknięcia</span>
-                    </label>
                     <div class="date-slider-control" id="date-gone-control">
                         <button type="button" class="date-step-btn" id="date-gone-prev" title="Poprzedni dzień" aria-label="Poprzedni dzień">‹</button>
                         <span class="date-slider-bound" id="date-gone-min">—</span>
@@ -115,8 +118,8 @@
                         <span class="date-slider-date" id="date-gone-current">—</span>
                         <span class="date-slider-count" id="date-gone-count">— ofert</span>
                     </div>
+                    <div class="date-slider-histogram" id="date-gone-histogram"></div>
                 </div>
-                <div class="date-slider-histogram" id="date-gone-histogram"></div>
             </div>
 
         </div>
