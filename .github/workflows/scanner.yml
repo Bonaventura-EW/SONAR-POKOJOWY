@@ -46,7 +46,42 @@ jobs:
         run: |
           cd src
           python main.py || echo "::warning::Scanner failed but continuing..."
-      
+
+      # Wykryj częściowy scrape (blokada OLX / awaria scrapera). main.py loguje
+      # SCRAPE_PARTIAL / SCRAPE_BLOCKED do ostatniego wpisu scan_history.json,
+      # gdy scrape zwrócił <30% aktywnych ofert (lub 0). To niezawodny sygnał
+      # "scraper padł" — realny rynek nigdy nie spada tak nisko z dnia na dzień.
+      - name: Wykryj częściowy scrape
+        id: partial_check
+        if: always()
+        continue-on-error: true
+        run: |
+          BLOCKED=$(python3 -c "
+          import json
+          try:
+              entry = json.load(open('data/scan_history.json'))[-1]
+              errs = entry.get('errors', [])
+              hit = any(str(e.get('message', '')).startswith(('SCRAPE_PARTIAL', 'SCRAPE_BLOCKED')) for e in errs)
+              print('yes' if hit else 'no')
+          except Exception:
+              print('no')
+          ")
+          echo "blocked=$BLOCKED" >> "$GITHUB_OUTPUT"
+          echo "Częściowy scrape wykryty: $BLOCKED"
+
+      # Jednorazowy retry po 3 min w TYM SAMYM jobie (ten sam runner). Bounded
+      # do 1 próby — krok nie re-sprawdza, więc brak pętli. Retry ma własny
+      # empty-scrape guard, więc jeśli i on padnie — baza dalej chroniona.
+      # Generatory poniżej wykonają się już na danych z retry (jeśli się udał).
+      - name: Auto-retry scanu po 3 min (częściowy scrape)
+        if: steps.partial_check.outputs.blocked == 'yes'
+        continue-on-error: true
+        run: |
+          echo "::warning::Częściowy scrape (SCRAPE_PARTIAL/BLOCKED) — ponawiam scan za 3 min."
+          sleep 180
+          cd src
+          python main.py || echo "::warning::Retry scanner failed but continuing..."
+
       - name: Generate map data
         if: success() || steps.scanner.outcome == 'failure'
         continue-on-error: true

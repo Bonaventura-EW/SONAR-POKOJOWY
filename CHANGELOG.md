@@ -9,6 +9,12 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Scanner: auto-retry po częściowym scrape (blokada OLX) (2026-07-22)
+- **feat (zgłoszenie Mateusza)**: gdy scrape zwróci podejrzanie mało ofert (np. skan 21.07 22:13 — listing OLX dał 0, tylko 75 z profili → `SCRAPE_PARTIAL`, próg 30% aktywnych), workflow **automatycznie ponawia scan po 3 min**. Wcześniej taki run zostawał ze `status=warning` do następnego crona (do 6 h dziury).
+- **jak**: nowe kroki w `.github/workflows/scanner.yml` — `Wykryj częściowy scrape` czyta ostatni wpis `data/scan_history.json` i wykrywa marker `SCRAPE_PARTIAL`/`SCRAPE_BLOCKED` (niezawodny sygnał: realny rynek nigdy nie spada <30% aktywnych z dnia na dzień) → `Auto-retry` robi `sleep 180` i drugi `python main.py` w tym samym jobie. Generatory poniżej lecą już na danych z retry.
+- **bezpieczeństwo**: bounded do 1 próby (krok nie re-sprawdza → brak pętli); retry ma własny empty-scrape guard, więc jeśli i on padnie, baza dalej chroniona; nowe kroki `continue-on-error` → nie psują `success()` w generatorach. Ten sam runner/IP (wystarcza dla obserwowanego faila = timeout, nie ban IP).
+- Zweryfikowane: parsowanie YAML OK, logika detekcji zwraca `yes` na realnym wpisie 21.07 22:13.
+
 ### Mapa: kompresja popupów + tytuł ogłoszenia w 2. wierszu (2026-07-21)
 - **feat (po akceptacji before/after)**: popup oferty na mapie głównej ~40% niższy i węższy (380→350 px, margines wewn. 20→10 px, padding karty 16→9 px). Te same informacje i ikony 1:1: mniejsze fonty/odstępy, „▼ Pokaż całość" jako link w linii opisu zamiast przycisku w ramce, daty zawijane obok siebie zamiast 3 osobnych wierszy, fioletowa linia nagłówka schodzi pod tytuł.
 - **feat**: **tytuł ogłoszenia w 2. wierszu** nagłówka popupu (`.popup-title`; przy kilku ofertach pod adresem — `.offer-item-title` per karta). Fix u źródła: scraper nie zapisuje tytułu osobno (skleja z opisem — stąd „…Czechowie! OpisPokój do wynajęcia…"), więc `map_generator.py` odzyskuje go z prefiksu opisu walidowanego **slugiem URL-a** (zamrożony tytuł z chwili publikacji) + 2 fallbacki: marker „Opis" i zdublowany tytuł na początku treści (sprzedawca zmienił tytuł po publikacji → slug nieaktualny). Pokrycie: **1529/1532 (99,8%)**; bez tytułu → wiersz się nie renderuje. Nowe pole `title` w `docs/data.json`, `description` czyszczone z powtórzonego tytułu i sklejki „Opis".
