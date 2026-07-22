@@ -564,9 +564,11 @@ body {
     padding: 5px 20px;
     display: flex;
     flex-direction: row;
+    /* zawijanie do 2. wiersza przy ciasnym oknie / zoomie -> zamiast poziomego
+       scrolla albo nakładania grupa "zniknięcia" schodzi pod "dodania" */
+    flex-wrap: wrap;
     align-items: center;
-    gap: 0 20px;
-    overflow-x: auto;
+    gap: 8px 20px;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
