@@ -302,13 +302,6 @@ class OLXScraper:
                 print("   ⚠️ Brak ofert na stronie - koniec paginacji")
                 break
 
-            # Numer strony listingu (sort domyślny OLX) — reużywany przez
-            # favorites_tracker do pokazania "na której stronie" jest ulubiona
-            # oferta w momencie scanu. Ten sam obiekt dict przechodzi przez
-            # fazę 2 (mutacja in-place), więc pole przetrwa pobranie szczegółów.
-            for o in offers:
-                o['listing_page'] = page_num
-
             all_offers.extend(offers)
             
             # Sprawdzamy czy jest następna strona
@@ -438,7 +431,84 @@ class OLXScraper:
         print(f"\n✅ Scraping zakończony: {len(all_offers)} ofert z {page_num} stron")
         print(f"   📈 Zaoszczędzono {self.stats['skipped_same_price']} requestów!")
         return all_offers
-    
+
+    # ------------------------------------------------------------------
+    # POZYCJE LISTINGU — na której stronie wyników jest oferta (dla ulubionych)
+    # ------------------------------------------------------------------
+
+    def _fetch_listing_page_offers(self, url: str) -> List[Dict]:
+        """Pobiera JEDNĄ stronę listingu i zwraca surowe oferty (bez
+        pobierania szczegółów). Używane przez fetch_listing_positions
+        w trybie równoległym."""
+        self._random_delay()
+        soup = self._fetch_page(url)
+        if not soup:
+            return []
+        return self._extract_offers_from_page(soup)
+
+    def fetch_listing_positions(self, sort: str = 'created_at:desc',
+                                max_pages: int = 50) -> Dict[str, int]:
+        """Mapa short_id → numer strony listingu OLX w zadanym sorcie.
+
+        Osobne, RÓWNOLEGŁE przejście SAMEGO listingu (bez pobierania
+        szczegółów ofert — ~5s zamiast ~45s sekwencyjnie). Sort domyślny
+        'created_at:desc' (od najnowszych) daje pozycję ORGANICZNĄ, bez
+        zaburzenia płatnymi wyróżnieniami — możliwie najbliższą realnej
+        kolejności oferty w wynikach. Strona 1 leci sekwencyjnie (z niej
+        liczba stron z paginatora), strony 2..N równolegle przez
+        ThreadPoolExecutor. Wynik zasila favorites_tracker ("na której
+        stronie jest ulubiona oferta w dniu odczytu")."""
+        order = 'search%5Border%5D=' + sort.replace(':', '%3A')
+        base = f"{self.BASE_URL}?{order}"
+        positions: Dict[str, int] = {}
+
+        def _short_id(u: str) -> Optional[str]:
+            m = re.search(r'-ID(\w+)\.html', u or '')
+            return m.group(1) if m else None
+
+        def _absorb(offers: List[Dict], page: int):
+            for o in offers:
+                sid = _short_id(o.get('url', ''))
+                # najniższa (najwyższa pozycja) strona wygrywa — strony
+                # z równoległych wątków przychodzą w dowolnej kolejności
+                if sid and page < positions.get(sid, 10 ** 9):
+                    positions[sid] = page
+
+        print(f"\n📄 Pozycje listingu (sort={sort}) — równoległe przejście...")
+
+        # Strona 1 sekwencyjnie: z paginatora czytamy liczbę stron
+        self._random_delay()
+        soup1 = self._fetch_page(base)
+        if not soup1:
+            print("   ⚠️ Strona 1 niedostępna — mapa pozycji pusta")
+            return positions
+        _absorb(self._extract_offers_from_page(soup1), 1)
+
+        last_page = 1
+        for a in soup1.find_all('a', href=lambda x: x and 'page=' in str(x)):
+            m = re.search(r'page=(\d+)', a.get('href', ''))
+            if m:
+                last_page = max(last_page, int(m.group(1)))
+        last_page = min(last_page, max_pages)
+
+        # Strony 2..N równolegle (znamy wzorzec URL ?page=N, order zachowany)
+        if last_page >= 2:
+            page_urls = {n: f"{base}&page={n}" for n in range(2, last_page + 1)}
+            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                future_to_page = {
+                    executor.submit(self._fetch_listing_page_offers, url): n
+                    for n, url in page_urls.items()
+                }
+                for future in as_completed(future_to_page):
+                    n = future_to_page[future]
+                    try:
+                        _absorb(future.result(), n)
+                    except (requests.RequestException, AttributeError, TypeError) as e:
+                        print(f"   ⚠️ Strona {n}: {e}")
+
+        print(f"   ✅ {len(positions)} ofert zmapowanych z {last_page} stron")
+        return positions
+
     # ------------------------------------------------------------------
     # PROFILE SCRAPING — via OLX API v1 (user_id parameter)
     # ------------------------------------------------------------------

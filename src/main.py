@@ -5,7 +5,6 @@ WERSJA 2.0: Równoległy scraping + monitoring
 """
 
 import json
-import re
 from pathlib import Path
 from datetime import datetime, timedelta
 import pytz
@@ -1220,27 +1219,20 @@ class SonarPokojowy:
             
             print(f"✅ Pobrano {len(raw_offers)} surowych ofert\n")
 
-            # 1a. Mapa pozycji: short_id → numer strony listingu OLX (sort
-            # domyślny). Reużywa scan listingu z Kroku 1 → zero dodatkowych
-            # requestów. favorites_tracker dokleja stronę do snapshotów
+            # 1a. Mapa pozycji: short_id → strona listingu OLX w sorcie
+            # "od najnowszych" — pozycja ORGANICZNA (bez zaburzenia płatnymi
+            # wyróżnieniami), możliwie najbliższa realnej kolejności oferty.
+            # Osobne RÓWNOLEGŁE przejście samego listingu (~5s, bez pobierania
+            # szczegółów). favorites_tracker dokleja stronę do snapshotów
             # ulubionych ("na której stronie jest oferta w dniu odczytu").
-            # Profile (API v1) nie mają listing_page → nie trafiają tu.
-            listing_positions = {}
-            for o in raw_offers:
-                page = o.get('listing_page')
-                if page is None:
-                    continue
-                m = re.search(r'-ID(\w+)\.html', o.get('url', ''))
-                if m:
-                    # najwcześniejsze (najniższa strona) wystąpienie wygrywa
-                    prev = listing_positions.get(m.group(1))
-                    if prev is None or page < prev:
-                        listing_positions[m.group(1)] = page
+            listing_sort = 'created_at:desc'
+            listing_positions = self.scraper.fetch_listing_positions(sort=listing_sort)
             write_json_atomic(DATA_DIR / 'listing_positions.json', {
                 'scanned_at': now.isoformat(),
+                'sort': listing_sort,
                 'positions': listing_positions,
             })
-            print(f"📄 Pozycje listingu: {len(listing_positions)} ofert zmapowanych na strony\n")
+            print(f"📄 Pozycje listingu: {len(listing_positions)} ofert (sort={listing_sort})\n")
 
             # 1b. Scraping profili firmowych
             print("🏢 Krok 1b: Scraping profili firmowych...")
