@@ -168,6 +168,19 @@
         const cur = d.current, mx = d.max, mn = d.min;
         const unit = d.unit || 'ofert';
 
+        // Etykiety MAX/MIN/teraz potrafią się nakładać, gdy „teraz" = MAX lub MIN
+        // (dziś cur == max). Wtedy pomijamy redundantną etykietę „teraz" —
+        // ta sama wartość jest już na linii MAX/MIN i w nagłówku strony.
+        const range = (mx - mn) || 1;
+        const curNearEdge = Math.abs(cur - mx) <= range * 0.07 || Math.abs(cur - mn) <= range * 0.07;
+        const yAnnotations = [
+            { y: mx, borderColor: '#e8624c', strokeDashArray: 5, label: { text: 'MAX: ' + mx, style: { background: '#e8624c', color: '#fff', fontSize: '12px', fontWeight: 600 }, position: 'left', offsetX: 64 } },
+            { y: mn, borderColor: '#37c26b', strokeDashArray: 5, label: { text: 'MIN: ' + mn, style: { background: '#37c26b', color: '#08210f', fontSize: '12px', fontWeight: 600 }, position: 'left', offsetX: 64 } }
+        ];
+        if (!curNearEdge) {
+            yAnnotations.push({ y: cur, borderColor: '#5a7bc4', strokeDashArray: 3, label: { text: String(cur), style: { background: '#5a7bc4', color: '#fff', fontSize: '12px', fontWeight: 700 }, position: 'left', offsetX: 40 } });
+        }
+
         const options = {
             chart: {
                 type: 'area', height: 520, background: 'transparent',
@@ -201,11 +214,7 @@
             yaxis: { labels: { style: { colors: '#8b93a7' }, formatter: function (v) { return Math.round(v); } }, tickAmount: 5 },
             tooltip: { theme: 'dark', x: { format: 'dd.MM.yyyy' }, y: { formatter: function (v) { return v + ' ' + unit; } } },
             annotations: {
-                yaxis: [
-                    { y: mx, borderColor: '#e8624c', strokeDashArray: 5, label: { text: 'MAX: ' + mx, style: { background: '#e8624c', color: '#fff', fontSize: '12px', fontWeight: 600 }, position: 'left', offsetX: 64 } },
-                    { y: mn, borderColor: '#37c26b', strokeDashArray: 5, label: { text: 'MIN: ' + mn, style: { background: '#37c26b', color: '#08210f', fontSize: '12px', fontWeight: 600 }, position: 'left', offsetX: 64 } },
-                    { y: cur, borderColor: '#5a7bc4', strokeDashArray: 3, label: { text: String(cur), style: { background: '#5a7bc4', color: '#fff', fontSize: '12px', fontWeight: 700 }, position: 'left', offsetX: 40 } }
-                ],
+                yaxis: yAnnotations,
                 points: [
                     { x: d.max_ts, y: mx, marker: { size: 5, fillColor: '#e8624c', strokeColor: '#fff', strokeWidth: 1 } },
                     { x: d.min_ts, y: mn, marker: { size: 5, fillColor: '#37c26b', strokeColor: '#fff', strokeWidth: 1 } }
