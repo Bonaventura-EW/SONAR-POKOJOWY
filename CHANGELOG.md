@@ -9,6 +9,12 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: numer strony listingu OLX per pomiar (backend) (2026-07-22)
+- **feat (zgłoszenie Mateusza)**: śledzenie na której stronie wyników OLX jest ulubiona oferta w dniu odczytu (do pokazania w tooltipie wykresu wyświetleń). **Sort domyślny OLX** (to co widzi wchodzący user), **zero dodatkowych requestów** — reużywa listing z głównego scanu.
+- **jak**: `scraper.py` (`scrape_all_pages`) zapamiętuje `listing_page` per oferta w fazie 1 (przetrwa mutację w fazie 2). `main.py` po scanie zapisuje mapę `short_id → strona` do `data/listing_positions.json` (`scanned_at` + `positions`). `favorites_tracker.py` wczytuje mapę (guard świeżości 12 h — tracker odpalony solo bez scanu nie dokleja przeterminowanej strony) i dopisuje `page` do snapshotu. `favorites_generator.py` przenosi `page` do punktów `views_history` + wystawia `current_page`.
+- **caveaty**: „strona N" to przybliżenie (OLX ~40–50 ofert/stronę, kolejność dynamiczna, promowane wyżej); oferta nieaktywna/spoza kategorii → brak strony (`null`). Stare snapshoty bez `page` → `null` (wstecznie kompatybilne).
+- Front (linijka „📄 strona N" w tooltipie `ulubione.html`) — po akceptacji before/after.
+
 ### Ulubione: +2 oferty (2026-07-22)
 - **feat (zgłoszenie Mateusza)**: dodane do `data/favorites.json` — `1bycCH` (Miasteczko, Legionowa z balkonem) i `1bybLl` (Krasińskiego, pokój N1, UMCS). `numeric_id` pobrane z OLX z góry (`1086824207`, `1086820899`), więc tracker ma komplet od pierwszego snapshotu.
 

@@ -297,11 +297,18 @@ class OLXScraper:
             # Wyciągamy oferty z tej strony
             offers = self._extract_offers_from_page(soup)
             print(f"   Znaleziono {len(offers)} ofert")
-            
+
             if not offers:
                 print("   ⚠️ Brak ofert na stronie - koniec paginacji")
                 break
-            
+
+            # Numer strony listingu (sort domyślny OLX) — reużywany przez
+            # favorites_tracker do pokazania "na której stronie" jest ulubiona
+            # oferta w momencie scanu. Ten sam obiekt dict przechodzi przez
+            # fazę 2 (mutacja in-place), więc pole przetrwa pobranie szczegółów.
+            for o in offers:
+                o['listing_page'] = page_num
+
             all_offers.extend(offers)
             
             # Sprawdzamy czy jest następna strona

@@ -5,6 +5,7 @@ WERSJA 2.0: Równoległy scraping + monitoring
 """
 
 import json
+import re
 from pathlib import Path
 from datetime import datetime, timedelta
 import pytz
@@ -20,7 +21,7 @@ from price_parser import PriceParser
 from geocoder import Geocoder
 from duplicate_detector import DuplicateDetector
 from scan_logger import ScanLogger
-from shared_utils import write_json_atomic
+from shared_utils import write_json_atomic, DATA_DIR
 
 class SonarPokojowy:
     def __init__(self, data_file: str = "../data/offers.json"):
@@ -1218,7 +1219,29 @@ class SonarPokojowy:
             })
             
             print(f"✅ Pobrano {len(raw_offers)} surowych ofert\n")
-            
+
+            # 1a. Mapa pozycji: short_id → numer strony listingu OLX (sort
+            # domyślny). Reużywa scan listingu z Kroku 1 → zero dodatkowych
+            # requestów. favorites_tracker dokleja stronę do snapshotów
+            # ulubionych ("na której stronie jest oferta w dniu odczytu").
+            # Profile (API v1) nie mają listing_page → nie trafiają tu.
+            listing_positions = {}
+            for o in raw_offers:
+                page = o.get('listing_page')
+                if page is None:
+                    continue
+                m = re.search(r'-ID(\w+)\.html', o.get('url', ''))
+                if m:
+                    # najwcześniejsze (najniższa strona) wystąpienie wygrywa
+                    prev = listing_positions.get(m.group(1))
+                    if prev is None or page < prev:
+                        listing_positions[m.group(1)] = page
+            write_json_atomic(DATA_DIR / 'listing_positions.json', {
+                'scanned_at': now.isoformat(),
+                'positions': listing_positions,
+            })
+            print(f"📄 Pozycje listingu: {len(listing_positions)} ofert zmapowanych na strony\n")
+
             # 1b. Scraping profili firmowych
             print("🏢 Krok 1b: Scraping profili firmowych...")
             profile_scraping_start = time.time()
