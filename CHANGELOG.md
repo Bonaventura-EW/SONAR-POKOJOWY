@@ -9,6 +9,9 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: +2 oferty (2026-07-22)
+- **feat (zgłoszenie Mateusza)**: dodane do `data/favorites.json` — `1bycCH` (Miasteczko, Legionowa z balkonem) i `1bybLl` (Krasińskiego, pokój N1, UMCS). `numeric_id` pobrane z OLX z góry (`1086824207`, `1086820899`), więc tracker ma komplet od pierwszego snapshotu.
+
 ### Mapa: przyciski dzień w lewo/prawo także na filtrze daty dodania (2026-07-22)
 - **feat (zgłoszenie Mateusza)**: te same przyciski `‹` / `›` co przy filtrze zniknięcia dodane po bokach suwaka „Filtruj po dacie dodania". Krok o jeden dzień, auto-włączają filtr przy pierwszym kliknięciu (ustawiają checkbox, klasy `enabled`/histogram, odblokowują suwak), klamrują się na krańcach. Nowa funkcja `stepAddedDay(delta)`; wariant koloru `.date-step-btn-added` (niebieski, pod suwak dodania).
 - Zmiany tylko frontend (`docs/index.html`, `assets/script.js`, `assets/style.css`).
