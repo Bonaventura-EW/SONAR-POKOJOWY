@@ -9,6 +9,9 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: +2 oferty (2026-07-23)
+- **feat (zgłoszenie Mateusza)**: dodane do `data/favorites.json` — `1bzq8y` (Skrzetuskiego, pokój jednoosobowy z balkonem, 900 zł) i `1bzqeI` (Skrzetuskiego/LSM, pokój jednoosobowy, 790 zł). Obie aktywne, wystawione 2026-07-23. `numeric_id` pobrane z OLX z góry (`1087114482`, `1087114864`), więc tracker ma komplet od pierwszego snapshotu.
+
 ### Adres: punkt orientacyjny (landmark) przestaje bić realny adres (2026-07-23)
 - **fix (zgłoszenie Mateusza — oferta `ID1buV9M`, "obok Placu Litewskiego")**: parser stawiał ofertę na **placu Litewskim**, choć to punkt orientacyjny ("**obok** Placu Litewskiego", "**200 m od** Placu Litewskiego"), a realny adres (**ul. Cicha**) siedział w opisie. **Skala**: 9 ofert w bazie lądowało na "Placu Litewskim" — **wszystkie 9 orientacyjnie**, część kilometry od placu (Czechów 1,8 km, Kalina 1,1 km); żadna nie była realnie pod tym adresem.
 - **root cause (dwa błędy)**: (1) `plac/placu` jest prefiksem adresu, więc `extract_street_only` czytał "Placu Litewskiego" jako ulicę, a plac Litewski jest na whiteliście (`class 2`) i bił realny adres; (2) nawet po zablokowaniu placu dopełniacz realnej ulicy ("Cichej") nie był rozpoznany jako znana "Cicha" (`class 1`) i przegrywał długością ze znaną ulicą orientacyjną ("200 m od ul. Krakowskie Przedmieście").
