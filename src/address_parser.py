@@ -123,6 +123,54 @@ class AddressParser:
         re.UNICODE
     )
 
+    # FIX 2026-07-23: frazy ORIENTACYJNE — landmark/miejsce podane jako punkt
+    # odniesienia, NIE adres oferty. Typowe na OLX: "obok Placu Litewskiego",
+    # "200 m od Placu Litewskiego", "kilka kroków od Placu Litewskiego",
+    # "z widokiem na Plac Litewski". Bez tego parser stawia ofertę na landmarku
+    # (np. plac Litewski jest na whiteliście jako "znana ulica" → bije prawdziwy
+    # adres). Usuwamy nazwę miejsca (zostawiamy sam przyimek/dystans w grupie 1),
+    # analogicznie do _BOCZNA_STREET. NIE ruszamy "przy/na/ul." bez triggera
+    # orientacyjnego — to realne markery adresu ("przy ul. Cichej" zostaje).
+    # Nazwa miejsca: albo PREFIKS+1 słowo ("Placu Litewskiego"), albo 1–2 słowa
+    # bez prefiksu ("Krakowskie Przedmieście") — wariant z prefiksem PIERWSZY,
+    # żeby nie zjeść słowa po nazwie ("obok Placu Litewskiego Narutowicza 5"
+    # → zostaje "obok Narutowicza 5", realny adres ocalony).
+    _ORIENT_LANDMARK = re.compile(
+        r'('
+          r'(?i:obok|ko[łl]o|naprzeciwko|naprzeciw|nieopodal|niedaleko|opodal'
+            r'|w\s+pobli[żz]u|widok\w*\s+na|z\s+widokiem\s+na)'
+          r'|(?:\d+[.,]?\d*\s*(?i:km|m|metr\w*|min\w*|kilometr\w*)'
+            r'|(?i:kilka)\s+(?i:minut|krok[oó]w|metr[oó]w))'
+            r'(?:\s+(?i:pieszo|spacerem|autem|samochodem|piechot[aą]|drogi))?\s+(?i:od|do)'
+        r')\s+'
+        r'(?:'
+           # Landmark z prefiksem PLAC/OSIEDLE ("Placu Litewskiego", "os. Widok") —
+           # to punkt orientacyjny. NIE łapiemy "ul./al." — realna ulica po przyimku
+           # orientacyjnym ("koło ul Sawy", "do ulicy Warszawskiej") niesie lepszy
+           # sygnał geo niż śmieciowy fallback, który zostałby po jej usunięciu;
+           # obsługą takich przypadków zajmuje się priority_class/pozycja w street_only.
+           r'(?i:pl\.?|plac\w*|os\.?|osiedl\w*)\s+'
+           r'[A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]+'
+           r'|'
+           # Bare nazwa własna bez prefiksu ("Placu"→wyżej; "Uniwersytetu Medycznego",
+           # "Litewskiego") — 1–2 słowa z wielkiej litery.
+           r'[A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]+(?:\s+[A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]+)?'
+        r')',
+        re.UNICODE
+    )
+
+    # FIX 2026-07-23: dystans PO nazwie miejsca — "Plac Litewski - 1,8 km",
+    # "Kraśnicka (800m)", "Plac Litewski (1,1 km)". To zawsze punkt orientacyjny
+    # (odległość do landmarku), nie adres. Usuwamy całość (nazwa + dystans).
+    # Wymóg myślnika/nawiasu PRZED liczbą z jednostką chroni realne "ul. X 5"
+    # (numer domu bez separatora-dystansu).
+    _ORIENT_DIST_AFTER = re.compile(
+        r'(?:(?i:ul\.?|ulic\w*|al\.?|alej\w*|pl\.?|plac\w*|os\.?|osiedl\w*)\s+)?'
+        r'[A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]+(?:\s+[A-ZŚĆŁĄĘÓŻŹŃ][a-zśćłąęóżźń]+)?'
+        r'\s*[-–—(]\s*(?:ok\.?\s*)?\d+[.,]?\d*\s*(?i:km|m|metr\w*|min\w*)\b',
+        re.UNICODE
+    )
+
     # === FIX 2026-05-26 (A): mapa dzielnic Lublina ===
     # Klucz: kanoniczna nazwa dzielnicy (przekazywana do geocodera, który zwróci centroid).
     # Wartość: lista form/wariantów (lowercase), w tym miejscownik/dopełniacz/potoczne nazwy.
@@ -176,6 +224,11 @@ class AddressParser:
         text = cls._DIGIT_CAPITAL_SPLIT.sub(' ', text)
         # FIX 2026-07-13: usuń nazwę ulicy po "boczna ul./ulica/al." (przecznica ≠ adres)
         text = cls._BOCZNA_STREET.sub(r'\1', text)
+        # FIX 2026-07-23: usuń nazwę miejsca w kontekście orientacyjnym
+        # ("obok/koło/od <dystans> <Miejsce>", "widok na <Miejsce>") — landmark ≠ adres.
+        text = cls._ORIENT_LANDMARK.sub(r'\1', text)
+        # FIX 2026-07-23: usuń "<Miejsce> - X km" / "<Miejsce> (X m)" — dystans do landmarku.
+        text = cls._ORIENT_DIST_AFTER.sub(' ', text)
         # Normalizacja spacji: deduplikacja podwójnych spacji, taby, newliny
         text = cls._MULTIPLE_WHITESPACE.sub(' ', text)
         return text.strip()
@@ -932,8 +985,26 @@ class AddressParser:
             #   2 = znana ulica (oryginalna lub ucięta do pierwszego słowa)
             #   1 = nieznana ulica (zachowanie legacy)
             is_known = street.lower() in self._known_streets
+            # FIX 2026-07-23: mianownik-aware — dopełniacz realnej ulicy ("Cichej",
+            # "Wschodniej") nie był rozpoznawany jako znana ulica (whitelist trzyma
+            # mianownik "Cicha"), więc lądował w priority_class=1 i przegrywał z
+            # orientacyjną znaną ulicą (np. "200 m od ul. Krakowskie Przedmieście").
+            # Konwertujemy jednowyrazową nazwę do mianownika (jak extract_from_whitelist)
+            # i gdy trafia w whitelist — podmieniamy na formę znaną (geokoder dostaje
+            # "Cicha", nie "Cichej") i awansujemy do priority_class=2.
+            nominative_known = False
+            if not is_known and len(street_words) == 1:
+                try:
+                    from geocoder import to_nominative
+                    nom = to_nominative(street.lower())
+                except ImportError:
+                    nom = street.lower()
+                if nom != street.lower() and nom in self._known_streets:
+                    street = nom.capitalize()
+                    full_address = f"{prefix_full} {street}".strip() if prefix_full else street
+                    nominative_known = True
             truncated_to_known = False
-            if not is_known and len(street_words) > 1:
+            if not is_known and not nominative_known and len(street_words) > 1:
                 first_word = street_words[0]
                 if first_word.lower() in self._known_streets:
                     # Ucinamy do pierwszego słowa — to znana ulica
@@ -941,7 +1012,7 @@ class AddressParser:
                     full_address = f"{prefix_full} {street}".strip() if prefix_full else street
                     truncated_to_known = True
 
-            if is_known or truncated_to_known:
+            if is_known or nominative_known or truncated_to_known:
                 priority_class = 2
             else:
                 priority_class = 1
