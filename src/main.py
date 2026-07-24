@@ -520,7 +520,13 @@ class SonarPokojowy:
         
         # 5. Stwórz ID z URL (unikalne)
         offer_id = raw_offer['url'].split('/')[-1].split('.')[0]
-        
+
+        # Tytuł ogłoszenia — czysty og:title (fallback: title z listingu). Do wyświetlania
+        # i śledzenia zmian tytułu (title_versions). NIE mylić z raw_offer['title'],
+        # którego używa parser adresu.
+        _now_iso = datetime.now(self.tz).isoformat()
+        _title0 = (raw_offer.get('og_title') or raw_offer.get('title') or '').strip()
+
         return {
             'id': offer_id,
             'url': raw_offer['url'],
@@ -539,6 +545,11 @@ class SonarPokojowy:
                 'source': price_source  # Dodane: JSON-LD / Parser / HTML fallback
             },
             'description': full_text,
+            'title': _title0,           # tytuł ogłoszenia (og:title) — do wyświetlania i historii
+            'title_versions': ([{'title': _title0, 'first_seen': _now_iso, 'last_seen': None}]
+                               if _title0 else []),
+            'title_change_count': 0,
+            'title_changed_at': None,
             'first_seen': datetime.now(self.tz).isoformat(),
             'last_seen': datetime.now(self.tz).isoformat(),
             'active': True,
@@ -574,6 +585,15 @@ class SonarPokojowy:
             return None
         candidates.sort(key=lambda o: (o.get('active', False), o.get('last_seen', '')), reverse=True)
         return candidates[0]
+
+    def _title_changed(self, old_title: str, new_title: str) -> bool:
+        """Czy tytuł realnie się zmienił? Ignoruje szum: wielkość liter,
+        wielokrotne spacje, otaczające białe znaki. Drobne różnice zapisu OLX
+        (np. podwójna spacja) NIE są zmianą tytułu."""
+        def norm(t: str) -> str:
+            return ' '.join((t or '').lower().split())
+        o, n = norm(old_title), norm(new_title)
+        return bool(o) and bool(n) and o != n
 
     def _addr_changed(self, old_addr: Dict, new_addr: Dict) -> bool:
         """Czy adres realnie się zmienił (ten sam listing OLX, inne miejsce)?
@@ -699,6 +719,7 @@ class SonarPokojowy:
         if addr_change:
             addr_snapshot = {
                 'address': dict(existing.get('address', {})),
+                'title': existing.get('title', ''),   # tytuł tej wersji adresu
                 'price_history': list(existing.get('price', {}).get('history_full', [])),
                 'first_seen': existing.get('version_first_seen') or existing.get('first_seen', ''),
                 'last_seen': prev_last_seen,
@@ -708,6 +729,34 @@ class SonarPokojowy:
                 'reactivation_dates': list(existing.get('reactivation_dates', [])),
                 'last_price': existing.get('price', {}).get('current'),
             }
+
+        # === ZMIANA TYTUŁU (ten sam listing OLX, edytowany tytuł) ===
+        # OLX zmienia slug URL przy edycji tytułu, ale końcówka ID zostaje → trafiamy tutaj.
+        # Śledzimy niezależnie od zmiany adresu (tytuł może się zmienić sam).
+        new_title = (new_data.get('title') or '').strip()
+        if new_title:
+            old_title = (existing.get('title') or '').strip()
+            if not old_title:
+                # Pierwszy znany tytuł (backfill starych ofert) — baseline, bez liczenia zmiany
+                existing['title'] = new_title
+                existing['title_versions'] = [{
+                    'title': new_title,
+                    'first_seen': existing.get('first_seen', now),
+                    'last_seen': None,
+                }]
+            elif self._title_changed(old_title, new_title):
+                versions = existing.setdefault('title_versions', [])
+                if not versions:
+                    versions.append({'title': old_title,
+                                     'first_seen': existing.get('first_seen', now),
+                                     'last_seen': None})
+                versions[-1]['last_seen'] = prev_last_seen
+                versions.append({'title': new_title, 'first_seen': now, 'last_seen': None})
+                existing['title'] = new_title
+                existing['title_change_count'] = existing.get('title_change_count', 0) + 1
+                existing['title_changed_at'] = now
+                print(f"      📝 Zmiana tytułu: '{old_title[:40]}…' → '{new_title[:40]}…'")
+            # else: tytuł bez zmian
 
         # Aktualizuj last_seen
         existing['last_seen'] = now
