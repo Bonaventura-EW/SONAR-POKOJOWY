@@ -37,6 +37,12 @@
     }
     .status-badge.active { background: #dcfce7; color: #15803d; }
     .status-badge.removed, .status-badge.unknown, .status-badge.inactive { background: #fee2e2; color: #b91c1c; }
+    /* Separator sekcji nieaktywnych ofert + wyszarzenie ich kart */
+    .fav-divider { display: flex; align-items: center; justify-content: center; margin: 24px 0 14px; }
+    .fav-divider span { font-size: 12px; color: #b91c1c; font-weight: 700; letter-spacing: 0.5px;
+        background: #fef2f2; border: 1px solid #fecaca; border-radius: 20px; padding: 4px 16px; }
+    .fav-card.inactive { opacity: 0.72; }
+    .fav-card.inactive:hover { opacity: 1; }
     .status-badge.other { background: #e2e8f0; color: #475569; }
     /* Przycisk profilu/firmy — dla śledzonych firm klikalny, prowadzi do zakładki Firmy */
     .profile-btn {
@@ -241,9 +247,16 @@ function renderFavorites(data) {
         return;
     }
 
-    data.favorites.forEach((f, idx) => {
+    // Aktywne najpierw; nieaktywne (status != 'active') przeniesione na dół — pod separator.
+    const favInactive = f => (f.status || '') !== 'active';
+    const active = data.favorites.filter(f => !favInactive(f));
+    const inactive = data.favorites.filter(favInactive);
+    const ordered = active.concat(inactive);
+    let dividerDone = false;
+
+    ordered.forEach((f, idx) => {
         const card = document.createElement('div');
-        card.className = 'fav-card';
+        card.className = 'fav-card' + (favInactive(f) ? ' inactive' : '');
 
         const priceStr = f.current_price != null ? `${f.current_price} zł` : '—';
         const viewsStr = f.current_views != null ? f.current_views : '—';
@@ -365,6 +378,14 @@ function renderFavorites(data) {
                 <h4>📈 Przyrost dzienny</h4>
                 <div class="chart-wrap chart-wrap-sm"><canvas id="daily-chart-${idx}"></canvas></div>
             </div>` : ''}`;
+        // Separator "Nieaktywne" tuż przed pierwszą nieaktywną ofertą
+        if (favInactive(f) && !dividerDone) {
+            const div = document.createElement('div');
+            div.className = 'fav-divider';
+            div.innerHTML = '<span>╳ nieaktywne (' + inactive.length + ') ╳</span>';
+            list.appendChild(div);
+            dividerDone = true;
+        }
         list.appendChild(card);
 
         if (vh.length >= 2) {

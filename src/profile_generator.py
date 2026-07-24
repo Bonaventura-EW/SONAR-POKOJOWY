@@ -100,9 +100,10 @@ def _format_price_history(history_full):
     return out
 
 
-def _build_address_versions(offer, current_price_history):
+def _build_address_versions(offer, current_price_history, current_title=''):
     """Buduje listę wersji adresu do wyświetlenia (najnowsza/bieżąca pierwsza).
-    Każda wersja ma własną historię cen, odświeżenia i reaktywacje."""
+    Każda wersja ma własną historię cen, odświeżenia i reaktywacje.
+    current_title: rozwiązany tytuł (z fallbackiem) dla bieżącej wersji."""
     past = offer.get('versions', [])
     if not past:
         return []  # brak zmian adresu — front nie pokazuje sekcji wersji
@@ -111,6 +112,7 @@ def _build_address_versions(offer, current_price_history):
     cur_coords = address.get('coords', {}) or {}
     versions = [{
         'address': address.get('full', ''),
+        'title': current_title or offer.get('title', ''),   # tytuł bieżącej wersji (z fallbackiem)
         'lat': cur_coords.get('lat'),
         'lon': cur_coords.get('lon'),
         'current': True,
@@ -126,6 +128,7 @@ def _build_address_versions(offer, current_price_history):
         v_coords = (v.get('address', {}) or {}).get('coords', {}) or {}
         versions.append({
             'address': (v.get('address', {}) or {}).get('full', ''),
+            'title': v.get('title', ''),   # tytuł tej (poprzedniej) wersji adresu
             'lat': v_coords.get('lat'),
             'lon': v_coords.get('lon'),
             'current': False,
@@ -199,10 +202,10 @@ def generate_profile_data(input_file: str, output_file: str):
         address = offer.get('address', {})
         is_active = offer.get('active', False)
 
-        # Tytuł ogłoszenia — offers.json nie trzyma go osobno (jest sklejony z opisem),
-        # więc wyliczamy tak samo jak dla mapy (map_generator.extract_title).
-        # Zwraca None gdy tytułu nie da się pewnie wyciąć → front nie renderuje podtytułu.
-        offer_title, _ = extract_title(offer.get('url', '') or '', offer.get('description', '') or '')
+        # Tytuł ogłoszenia — preferuj zapisany og:title (offers.json), fallback na wyliczany
+        # z opisu (stare oferty bez pola 'title' do czasu ponownego skanu).
+        offer_title = offer.get('title') or extract_title(
+            offer.get('url', '') or '', offer.get('description', '') or '')[0]
 
         # Pełna historia cen z datami
         history_full = price_data.get('history_full', [])
@@ -232,6 +235,16 @@ def generate_profile_data(input_file: str, output_file: str):
             'id': offer.get('id'),
             'url': offer.get('url'),
             'title': offer_title,            # tytuł ogłoszenia OLX (None gdy nie do wyciągnięcia)
+            # Historia zmian tytułu (analogicznie do wersji adresu); daty sformatowane PL
+            'title_versions': [
+                {'title': tv.get('title', ''),
+                 'first_seen': format_datetime(tv.get('first_seen', '')),
+                 'last_seen': (format_datetime(tv.get('last_seen', '')) if tv.get('last_seen') else None)}
+                for tv in offer.get('title_versions', [])
+            ],
+            'title_change_count': offer.get('title_change_count', 0),
+            'title_changed_at': (format_datetime(offer.get('title_changed_at', ''))
+                                 if offer.get('title_changed_at') else None),
             'address': address.get('full', ''),
             'lat': address.get('coords', {}).get('lat'),
             'lon': address.get('coords', {}).get('lon'),
@@ -264,7 +277,7 @@ def generate_profile_data(input_file: str, output_file: str):
             # Wersje adresu (Faza 1): zmiany adresu tego samego listingu OLX
             'address_change_count': offer.get('address_change_count', 0),
             'address_changed_at': format_datetime(offer.get('address_changed_at', '')),
-            'address_versions': _build_address_versions(offer, price_history_formatted),
+            'address_versions': _build_address_versions(offer, price_history_formatted, offer_title),
         }
 
         # Czy nowa (first_seen dzisiaj)

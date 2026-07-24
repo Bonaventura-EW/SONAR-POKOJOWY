@@ -164,6 +164,19 @@
         .row-sub { font-size: 11px; color: #475569; margin: -1px 0 5px; line-height: 1.35;
                    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .row-sub .ic { color: #94a3b8; }
+        /* Zmiana / historia tytułu ogłoszenia (analogicznie do historii adresu) */
+        .title-sub { font-size: 10px; color: #94a3b8; margin-top: 2px; font-weight: 400; }
+        .title-sub .ico { color: #a855f7; }
+        .title-sub .from { text-decoration: line-through; color: #cbd5e1; }
+        .title-sub .to { color: #334155; font-weight: 600; }
+        .badge-title { background: rgba(59,130,246,0.1); color: #1d4ed8; border: 1px solid rgba(59,130,246,0.3); }
+        .ver-title { font-size: 10px; color: #475569; margin-top: 4px; line-height: 1.3; }
+        .ver-title .ic { color: #94a3b8; }
+        .ver-title.hi { background: rgba(59,130,246,0.06); border-left: 2px solid #93c5fd; padding: 3px 6px; border-radius: 0 4px 4px 0; }
+        .change.title-change { color: #1d4ed8; }
+        .change.title-change .ico { color: #3b82f6; }
+        .change .tq { color: #334155; font-weight: 600; }
+        .change .tq.old { text-decoration: line-through; color: #94a3b8; font-weight: 400; }
 
         .row-meta { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; margin-bottom: 0; }
         .badge { font-size: 10px; padding: 1px 6px; border-radius: 3px; font-weight: 600; }
@@ -622,6 +635,7 @@ function verCard(v, offerId, vIndex, o) {
         + (onclick ? ' onclick="' + onclick + '"' : '') + titleAttr + '>'
         + '<div class="ver-top"><span class="ver-addr' + (v.current ? '' : ' old') + '">' + (v.address || '—') + '</span>' + status + '</div>'
         + '<div class="ver-range">' + range + '</div>'
+        + (v.title ? '<div class="ver-title' + (v.current ? ' hi' : '') + '"><span class="ic">📝</span> ' + escHtml(v.title) + '</div>' : '')
         + '<div class="ver-body">'
         +   '<div class="spark-wrap"><span class="spark-label">Ceny</span>' + verSpark(v.price_history) + '<span class="spark-prices">' + priceList + '</span></div>'
         +   '<div class="ver-counters"><span class="vc">🔄 odświeżenia: <b>' + (v.refresh_count || 0) + '</b></span><span class="vc reakt">♻ reaktywacje: <b>' + (v.reactivation_count || 0) + '</b></span></div>'
@@ -725,14 +739,29 @@ function buildRow(o) {
         ? '<span class="badge badge-addr">✏ ' + o.address_change_count + (o.address_change_count === 1 ? ' zmiana adresu' : ' zmiany adresu') + '</span>'
         : '';
 
+    // Zmiana tytułu ogłoszenia (analogicznie do zmiany adresu)
+    const titleVers = o.title_versions || [];
+    const hasTitleChange = (o.title_change_count || 0) > 0 && titleVers.length >= 2;
+    const clipT = (s, n) => { s = s || ''; return s.length > n ? s.slice(0, n).trim() + '…' : s; };
+    const titleChangeSub = hasTitleChange
+        ? '<div class="title-sub"><span class="ico">📝</span> tytuł: <span class="from">'
+          + escHtml(clipT(titleVers[titleVers.length - 2].title, 34)) + '</span> → <span class="to">'
+          + escHtml(clipT(titleVers[titleVers.length - 1].title, 34)) + '</span></div>'
+        : '';
+    const titleBadge = hasTitleChange
+        ? '<span class="badge badge-title">📝 ' + o.title_change_count
+          + (o.title_change_count === 1 ? ' zmiana tytułu' : ' zmiany tytułu') + '</span>'
+        : '';
+
     return '<div class="row' + (!o.active ? ' dim' : '') + '" data-id="' + id + '" onclick="hlOffer(\'' + id + '\')">'
         + '<div class="row-top">'
         + addrHtml
         + '<span class="row-price" style="color:' + color + '">' + o.price + ' zł' + trendHtml + '</span>'
         + '</div>'
+        + titleChangeSub
         + (o.title ? '<div class="row-sub"><span class="ic">📝</span> ' + escHtml(o.title) + '</div>' : '')
         + '<div class="row-meta">'
-        + typeBadge + newBadge + reaktBadge + addrBadge + inactiveBadge
+        + typeBadge + newBadge + reaktBadge + addrBadge + titleBadge + inactiveBadge
         + '<span class="meta-txt">📅 ' + (o.first_seen || '—') + (!o.active && o.last_seen ? ' → ' + o.last_seen : '') + '</span>'
         + '<span class="meta-days ' + daysClass + '">⏳ ' + (o.days_active || 0) + ' dni</span>'
         + '<a class="olx-link" href="' + o.url + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">OLX ↗</a>'
@@ -742,8 +771,23 @@ function buildRow(o) {
         // Gdy są wersje — sekcja wersji zastępuje pojedynczy wykres/odświeżenia (każda wersja ma własne)
         + (hasVersions
             ? buildVersions(o)
-            : (hasHistory ? buildSparkline(o.price_history) : '') + buildRefreshBars(o.refresh_dates, o.refresh_count, o.last_refresh_date))
+            : (hasHistory ? buildSparkline(o.price_history) : '') + buildRefreshBars(o.refresh_dates, o.refresh_count, o.last_refresh_date) + buildTitleHistory(o))
         + '</div>';
+}
+
+// ── HISTORIA TYTUŁU (gdy tytuł zmieniony bez zmiany adresu) ────────────
+// Osobny blok "zmiana tytułu"; NIE forkuje historii cen. Dla ofert ze zmianą
+// adresu tytuły widać już w kartach wersji (verCard) + w podtytule nagłówka.
+function buildTitleHistory(o) {
+    const tv = o.title_versions || [];
+    if (tv.length < 2) return '';
+    let html = '<div class="versions"><div class="versions-h">📝 Historia tytułu — ' + tv.length + ' wersje</div>';
+    for (let i = tv.length - 1; i > 0; i--) {   // najnowsze zmiany na górze
+        const newer = tv[i], older = tv[i - 1];
+        html += '<div class="change title-change"><span class="ico">📝</span> zmiana tytułu <b>' + (newer.first_seen || '—') + '</b>: '
+            + '<span class="tq old">' + escHtml(older.title || '—') + '</span> → <span class="tq">' + escHtml(newer.title || '—') + '</span></div>';
+    }
+    return html + '</div>';
 }
 
 // ── RENDER PROFILE ────────────────────────────────────────────────────

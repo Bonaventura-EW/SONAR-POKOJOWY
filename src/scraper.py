@@ -811,6 +811,7 @@ class OLXScraper:
                                 # Sukces - mamy niezawodną cenę z JSON-LD
                                 return {
                                     'description': description,
+                                    'title': title_from_page,   # czysty og:title (do śledzenia zmian tytułu)
                                     'official_price': official_price,
                                     'official_price_raw': official_price_raw,
                                     'price_source': 'json-ld'
@@ -846,6 +847,7 @@ class OLXScraper:
             
             return {
                 'description': description,
+                'title': title_from_page,   # czysty og:title (do śledzenia zmian tytułu)
                 'official_price': official_price,
                 'official_price_raw': official_price_raw,
                 'price_source': 'html-fallback' if official_price else None
@@ -863,6 +865,10 @@ class OLXScraper:
         details = self.fetch_offer_details(offer['url'])
         if details:
             offer['description'] = details['description']
+            # Czysty og:title (osobno od offer['title'] z listingu, którego NIE ruszamy —
+            # służy do parsowania adresu). og_title → śledzenie zmian tytułu w main.py.
+            if details.get('title'):
+                offer['og_title'] = details['title']
             if details.get('official_price'):
                 offer['official_price'] = details['official_price']
                 offer['official_price_raw'] = details['official_price_raw']

@@ -9,6 +9,19 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: sekcja „Nieaktywne" na dole listy (2026-07-24)
+- **feat (zgłoszenie Mateusza)**: nieaktywne oferty (`status != active`) przeniesione pod separator „╳ nieaktywne (N) ╳" na dole — aktywne na górze, nieaktywne (lekko wyszarzone, z pełną historią wykresów) na dole. `docs/ulubione.html` — `renderFavorites` partycjonuje listę na aktywne/nieaktywne (indeks wykresów spójny), divider wstawiany przed pierwszą nieaktywną, `.fav-card.inactive` z `opacity`.
+- Zweryfikowane headless (Chromium, realny Chart.js): 12 aktywnych → separator „nieaktywne (1)" → nieaktywna na dole, wykresy zachowane, badge „Nieaktywna", 0 błędów JS.
+
+### Ulubione: +4 oferty (2026-07-24)
+- **feat (zgłoszenie Mateusza)**: dodane do `data/favorites.json` — `1bdOxm` (Chęcińskiego, Czechów Dolny — „stylowe pokoje-ania"), `1bybfq` (Batalionów Chłopskich 16, pokój z balkonem dla studenta), `1bzA1M` (Romanowskiego 58, jedynka od września), `1bzztT` (Kurantowa 4, jedynka od września). `numeric_id` pobrane z OLX z góry (`1081965060`, `1086818920`, `1087152502`, `1087150401`), więc tracker ma komplet od pierwszego snapshotu (pojawią się na stronie po najbliższym skanie).
+
+### Firmy: historia zmian tytułu ogłoszenia (jak historia adresu) (2026-07-24)
+- **feat (zgłoszenie Mateusza, po akceptacji mockupu)**: gdy wynajmujący edytuje **tytuł** ogłoszenia (OLX zmienia slug URL, ale końcówka ID zostaje), zmiana trafia teraz do historii — analogicznie do istniejącej historii adresu. W zakładce Firmy: podtytuł „📝 tytuł: stary → nowy", badge „📝 N zmian tytułu", blok „📝 Historia tytułu" (dla zmiany bez zmiany adresu) oraz tytuł w każdej karcie wersji adresu.
+- **jak (backend)**: `scraper.py` wystawia czysty `og:title` jako osobne pole `og_title` (NIE rusza `raw_offer['title']` używanego przez parser adresu — zero ryzyka regresji golden). `main.py` zapisuje `title` w `offers.json`; `_update_existing_offer` wykrywa zmianę tytułu (po normalizacji szumu: wielkość liter, wielokrotne spacje) → `title_versions` `[{title, first_seen, last_seen}]`, `title_change_count`, `title_changed_at`. Snapshot wersji adresu dostał pole `title`. `profile_generator.py` preferuje zapisany tytuł (fallback `extract_title`), emituje historię tytułu + tytuł per wersja adresu.
+- **jak (frontend)**: `profile_tracker.html` — `buildRow` dokłada podtytuł zmiany + badge, `verCard` pokazuje tytuł wersji, nowa `buildTitleHistory` renderuje blok zmian tytułu (**nie** forkuje historii cen). Tytuł escapowany.
+- **weryfikacja**: 4 scenariusze `_update_existing_offer` (zmiana / brak / baseline / szum spacji-wielkości) OK; `test_integration.py` OK; headless (Chromium, wstrzyknięte dane): podtytuł, badge „1 zmiana tytułu", blok „Historia tytułu", tytuły w kartach wersji — wszystko renderuje, 0 błędów JS. Feature „uzbrojony" — realne zmiany zapełnią się od kolejnych skanów.
+
 ### Reaktywacje: koniec fałszywego licznika dla firmówek spoza listingu (pętla scrape→inactive→verify) (2026-07-24)
 - **fix (zgłoszenie Mateusza — Nadbystrzycka 39 i Głębokiej 12, profil Artymiuk, „reaktywacja ×5")**: oferty firmowe **niewidoczne w listingu pokoi** (np. `offer_type=mieszkanie`) dostawały **+1 reaktywację na każdy skan**, choć **nigdy nie znikały** (OLX zwraca `InStock` przy każdym sprawdzeniu). Badge „reaktywacja ×5" rósł bez końca. **Dowód**: każdy znacznik reaktywacji wypadał ~1 min po starcie skanu (23.07 17:03/21:45/22:08, 24.07 08:28/11:16 = 5 kolejnych skanów).
 - **root cause**: klasyczna pętla `scrape→inactive→verify→reactivate`. FIX 2026-05-23 wyłączył reaktywację po `InStock` (bo pętliła), ale FIX 2026-07-02 włączył ją z powrotem **dla ofert z `profile_name`** — i pętla wróciła dla firmówek spoza listingu. Co skan: `_mark_inactive_offers` znaczy nieaktywną (brak w listingu) → `_verify_inactive_offers` widzi `profile_name`+`InStock` → reaktywuje, `count++`.
