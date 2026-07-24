@@ -982,6 +982,7 @@ class SonarPokojowy:
         stats = {
             'verified': 0,
             'reactivated': 0,
+            'kept_alive': 0,   # żywe firmówki spoza listingu — podtrzymane bez liczenia reaktywacji
             'confirmed_inactive': 0,
             'errors': 0
         }
@@ -1127,13 +1128,20 @@ class SonarPokojowy:
                     offer, result_type, reactivation_data = future.result()
                     
                     if result_type == 'reactivated':
+                        # Realna reaktywacja TYLKO gdy oferta była nieaktywna już wchodząc
+                        # w skan. Jeśli była aktywna i tylko przeleciała inactive→active w tym
+                        # samym skanie (firmówka spoza listingu, InStock) — to nie reaktywacja,
+                        # a podtrzymanie żywej oferty: ustaw active, odśwież cenę, ale bez count++.
+                        was_inactive_before = offer.get('id') not in getattr(
+                            self, '_active_before_deactivation', set())
                         offer['active'] = True
                         offer['last_seen'] = reactivation_data['last_seen']
-                        offer['reactivated_at'] = reactivation_data['reactivated_at']
-                        offer['reactivation_source'] = 'verification'
-                        offer['reactivation_count'] = offer.get('reactivation_count', 0) + 1
-                        offer.setdefault('reactivation_dates', []).append(reactivation_data['reactivated_at'])
-                        # Cena z JSON-LD strony oferty (jeśli weryfikacja ją wyciągnęła)
+                        if was_inactive_before:
+                            offer['reactivated_at'] = reactivation_data['reactivated_at']
+                            offer['reactivation_source'] = 'verification'
+                            offer['reactivation_count'] = offer.get('reactivation_count', 0) + 1
+                            offer.setdefault('reactivation_dates', []).append(reactivation_data['reactivated_at'])
+                        # Cena z JSON-LD strony oferty (zawsze — niezależnie od reaktywacji)
                         verified_price = reactivation_data.get('price')
                         if verified_price and verified_price != offer.get('price', {}).get('current'):
                             self._apply_price_change(
@@ -1141,8 +1149,12 @@ class SonarPokojowy:
                                 'Reaktywacja przez weryfikację URL — cena z JSON-LD'
                             )
                         with stats_lock:
-                            stats['reactivated'] += 1
-                        reactivated_ids.append(offer.get('id', 'unknown'))
+                            if was_inactive_before:
+                                stats['reactivated'] += 1
+                            else:
+                                stats['kept_alive'] += 1
+                        if was_inactive_before:
+                            reactivated_ids.append(offer.get('id', 'unknown'))
                     elif result_type == 'confirmed_inactive':
                         with stats_lock:
                             stats['confirmed_inactive'] += 1
@@ -1168,6 +1180,8 @@ class SonarPokojowy:
         print(f"   📊 Weryfikacja zakończona w {verify_elapsed:.1f}s:")
         print(f"      Sprawdzono: {stats['verified']}")
         print(f"      Reaktywowano: {stats['reactivated']}")
+        if stats.get('kept_alive'):
+            print(f"      Podtrzymane żywe (firmówki spoza listingu, bez licznika): {stats['kept_alive']}")
         print(f"      Potwierdzone nieaktywne: {stats['confirmed_inactive']}")
         if stats['errors'] > 0:
             print(f"      Błędy: {stats['errors']}")
@@ -1567,6 +1581,15 @@ class SonarPokojowy:
             active_in_db = sum(1 for o in self.database['offers'] if o.get('active'))
             MIN_RATIO = 0.3  # Scrape musi zwrócić co najmniej 30% wcześniejszej liczby aktywnych
             scraped_count = len(raw_offers)
+
+            # Snapshot ofert AKTYWNYCH przed dezaktywacją — pozwala odróżnić realną
+            # reaktywację (oferta była nieaktywna JUŻ WCHODZĄC w skan) od artefaktu pętli
+            # scrape→inactive→verify→reactivate (firmówka spoza listingu z InStock była
+            # aktywna, zdjęta i wskrzeszona w TYM SAMYM skanie). Bez tego licznik
+            # reaktywacji puchł o +1/skan (zgłoszenie Mateusza: Nadbystrzycka/Głębokiej ×5).
+            self._active_before_deactivation = {
+                o['id'] for o in self.database['offers'] if o.get('active')
+            }
 
             scrape_blocked = False
             if scraped_count == 0 and active_in_db > 0:
