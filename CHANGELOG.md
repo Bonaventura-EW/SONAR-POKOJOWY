@@ -9,6 +9,11 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Profile: tytuł ogłoszenia pod adresem na karcie oferty (2026-07-24)
+- **feat (zgłoszenie Mateusza, po akceptacji podglądu — wariant B)**: na `profile_tracker.html` (śledzenie profili firmowych) kartę tytułował tylko **adres** (np. „Skrzetuskiego 2B") — **tytuł ogłoszenia z OLX się nie renderował**. Dodany **podtytuł `📝 <tytuł>` pod adresem** (max 2 linie, przycinany, wyszarzony). Adres zostaje nagłówkiem, reszta karty (badge / data / OLX / Mapa / odświeżenia) nietknięta.
+- **jak**: `profile_data.json` nie trzymał tytułu (na OLX jest sklejony z opisem, `offers.json` nie ma go osobno). `src/profile_generator.py` reużywa **`map_generator.extract_title(url, description)`** — to samo źródło co mapa — i dokłada pole `title` (`None` gdy tytułu nie da się pewnie wyciąć → front nie renderuje podtytułu, brak duplikatu). `docs/profile_tracker.html` — nowy `.row-sub` (2-liniowy `-webkit-line-clamp`) wstrzykiwany w `buildRow` między adres a `row-meta`; tytuł **escapowany** (`escHtml`, surowy tekst z OLX) przed wstawieniem przez `innerHTML`.
+- **weryfikacja**: `python src/profile_generator.py` → 98/98 ofert z tytułem, 0 `None`; `test_integration.py` OK; headless (Chromium, podstawiony Leaflet, realne dane): 46/46 wierszy z podtytułem, clamp 2 linie (30 px), adres nietknięty, brak `pageerror`. Zmiana backend + frontend.
+
 ### Ulubione: +2 oferty (2026-07-23)
 - **feat (zgłoszenie Mateusza)**: dodane do `data/favorites.json` — `1bzq8y` (Skrzetuskiego, pokój jednoosobowy z balkonem, 900 zł) i `1bzqeI` (Skrzetuskiego/LSM, pokój jednoosobowy, 790 zł). Obie aktywne, wystawione 2026-07-23. `numeric_id` pobrane z OLX z góry (`1087114482`, `1087114864`), więc tracker ma komplet od pierwszego snapshotu.
 

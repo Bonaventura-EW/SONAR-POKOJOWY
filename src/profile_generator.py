@@ -12,7 +12,7 @@ import pytz
 
 from profiles_config import TRACKED_PROFILES
 from shared_utils import write_json_atomic, format_datetime
-from map_generator import PRICE_RANGES
+from map_generator import PRICE_RANGES, extract_title
 
 
 def format_date_only(iso_string: str) -> str:
@@ -199,6 +199,11 @@ def generate_profile_data(input_file: str, output_file: str):
         address = offer.get('address', {})
         is_active = offer.get('active', False)
 
+        # Tytuł ogłoszenia — offers.json nie trzyma go osobno (jest sklejony z opisem),
+        # więc wyliczamy tak samo jak dla mapy (map_generator.extract_title).
+        # Zwraca None gdy tytułu nie da się pewnie wyciąć → front nie renderuje podtytułu.
+        offer_title, _ = extract_title(offer.get('url', '') or '', offer.get('description', '') or '')
+
         # Pełna historia cen z datami
         history_full = price_data.get('history_full', [])
         if not history_full and price_data.get('history'):
@@ -226,6 +231,7 @@ def generate_profile_data(input_file: str, output_file: str):
         offer_entry = {
             'id': offer.get('id'),
             'url': offer.get('url'),
+            'title': offer_title,            # tytuł ogłoszenia OLX (None gdy nie do wyciągnięcia)
             'address': address.get('full', ''),
             'lat': address.get('coords', {}).get('lat'),
             'lon': address.get('coords', {}).get('lon'),

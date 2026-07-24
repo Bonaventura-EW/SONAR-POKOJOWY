@@ -160,6 +160,10 @@
         .row-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4px; gap: 8px; }
         .row-addr { font-size: 12px; font-weight: 600; color: #0f172a; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
         .row-price { font-size: 13px; font-weight: 700; white-space: nowrap; }
+        /* Tytuł ogłoszenia OLX — podtytuł pod adresem, max 2 linie, z ikoną 📝 */
+        .row-sub { font-size: 11px; color: #475569; margin: -1px 0 5px; line-height: 1.35;
+                   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .row-sub .ic { color: #94a3b8; }
 
         .row-meta { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; margin-bottom: 0; }
         .badge { font-size: 10px; padding: 1px 6px; border-radius: 3px; font-weight: 600; }
@@ -347,6 +351,8 @@ function setPriceRanges(pr) {
     PRICE_RANGES = Object.values(pr || {}).map(r => ({ max: r.max, c: r.color }));
 }
 function pc(p) { return (PRICE_RANGES.find(r => p <= r.max) || PRICE_RANGES.at(-1) || { c: '#808080' }).c; }
+// Escapowanie tekstu z OLX (tytuł ogłoszenia) przed wstawieniem przez innerHTML
+function escHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 // ── STATE ────────────────────────────────────────────────────────────
 let profileData = null;
@@ -724,6 +730,7 @@ function buildRow(o) {
         + addrHtml
         + '<span class="row-price" style="color:' + color + '">' + o.price + ' zł' + trendHtml + '</span>'
         + '</div>'
+        + (o.title ? '<div class="row-sub"><span class="ic">📝</span> ' + escHtml(o.title) + '</div>' : '')
         + '<div class="row-meta">'
         + typeBadge + newBadge + reaktBadge + addrBadge + inactiveBadge
         + '<span class="meta-txt">📅 ' + (o.first_seen || '—') + (!o.active && o.last_seen ? ' → ' + o.last_seen : '') + '</span>'
