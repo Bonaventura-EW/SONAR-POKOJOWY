@@ -36,7 +36,7 @@
         text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;
     }
     .status-badge.active { background: #dcfce7; color: #15803d; }
-    .status-badge.removed, .status-badge.unknown { background: #fee2e2; color: #b91c1c; }
+    .status-badge.removed, .status-badge.unknown, .status-badge.inactive { background: #fee2e2; color: #b91c1c; }
     .status-badge.other { background: #e2e8f0; color: #475569; }
     /* Przycisk profilu/firmy — dla śledzonych firm klikalny, prowadzi do zakładki Firmy */
     .profile-btn {
@@ -224,6 +224,7 @@ function escapeHtml(s) {
 
 function statusBadge(status) {
     if (status === 'active') return '<span class="status-badge active">Aktywna</span>';
+    if (status === 'inactive') return '<span class="status-badge inactive">Nieaktywna</span>';
     if (status === 'removed') return '<span class="status-badge removed">Usunięta z OLX</span>';
     if (status === 'unknown') return '<span class="status-badge unknown">Nieznany</span>';
     return `<span class="status-badge other">${escapeHtml(status)}</span>`;

@@ -102,12 +102,26 @@ def _build_favorite(short_id: str, entry: dict, base_offer: dict | None) -> dict
     if offer_type and offer_type not in ('pokoj', 'pokoje'):
         page_absent_reason = _OFFER_TYPE_LABEL.get(offer_type, 'inna kategoria')
 
+    # Status: źródło prawdy to 'active' z offers.json (główny skan → _mark_inactive_offers
+    # z weryfikacją URL 410/404 + reaktywacją InStock). Status ze snapshotu trackera
+    # pochodzi z API OLX i potrafi pokazywać 'active' dla oferty już zniknionej z listingu
+    # (zgłoszenie Mateusza: ID1bomFK świeciło "AKTYWNA" mimo active:False w bazie).
+    snapshot_status = last.get('status', 'unknown')
+    if base_offer is not None:
+        if base_offer.get('active'):
+            status = 'active'
+        else:
+            # 404 z trackera = na pewno usunięta z OLX; inaczej po prostu nieaktywna
+            status = 'removed' if snapshot_status == 'removed' else 'inactive'
+    else:
+        status = snapshot_status
+
     return {
         'short_id': short_id,
         'url': entry.get('url', ''),
         'title': entry.get('title', '') or (base_offer or {}).get('id', short_id),
         'added': entry.get('added', ''),
-        'status': last.get('status', 'unknown'),
+        'status': status,
         'current_price': last.get('price'),
         'price_history': price_history,
         'refresh_count': len(refresh_events),
