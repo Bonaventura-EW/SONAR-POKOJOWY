@@ -9,6 +9,13 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: sekcja „Nieaktywne" na dole listy (2026-07-24)
+- **feat (zgłoszenie Mateusza)**: nieaktywne oferty (`status != active`) przeniesione pod separator „╳ nieaktywne (N) ╳" na dole — aktywne na górze, nieaktywne (lekko wyszarzone, z pełną historią wykresów) na dole. `docs/ulubione.html` — `renderFavorites` partycjonuje listę na aktywne/nieaktywne (indeks wykresów spójny), divider wstawiany przed pierwszą nieaktywną, `.fav-card.inactive` z `opacity`.
+- Zweryfikowane headless (Chromium, realny Chart.js): 12 aktywnych → separator „nieaktywne (1)" → nieaktywna na dole, wykresy zachowane, badge „Nieaktywna", 0 błędów JS.
+
+### Ulubione: +4 oferty (2026-07-24)
+- **feat (zgłoszenie Mateusza)**: dodane do `data/favorites.json` — `1bdOxm` (Chęcińskiego, Czechów Dolny — „stylowe pokoje-ania"), `1bybfq` (Batalionów Chłopskich 16, pokój z balkonem dla studenta), `1bzA1M` (Romanowskiego 58, jedynka od września), `1bzztT` (Kurantowa 4, jedynka od września). `numeric_id` pobrane z OLX z góry (`1081965060`, `1086818920`, `1087152502`, `1087150401`), więc tracker ma komplet od pierwszego snapshotu (pojawią się na stronie po najbliższym skanie).
+
 ### Firmy: historia zmian tytułu ogłoszenia (jak historia adresu) (2026-07-24)
 - **feat (zgłoszenie Mateusza, po akceptacji mockupu)**: gdy wynajmujący edytuje **tytuł** ogłoszenia (OLX zmienia slug URL, ale końcówka ID zostaje), zmiana trafia teraz do historii — analogicznie do istniejącej historii adresu. W zakładce Firmy: podtytuł „📝 tytuł: stary → nowy", badge „📝 N zmian tytułu", blok „📝 Historia tytułu" (dla zmiany bez zmiany adresu) oraz tytuł w każdej karcie wersji adresu.
 - **jak (backend)**: `scraper.py` wystawia czysty `og:title` jako osobne pole `og_title` (NIE rusza `raw_offer['title']` używanego przez parser adresu — zero ryzyka regresji golden). `main.py` zapisuje `title` w `offers.json`; `_update_existing_offer` wykrywa zmianę tytułu (po normalizacji szumu: wielkość liter, wielokrotne spacje) → `title_versions` `[{title, first_seen, last_seen}]`, `title_change_count`, `title_changed_at`. Snapshot wersji adresu dostał pole `title`. `profile_generator.py` preferuje zapisany tytuł (fallback `extract_title`), emituje historię tytułu + tytuł per wersja adresu.
