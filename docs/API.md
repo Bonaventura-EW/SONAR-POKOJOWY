@@ -117,7 +117,7 @@ Prosty health check do sprawdzenia czy API jest dostępne i aktualne.
       "enabled": true,
       "lastStatus": "completed"
     },
-    "szperacz": {
+    "scanMonitor": {
       "enabled": false,
       "lastStatus": null,
       "message": "Coming soon"
@@ -228,6 +228,6 @@ GitHub Pages domyślnie obsługuje CORS, więc API można odpytywać z dowolnej 
 
 ## Przyszłe rozszerzenia
 
-1. **SZPERACZ** - drugi system monitoringu (pole `systems.szperacz` w health.json jest przygotowane)
+1. **ScanMonitor** - drugi system monitoringu (pole `systems.scanMonitor` w health.json jest przygotowane)
 2. **Push notifications** - webhook do Firebase Cloud Messaging
 3. **Filtry** - parametry query dla history.json

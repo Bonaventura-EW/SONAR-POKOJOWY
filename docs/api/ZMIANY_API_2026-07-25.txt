@@ -1,0 +1,541 @@
+================================================================================
+SONAR POKOJOWY — ZMIANY W API  (2026-07-25)
+Dla: deweloper aplikacji mobilnej ScanMonitor
+Base URL: https://bonaventura-ew.github.io/SONAR-POKOJOWY/api/
+================================================================================
+
+SPIS TREŚCI
+  1. TL;DR — co się zmieniło
+  2. BREAKING CHANGE — zmiana nazwy klucza w health.json
+  3. CASE STUDY — dlaczego te alerty w ogóle powstały
+  4. NOWY KONTRAKT — obiekt Alert
+  5. ZMIANY PER ENDPOINT (health.json / status.json / scan_status.json)
+  6. INSTRUKCJA WDROŻENIA W APLIKACJI (krok po kroku)
+  7. PRZYKŁADOWY KOD (Kotlin)
+  8. JAK TO PRZETESTOWAĆ
+  9. FAQ / PUŁAPKI
+
+
+================================================================================
+1. TL;DR — CO SIĘ ZMIENIŁO
+================================================================================
+
+  [+] NOWE   pole "alerts" (lista) w health.json, status.json, scan_status.json
+  [+] NOWE   pole "alert" (pojedynczy, najgroźniejszy) w scan_status.json
+  [+] NOWE   pola "hasAlerts" i "alertLevel" w status.json → status{}
+  [~] ZMIANA health.json → "status" ma teraz 4 wartości: ok | warning | critical | stale
+             (wcześniej tylko: ok | stale)
+  [~] ZMIANA status.json → status.isHealthy jest false przy alercie krytycznym
+  [!] BREAK  health.json → systems.szperacz  ==>  systems.scanMonitor
+
+  Nic nie zostało usunięte poza kluczem "szperacz" (patrz punkt 2).
+  Wszystkie dotychczasowe pola (lastScan, recentScans, statistics, schedule,
+  nextScanAt, deactivatedOffers itd.) działają bez zmian.
+
+
+================================================================================
+2. BREAKING CHANGE — ZMIANA NAZWY KLUCZA W health.json
+================================================================================
+
+  BYŁO:
+      "systems": {
+        "sonar":    { "enabled": true,  "lastStatus": "completed" },
+        "szperacz": { "enabled": false, "lastStatus": null, "message": "Coming soon" }
+      }
+
+  JEST:
+      "systems": {
+        "sonar":       { "enabled": true,  "lastStatus": "completed" },
+        "scanMonitor": { "enabled": false, "lastStatus": null, "message": "Coming soon" }
+      }
+
+  Powód: nazwa "SZPERACZ" znaczyła w repo dwie różne rzeczy naraz — raz aplikację
+  mobilną konsumującą to API, raz przyszły, jeszcze nieistniejący drugi system
+  monitoringu obok SONAR-a. Ujednolicone na ScanMonitor.
+
+  KIEDY TO COKOLWIEK PSUJE:
+    - psuje się TYLKO wtedy, gdy aplikacja deserializuje health.json do modelu
+      z WYMAGANYM (non-nullable) polem "szperacz" — wtedy Gson/Moshi/kotlinx
+      rzuci wyjątkiem przy parsowaniu.
+    - jeśli aplikacja ignoruje nieznane pola albo ma to pole nullable/opcjonalne
+      — nie dzieje się nic, bo to i tak placeholder (enabled: false, "Coming soon").
+
+  CO ZROBIĆ: zmienić w modelu nazwę pola szperacz -> scanMonitor i najlepiej
+  ustawić je jako nullable z domyślną wartością (patrz punkt 7).
+
+  UWAGA: pola, z których aplikacja realnie żyje, NIE zostały ruszone:
+    scan_status.json (cały), status.json (lastScan, statistics, schedule),
+    history.json (cały), health.json (status, lastScanAt, hoursSinceLastScan,
+    isFresh, systems.sonar).
+
+
+================================================================================
+3. CASE STUDY — DLACZEGO TE ALERTY W OGÓLE POWSTAŁY
+================================================================================
+
+  Skrót: 25.07.2026 jeden skan "z sukcesem" wywalił z mapy 311 ofert (42.7%
+  bazy), a API raportowało to jako operational / ok / success. Nic nie krzyczało.
+
+  --- OŚ CZASU (czasy CEST) --------------------------------------------------
+
+    16:26  Skan planowy. Scrape: 872 oferty, 728 aktywnych w bazie. Wszystko OK.
+
+    22:05  Start skanu z crona (GitHub Actions, run 30172891297).
+           Scrape przechodzi 19 stron listingu OLX:
+             strona 1..8   → ~50 ofert każda
+             strona 9..18  → ~40 ofert każda
+             strona 19     → 26 ofert, "Osiągnięto ostatnią stronę"
+           Razem 834 oferty. Dezaktywowanych: 13. Zdrowy skan.
+
+    22:07  Ktoś odpala DRUGI skan ręcznie (workflow_dispatch, run 30172961609)
+           — a pierwszy jeszcze się nie skończył. Dwa scrape'y biją w OLX
+           równolegle z jednej puli adresów.
+
+    22:10  Skan z crona commituje swoje (zdrowe) wyniki.
+
+    22:11  Skan ręczny robi scrape. Tym razem:
+             strona 1..10  → oferty są
+             strona 11     → "Znaleziono 0 ofert"   <── TU JEST BŁĄD
+           OLX przy soft-blocku NIE zwraca 403 ani 429 — zwraca HTTP 200
+           z poprawnym HTML-em, tylko bez ofert. Scraper zinterpretował to
+           jako naturalny koniec paginacji i zakończył z 485 ofertami
+           zamiast 834. (Dla porównania: fetch pozycji listingu w tym samym
+           skanie zwrócił "0 ofert zmapowanych z 1 stron" — też ucięte.)
+
+    22:11  Skan uznaje, że ~350 ofert zniknęło z OLX, i oznacza je jako
+           nieaktywne. Aktywne: 728 → 419. Deaktywacji: 311.
+
+    22:15  Wyniki zepsutego skanu commitowane i — przez `git pull --rebase
+           -X theirs` — NADPISUJĄ wyniki zdrowego skanu z 22:10.
+
+    Efekt dla użytkownika: mapa i lista tracą 40% ofert w kilka minut,
+    a scan_status.json mówi "success: true".
+
+  --- DLACZEGO ISTNIEJĄCE ZABEZPIECZENIE NIE ZADZIAŁAŁO ----------------------
+
+    W backendzie od dawna jest guard "empty scrape": jeśli scrape zwróci
+    mniej niż 30% liczby aktywnych ofert w bazie — nie dezaktywuj niczego.
+    Tu: 520 pobranych / 728 aktywnych = 71%. Próg wynosił 218.
+    Guard łapał tylko katastrofę (scraper zwraca zero/prawie zero),
+    a nie "połowę" — a połowa wystarcza, żeby zdemolować bazę.
+
+  --- CO ZOSTAŁO NAPRAWIONE W BACKENDZIE -------------------------------------
+
+    a) scraper.py — nowa flaga `pagination_truncated`.
+       Paginacja zakończona PUSTĄ STRONĄ albo błędem pobrania jest teraz
+       odróżnialna od naturalnego końca listingu (brak linku "następna").
+
+    b) main.py — drugi próg guardu, liczony względem HISTORII, nie bazy:
+       mediana liczby pobranych ofert z 8 ostatnich ZDROWYCH skanów
+       (skany oznaczone SCRAPE_PARTIAL/SCRAPE_BLOCKED są z mediany wyłączone,
+       żeby jedna awaria nie obniżyła progu następnym).
+         - scrape < 70% mediany                      → dezaktywacja wstrzymana
+         - paginacja urwana ORAZ scrape < 90% mediany → dezaktywacja wstrzymana
+       Feralny scrape: 520 przy medianie 873 → próg 611 → ZABLOKOWANY.
+       Zamiast dezaktywacji do historii skanów trafia wpis SCRAPE_PARTIAL,
+       który uruchamia istniejący auto-retry skanu po 3 minutach.
+
+    c) api_generator.py — alerty opisane niżej. Bo sam guard nie wystarczy:
+       backend ma nie zepsuć danych, ale klient ma się DOWIEDZIEĆ, że coś
+       jest nie tak z ostatnim skanem.
+
+    d) Dane z 25.07 zostały przywrócone ze zdrowego skanu z 22:10
+       (419 → 719 aktywnych). Wpis w historii skanów został — awaria ma
+       zostać widoczna w historii.
+
+  --- CZEGO ALERTY NIE ZAŁATWIAJĄ --------------------------------------------
+
+    Przyczyną źródłową były DWA RÓWNOLEGŁE SKANY (cron + ręczny dispatch).
+    Blokada równoległości w GitHub Actions świadomie NIE została dodana.
+    Czyli: ręczny skan odpalony w trakcie skanu z crona nadal może dostać
+    ucięty listing. Różnica jest taka, że teraz nie skasuje to bazy, a klient
+    zobaczy alert.
+
+
+================================================================================
+4. NOWY KONTRAKT — OBIEKT ALERT
+================================================================================
+
+  Alert wygląda tak (pełna postać — status.json i scan_status.json):
+
+      {
+        "type": "mass_deactivation",
+        "severity": "critical",
+        "scanId": "2026-07-25T22-11-07",
+        "message": "W jednym skanie wypadło 311 ofert (42.7% aktywnych). Sprawdź czy scraper nie został ucięty.",
+        "details": { ... }            // zestaw pól zależny od "type"
+      }
+
+  W health.json alert jest SKRÓCONY do trzech pól: type, severity, message
+  (bez scanId i details) — health ma zostać lekki.
+
+  --- POLA -------------------------------------------------------------------
+
+    type      string, jedna z 3 wartości (lista może w przyszłości urosnąć —
+              nieznany typ traktuj generycznie, po samym "message")
+    severity  "critical" | "warning"
+    scanId    identyfikator skanu, ten sam format co lastScan.id
+              (timestamp z dwukropkami zamienionymi na myślniki) — pozwala
+              powiązać alert z konkretnym skanem na liście
+    message   gotowy do wyświetlenia tekst po polsku, jedno zdanie
+    details   obiekt z liczbami, opisany niżej per typ
+
+  --- TYPY ALERTÓW -----------------------------------------------------------
+
+  (1) "mass_deactivation" — nienormalnie dużo ofert wypadło w jednym skanie
+
+      Kiedy: liczba dezaktywowanych ofert w ostatnim skanie przekracza próg.
+        severity = "warning"  gdy odpływ >= 15% aktywnych LUB >= 100 ofert
+        severity = "critical" gdy odpływ >= 30% aktywnych
+
+      details:
+        deactivated      int    ile ofert wypadło
+        dropPercent      float  ile to procent aktywnych z poprzedniego skanu
+        activeBefore     int    aktywne przed skanem
+        activeAfter      int    aktywne po skanie
+        previousScanAt   string ISO-8601, znacznik poprzedniego skanu
+
+      Przykład (realny, z awarii 25.07):
+        {
+          "type": "mass_deactivation",
+          "severity": "critical",
+          "scanId": "2026-07-25T22-11-07",
+          "message": "W jednym skanie wypadło 311 ofert (42.7% aktywnych). Sprawdź czy scraper nie został ucięty.",
+          "details": {
+            "deactivated": 311,
+            "dropPercent": 42.7,
+            "activeBefore": 728,
+            "activeAfter": 419,
+            "previousScanAt": "2026-07-25T16:26:25.942478+02:00"
+          }
+        }
+
+  (2) "scrape_drop" — scraper pobrał znacznie mniej ofert niż zwykle
+
+      Kiedy: liczba pobranych ofert < 70% mediany z ostatnich zdrowych skanów.
+        severity = "warning" (zawsze)
+
+      details:
+        rawOffers        int    ile ofert pobrał scraper w tym skanie
+        medianRawOffers  int    mediana z ostatnich zdrowych skanów
+        percentOfMedian  float  stosunek w procentach
+
+      Przykład:
+        {
+          "type": "scrape_drop",
+          "severity": "warning",
+          "scanId": "2026-07-25T22-11-07",
+          "message": "Scraper pobrał 520 ofert — tylko 59.6% mediany ostatnich skanów (872).",
+          "details": { "rawOffers": 520, "medianRawOffers": 872, "percentOfMedian": 59.6 }
+        }
+
+  (3) "partial_scrape" — backend sam wykrył urwany scrape i wstrzymał dezaktywację
+
+      Kiedy: w historii skanu jest błąd SCRAPE_PARTIAL lub SCRAPE_BLOCKED,
+      czyli guard z punktu 3b zadziałał.
+        severity = "critical" (zawsze)
+
+      details:
+        reason   string  surowy komunikat z backendu, np.
+                 "SCRAPE_PARTIAL: scrape 520 ofert to mniej niż 70% mediany
+                  ostatnich zdrowych skanów (873). Prawdopodobnie urwana
+                  paginacja / soft-block OLX."
+
+      Znaczenie dla aplikacji: dane NIE zostały uszkodzone (nic nie
+      zdezaktywowano), ale ostatni skan jest niepełny — liczby "znalezione /
+      nowe" z tego skanu są niemiarodajne. Backend sam ponawia skan po 3 min,
+      więc kolejne odpytanie API zwykle pokaże już zdrowy skan.
+
+  --- KOLEJNOŚĆ I LICZBA -----------------------------------------------------
+
+    Lista jest posortowana: critical przed warning.
+    Zdrowy skan = pusta lista [] (nie null).
+    W jednym skanie mogą wystąpić 2-3 alerty naraz (jak 25.07:
+    mass_deactivation + scrape_drop).
+
+
+================================================================================
+5. ZMIANY PER ENDPOINT
+================================================================================
+
+  --- /api/health.json -------------------------------------------------------
+
+    Pole "status" ma teraz cztery wartości:
+        "ok"        dane świeże, brak alertów
+        "warning"   dane świeże, jest alert warning
+        "critical"  dane świeże, jest alert critical
+        "stale"     ostatni skan starszy niż 12h (jak dotąd; "stale" ma
+                    pierwszeństwo przed alertami)
+
+    Nowe pole "alerts" — lista skróconych alertów (type, severity, message).
+    Zmiana klucza systems.szperacz → systems.scanMonitor (punkt 2).
+
+    Przykład:
+      {
+        "status": "critical",
+        "timestamp": "2026-07-25T22:57:20.112154+02:00",
+        "lastScanAt": "2026-07-25T22:11:07.131947+02:00",
+        "hoursSinceLastScan": 0.8,
+        "isFresh": true,
+        "alerts": [
+          { "type": "mass_deactivation", "severity": "critical", "message": "W jednym skanie wypadło 311 ofert (42.7% aktywnych). Sprawdź czy scraper nie został ucięty." },
+          { "type": "scrape_drop", "severity": "warning", "message": "Scraper pobrał 520 ofert — tylko 59.6% mediany ostatnich skanów (872)." }
+        ],
+        "systems": {
+          "sonar":       { "enabled": true,  "lastStatus": "completed" },
+          "scanMonitor": { "enabled": false, "lastStatus": null, "message": "Coming soon" }
+        }
+      }
+
+  --- /api/status.json -------------------------------------------------------
+
+    W obiekcie "status" doszły dwa pola:
+        hasAlerts   bool
+        alertLevel  "none" | "warning" | "critical"
+
+    Zmiana zachowania:
+        status.current  — "operational" przechodzi w "degraded", gdy jest
+                          jakikolwiek alert (wcześniej "degraded" wynikało
+                          tylko z błędów skanu / niskiego success rate)
+        status.isHealthy — false, gdy jest alert critical
+
+    Na najwyższym poziomie doszła pełna lista "alerts" (z scanId i details).
+
+    Przykład (fragment):
+      {
+        "status": {
+          "current": "degraded",
+          "isHealthy": false,
+          "hasErrors": false,
+          "errorMessages": [],
+          "hasAlerts": true,
+          "alertLevel": "critical"
+        },
+        "alerts": [ ...pełne obiekty alertów... ],
+        ...
+      }
+
+  --- /api/scan_status.json --------------------------------------------------
+
+    Doszły dwa pola:
+        "alert"   pojedynczy, najgroźniejszy alert (albo null) — pod baner
+        "alerts"  pełna lista
+
+    Reszta bez zmian. Zwróć uwagę na istniejące pole lastScan.success:
+    ono nadal mówi TYLKO o tym, czy skan się wykonał bez błędu technicznego.
+    Skan z 25.07 ma success: true i jednocześnie alert critical — i tak ma być.
+    Do oceny jakości danych służą alerty, nie success.
+
+    Przykład (fragment):
+      {
+        "lastScan": {
+          "id": "2026-07-25T22-11-07",
+          "success": true,
+          "newOffers": 1,
+          "deactivatedOffers": 311,
+          "activeOffers": 419,
+          "foundOffers": 520
+        },
+        "alert": { "type": "mass_deactivation", "severity": "critical", ... },
+        "alerts": [ ... ],
+        "nextScanAt": "2026-07-26T09:00:00+02:00"
+      }
+
+
+================================================================================
+6. INSTRUKCJA WDROŻENIA W APLIKACJI (KROK PO KROKU)
+================================================================================
+
+  KROK 1 — napraw model health.json
+    Zmień w modelu pole `szperacz` na `scanMonitor`. Zrób je nullable
+    z wartością domyślną, żeby kolejna zmiana w tym placeholderze niczego
+    nie wywróciła. Upewnij się, że parser ignoruje nieznane pola
+    (Moshi: domyślnie ignoruje; kotlinx.serialization: ignoreUnknownKeys = true).
+
+  KROK 2 — dodaj model alertu
+    data class Alert(type, severity, scanId, message, details)
+    Wszystkie pola poza `message` traktuj jako opcjonalne — health.json
+    nie wysyła scanId ani details.
+    `type` parsuj jako STRING, nie enum. Jeśli musi być enum, dodaj gałąź
+    UNKNOWN — lista typów będzie rosła i stary klient ma to przeżyć.
+
+  KROK 3 — dodaj `alerts` do modeli trzech endpointów
+    health.json → alerts (skrócone)
+    status.json → alerts (pełne) + status.hasAlerts, status.alertLevel
+    scan_status.json → alert (nullable) + alerts (pełne)
+    Domyślna wartość: pusta lista. Starsze odpowiedzi bez tego pola
+    (gdyby appka trafiła na cache) mają się parsować bez wyjątku.
+
+  KROK 4 — baner na ekranie głównym
+    Źródło: scan_status.json → pole "alert".
+      alert == null            → nie pokazuj nic
+      severity == "warning"    → pasek pomarańczowy
+      severity == "critical"   → pasek czerwony
+    Treść: bierz gotowe "message" — jest po polsku i zawiera już liczby.
+    Nie sklejaj własnych zdań z details, bo progi mogą się zmienić.
+
+  KROK 5 — szczegóły po tapnięciu w baner
+    Dla mass_deactivation pokaż z details:
+      "Aktywne: {activeBefore} → {activeAfter} (−{deactivated})"
+      oraz czas poprzedniego skanu z previousScanAt.
+    Dla scrape_drop:
+      "Pobrano {rawOffers} ofert, zwykle ~{medianRawOffers}".
+    Dla partial_scrape:
+      pokaż komunikat + zdanie, że backend ponawia skan automatycznie po 3 min.
+
+  KROK 6 — oznaczenie skanu na liście historii
+    Alert ma scanId w tym samym formacie co lastScan.id / recentScans[].id.
+    Dopasuj po tym polu i postaw ikonkę ostrzeżenia przy właściwym skanie.
+
+  KROK 7 — powiadomienia push (jeśli aplikacja je ma)
+    Wysyłaj TYLKO dla severity == "critical" i tylko raz na scanId
+    (zapisz ostatni obsłużony scanId lokalnie). Inaczej przy odpytywaniu
+    co kilka minut użytkownik dostanie serię tych samych powiadomień —
+    alert wisi tak długo, jak długo ostatni skan jest tym feralnym skanem.
+
+  KROK 8 — wskaźnik stanu systemu
+    Jeśli aplikacja pokazuje kropkę/status systemu, przełącz ją na
+    health.json → "status" (ok / warning / critical / stale). To jedno pole
+    zastępuje dotychczasowe łączenie isFresh + zgadywania.
+
+  KROK 9 — nie blokuj UI na alercie
+    Alert opisuje jakość OSTATNIEGO skanu, nie dostępność danych. Oferty
+    w aplikacji mają się dalej wyświetlać normalnie.
+
+
+================================================================================
+7. PRZYKŁADOWY KOD (KOTLIN)
+================================================================================
+
+  // --- modele ---------------------------------------------------------------
+
+  @Serializable
+  data class Alert(
+      val type: String,                       // mass_deactivation | scrape_drop | partial_scrape | (przyszłe)
+      val severity: String,                   // critical | warning
+      val scanId: String? = null,             // brak w health.json
+      val message: String,
+      val details: Map<String, JsonElement> = emptyMap()
+  ) {
+      val isCritical: Boolean get() = severity == "critical"
+  }
+
+  @Serializable
+  data class ScanStatusResponse(
+      val generatedAt: String,
+      val lastScan: ScanSummary?,
+      val recentScans: List<ScanSummary> = emptyList(),
+      val nextScanAt: String? = null,
+      val alert: Alert? = null,               // NOWE — najgroźniejszy
+      val alerts: List<Alert> = emptyList()   // NOWE — wszystkie
+  )
+
+  @Serializable
+  data class HealthResponse(
+      val status: String,                     // ok | warning | critical | stale
+      val lastScanAt: String? = null,
+      val hoursSinceLastScan: Double? = null,
+      val isFresh: Boolean = false,
+      val alerts: List<Alert> = emptyList(),  // NOWE
+      val systems: Map<String, SystemInfo> = emptyMap()   // klucze: "sonar", "scanMonitor"
+  )
+
+  // --- parser (kotlinx.serialization) ---------------------------------------
+
+  private val json = Json {
+      ignoreUnknownKeys = true      // konieczne: pola będą dochodzić
+      explicitNulls = false
+  }
+
+  // --- baner ----------------------------------------------------------------
+
+  fun renderAlertBanner(response: ScanStatusResponse) {
+      val alert = response.alert
+      if (alert == null) { banner.visibility = View.GONE; return }
+
+      banner.visibility = View.VISIBLE
+      banner.text = alert.message
+      banner.setBackgroundColor(
+          if (alert.isCritical) Color.parseColor("#C62828")   // czerwony
+          else                  Color.parseColor("#EF6C00")   // pomarańczowy
+      )
+  }
+
+  // --- push tylko raz na skan ------------------------------------------------
+
+  fun maybeNotify(alert: Alert?, prefs: SharedPreferences) {
+      if (alert == null || !alert.isCritical) return
+      val scanId = alert.scanId ?: return
+      if (prefs.getString("lastNotifiedScanId", null) == scanId) return
+      showNotification("SONAR: problem ze skanem", alert.message)
+      prefs.edit().putString("lastNotifiedScanId", scanId).apply()
+  }
+
+
+================================================================================
+8. JAK TO PRZETESTOWAĆ
+================================================================================
+
+  Dobra wiadomość: w chwili pisania tego pliku PRODUKCYJNE endpointy zawierają
+  realny alert critical z awarii 25.07 — można wdrożyć i zobaczyć baner
+  bez żadnych mocków:
+
+      https://bonaventura-ew.github.io/SONAR-POKOJOWY/api/scan_status.json
+      https://bonaventura-ew.github.io/SONAR-POKOJOWY/api/health.json
+      https://bonaventura-ew.github.io/SONAR-POKOJOWY/api/status.json
+
+  Alert zniknie sam po pierwszym zdrowym skanie (harmonogram: 09:00, 15:00,
+  21:00 czasu Europe/Warsaw) — wtedy "alert": null i "alerts": [].
+  Zanim to nastąpi, warto zrzucić sobie te trzy pliki do fixture'ów testowych:
+  jeden komplet "z alertem" i jeden "czysty" (po skanie).
+
+  Przypadki do sprawdzenia:
+    - alert == null                     → brak banera
+    - severity warning                  → baner pomarańczowy
+    - severity critical                 → baner czerwony + push raz
+    - dwa alerty naraz                  → baner z pierwszego (critical),
+                                          lista w szczegółach
+    - odpowiedź bez pola "alerts"       → parsuje się, pusta lista
+    - health.status == "stale"          → osobny komunikat, ma pierwszeństwo
+    - nieznany "type" w alercie         → nie wywala parsera, baner pokazuje
+                                          samo "message"
+
+
+================================================================================
+9. FAQ / PUŁAPKI
+================================================================================
+
+  P: Czemu lastScan.success == true, skoro jest alert critical?
+  O: success mówi o wykonaniu skanu (proces przeszedł bez błędu technicznego).
+     Alert mówi o wiarygodności danych. Skan z 25.07 wykonał się poprawnie —
+     tylko pobrał połowę rynku. To dwa różne wymiary i mają zostać rozdzielone.
+
+  P: Jak długo wisi alert?
+  O: Alerty są liczone dla OSTATNIEGO skanu przy każdej regeneracji API.
+     Po następnym zdrowym skanie znikają same. Nie ma stanu "przeczytane"
+     po stronie API — jeśli chcesz je odhaczać, rób to lokalnie po scanId.
+
+  P: Czy progi (15% / 30% / 100 ofert / 70% mediany) mogą się zmienić?
+  O: Tak, są stałymi w backendzie (api_generator.py). Dlatego nie wyliczaj
+     severity po stronie aplikacji z details — czytaj gotowe pole "severity".
+
+  P: Co jeśli dojdzie nowy typ alertu?
+  O: Dojdzie bez zapowiedzi jako nowa wartość "type". Klient ma go pokazać
+     generycznie (message + severity), a nie ignorować albo wywalać się.
+
+  P: Czy alerty pojawią się w history.json?
+  O: Nie. history.json opisuje skany, alerty dotyczą stanu bieżącego.
+     Powiązanie skanu z alertem robi się po scanId.
+
+  P: Skąd wiadomo, że alert nie jest fałszywy przy realnym spadku rynku?
+  O: Progi są tak dobrane, że normalne wahania rynku ich nie ruszają.
+     Realny odpływ to kilkanaście-kilkadziesiąt ofert na skan (rekord
+     historyczny poza awarią: 34 dziennie), a próg warning to 100 ofert
+     albo 15% bazy. Przy dużym, ale prawdziwym odpływie alert warning jest
+     zresztą pożądany — to informacja, nie oskarżenie o awarię.
+
+================================================================================
+Zmiany po stronie backendu: commity na branchu claude/rooms-missing-last-scan-rrngsh
+Pliki: src/scraper.py, src/main.py, src/api_generator.py
+Dokumentacja API: docs/API.md, docs/api/README.md
+================================================================================

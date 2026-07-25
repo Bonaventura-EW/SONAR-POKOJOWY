@@ -50,7 +50,7 @@
 - REST-like API (statyczne JSON-y)
 - Gotowe na integrację z Flutter/React Native
 - Health check dla aplikacji
-- Architektura przygotowana na SZPERACZ
+- Architektura przygotowana na ScanMonitor
 
 ---
 

@@ -6,12 +6,13 @@ Endpointy (pliki statyczne na GitHub Pages):
 - /api/history.json   - historia ostatnich 20 skanów
 - /api/health.json    - prosty health check
 
-Architektura przygotowana na dodanie SZPERACZ w przyszłości.
+Architektura przygotowana na dodanie ScanMonitor w przyszłości.
 """
 
 import json
 from pathlib import Path
 from datetime import datetime, timedelta
+from statistics import median
 from typing import Dict, List, Optional
 import pytz
 
@@ -24,6 +25,12 @@ class APIGenerator:
     
     # Harmonogram skanów (CET)
     SCAN_SCHEDULE = ["09:00", "15:00", "21:00"]
+
+    # Progi alertów o masowym odpływie ofert (patrz _build_alerts)
+    MASS_DEACT_WARNING_PCT = 15.0    # % aktywnych z poprzedniego skanu
+    MASS_DEACT_CRITICAL_PCT = 30.0
+    MASS_DEACT_WARNING_ABS = 100     # ...albo tyle ofert naraz
+    SCRAPE_DROP_WARNING_PCT = 70.0   # scrape < 70% mediany ostatnich skanów
     
     def __init__(self, output_dir: str = "../docs/api"):
         self.output_dir = Path(output_dir)
@@ -34,7 +41,13 @@ class APIGenerator:
     def generate_all(self):
         """Generuje wszystkie pliki API."""
         print("🔄 Generowanie API dla aplikacji mobilnej...")
-        
+
+        # Alerty liczone raz i wstrzykiwane do wszystkich endpointów
+        self.alerts = self._build_alerts()
+        for alert in self.alerts:
+            icon = "🔴" if alert['severity'] == 'critical' else "🟠"
+            print(f"   {icon} ALERT [{alert['type']}]: {alert['message']}")
+
         self._generate_status()
         self._generate_history()
         self._generate_health()
@@ -42,11 +55,113 @@ class APIGenerator:
         
         print(f"✅ API wygenerowane w: {self.output_dir}")
 
+    def _build_alerts(self) -> List[Dict]:
+        """
+        Buduje listę alertów dla ostatniego skanu.
+
+        Powód: 25.07.2026 jeden scan zdeaktywował 311 ofert (spadek 43%), bo OLX
+        oddał pustą stronę w połowie paginacji. Scan zaraportował się jako
+        `success` — nic w API nie krzyczało, że baza właśnie straciła 40% rynku.
+
+        Typy alertów:
+        - partial_scrape     — main.py zablokował dezaktywację (SCRAPE_PARTIAL/BLOCKED)
+        - mass_deactivation  — nienormalnie dużo ofert wypadło w jednym skanie
+        - scrape_drop        — scrape dużo mniejszy niż mediana ostatnich skanów
+
+        Returns:
+            Lista alertów (critical przed warning). Pusta gdy wszystko OK.
+        """
+        recent = self.logger.get_recent_scans(count=8)
+        if not recent:
+            return []
+
+        last = recent[0]
+        stats = last.get('stats', {})
+        scan_id = last.get('timestamp', '')[:19].replace(':', '-')
+        alerts = []
+
+        # 1. Scraper padł, dezaktywacja zablokowana przez guard w main.py
+        for err in last.get('errors', []):
+            msg = str(err.get('message', ''))
+            if msg.startswith(('SCRAPE_PARTIAL', 'SCRAPE_BLOCKED')):
+                alerts.append({
+                    "type": "partial_scrape",
+                    "severity": "critical",
+                    "scanId": scan_id,
+                    "message": "Częściowy scrape OLX — dezaktywacja ofert wstrzymana. "
+                               "Dane z tego skanu są niepełne.",
+                    "details": {"reason": msg}
+                })
+                break
+
+        # 2. Masowy odpływ ofert względem poprzedniego skanu
+        prev = next((s for s in recent[1:] if s.get('status') == 'completed'), None)
+        if prev and last.get('status') in ('completed', 'warning'):
+            prev_active = prev.get('stats', {}).get('active', 0)
+            deactivated = max(
+                0,
+                prev_active + stats.get('new', 0) + stats.get('reactivated', 0)
+                - stats.get('active', 0)
+            )
+            drop_pct = round(deactivated / prev_active * 100, 1) if prev_active else 0.0
+
+            if drop_pct >= self.MASS_DEACT_CRITICAL_PCT:
+                severity = "critical"
+            elif drop_pct >= self.MASS_DEACT_WARNING_PCT or deactivated >= self.MASS_DEACT_WARNING_ABS:
+                severity = "warning"
+            else:
+                severity = None
+
+            if severity:
+                alerts.append({
+                    "type": "mass_deactivation",
+                    "severity": severity,
+                    "scanId": scan_id,
+                    "message": f"W jednym skanie wypadło {deactivated} ofert "
+                               f"({drop_pct}% aktywnych). Sprawdź czy scraper nie został ucięty.",
+                    "details": {
+                        "deactivated": deactivated,
+                        "dropPercent": drop_pct,
+                        "activeBefore": prev_active,
+                        "activeAfter": stats.get('active', 0),
+                        "previousScanAt": prev.get('timestamp')
+                    }
+                })
+
+        # 3. Scrape dużo mniejszy niż zwykle (nawet jeśli guard go przepuścił)
+        healthy = [
+            s['stats'].get('raw_offers', 0)
+            for s in recent[1:]
+            if s.get('stats', {}).get('raw_offers')
+            and not any(str(e.get('message', '')).startswith(('SCRAPE_PARTIAL', 'SCRAPE_BLOCKED'))
+                        for e in s.get('errors', []))
+        ]
+        raw_offers = stats.get('raw_offers', 0)
+        if len(healthy) >= 3 and raw_offers:
+            median_raw = int(median(healthy))
+            pct_of_median = round(raw_offers / median_raw * 100, 1) if median_raw else 100.0
+            if pct_of_median < self.SCRAPE_DROP_WARNING_PCT:
+                alerts.append({
+                    "type": "scrape_drop",
+                    "severity": "warning",
+                    "scanId": scan_id,
+                    "message": f"Scraper pobrał {raw_offers} ofert — tylko {pct_of_median}% "
+                               f"mediany ostatnich skanów ({median_raw}).",
+                    "details": {
+                        "rawOffers": raw_offers,
+                        "medianRawOffers": median_raw,
+                        "percentOfMedian": pct_of_median
+                    }
+                })
+
+        alerts.sort(key=lambda a: 0 if a['severity'] == 'critical' else 1)
+        return alerts
+
     def _generate_scan_status(self):
         """
         Generuje /api/scan_status.json
 
-        Uproszczony endpoint dedykowany dla aplikacji Android (SZPERACZ).
+        Uproszczony endpoint dedykowany dla aplikacji Android (ScanMonitor).
         Zawiera:
         - Wynik ostatniego skanu (success/failed) z powodem niepowodzenia
         - Liczba nowych i usuniętych ofert z ostatniego skanu
@@ -99,12 +214,16 @@ class APIGenerator:
 
         last = _format(0)
 
+        alerts = getattr(self, 'alerts', [])
         data = {
             "generatedAt": now.isoformat(),
             "lastScan": last,
             "recentScans": [_format(i) for i in range(min(3, len(recent_scans)))],
             "nextScanAt": (self._calculate_next_scan_time().isoformat()
                            if self._calculate_next_scan_time() else None),
+            # Alerty dla aplikacji: `alert` = najgroźniejszy (do banera), `alerts` = wszystkie
+            "alert": alerts[0] if alerts else None,
+            "alerts": alerts,
         }
 
         self._save_json("scan_status.json", data)
@@ -139,8 +258,12 @@ class APIGenerator:
                 error_messages = [e.get('message', 'Unknown error') for e in errors]
         
         # Określ status systemu
+        alerts = getattr(self, 'alerts', [])
         system_status = self._determine_system_status(last_scan, statistics)
-        
+        if alerts and system_status == "operational":
+            system_status = "degraded"
+        has_critical = any(a['severity'] == 'critical' for a in alerts)
+
         status_data = {
             "system": "sonar",
             "version": "1.0.0",
@@ -148,10 +271,15 @@ class APIGenerator:
             
             "status": {
                 "current": system_status,
-                "isHealthy": system_status in ["operational", "degraded"],
+                "isHealthy": system_status in ["operational", "degraded"] and not has_critical,
                 "hasErrors": has_errors,
-                "errorMessages": error_messages
+                "errorMessages": error_messages,
+                "hasAlerts": bool(alerts),
+                "alertLevel": ("critical" if has_critical else "warning") if alerts else "none"
             },
+
+            # Alerty jakościowe ostatniego skanu (masowy odpływ ofert, urwany scrape)
+            "alerts": alerts,
             
             "lastScan": self._format_scan_for_api(last_scan) if last_scan else None,
             
@@ -218,18 +346,33 @@ class APIGenerator:
             except (KeyError, ValueError):
                 pass
         
+        alerts = getattr(self, 'alerts', [])
+        has_critical = any(a['severity'] == 'critical' for a in alerts)
+        if not is_fresh:
+            health_status = "stale"
+        elif has_critical:
+            health_status = "critical"
+        elif alerts:
+            health_status = "warning"
+        else:
+            health_status = "ok"
+
         health_data = {
-            "status": "ok" if is_fresh else "stale",
+            "status": health_status,  # ok | warning | critical | stale
             "timestamp": datetime.now(self.tz).isoformat(),
             "lastScanAt": last_scan['timestamp'] if last_scan else None,
             "hoursSinceLastScan": hours_since_last_scan,
             "isFresh": is_fresh,
+            "alerts": [
+                {"type": a["type"], "severity": a["severity"], "message": a["message"]}
+                for a in alerts
+            ],
             "systems": {
                 "sonar": {
                     "enabled": True,
                     "lastStatus": last_scan.get('status', 'unknown') if last_scan else 'unknown'
                 },
-                "szperacz": {
+                "scanMonitor": {
                     "enabled": False,
                     "lastStatus": None,
                     "message": "Coming soon"
@@ -238,7 +381,7 @@ class APIGenerator:
         }
         
         self._save_json("health.json", health_data)
-        print(f"   💓 health.json - {'fresh' if is_fresh else 'stale'} ({hours_since_last_scan}h ago)")
+        print(f"   💓 health.json - {health_status} ({hours_since_last_scan}h ago)")
     
     def _format_scan_for_api(self, scan: Dict, prev_scan: Optional[Dict] = None) -> Dict:
         """
