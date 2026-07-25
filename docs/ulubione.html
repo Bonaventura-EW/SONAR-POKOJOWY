@@ -176,6 +176,66 @@ const REFRESH_COLOR = '#f59e0b';
 const PRICE_COLOR = '#0d9488';
 const LS_KEY = 'sonar_favorites';
 
+// Czas → piksel na kategorycznej osi X wykresu wyświetleń. Odstępy między pomiarami
+// są nierówne (scan 3× dziennie + ręczne), więc pozycja jest interpolowana liniowo
+// między sąsiednimi pomiarami; poza zakresem — przycięcie do krawędzi wykresu.
+function pixelForTime(xScale, times, t) {
+    const n = times.length;
+    if (t <= times[0]) return xScale.getPixelForValue(0);
+    if (t >= times[n - 1]) return xScale.getPixelForValue(n - 1);
+    let i = 0;
+    while (i < n - 1 && times[i + 1] < t) i++;
+    const span = (times[i + 1] - times[i]) || 1;
+    const p0 = xScale.getPixelForValue(i);
+    const p1 = xScale.getPixelForValue(i + 1);
+    return p0 + (p1 - p0) * ((t - times[i]) / span);
+}
+
+// Plugin: pionowe pasma tła = doby kalendarzowe, kolor koduje dzień tygodnia
+// (poniedziałek zielony 142° → niedziela czerwona 0°, płynna rampa pomiędzy).
+// Rysowane w beforeDraw, czyli pod siatką, linią i markerami odświeżeń.
+// Nad pasmem skrót dnia — pomijany, gdy pasmo jest za wąskie na podpis.
+const DAY_HSL = [[142, 62, 42], [112, 55, 40], [88, 58, 41], [60, 72, 40], [38, 90, 48], [18, 85, 50], [0, 78, 50]];
+const DAY_PL = ['pon', 'wt', 'śr', 'czw', 'pt', 'sob', 'nd'];
+const STRIPE_ALPHA = 0.18;
+const dayColor = (i, a) => `hsla(${DAY_HSL[i][0]}, ${DAY_HSL[i][1]}%, ${DAY_HSL[i][2]}%, ${a})`;
+
+const weekdayStripesPlugin = {
+    id: 'weekdayStripes',
+    beforeDraw(chart, args, opts) {
+        const iso = (opts && opts.viewsIso) || [];
+        if (iso.length < 2) return;
+        const { ctx, chartArea, scales } = chart;
+        const times = iso.map(s => new Date(s).getTime());
+        if (times.some(isNaN)) return;
+        const height = chartArea.bottom - chartArea.top;
+        const end = times[times.length - 1];
+        const day = new Date(times[0]);
+        day.setHours(0, 0, 0, 0);
+        ctx.save();
+        while (day.getTime() < end) {
+            const next = new Date(day);
+            next.setDate(next.getDate() + 1);   // setDate, nie +24h — przeżywa zmianę czasu
+            const x0 = pixelForTime(scales.x, times, day.getTime());
+            const x1 = pixelForTime(scales.x, times, next.getTime());
+            const idx = (day.getDay() + 6) % 7; // JS: 0=niedziela → 0=poniedziałek
+            if (x1 - x0 > 0.5) {
+                ctx.fillStyle = dayColor(idx, STRIPE_ALPHA);
+                ctx.fillRect(x0, chartArea.top, x1 - x0, height);
+                if (x1 - x0 > 26) {
+                    ctx.fillStyle = dayColor(idx, 0.95);
+                    ctx.font = '700 10px -apple-system, BlinkMacSystemFont, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'top';
+                    ctx.fillText(DAY_PL[idx], (x0 + x1) / 2, chartArea.top + 4);
+                }
+            }
+            day.setTime(next.getTime());
+        }
+        ctx.restore();
+    }
+};
+
 // Plugin: pionowe linie na wykresie wyświetleń w momentach odświeżenia oferty.
 // Pozycja X interpolowana po czasie między pomiarami (nie zaokrąglana do punktu),
 // nad linią etykieta dnia (🔄 DD.MM). Dane per oferta w options.plugins.refreshMarkers.
@@ -188,21 +248,10 @@ const refreshMarkerPlugin = {
         const { ctx, chartArea, scales } = chart;
         const xScale = scales.x;
         const times = iso.map(s => new Date(s).getTime());
-        const n = times.length;
         events.forEach(ev => {
             const rt = new Date(ev.date_iso).getTime();
             if (isNaN(rt)) return;
-            let px;
-            if (rt <= times[0]) px = xScale.getPixelForValue(0);
-            else if (rt >= times[n - 1]) px = xScale.getPixelForValue(n - 1);
-            else {
-                let i = 0;
-                while (i < n - 1 && times[i + 1] < rt) i++;
-                const span = (times[i + 1] - times[i]) || 1;
-                const p0 = xScale.getPixelForValue(i);
-                const p1 = xScale.getPixelForValue(i + 1);
-                px = p0 + (p1 - p0) * ((rt - times[i]) / span);
-            }
+            const px = pixelForTime(xScale, times, rt);
             ctx.save();
             ctx.beginPath();
             ctx.setLineDash([4, 4]);
@@ -391,7 +440,7 @@ function renderFavorites(data) {
         if (vh.length >= 2) {
             new Chart(document.getElementById(`views-chart-${idx}`), {
                 type: 'line',
-                plugins: [refreshMarkerPlugin],
+                plugins: [weekdayStripesPlugin, refreshMarkerPlugin],
                 data: {
                     labels: vh.map(v => v.date),
                     datasets: [{
@@ -432,6 +481,9 @@ function renderFavorites(data) {
                         },
                         refreshMarkers: {
                             events: f.refresh_events || [],
+                            viewsIso: vh.map(v => v.date_iso),
+                        },
+                        weekdayStripes: {
                             viewsIso: vh.map(v => v.date_iso),
                         }
                     },
