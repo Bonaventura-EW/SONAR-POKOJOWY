@@ -60,6 +60,13 @@ class OLXScraper:
         
         # Inteligentne pomijanie - istniejące oferty
         self.existing_offers = existing_offers or {}
+
+        # Sygnał "paginacja urwana" — ustawiany gdy pętla stron kończy się
+        # PRZEDWCZEŚNIE (pusta strona / błąd pobrania) zamiast naturalnym
+        # końcem listingu. OLX przy soft-blocku zwraca HTTP 200 z pustą listą,
+        # więc bez tej flagi częściowy scrape wygląda jak "rynek się skurczył".
+        self.pagination_truncated = False
+        self.pages_scraped = 0
         
         # Statystyki pomijania
         self.stats = {
@@ -281,7 +288,9 @@ class OLXScraper:
         all_offers = []
         current_url = self.BASE_URL
         page_num = 1
-        
+        self.pagination_truncated = False
+        self.pages_scraped = 0
+
         print(f"🔍 Rozpoczynam scraping OLX Lublin - Pokoje...")
         print(f"⚡ Tryb równoległy: {self.max_workers} wątków\n")
         
@@ -292,16 +301,19 @@ class OLXScraper:
             soup = self._fetch_page(current_url)
             if not soup:
                 print(f"⚠️ Nie udało się pobrać strony {page_num}")
+                self.pagination_truncated = True
                 break
-            
+
             # Wyciągamy oferty z tej strony
             offers = self._extract_offers_from_page(soup)
             print(f"   Znaleziono {len(offers)} ofert")
 
             if not offers:
-                print("   ⚠️ Brak ofert na stronie - koniec paginacji")
+                print("   ⚠️ Brak ofert na stronie - paginacja urwana (możliwy soft-block OLX)")
+                self.pagination_truncated = True
                 break
 
+            self.pages_scraped = page_num
             all_offers.extend(offers)
             
             # Sprawdzamy czy jest następna strona

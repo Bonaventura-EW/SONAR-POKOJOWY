@@ -1,13 +1,41 @@
 {
   "system": "sonar",
   "version": "1.0.0",
-  "generatedAt": "2026-07-25T22:15:25.364607+02:00",
+  "generatedAt": "2026-07-25T22:48:11.498499+02:00",
   "status": {
-    "current": "operational",
-    "isHealthy": true,
+    "current": "degraded",
+    "isHealthy": false,
     "hasErrors": false,
-    "errorMessages": []
+    "errorMessages": [],
+    "hasAlerts": true,
+    "alertLevel": "critical"
   },
+  "alerts": [
+    {
+      "type": "mass_deactivation",
+      "severity": "critical",
+      "scanId": "2026-07-25T22-11-07",
+      "message": "W jednym skanie wypadło 311 ofert (42.7% aktywnych). Sprawdź czy scraper nie został ucięty.",
+      "details": {
+        "deactivated": 311,
+        "dropPercent": 42.7,
+        "activeBefore": 728,
+        "activeAfter": 419,
+        "previousScanAt": "2026-07-25T16:26:25.942478+02:00"
+      }
+    },
+    {
+      "type": "scrape_drop",
+      "severity": "warning",
+      "scanId": "2026-07-25T22-11-07",
+      "message": "Scraper pobrał 520 ofert — tylko 59.6% mediany ostatnich skanów (872).",
+      "details": {
+        "rawOffers": 520,
+        "medianRawOffers": 872,
+        "percentOfMedian": 59.6
+      }
+    }
+  ],
   "lastScan": {
     "id": "2026-07-25T22-11-07",
     "timestamp": "2026-07-25T22:11:07.131947+02:00",

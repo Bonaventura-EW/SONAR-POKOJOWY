@@ -8,9 +8,10 @@ import json
 from pathlib import Path
 from datetime import datetime, timedelta
 import pytz
-from typing import List, Dict
+from typing import List, Dict, Optional
 import time
 import random
+import statistics
 
 # Import lokalnych modułów
 from scraper import OLXScraper
@@ -930,6 +931,31 @@ class SonarPokojowy:
                 print(f"⚠️ Błąd obliczania days_active dla oferty {offer.get('id')}: {e}")
                 offer['days_active'] = 0
     
+    def _reference_scrape_size(self, lookback: int = 8) -> Optional[int]:
+        """
+        Mediana liczby surowych ofert (raw_offers) z ostatnich ZDROWYCH skanów.
+
+        Punkt odniesienia dla wykrycia częściowego scrape'u: realny rynek zmienia
+        się o kilka-kilkanaście ofert między skanami, więc nagły spadek o 40%
+        oznacza urwany listing (soft-block OLX), a nie zniknięcie ofert.
+        Skany oznaczone SCRAPE_PARTIAL/SCRAPE_BLOCKED są pomijane, żeby jedna
+        awaria nie obniżyła progu dla następnych.
+        """
+        healthy = []
+        for scan in self.scan_logger.get_recent_scans(count=lookback):
+            if scan.get('status') not in ('completed', 'warning'):
+                continue
+            if any(str(e.get('message', '')).startswith(('SCRAPE_PARTIAL', 'SCRAPE_BLOCKED'))
+                   for e in scan.get('errors', [])):
+                continue
+            raw = scan.get('stats', {}).get('raw_offers', 0)
+            if raw:
+                healthy.append(raw)
+
+        if len(healthy) < 3:
+            return None
+        return int(statistics.median(healthy))
+
     def _mark_inactive_offers(self, current_offer_ids: List[str], skipped_offer_ids: List[str] = None,
                               skipped_refresh_map: Dict[str, str] = None):
         """
@@ -1628,8 +1654,12 @@ class SonarPokojowy:
             # Jeśli scraper zwrócił 0 ofert lub podejrzanie mało w stosunku do bazy,
             # NIE dezaktywuj niczego - to prawie na pewno problem ze scrapem, nie z ofertami.
             active_in_db = sum(1 for o in self.database['offers'] if o.get('active'))
-            MIN_RATIO = 0.3  # Scrape musi zwrócić co najmniej 30% wcześniejszej liczby aktywnych
+            MIN_RATIO = 0.3   # Scrape musi zwrócić co najmniej 30% wcześniejszej liczby aktywnych
+            SOFT_RATIO = 0.7  # ...i co najmniej 70% mediany ostatnich ZDROWYCH skanów
+            TRUNCATED_RATIO = 0.9  # przy urwanej paginacji wystarczy 10% spadku
             scraped_count = len(raw_offers)
+            reference_scrape = self._reference_scrape_size()
+            pagination_truncated = getattr(self.scraper, 'pagination_truncated', False)
 
             # Snapshot ofert AKTYWNYCH przed dezaktywacją — pozwala odróżnić realną
             # reaktywację (oferta była nieaktywna JUŻ WCHODZĄC w skan) od artefaktu pętli
@@ -1658,6 +1688,33 @@ class SonarPokojowy:
                     f"SCRAPE_PARTIAL: scraper zwrócił tylko {scraped_count} ofert "
                     f"(baza: {active_in_db} aktywnych, próg: {int(active_in_db * MIN_RATIO)}). "
                     f"Prawdopodobna blokada OLX lub awaria scrapera."
+                )
+            elif reference_scrape and scraped_count < reference_scrape * SOFT_RATIO:
+                # Scrape mieści się w progu 30%, ale jest DUŻO mniejszy niż zwykle.
+                # Realny listing waha się o kilkanaście ofert, nie o setki — spadek
+                # o >30% względem mediany ostatnich skanów = urwana paginacja.
+                # (25.07.2026: dwa równoległe scany → OLX oddał pustą stronę 11,
+                #  scrape 520 zamiast ~870, 311 ofert fałszywie zdeaktywowanych.)
+                print(f"   ⚠️  OCHRONA: Scrape {scraped_count} ofert vs mediana {reference_scrape} "
+                      f"z ostatnich zdrowych skanów (próg: {int(reference_scrape * SOFT_RATIO)}).")
+                print(f"       Pomijam dezaktywację — prawdopodobnie urwany listing OLX.")
+                scrape_blocked = True
+                self.scan_logger.log_error(
+                    f"SCRAPE_PARTIAL: scrape {scraped_count} ofert to mniej niż "
+                    f"{int(SOFT_RATIO * 100)}% mediany ostatnich zdrowych skanów ({reference_scrape}). "
+                    f"Prawdopodobnie urwana paginacja / soft-block OLX."
+                    + (" Paginacja urwana na pustej stronie." if pagination_truncated else "")
+                )
+            elif pagination_truncated and reference_scrape and scraped_count < reference_scrape * TRUNCATED_RATIO:
+                # Paginacja urwana na pustej stronie/błędzie + zauważalny spadek —
+                # sam fakt urwania nie wystarcza (OLX bywa, że kończy pustą stroną),
+                # ale w parze ze spadkiem to sygnał blokady.
+                print(f"   ⚠️  OCHRONA: Paginacja urwana (pusta strona), scrape {scraped_count} "
+                      f"vs mediana {reference_scrape}. Pomijam dezaktywację.")
+                scrape_blocked = True
+                self.scan_logger.log_error(
+                    f"SCRAPE_PARTIAL: paginacja urwana na pustej stronie, scrape {scraped_count} ofert "
+                    f"(mediana zdrowych skanów: {reference_scrape}). Prawdopodobny soft-block OLX."
                 )
             else:
                 self._mark_inactive_offers(current_offer_ids, skipped_ids, skipped_refresh_map)

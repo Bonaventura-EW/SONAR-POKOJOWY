@@ -1,9 +1,21 @@
 {
-  "status": "ok",
-  "timestamp": "2026-07-25T22:15:25.369109+02:00",
+  "status": "critical",
+  "timestamp": "2026-07-25T22:48:11.505596+02:00",
   "lastScanAt": "2026-07-25T22:11:07.131947+02:00",
-  "hoursSinceLastScan": 0.1,
+  "hoursSinceLastScan": 0.6,
   "isFresh": true,
+  "alerts": [
+    {
+      "type": "mass_deactivation",
+      "severity": "critical",
+      "message": "W jednym skanie wypadło 311 ofert (42.7% aktywnych). Sprawdź czy scraper nie został ucięty."
+    },
+    {
+      "type": "scrape_drop",
+      "severity": "warning",
+      "message": "Scraper pobrał 520 ofert — tylko 59.6% mediany ostatnich skanów (872)."
+    }
+  ],
   "systems": {
     "sonar": {
       "enabled": true,

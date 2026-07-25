@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-25T22:15:25.371001+02:00",
+  "generatedAt": "2026-07-25T22:48:11.508187+02:00",
   "lastScan": {
     "id": "2026-07-25T22-11-07",
     "timestamp": "2026-07-25T22:11:07.131947+02:00",
@@ -46,5 +46,44 @@
       "foundOffers": 877
     }
   ],
-  "nextScanAt": "2026-07-26T09:00:00+02:00"
+  "nextScanAt": "2026-07-26T09:00:00+02:00",
+  "alert": {
+    "type": "mass_deactivation",
+    "severity": "critical",
+    "scanId": "2026-07-25T22-11-07",
+    "message": "W jednym skanie wypadło 311 ofert (42.7% aktywnych). Sprawdź czy scraper nie został ucięty.",
+    "details": {
+      "deactivated": 311,
+      "dropPercent": 42.7,
+      "activeBefore": 728,
+      "activeAfter": 419,
+      "previousScanAt": "2026-07-25T16:26:25.942478+02:00"
+    }
+  },
+  "alerts": [
+    {
+      "type": "mass_deactivation",
+      "severity": "critical",
+      "scanId": "2026-07-25T22-11-07",
+      "message": "W jednym skanie wypadło 311 ofert (42.7% aktywnych). Sprawdź czy scraper nie został ucięty.",
+      "details": {
+        "deactivated": 311,
+        "dropPercent": 42.7,
+        "activeBefore": 728,
+        "activeAfter": 419,
+        "previousScanAt": "2026-07-25T16:26:25.942478+02:00"
+      }
+    },
+    {
+      "type": "scrape_drop",
+      "severity": "warning",
+      "scanId": "2026-07-25T22-11-07",
+      "message": "Scraper pobrał 520 ofert — tylko 59.6% mediany ostatnich skanów (872).",
+      "details": {
+        "rawOffers": 520,
+        "medianRawOffers": 872,
+        "percentOfMedian": 59.6
+      }
+    }
+  ]
 }
