@@ -73,7 +73,7 @@ docs/                     ← frontend GitHub Pages (NIE edytuj ręcznie data.js
 ├── market_analysis.html
 ├── data.json             ← REGENEROWANY przez map_generator.py
 ├── monitoring_data.json  ← REGENEROWANY
-├── api/                  ← statyczne endpointy mobilki (SZPERACZ)
+├── api/                  ← statyczne endpointy mobilki (ScanMonitor)
 │   ├── status.json
 │   ├── history.json
 │   └── health.json

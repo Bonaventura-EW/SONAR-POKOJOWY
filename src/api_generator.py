@@ -6,7 +6,7 @@ Endpointy (pliki statyczne na GitHub Pages):
 - /api/history.json   - historia ostatnich 20 skanów
 - /api/health.json    - prosty health check
 
-Architektura przygotowana na dodanie SZPERACZ w przyszłości.
+Architektura przygotowana na dodanie ScanMonitor w przyszłości.
 """
 
 import json
@@ -161,7 +161,7 @@ class APIGenerator:
         """
         Generuje /api/scan_status.json
 
-        Uproszczony endpoint dedykowany dla aplikacji Android (SZPERACZ).
+        Uproszczony endpoint dedykowany dla aplikacji Android (ScanMonitor).
         Zawiera:
         - Wynik ostatniego skanu (success/failed) z powodem niepowodzenia
         - Liczba nowych i usuniętych ofert z ostatniego skanu
@@ -372,7 +372,7 @@ class APIGenerator:
                     "enabled": True,
                     "lastStatus": last_scan.get('status', 'unknown') if last_scan else 'unknown'
                 },
-                "szperacz": {
+                "scanMonitor": {
                     "enabled": False,
                     "lastStatus": None,
                     "message": "Coming soon"

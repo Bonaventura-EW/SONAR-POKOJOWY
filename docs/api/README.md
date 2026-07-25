@@ -151,7 +151,7 @@ curl https://bonaventura-ew.github.io/SONAR-POKOJOWY/api/health.json
       "enabled": true,
       "lastStatus": "completed"
     },
-    "szperacz": {
+    "scanMonitor": {
       "enabled": false,
       "message": "Coming soon"
     }
