@@ -9,6 +9,12 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: pionowe paski dni tygodnia pod wykresem wyświetleń (2026-07-25)
+- **feat (zgłoszenie Mateusza, po akceptacji wizualizacji — wariant B, krycie 0,18)**: tło wykresu „👁️ Wyświetlenia w czasie" dzielone na **doby kalendarzowe**, kolor pasma koduje dzień tygodnia — **poniedziałek zielony (142°) → niedziela czerwona (0°)**, płynna rampa pomiędzy (żółto-zielony, żółty, pomarańcz). Nad każdym pasmem skrót dnia (`pon`, `wt`, `śr`, `czw`, `pt`, `sob`, `nd`) w jego kolorze; podpis pomijany, gdy pasmo węższe niż 26 px.
+- **jak (`docs/ulubione.html`)**: nowy plugin Chart.js `weekdayStripes` rysowany w `beforeDraw` — pasma idą **pod** siatką, linią i markerami odświeżeń. Granice dób liczone z `date_iso` pomiarów (`setDate(+1)`, nie `+24h` — przeżywa zmianę czasu), skrajne doby przycinane do obszaru wykresu (pomiar o 22:00 nie rozciąga doby na pół wykresu). Interpolacja czas→piksel wyciągnięta z `refreshMarkerPlugin` do wspólnej funkcji `pixelForTime` (oś X jest kategoryczna, odstępy między pomiarami nierówne) — oba pluginy liczą pozycję tak samo.
+- **zero zmian w backendzie i `data/`** — kolor liczony z dat, które frontend już ma.
+- **weryfikacja**: headless (Chromium, realny Chart.js) — 17 wykresów, 0 błędów JS; na ofercie z 59 pomiarami widać pełne dwa tygodnie rampy pon→nd, markery odświeżeń i siatka czytelne na paskach.
+
 ### Ulubione: sekcja „Nieaktywne" na dole listy (2026-07-24)
 - **feat (zgłoszenie Mateusza)**: nieaktywne oferty (`status != active`) przeniesione pod separator „╳ nieaktywne (N) ╳" na dole — aktywne na górze, nieaktywne (lekko wyszarzone, z pełną historią wykresów) na dole. `docs/ulubione.html` — `renderFavorites` partycjonuje listę na aktywne/nieaktywne (indeks wykresów spójny), divider wstawiany przed pierwszą nieaktywną, `.fav-card.inactive` z `opacity`.
 - Zweryfikowane headless (Chromium, realny Chart.js): 12 aktywnych → separator „nieaktywne (1)" → nieaktywna na dole, wykresy zachowane, badge „Nieaktywna", 0 błędów JS.
