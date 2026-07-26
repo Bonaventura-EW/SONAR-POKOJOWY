@@ -1,62 +1,37 @@
 {
   "system": "sonar",
   "version": "1.0.0",
-  "generatedAt": "2026-07-25T22:57:20.107803+02:00",
+  "generatedAt": "2026-07-26T11:12:06.565259+02:00",
   "status": {
-    "current": "degraded",
-    "isHealthy": false,
+    "current": "operational",
+    "isHealthy": true,
     "hasErrors": false,
     "errorMessages": [],
-    "hasAlerts": true,
-    "alertLevel": "critical"
+    "hasAlerts": false,
+    "alertLevel": "none"
   },
-  "alerts": [
-    {
-      "type": "mass_deactivation",
-      "severity": "critical",
-      "scanId": "2026-07-25T22-11-07",
-      "message": "W jednym skanie wypadło 311 ofert (42.7% aktywnych). Sprawdź czy scraper nie został ucięty.",
-      "details": {
-        "deactivated": 311,
-        "dropPercent": 42.7,
-        "activeBefore": 728,
-        "activeAfter": 419,
-        "previousScanAt": "2026-07-25T16:26:25.942478+02:00"
-      }
-    },
-    {
-      "type": "scrape_drop",
-      "severity": "warning",
-      "scanId": "2026-07-25T22-11-07",
-      "message": "Scraper pobrał 520 ofert — tylko 59.6% mediany ostatnich skanów (872).",
-      "details": {
-        "rawOffers": 520,
-        "medianRawOffers": 872,
-        "percentOfMedian": 59.6
-      }
-    }
-  ],
+  "alerts": [],
   "lastScan": {
-    "id": "2026-07-25T22-11-07",
-    "timestamp": "2026-07-25T22:11:07.131947+02:00",
-    "endTimestamp": "2026-07-25T22:11:48.630555+02:00",
-    "durationSeconds": 41.5,
-    "durationFormatted": "41s",
+    "id": "2026-07-26T11-07-05",
+    "timestamp": "2026-07-26T11:07:05.672925+02:00",
+    "endTimestamp": "2026-07-26T11:08:26.054511+02:00",
+    "durationSeconds": 80.38,
+    "durationFormatted": "1m 20s",
     "uiStatus": "success",
     "rawStatus": "completed",
     "offers": {
-      "found": 520,
-      "processed": 405,
-      "new": 1,
+      "found": 854,
+      "processed": 707,
+      "new": 3,
       "deactivated": null,
-      "updated": 404,
-      "active": 419,
-      "inactive": 1257
+      "updated": 704,
+      "active": 712,
+      "inactive": 967
     },
     "skipped": {
-      "noAddress": 28,
-      "noPrice": 0,
-      "noCoords": 4,
+      "noAddress": 51,
+      "noPrice": 1,
+      "noCoords": 11,
       "duplicates": 5
     },
     "errors": [],
@@ -69,12 +44,12 @@
       "21:00"
     ],
     "timezone": "Europe/Warsaw",
-    "nextScanAt": "2026-07-26T09:00:00+02:00"
+    "nextScanAt": "2026-07-26T15:00:00+02:00"
   },
   "statistics": {
     "totalScans": 100,
     "successRate": 98.0,
-    "avgDurationSeconds": 71.08,
-    "avgOffersFound": 762.5
+    "avgDurationSeconds": 71.33,
+    "avgOffersFound": 764.9
   }
 }
