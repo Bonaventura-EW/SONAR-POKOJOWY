@@ -24,6 +24,10 @@ from scan_logger import ScanLogger
 from shared_utils import write_json_atomic, DATA_DIR
 
 class SonarPokojowy:
+    # Hierarchia precyzji adresu — im wyżej, tym lepszy marker. Używane przy
+    # rozstrzyganiu "świeży parsing vs adres z cache" w _process_offer.
+    _PRECISION_RANK = {'exact': 2, 'street_only': 1, 'district': 0}
+
     def __init__(self, data_file: str = "../data/offers.json"):
         self.data_file = Path(data_file)
         self.address_parser = AddressParser(geocoding_cache_path="../data/geocoding_cache.json")
@@ -34,6 +38,11 @@ class SonarPokojowy:
         
         # Strefa czasowa polska
         self.tz = pytz.timezone('Europe/Warsaw')
+
+        # Licznik korekt adresu z re-parsingu (ten sam tekst, lepszy wynik parsera).
+        # Raportowany w scan_history.json — nagły skok = zmiana w parserze przepisała
+        # pół bazy i warto na to spojrzeć, zamiast odkryć to przypadkiem na mapie.
+        self._addr_corrections_count = 0
         
         # Wczytaj istniejącą bazę
         self.database = self._load_database()
@@ -324,6 +333,9 @@ class SonarPokojowy:
         # i adres z opisu może dotyczyć innego mieszkania tego samego wynajmującego.
         address_data = self.address_parser.extract_address(raw_offer['title'])
         address_precision = 'exact'  # domyślnie: dokładny adres z numerem
+        # Czy adres pochodzi z SAMEGO tytułu? Potrzebne niżej: adres wyciągnięty
+        # z opisu firmówki bywa adresem innego mieszkania tego samego wynajmującego.
+        address_from_title = bool(address_data)
 
         # Tytuł bez adresu → szukaj w pełnym tekście (tytuł + opis), potem w samym opisie
         if not address_data:
@@ -332,76 +344,13 @@ class SonarPokojowy:
             print(f"      🔍 Brak adresu w tytule, szukam w opisie...")
             address_data = self.address_parser.extract_address(raw_offer['description'])
 
-        # REAKTYWACJA: Jeśli brak adresu ale mamy cache (oferta była nieaktywna)
-        use_cached_coords = False
-        cached_coords = None
-        if not address_data and raw_offer.get('cached_address'):
-            cached_addr_raw = raw_offer.get('cached_address')
-
-            # NORMALIZACJA: cached_address może być dictem (nowy schema z address dict)
-            # lub stringiem (legacy). Geocoder.geocode_address() oczekuje stringa,
-            # a używanie dict-a jako klucza cache crashuje z 'unhashable type: dict'.
-            if isinstance(cached_addr_raw, dict):
-                cached_full = cached_addr_raw.get('full', '')
-                cached_street = cached_addr_raw.get('street')
-                cached_number = cached_addr_raw.get('number')
-                cached_precision = cached_addr_raw.get('precision', 'exact')
-            else:
-                # legacy: string
-                cached_full = str(cached_addr_raw)
-                cached_street = None
-                cached_number = None
-                cached_precision = 'exact'
-
-            # Fix #4.4 (2026-05-11): Jeśli cached_address jest bogus (artefakt
-            # starego parsera), IGNORUJ cache - wymuś re-parsowanie z aktualnym kodem.
-            # Bez tego oferty z bogus address utknęłyby na zawsze, bo scraper omija
-            # je przy same_price i nie wywołuje extract_address na świeżym opisie.
-            # FIX 2026-05-14: używa wspólnej metody _is_bogus_address (dynamic heurystyka)
-            is_bogus = self._is_bogus_address(cached_full)
-            
-            if is_bogus:
-                print(f"      🔍 cached_address '{cached_full}' wygląda na bogus, próbuję re-parsować z opisu...")
-                # Przeparsuj opis od nowa
-                full_text = raw_offer.get('title', '') + ' ' + raw_offer.get('description', '')
-                reparsed = (self.address_parser.extract_address(raw_offer.get('title', ''))
-                          or self.address_parser.extract_address(full_text)
-                          or self.address_parser.extract_street_only(full_text)
-                          or self.address_parser.extract_from_whitelist(full_text))
-                if reparsed:
-                    cached_full = reparsed['full']
-                    cached_street = reparsed.get('street')
-                    cached_number = reparsed.get('number')
-                    cached_precision = 'exact' if reparsed.get('number') else 'street_only'
-                    print(f"      ✅ Re-parsing: '{cached_full}' (precision={cached_precision})")
-                    # NIE używamy starych cached_coordinates - są dla bogus adresu
-                else:
-                    print(f"      ❌ Re-parsing nieudany - oferta zostanie pominięta")
-                    cached_full = ''  # pusta wartość → poniżej zostanie odrzucone
-
-            if not cached_full:
-                # Cache puste lub bogus i re-parse się nie udał — nie używaj
-                print(f"      ⚠️ cached_address bez 'full', pomijam reaktywację z cache")
-            else:
-                if not is_bogus:
-                    print(f"      🔄 Brak adresu w tekście, używam z cache: {cached_full}")
-                address_data = {
-                    'full': cached_full,
-                    'street': cached_street,
-                    'number': cached_number
-                }
-                # Jeśli mamy też współrzędne w cache, użyjemy ich zamiast geokodowania
-                # (TYLKO jeśli nie był to bogus address - dla bogus chcemy świeżego geokodowania)
-                if not is_bogus and raw_offer.get('cached_coordinates'):
-                    cached_coords = raw_offer['cached_coordinates']
-                    use_cached_coords = True
-                address_precision = cached_precision
-
         # FALLBACK: spróbuj wyciągnąć samą ulicę (bez numeru) → marker "przybliżony"
         # Decyzja 1a: tylko jawny prefiks (ul./al./pl./os./aleja/aleje/ulica)
         if not address_data:
-            street_only = (self.address_parser.extract_street_only(raw_offer['title'])
-                           or self.address_parser.extract_street_only(full_text))
+            street_only = self.address_parser.extract_street_only(raw_offer['title'])
+            address_from_title = bool(street_only)
+            if not street_only:
+                street_only = self.address_parser.extract_street_only(full_text)
             if not street_only and raw_offer.get('description'):
                 street_only = self.address_parser.extract_street_only(raw_offer['description'])
             if street_only:
@@ -413,8 +362,10 @@ class SonarPokojowy:
         # Trzeci fallback - jeśli żaden z poprzednich parserów nic nie złapał,
         # szukamy w tekście jakiejkolwiek znanej nazwy ulicy z bazy.
         if not address_data:
-            whitelist_match = (self.address_parser.extract_from_whitelist(raw_offer['title'])
-                               or self.address_parser.extract_from_whitelist(full_text))
+            whitelist_match = self.address_parser.extract_from_whitelist(raw_offer['title'])
+            address_from_title = bool(whitelist_match)
+            if not whitelist_match:
+                whitelist_match = self.address_parser.extract_from_whitelist(full_text)
             if not whitelist_match and raw_offer.get('description'):
                 whitelist_match = self.address_parser.extract_from_whitelist(raw_offer['description'])
             if whitelist_match:
@@ -433,6 +384,96 @@ class SonarPokojowy:
                 print(f"      🗺️  Rozpoznano dzielnicę: {district_match['full']}")
                 address_data = district_match
                 address_precision = 'district'
+
+        # ADRES Z CACHE — oferta pominięta przez inteligentne skanowanie (ta sama cena)
+        # albo reaktywowana po okresie nieaktywności.
+        #
+        # FIX 2026-07-26: ten blok stał WYŻEJ, przed fallbackami street_only/whitelist/
+        # district, i wygrywał z nimi bezwarunkowo. Efekt: oferta bez adresu Z NUMEREM
+        # w tekście dostawała przy każdym skanie z powrotem swój stary adres, więc raz
+        # źle sparsowany marker był zamrożony NA ZAWSZE — żadna późniejsza poprawka
+        # parsera do niego nie docierała (ID13SWxI: 'Braci Wieniawskich' z opisu
+        # "pasaż handlowy przy ul. …" zamiast 'ul. Kaprysowa' z tytułu).
+        #
+        # Teraz cache jest OSTATNIĄ deską ratunku i wygrywa tylko wtedy, gdy jest
+        # PRECYZYJNIEJSZY od świeżego parsingu (numer bije samą ulicę, ulica bije
+        # dzielnicę). Dzięki temu re-parsing nie degraduje ofert z dokładnym adresem
+        # w bazie (ID1buaHj: 'Nadbystrzycka 39' nie może przegrać z landmarkiem 'Zana').
+        use_cached_coords = False
+        cached_coords = None
+        cached_addr_raw = raw_offer.get('cached_address')
+        if cached_addr_raw:
+            # NORMALIZACJA: cached_address może być dictem (nowy schema z address dict)
+            # lub stringiem (legacy). Geocoder.geocode_address() oczekuje stringa,
+            # a używanie dict-a jako klucza cache crashuje z 'unhashable type: dict'.
+            if isinstance(cached_addr_raw, dict):
+                cached_full = cached_addr_raw.get('full', '')
+                cached_street = cached_addr_raw.get('street')
+                cached_number = cached_addr_raw.get('number')
+                cached_precision = cached_addr_raw.get('precision', 'exact')
+            else:
+                # legacy: string
+                cached_full = str(cached_addr_raw)
+                cached_street = None
+                cached_number = None
+                cached_precision = 'exact'
+
+            cached_same_as_fresh = bool(
+                address_data
+                and (address_data.get('full') or '').strip().lower() == cached_full.strip().lower()
+            )
+
+            cached_rank = self._PRECISION_RANK.get(cached_precision, 0)
+            fresh_rank = self._PRECISION_RANK.get(address_precision, 0)
+
+            def _is_estate(name: str) -> bool:
+                """Nazwa osiedla ('Osiedle Panorama') to nie ulica — lokalizuje z
+                dokładnością osiedla, choć parser oznacza ją jako street_only."""
+                return (name or '').strip().lower().startswith(('osiedle ', 'os. ', 'os '))
+
+            # REMIS PRECYZJI — kto wygrywa, gdy świeży parsing i baza są tak samo dokładne.
+            # Domyślnie świeży (o to chodzi w odmrożeniu re-parsingu), z dwoma wyjątkami:
+            cache_wins_tie = bool(address_data) and cached_rank == fresh_rank and (
+                # 1. Firmówka + adres z OPISU: opisy firm wymieniają wszystkie swoje
+                #    lokalizacje ("Dostępność innych lokalizacji: ul. X, ul. Y"), więc
+                #    taki adres potrafi dotyczyć innego mieszkania tego wynajmującego
+                #    (ID19xpQK: 'Zana 58' → 'Kazimierza Wielkiego 3'). Tytuł ma
+                #    pierwszeństwo nad opisem — decyzja z 2026-07-09.
+                (raw_offer.get('profile_name') and not address_from_title)
+                # 2. Nazwa osiedla nie nadpisuje konkretnej ulicy z bazy
+                #    (ID1765JD: 'Garbarskiej' z "przy ulicy Garbarskiej" w opisie
+                #    przegrywało z 'Osiedle Panorama' z tytułu).
+                or (_is_estate(address_data.get('full')) and not _is_estate(cached_full))
+            )
+
+            if not cached_full:
+                print(f"      ⚠️ cached_address bez 'full', pomijam reaktywację z cache")
+            elif self._is_bogus_address(cached_full):
+                # Fix #4.4 (2026-05-11): bogus w cache NIE wraca do bazy. Świeży parsing
+                # miał już swoją szansę wyżej — jeśli nic nie dał, oferta poleci w
+                # no_address (Fix #4.5 dezaktywuje ją w _mark_inactive_offers).
+                print(f"      🔍 cached_address '{cached_full}' wygląda na bogus — ignoruję cache")
+            elif not address_data or cached_rank > fresh_rank or cache_wins_tie:
+                if address_data:
+                    print(f"      🔒 Zachowano adres z bazy: '{cached_full}' ({cached_precision}) "
+                          f"zamiast '{address_data['full']}' ({address_precision})")
+                else:
+                    print(f"      🔄 Brak adresu w tekście, używam z cache: {cached_full}")
+                address_data = {
+                    'full': cached_full,
+                    'street': cached_street,
+                    'number': cached_number
+                }
+                if raw_offer.get('cached_coordinates'):
+                    cached_coords = raw_offer['cached_coordinates']
+                    use_cached_coords = True
+                address_precision = cached_precision
+            elif cached_same_as_fresh and raw_offer.get('cached_coordinates'):
+                # Świeży parsing dał DOKŁADNIE ten sam adres co w bazie (przypadek
+                # zdecydowanej większości ofert pominiętych) — nie ma po co geokodować
+                # drugi raz, bierzemy gotowe współrzędne.
+                cached_coords = raw_offer['cached_coordinates']
+                use_cached_coords = True
 
         if not address_data:
             self._skip_reason = 'no_address'
@@ -596,6 +637,34 @@ class SonarPokojowy:
         o, n = norm(old_title), norm(new_title)
         return bool(o) and bool(n) and o != n
 
+    def _source_text_changed(self, existing: Dict, new_data: Dict) -> bool:
+        """Czy zmienił się TEKST, z którego wyciągamy adres (tytuł + opis)?
+
+        Rozstrzyga, czy inny adres oznacza przeprowadzkę, czy naszą poprawkę:
+        ten sam tekst + inny wynik = poprawiliśmy parser, a nie ktoś przepisał
+        ogłoszenie. Bez tego każda poprawka parsera dopisywałaby ofercie fałszywą
+        "zmianę adresu" do versions[] i zapalała plakietkę historii na mapie.
+        (2026-07-26)
+        """
+        if self._title_changed(existing.get('title', ''), new_data.get('title', '')):
+            return True
+
+        def norm(t: str) -> str:
+            return ' '.join((t or '').lower().split())
+
+        old = norm(existing.get('description'))
+        new = norm(new_data.get('description'))
+        if not old or not new:
+            return False  # brak materiału do porównania → nie zgaduj przeprowadzki
+
+        # PORÓWNANIE SUFIKSOWE, nie równościowe. Oferta pominięta dostaje opis z bazy
+        # (scraper.py: offer['description'] = existing['description']), a _process_offer
+        # zapisuje pod 'description' sklejkę TYTUŁ + ' ' + opis. Przetworzony opis jest
+        # więc o jeden tytuł dłuższy od tego w bazie mimo IDENTYCZNEJ treści z OLX —
+        # zwykłe '!=' oznaczałoby każdą pominiętą ofertę jako "przepisaną" i wpychało
+        # korekty parsera do historii adresu.
+        return not (new.endswith(old) or old.endswith(new))
+
     def _addr_changed(self, old_addr: Dict, new_addr: Dict) -> bool:
         """Czy adres realnie się zmienił (ten sam listing OLX, inne miejsce)?
         Liczy się zmiana numeru ALBO znacząca zmiana ulicy. Drobne różnice zapisu
@@ -707,15 +776,25 @@ class SonarPokojowy:
         # === WYKRYCIE ZMIANY ADRESU (ten sam listing OLX, inne miejsce) ===
         # Zrób to PRZED logiką cenową — żeby zrzucić starą wersję z jej własną,
         # nietkniętą historią cen. Nową wersję otwieramy na końcu funkcji.
+        #
+        # UWAGA: musi zostać policzone TUTAJ, przed blokiem historii tytułu niżej —
+        # ten backfilluje existing['title'], więc po nim _source_text_changed
+        # porównywałby nowy tytuł sam ze sobą i nigdy nie wykryłby edycji.
         prev_last_seen = existing.get('last_seen', now)
         _new_addr = new_data.get('address', {}) or {}
         _new_addr_full = _new_addr.get('full', '')
         _existing_addr_full = existing.get('address', {}).get('full', '')
-        addr_change = bool(
+        _addr_differs = bool(
             _new_addr_full and _existing_addr_full
             and not self._is_bogus_address(_existing_addr_full)
             and self._addr_changed(existing.get('address', {}), _new_addr)
         )
+        # Inny adres z TEGO SAMEGO tekstu = korekta parsera, nie przeprowadzka.
+        # Wchodzi in-place (bez versions[], bez plakietki historii na mapie),
+        # ślad diagnostyczny ląduje w address_corrections[]. (2026-07-26)
+        _text_changed = self._source_text_changed(existing, new_data)
+        addr_change = _addr_differs and _text_changed
+        addr_correction = _addr_differs and not _text_changed
         addr_snapshot = None
         if addr_change:
             addr_snapshot = {
@@ -854,7 +933,44 @@ class SonarPokojowy:
                 existing['address']['coords'] = new_addr['coords']
             if new_addr.get('precision'):
                 existing['address']['precision'] = new_addr['precision']
-        
+
+        # === KOREKTA PARSERA (2026-07-26) ===
+        # Ten sam tekst ogłoszenia, inny wynik parsera → poprawiliśmy odczyt, a nie
+        # ktoś się przeprowadził. Podmiana in-place: NIE ruszamy versions[],
+        # address_change_count, address_changed_at, version_first_seen ani historii
+        # cen, więc popup na mapie nie pokaże fałszywej "Historii adresu".
+        elif addr_correction:
+            _old = dict(existing.get('address', {}))
+            corrections = existing.get('address_corrections', [])
+            # ANTY-MIGOTANIE: jeśli wracamy do adresu, z którego już kiedyś korygowaliśmy,
+            # to dwa ekstraktory kłócą się między skanami (typowo dwa równorzędne
+            # landmarki, np. dwa przystanki: 'Jutrzenki' ↔ 'Wiklinowa'). Zostaw obecny —
+            # inaczej marker skacze, a offers.json i docs/data.json puchną diffem
+            # przy każdym skanie.
+            if _new_addr_full in {c.get('from') for c in corrections}:
+                print(f"      ⚖️ Pomijam korektę '{_old.get('full')}' → '{_new_addr_full}' "
+                      f"— ten adres już raz był korygowany w drugą stronę (migotanie ekstraktorów)")
+            else:
+                existing['address'] = {
+                    'full': _new_addr_full,
+                    'street': _new_addr.get('street'),
+                    'number': _new_addr.get('number'),
+                    'coords': _new_addr.get('coords') or _old.get('coords'),
+                    'precision': _new_addr.get('precision', 'exact'),
+                }
+                corrections = existing.setdefault('address_corrections', [])
+                corrections.append({
+                    'from': _old.get('full'),
+                    'from_precision': _old.get('precision'),
+                    'to': _new_addr_full,
+                    'to_precision': _new_addr.get('precision'),
+                    'at': now,
+                })
+                del corrections[:-5]  # trzymaj tylko 5 ostatnich, rekord ma nie puchnąć
+                self._addr_corrections_count += 1
+                print(f"      🔧 Korekta parsera: '{_old.get('full')}' ({_old.get('precision')}) → "
+                      f"'{_new_addr_full}' ({_new_addr.get('precision')}) — bez wpisu do historii adresu")
+
         # Upewnij się że jest aktywne (REAKTYWACJA nieaktywnych ofert)
         was_inactive = not existing.get('active', True)
         existing['active'] = True
@@ -1497,22 +1613,23 @@ class SonarPokojowy:
                 # Stwórz ID z URL
                 offer_id = raw_offer['url'].split('/')[-1].split('.')[0]
 
-                # SKIPPED + profil firmowy: zaktualizuj tylko profile_name w istniejącej ofercie
-                # (skip = ta sama cena, nie trzeba przetwarzać od nowa)
-                if raw_offer.get('skipped') and raw_offer.get('profile_name'):
+                # SKIPPED + profil firmowy: uzupełnij metadane profilu w istniejącym
+                # rekordzie (offer_type nie przechodzi przez _update_existing_offer).
+                #
+                # FIX 2026-07-26: tu było `continue` — oferty firmowe z niezmienioną ceną
+                # NIGDY nie wchodziły do _process_offer, więc ich adres był zamrożony na
+                # zawsze (70 z 719 aktywnych; ID1biwCt trzymało 'Krakowskie Przedmieście'
+                # z listy przystanków, choć tytuł mówi "ul. Wieniawska 11"). Teraz lecą
+                # normalną ścieżką — opis i tak jest z cache, więc to ZERO dodatkowych
+                # requestów do OLX, a tytuł z listingu jest świeży.
+                if raw_offer.get('skipped') and raw_offer.get('offer_type'):
                     short_id = offer_id.split('-ID')[-1] if '-ID' in offer_id else None
                     existing = (self._find_existing_offer(offer_id)
                                 or (self._find_existing_offer_by_short_id(short_id) if short_id else None))
-                    if existing and not existing.get('profile_name'):
-                        existing['profile_name'] = raw_offer['profile_name']
-                        if raw_offer.get('offer_type') and not existing.get('offer_type'):
-                            existing['offer_type'] = raw_offer['offer_type']
-                        print(f"      🏢 Przypisano profil (skip): {raw_offer['profile_name']}")
-                    # Dodaj do current_offer_ids żeby nie była dezaktywowana
-                    # (będzie obsłużone przez skipped_ids dalej)
-                    geocoding_time += 0
-                    continue
-                
+                    if existing and not existing.get('offer_type'):
+                        existing['offer_type'] = raw_offer['offer_type']
+
+
                 # Pomiar czasu geokodowania
                 geo_start = time.time()
                 processed = self._process_offer(raw_offer)
@@ -1726,6 +1843,12 @@ class SonarPokojowy:
             print(f"   Zaktualizowane: {updated_offers_count}")
             if reactivated_count > 0:
                 print(f"   🔄 Reaktywowane: {reactivated_count}")
+            if self._addr_corrections_count > 0:
+                print(f"   🔧 Korekty adresu (re-parsing, bez zmiany tekstu): "
+                      f"{self._addr_corrections_count}")
+            self.scan_logger.log_phase('address_corrections', 0.0, {
+                'corrected': self._addr_corrections_count
+            })
             
             # 4. Weryfikacja nieaktywnych ofert
             print("\n🔍 Krok 4: Weryfikacja nieaktywnych ofert...")
