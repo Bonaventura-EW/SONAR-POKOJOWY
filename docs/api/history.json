@@ -1,8 +1,65 @@
 {
   "system": "sonar",
-  "generatedAt": "2026-07-27T12:36:56.097321+02:00",
+  "generatedAt": "2026-07-27T17:45:43.859862+02:00",
   "count": 20,
   "scans": [
+    {
+      "id": "2026-07-27T17-41-01",
+      "timestamp": "2026-07-27T17:41:01.965754+02:00",
+      "endTimestamp": "2026-07-27T17:42:18.241452+02:00",
+      "durationSeconds": 76.28,
+      "durationFormatted": "1m 16s",
+      "uiStatus": "success",
+      "rawStatus": "completed",
+      "offers": {
+        "found": 929,
+        "processed": 858,
+        "new": 2,
+        "deactivated": null,
+        "updated": 856,
+        "active": 768,
+        "inactive": 960
+      },
+      "skipped": {
+        "noAddress": 51,
+        "noPrice": 2,
+        "noCoords": 12,
+        "duplicates": 6
+      },
+      "errors": [],
+      "hasErrors": false
+    },
+    {
+      "id": "2026-07-27T17-36-59",
+      "timestamp": "2026-07-27T17:36:59.252611+02:00",
+      "endTimestamp": "2026-07-27T17:38:01.553749+02:00",
+      "durationSeconds": 62.3,
+      "durationFormatted": "1m 2s",
+      "uiStatus": "failed",
+      "rawStatus": "warning",
+      "offers": {
+        "found": 309,
+        "processed": 288,
+        "new": 9,
+        "deactivated": null,
+        "updated": 279,
+        "active": 765,
+        "inactive": 961
+      },
+      "skipped": {
+        "noAddress": 13,
+        "noPrice": 1,
+        "noCoords": 5,
+        "duplicates": 2
+      },
+      "errors": [
+        {
+          "message": "SCRAPE_PARTIAL: scrape 309 ofert to mniej niż 70% mediany ostatnich zdrowych skanów (875). Prawdopodobnie urwana paginacja / soft-block OLX. Paginacja urwana na pustej stronie.",
+          "timestamp": "2026-07-27T17:37:55.937960+02:00"
+        }
+      ],
+      "hasErrors": true
+    },
     {
       "id": "2026-07-27T12-32-03",
       "timestamp": "2026-07-27T12:32:03.287581+02:00",
@@ -457,7 +514,7 @@
         "found": 865,
         "processed": 726,
         "new": 7,
-        "deactivated": 15,
+        "deactivated": null,
         "updated": 719,
         "active": 730,
         "inactive": 909
@@ -467,58 +524,6 @@
         "noPrice": 1,
         "noCoords": 9,
         "duplicates": 7
-      },
-      "errors": [],
-      "hasErrors": false
-    },
-    {
-      "id": "2026-07-23T17-02-14",
-      "timestamp": "2026-07-23T17:02:14.279435+02:00",
-      "endTimestamp": "2026-07-23T17:03:54.484164+02:00",
-      "durationSeconds": 100.2,
-      "durationFormatted": "1m 40s",
-      "uiStatus": "success",
-      "rawStatus": "completed",
-      "offers": {
-        "found": 872,
-        "processed": 727,
-        "new": 8,
-        "deactivated": 19,
-        "updated": 719,
-        "active": 733,
-        "inactive": 899
-      },
-      "skipped": {
-        "noAddress": 46,
-        "noPrice": 1,
-        "noCoords": 10,
-        "duplicates": 7
-      },
-      "errors": [],
-      "hasErrors": false
-    },
-    {
-      "id": "2026-07-23T11-18-25",
-      "timestamp": "2026-07-23T11:18:25.286442+02:00",
-      "endTimestamp": "2026-07-23T11:19:32.179222+02:00",
-      "durationSeconds": 66.89,
-      "durationFormatted": "1m 6s",
-      "uiStatus": "success",
-      "rawStatus": "completed",
-      "offers": {
-        "found": 891,
-        "processed": 742,
-        "new": 1,
-        "deactivated": null,
-        "updated": 741,
-        "active": 739,
-        "inactive": 885
-      },
-      "skipped": {
-        "noAddress": 50,
-        "noPrice": 1,
-        "noCoords": 9,
-        "duplicates": 8
       },
       "errors": [],
       "hasErrors": false
