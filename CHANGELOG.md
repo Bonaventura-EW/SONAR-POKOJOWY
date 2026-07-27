@@ -9,6 +9,11 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Przesunięcie porannego slotu skanu: 9:00 → 8:00 CEST (2026-07-27)
+- **chore (decyzja Mateusza)**: `.github/workflows/scanner.yml` — cron `0 7,13,19 * * *` → **`0 6,13,19 * * *`**. Sloty: **8:00 / 15:00 / 21:00 CEST** (było 9:00 / 15:00 / 21:00). Popołudniowy i wieczorny bez zmian.
+- **uwaga na czas zimowy**: cron jest zafiksowany pod CEST (UTC+2). Po przejściu na CET (UTC+1, koniec października) sloty przesuną się na 7:00 / 14:00 / 20:00 czasu polskiego — wtedy trzeba ręcznie ustawić `0 7,14,20 * * *`.
+- **kontekst z `scan_history.json` (100 wpisów, 01–26.07)**: cron GitHub Actions startuje **z opóźnieniem** — mediana +85 min względem slotu (slot 9:00: **+127 min**, 15:00: +103 min, 21:00: +66 min). Realne piki startów to 11:00 / 16:00 / 22:00. Przesunięcie slotu przesuwa też realny start (~10:00 zamiast ~11:00), ale **nie usuwa** opóźnienia — to kolejkowanie zadań o pełnej godzinie na współdzielonych runnerach. Ewentualny osobny fix: minuta inna niż `0` w cronie.
+
 ### Firmy: sygnały zmian przy zakładkach profili + belka legendy (2026-07-27)
 - **feat (zgłoszenie Mateusza, po akceptacji makiety)**: zakładka profilu w `profile_tracker.html` pokazuje, co się zmieniło **od Twojej ostatniej wizyty w TYM profilu**: czerwone `+N` (nowe ogłoszenia), fioletowy sygnał zmian, szare `−N` (zdjęte z OLX). Znacznik wizyty per profil w `localStorage` (`firmy_last_visit`), **sufit 7 dni** — po tygodniu nieobecności belka nie pokazuje miesięcznej zaległości. Sygnały liczone są **raz przy ładowaniu**, więc zostają czytelne w bieżącej sesji i gasną dopiero przy następnej wizycie.
 - **6 typów zmian (fiolet)**: `📝` tytuł, `📍` lokalizacja, `💰↓/↑` cena, `♻` powrót oferty, `🔄` podbicia, a gdy typów jest kilka — zbiorcze `✳N`. **Liczba to zdarzenia, nie oferty** (jedna oferta podbita 3× to `🔄3`); tak samo liczy `✳`. Nowa oferta **nie** generuje dodatkowo sygnałów „zmiana" — OLX tuż po dodaniu przycina tytuł, więc inaczej jedno ogłoszenie liczyłoby się dwa razy.
