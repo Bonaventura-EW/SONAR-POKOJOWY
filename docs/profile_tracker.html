@@ -46,13 +46,16 @@
             overflow-x: auto;
         }
         .tab {
-            padding: 6px 14px;
+            padding: 6px 12px;
             font-size: 12px;
             color: #64748b;
             border-bottom: 2px solid transparent;
             cursor: pointer;
             white-space: nowrap;
             user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
         .tab.active { color: #d97706; border-bottom-color: #d97706; }
         .tab-badge {
@@ -60,26 +63,120 @@
             border-radius: 10px;
             padding: 1px 6px;
             font-size: 10px;
-            margin-left: 4px;
             color: #64748b;
+            font-variant-numeric: tabular-nums;
         }
         .tab.active .tab-badge { background: rgba(245,158,11,0.15); color: #d97706; }
-        /* Badge "NOWE" — świeża zmiana w profilu (≤2 dni), pulsuje */
-        .tab-new {
-            font-size: 9px;
-            font-weight: 700;
-            color: #fff;
-            background: #dc2626;
-            padding: 1px 5px;
+
+        /* ── SYGNAŁY W ZAKŁADCE (liczone od ostatniej wizyty w profilu) ──
+           +N czerwony = nowe ogłoszenia · fiolet = zmiany · −N szary = zdjęte z OLX */
+        .sig {
+            font-size: 9.5px;
+            font-weight: 800;
+            padding: 1.5px 5px;
             border-radius: 4px;
-            letter-spacing: .3px;
-            margin-left: 5px;
-            animation: tabNewPulse 1.1s ease-in-out infinite;
+            letter-spacing: .2px;
+            font-variant-numeric: tabular-nums;
+            line-height: 1.35;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            white-space: nowrap;
         }
-        @keyframes tabNewPulse {
+        .sig .ico { font-size: 9px; line-height: 1; }
+        .sig-new  { background: #dc2626; color: #fff; animation: sigPulse 1.6s ease-in-out infinite; }
+        .sig-chg  { background: #7c3aed; color: #fff; }
+        .sig-gone { background: #e2e8f0; color: #475569; border: 1px solid #cbd5e1; padding: .5px 4px; }
+        .sig[data-tip] { cursor: help; }
+        @keyframes sigPulse {
             0%, 100% { opacity: 1; }
-            50% { opacity: 0.45; }
+            55% { opacity: 0.55; }
         }
+        @media (prefers-reduced-motion: reduce) { .sig-new { animation: none; } }
+
+        /* Dymek sygnału — mówi, KTÓRYCH ogłoszeń dotyczy.
+           UWAGA: .tabs ma overflow-x:auto (zakładki się przewijają), więc dymek
+           pozycjonowany wewnątrz belki byłby ucinany. Dlatego jeden element
+           position:fixed doklejony do <body> i ustawiany z JS. */
+        #sig-tip {
+            position: fixed;
+            z-index: 2000;
+            background: #0f172a;
+            color: #e2e8f0;
+            border-radius: 7px;
+            padding: 8px 11px;
+            font-size: 11px;
+            line-height: 1.55;
+            box-shadow: 0 8px 22px rgba(15,23,42,.35);
+            min-width: 196px;
+            max-width: 320px;
+            font-weight: 400;
+            letter-spacing: 0;
+            text-align: left;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity .12s;
+            display: none;
+        }
+        #sig-tip.on { opacity: 1; display: block; }
+        #sig-tip::before {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: var(--arrow, 24px);
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-bottom: 5px solid #0f172a;
+        }
+        #sig-tip b { color: #fff; font-variant-numeric: tabular-nums; }
+        #sig-tip .k { color: #94a3b8; }
+        #sig-tip hr { border: 0; border-top: 1px solid #334155; margin: 5px 0; }
+        #sig-tip .foot { color: #64748b; font-size: 10px; }
+        /* wiersz „które ogłoszenie": adres z lewej, cena/data z prawej */
+        #sig-tip .it { display: flex; align-items: baseline; gap: 10px; justify-content: space-between; }
+        #sig-tip .it span { color: #94a3b8; font-size: 10px; white-space: nowrap; flex-shrink: 0; }
+        /* rozbicie ✳ — nagłówek typu + adresy pod nim */
+        #sig-tip .ty { margin-top: 3px; }
+        #sig-tip .nm { color: #8595ad; font-size: 10px; line-height: 1.45; margin: -1px 0 3px; }
+        #sig-tip .more { color: #64748b; font-size: 10px; margin-top: 3px; }
+
+        /* ── BELKA LEGENDY (domyślnie zwinięta) ── */
+        .legend { background: #fffdf7; border-bottom: 1px solid #e8e2d2; flex-shrink: 0; font-size: 11px; }
+        .legend-head {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 14px;
+            cursor: pointer;
+            user-select: none;
+            width: 100%;
+            border: 0;
+            background: none;
+            font: inherit;
+            color: #92400e;
+            text-align: left;
+        }
+        .legend-head:hover { background: rgba(245,158,11,.06); }
+        .legend-head:focus-visible { outline: 2px solid #d97706; outline-offset: -2px; }
+        .legend-head .t { font-weight: 700; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+        .legend-head .hint { color: #b98b4a; font-size: 10.5px; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .legend-head .chev { margin-left: auto; color: #b45309; transition: transform .18s; font-size: 10px; }
+        .legend[data-open="false"] .chev { transform: rotate(-90deg); }
+        .legend[data-open="false"] .legend-body { display: none; }
+        .legend-body { padding: 2px 14px 9px; display: flex; gap: 6px 22px; flex-wrap: wrap; align-items: flex-start; }
+        .lg-group { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+        .lg-title {
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+            color: #b98b4a;
+            padding-right: 2px;
+            border-right: 1px solid #ecdcc0;
+        }
+        .lg { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; color: #6b5b45; font-size: 10.5px; }
+        .lg .badge, .lg .sig { flex-shrink: 0; }
+        .lg em { font-style: normal; color: #8a7861; }
 
         /* ── STATSBAR ── */
         .statsbar {
@@ -342,6 +439,55 @@
 
 <div id="main-content">
     <div class="tabs" id="tabs-bar"></div>
+
+    <!-- BELKA LEGENDY — domyślnie zwinięta, stan zapamiętany w localStorage -->
+    <div class="legend" id="legend" data-open="false">
+        <button class="legend-head" id="legend-toggle" aria-expanded="false" aria-controls="legend-body">
+            <span class="t">ℹ️ Legenda</span>
+            <span class="hint" id="legend-since">sygnały liczone od Twojej ostatniej wizyty · najedź na sygnał → których ogłoszeń dotyczy</span>
+            <span class="chev">▼</span>
+        </button>
+        <div class="legend-body" id="legend-body">
+
+            <div class="lg-group">
+                <span class="lg-title">Ruch</span>
+                <span class="lg"><span class="sig sig-new">+2</span> nowe ogłoszenia <em>— najedź: które</em></span>
+                <span class="lg"><span class="sig sig-gone">−2</span> zdjęte z OLX <em>— najedź: które</em></span>
+            </div>
+
+            <div class="lg-group">
+                <span class="lg-title">Zmiany</span>
+                <span class="lg"><span class="sig sig-chg"><span class="ico">📝</span>1</span> tytuł</span>
+                <span class="lg"><span class="sig sig-chg"><span class="ico">📍</span>1</span> lokalizacja</span>
+                <span class="lg"><span class="sig sig-chg"><span class="ico">💰</span>↓1</span> cena <em>(↓ / ↑)</em></span>
+                <span class="lg"><span class="sig sig-chg"><span class="ico">♻</span>1</span> powrót oferty</span>
+                <span class="lg"><span class="sig sig-chg"><span class="ico">🔄</span>5</span> podbicia na OLX <em>(liczba podbić)</em></span>
+                <span class="lg"><span class="sig sig-chg">✳7</span> kilka typów naraz <em>— najedź: rozbicie + które</em></span>
+            </div>
+
+            <div class="lg-group">
+                <span class="lg-title">Typ</span>
+                <span class="lg"><span class="badge badge-pokoj">🛏 pokój</span></span>
+                <span class="lg"><span class="badge badge-mieszkanie">🏠 mieszkanie</span></span>
+                <span class="lg"><span class="badge badge-inactive">NIEAKTYWNE</span> w archiwum</span>
+            </div>
+
+            <div class="lg-group">
+                <span class="lg-title">W karcie</span>
+                <span class="lg">📅 <em>pierwszy raz widziane</em></span>
+                <span class="lg">⏳ <em>dni na rynku</em></span>
+                <span class="lg">📜 <em>historia adresu</em></span>
+                <span class="lg">
+                    <span class="refresh-bars" style="height:12px"><span class="refresh-bar hit" style="height:11px"></span><span class="refresh-bar miss"></span><span class="refresh-bar hit" style="height:11px"></span></span>
+                    <em>podbicia w 14 dniach</em>
+                </span>
+                <span class="lg">📍 <em>Mapa</em> · <em>OLX ↗</em> <em>— odnośniki</em></span>
+                <span class="lg">╳ <em>belka archiwalnych</em></span>
+            </div>
+
+        </div>
+    </div>
+
     <div class="statsbar" id="statsbar"></div>
     <div class="main">
         <div class="map-col"><div id="map"></div></div>
@@ -798,6 +944,11 @@ function renderProfile(key) {
     const prof = profileData.profiles[key];
     if (!prof) return;
 
+    // Wejście w zakładkę = wizyta. Sygnały policzone raz przy ładowaniu zostają
+    // widoczne w tej sesji (żeby dało się je przeczytać) i gasną przy następnej.
+    updateLegendSince(key);
+    markVisited(key);
+
     const LUBLIN_LAT = [51.14, 51.32];
     const LUBLIN_LON = [22.40, 22.72];
     const isLublin = o => {
@@ -864,19 +1015,302 @@ function renderProfile(key) {
     renderMarkers(key);
 }
 
+// ── SYGNAŁY ZMIAN OD OSTATNIEJ WIZYTY ─────────────────────────────────
+// Wszystko liczone w przeglądarce z profile_data.json — zero zmian w backendzie.
+// Znacznik wizyty jest per profil (localStorage), z sufitem 7 dni, żeby po
+// tygodniu nieobecności belka nie pokazywała miesięcznej zaległości.
+const VISIT_KEY    = 'firmy_last_visit';
+const LEGEND_KEY   = 'sonar_legend_open';
+const VISIT_CAP_MS = 7 * 24 * 60 * 60 * 1000;
+const TIP_MAX      = 5;    // pozycji w dymku; reszta jako „…i N więcej"
+
+let SIGNALS   = {};   // profileKey → wynik computeSignals()
+let SIG_SINCE = {};   // profileKey → { ts, capped }
+let SIG_TIPS  = {};   // tipId → HTML dymka (odbudowywane razem z zakładkami)
+let SIG_SEQ   = 0;
+
+function readVisits() {
+    try { return JSON.parse(localStorage.getItem(VISIT_KEY)) || {}; } catch (e) { return {}; }
+}
+function markVisited(key) {
+    try {
+        const v = readVisits();
+        v[key] = Date.now();
+        localStorage.setItem(VISIT_KEY, JSON.stringify(v));
+    } catch (e) {}
+}
+
+// PL format "DD.MM.YYYY HH:MM" / "DD.MM.YYYY" oraz ISO "YYYY-MM-DD" — new Date()
+// nie sparsuje pierwszego, więc parsujemy sami (patrz pułapka „format daty PL").
+function parseAnyDate(s) {
+    if (!s) return null;
+    let m = String(s).match(/^(\d{2})\.(\d{2})\.(\d{4})(?:[ T](\d{2}):(\d{2}))?/);
+    if (m) return new Date(+m[3], +m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0)).getTime();
+    m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/);
+    if (m) return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)).getTime();
+    return null;
+}
+function shortDate(ts) {
+    const d = new Date(ts);
+    return String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
+}
+function shortDateTime(ts) {
+    const d = new Date(ts);
+    return shortDate(ts) + ', ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
+// polska odmiana liczebnika: 1 / 2-4 / 5+
+function plural(n, one, few, many) {
+    if (n === 1) return one;
+    const t = n % 10, h = n % 100;
+    return (t >= 2 && t <= 4 && (h < 12 || h > 14)) ? few : many;
+}
+
+function computeSignals(prof, since) {
+    const S = { nowe: [], zdjete: [], tytul: [], adres: [], cena: [], powrot: [], podbicia: [], podbiciaN: 0 };
+
+    (prof.offers || []).forEach(o => {
+        const addr  = o.address || '—';
+        const first = parseAnyDate(o.first_seen);
+
+        // Nowa oferta nie generuje dodatkowo sygnałów „zmiana" — OLX tuż po dodaniu
+        // przycina tytuł, więc inaczej jedno ogłoszenie liczyłoby się dwa razy.
+        if (first && first > since) {
+            S.nowe.push({ a: addr, m: (o.price ? o.price + ' zł · ' : '') + shortDate(first), t: first });
+            return;
+        }
+
+        const lastSeen = parseAnyDate(o.last_seen);
+        if (!o.active && lastSeen && lastSeen > since) {
+            S.zdjete.push({ a: addr, m: (o.price ? o.price + ' zł · ' : '') + shortDate(lastSeen), t: lastSeen });
+        }
+
+        const tc = parseAnyDate(o.title_changed_at);
+        if (tc && tc > since) S.tytul.push({ a: addr, m: shortDate(tc), t: tc });
+
+        const ac = parseAnyDate(o.address_changed_at);
+        if (ac && ac > since) {
+            const prev = (o.address_versions || [])[1];
+            S.adres.push({
+                a: addr,
+                m: shortDate(ac),
+                sfx: prev && prev.address ? '(było: ' + prev.address + ')' : '',
+                t: ac
+            });
+        }
+
+        (o.reactivation_dates || []).forEach(d => {
+            const t = parseAnyDate(d);
+            if (t && t > since) S.powrot.push({ a: addr, m: shortDate(t), t: t });
+        });
+
+        // Podbicia liczymy w ZDARZENIACH, nie ofertach (refresh_dates to dni).
+        const refr = (o.refresh_dates || []).map(parseAnyDate).filter(t => t && t > since);
+        if (refr.length) {
+            const lastR = Math.max.apply(null, refr);
+            S.podbicia.push({
+                a: addr,
+                m: '×' + refr.length + ' · ' + shortDate(lastR),
+                sfx: refr.length > 1 ? '×' + refr.length : '',
+                n: refr.length, t: lastR
+            });
+            S.podbiciaN += refr.length;
+        }
+
+        // Cena: wpisy historii po dacie wizyty (indeks 0 to cena startowa).
+        const hist = o.price_history || [];
+        const idx  = hist.findIndex((h, i) => i > 0 && parseAnyDate(h.date) > since);
+        if (idx > 0) {
+            const from = hist[idx - 1].price, to = hist[hist.length - 1].price;
+            const diff = to - from;
+            if (diff) {
+                S.cena.push({
+                    a: addr,
+                    m: (diff < 0 ? '↓' : '↑') + Math.abs(diff) + ' zł',
+                    sfx: (diff < 0 ? '↓' : '↑') + Math.abs(diff) + ' zł',
+                    dir: diff < 0 ? -1 : 1,
+                    t: parseAnyDate(hist[hist.length - 1].date)
+                });
+            }
+        }
+    });
+
+    ['nowe', 'zdjete', 'tytul', 'adres', 'cena', 'powrot', 'podbicia']
+        .forEach(k => S[k].sort((x, y) => y.t - x.t));
+    return S;
+}
+
+// Typy zmian (fiolet) — kolejność decyduje o kolejności w rozbiciu ✳
+const SIG_TYPES = [
+    { k: 'podbicia', ico: '🔄', name: 'podbicia',
+      head: (n) => '<b>' + n + '</b> ' + plural(n, 'podbicie', 'podbicia', 'podbić') + ' na OLX od Twojej wizyty',
+      foot: 'liczba to podbicia, nie oferty' },
+    { k: 'tytul', ico: '📝', name: 'tytuł',
+      head: (n) => '<b>' + n + '</b> ' + plural(n, 'zmiana tytułu', 'zmiany tytułu', 'zmian tytułu') + ' od Twojej wizyty' },
+    { k: 'cena', ico: '💰', name: 'cena',
+      head: (n) => '<b>' + n + '</b> ' + plural(n, 'zmiana ceny', 'zmiany ceny', 'zmian ceny') + ' od Twojej wizyty' },
+    { k: 'adres', ico: '📍', name: 'adres',
+      head: (n) => '<b>' + n + '</b> ' + plural(n, 'zmiana lokalizacji', 'zmiany lokalizacji', 'zmian lokalizacji') + ' od Twojej wizyty',
+      foot: 'marker przeskoczył na mapie' },
+    { k: 'powrot', ico: '♻', name: 'powrót',
+      head: (n) => '<b>' + n + '</b> ' + plural(n, 'oferta wróciła', 'oferty wróciły', 'ofert wróciło') + ' na OLX' }
+];
+
+// Lista „które ogłoszenie" — adres z lewej, meta z prawej, sufit TIP_MAX pozycji
+function tipList(items, moreHint) {
+    const rows = items.slice(0, TIP_MAX).map(it =>
+        '<div class="it">' + escHtml(it.a) + ' <span>' + escHtml(it.m) + '</span></div>'
+    ).join('');
+    const rest = items.length - TIP_MAX;
+    return rows + (rest > 0
+        ? '<div class="more">…i ' + rest + ' więcej' + (moreHint ? ' — ' + moreHint : '') + '</div>'
+        : '');
+}
+// Adresy w jednej linii — pod nagłówkiem typu w rozbiciu ✳
+function tipNames(items) {
+    const names = items.slice(0, TIP_MAX).map(it => escHtml(it.a + (it.sfx ? ' ' + it.sfx : '')));
+    const rest = items.length - TIP_MAX;
+    return '<div class="nm">' + names.join(', ') + (rest > 0 ? ', +' + rest + ' inne' : '') + '</div>';
+}
+
+function sigBadge(cls, label, tipHtml) {
+    const id = 'st' + (SIG_SEQ++);
+    SIG_TIPS[id] = tipHtml;
+    return '<span class="sig ' + cls + '" data-tip="' + id + '" tabindex="0">' + label + '</span>';
+}
+
+function buildSigBadges(key) {
+    const S = SIGNALS[key];
+    if (!S) return '';
+    const since = SIG_SINCE[key] || {};
+    const foot = since.capped
+        ? '<hr><span class="foot">z ostatnich 7 dni</span>'
+        : '<hr><span class="foot">ostatnia wizyta: ' + shortDateTime(since.ts) + '</span>';
+
+    let html = '';
+
+    // ── czerwony: nowe ogłoszenia ──
+    if (S.nowe.length) {
+        const n = S.nowe.length;
+        html += sigBadge('sig-new', '+' + n,
+            '<b>' + n + '</b> ' + plural(n, 'nowe ogłoszenie', 'nowe ogłoszenia', 'nowych ogłoszeń')
+            + ' od Twojej wizyty<hr>' + tipList(S.nowe, 'wszystkie na górze listy'));
+    }
+
+    // ── fiolet: zmiany (jeden typ → ikona typu, kilka → ✳ ze zbiorczą liczbą) ──
+    const active = SIG_TYPES.filter(t => S[t.k].length);
+    if (active.length === 1) {
+        const T = active[0];
+        const n = T.k === 'podbicia' ? S.podbiciaN : S[T.k].length;
+        let label = '<span class="ico">' + T.ico + '</span>' + n;
+        if (T.k === 'cena') {
+            const dirs = new Set(S.cena.map(c => c.dir));
+            if (dirs.size === 1) label = '<span class="ico">💰</span>' + (dirs.has(-1) ? '↓' : '↑') + n;
+        }
+        html += sigBadge('sig-chg', label,
+            T.head(n) + '<hr>' + tipList(S[T.k]) + (T.foot ? '<hr><span class="foot">' + T.foot + '</span>' : ''));
+    } else if (active.length > 1) {
+        const total = active.reduce((s, t) => s + (t.k === 'podbicia' ? S.podbiciaN : S[t.k].length), 0);
+        const body = active.map(t => {
+            const n = t.k === 'podbicia' ? S.podbiciaN : S[t.k].length;
+            return '<div class="ty"><span class="k">' + t.ico + ' ' + t.name + '</span> <b>' + n + '</b></div>'
+                 + tipNames(S[t.k]);
+        }).join('');
+        html += sigBadge('sig-chg', '✳' + total,
+            '<b>' + total + '</b> ' + plural(total, 'zmiana', 'zmiany', 'zmian') + ' od Twojej wizyty<hr>' + body + foot);
+    }
+
+    // ── szary: zdjęte z OLX ──
+    if (S.zdjete.length) {
+        const n = S.zdjete.length;
+        html += sigBadge('sig-gone', '−' + n,
+            '<b>' + n + '</b> ' + plural(n, 'ogłoszenie zdjęte', 'ogłoszenia zdjęte', 'ogłoszeń zdjętych')
+            + ' z OLX<hr>' + tipList(S.zdjete)
+            + '<hr><span class="foot">w archiwum na dole listy</span>');
+    }
+
+    return html;
+}
+
+// Dymek: jeden element position:fixed na <body>, treść z SIG_TIPS.
+// Zdarzenia delegowane, bo zakładki są przebudowywane przez innerHTML.
+function initSigTip() {
+    const tip = document.createElement('div');
+    tip.id = 'sig-tip';
+    document.body.appendChild(tip);
+
+    function show(el) {
+        const html = SIG_TIPS[el.getAttribute('data-tip')];
+        if (!html) return;
+        tip.innerHTML = html;
+        tip.classList.add('on');
+        const r = el.getBoundingClientRect();
+        const w = tip.offsetWidth;
+        const left = Math.min(Math.max(8, r.left + r.width / 2 - 34), window.innerWidth - w - 8);
+        tip.style.left = left + 'px';
+        tip.style.top = (r.bottom + 7) + 'px';
+        tip.style.setProperty('--arrow',
+            Math.max(8, Math.min(w - 16, r.left + r.width / 2 - left - 5)) + 'px');
+    }
+    function hide() { tip.classList.remove('on'); }
+
+    document.addEventListener('mouseover', e => {
+        const el = e.target.closest && e.target.closest('.sig[data-tip]');
+        if (el) show(el);
+    });
+    document.addEventListener('mouseout', e => {
+        if (e.target.closest && e.target.closest('.sig[data-tip]')) hide();
+    });
+    document.addEventListener('focusin', e => {
+        const el = e.target.closest && e.target.closest('.sig[data-tip]');
+        if (el) show(el);
+    });
+    document.addEventListener('focusout', hide);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') hide(); });
+    window.addEventListener('scroll', hide, true);
+}
+
+// ── BELKA LEGENDY ─────────────────────────────────────────────────────
+function initLegend() {
+    const lg = document.getElementById('legend');
+    const btn = document.getElementById('legend-toggle');
+    const setOpen = (open) => {
+        lg.setAttribute('data-open', open ? 'true' : 'false');
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+    try { if (localStorage.getItem(LEGEND_KEY) === '1') setOpen(true); } catch (e) {}
+
+    btn.addEventListener('click', () => {
+        const open = lg.getAttribute('data-open') !== 'true';
+        setOpen(open);
+        try { localStorage.setItem(LEGEND_KEY, open ? '1' : '0'); } catch (e) {}
+        // zmiana wysokości belki → mapa musi przeliczyć rozmiar
+        if (map) setTimeout(() => map.invalidateSize(), 200);
+    });
+}
+
+function updateLegendSince(key) {
+    const el = document.getElementById('legend-since');
+    if (!el) return;
+    const s = SIG_SINCE[key];
+    const from = !s ? 'od Twojej ostatniej wizyty'
+        : s.capped ? 'z ostatnich 7 dni'
+        : 'od Twojej ostatniej wizyty (' + shortDateTime(s.ts) + ')';
+    el.textContent = 'sygnały ' + from + ' · najedź na sygnał → których ogłoszeń dotyczy';
+}
+
 // ── TABS ──────────────────────────────────────────────────────────────
 function buildTabs() {
+    SIG_TIPS = {};
     const keys = profileData.profile_keys;
     document.getElementById('tabs-bar').innerHTML = keys.map(key => {
         const p = profileData.profiles[key];
         if (!p) return '';
         const cnt = p.stats.active;
         const on = key === currentKey;
-        const newBadge = (p.stats && p.stats.recent_change) ? '<span class="tab-new">NOWE</span>' : '';
         return '<div class="tab' + (on?' active':'') + '" onclick="switchTab(\'' + key + '\')">'
-            + p.name
+            + escHtml(p.name)
             + '<span class="tab-badge">' + cnt + '</span>'
-            + newBadge
+            + buildSigBadges(key)
             + '</div>';
     }).join('');
 }
@@ -900,6 +1334,21 @@ async function loadData() {
         mc.style.display = 'flex';
 
         initMap();
+        initLegend();
+        initSigTip();
+
+        // Sygnały liczymy PRZED oznaczeniem wizyty — inaczej wejście na stronę
+        // wyzerowałoby to, co ma pokazać.
+        const visits = readVisits();
+        const capTs = Date.now() - VISIT_CAP_MS;
+        profileData.profile_keys.forEach(key => {
+            const p = profileData.profiles[key];
+            if (!p) return;
+            const v = visits[key] || 0;
+            const since = Math.max(capTs, v);
+            SIG_SINCE[key] = { ts: since, capped: v < capTs };
+            SIGNALS[key] = computeSignals(p, since);
+        });
 
         currentKey = profileData.profile_keys[0];
         buildTabs();

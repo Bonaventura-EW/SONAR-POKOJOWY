@@ -3,13 +3,12 @@
  *
  * Wariant 8: licznik nowych ofert w czerwonym kółku + pulsujący pierścień.
  *
- * Logika (jak powiadomienie):
- *  - "nowa oferta firmowa" = offer.is_new || offer.recent_change (to samo pole co
- *    badge "NOWE" w karcie na profile_tracker.html).
- *  - badge pokazuje liczbę nowych ofert, których użytkownik jeszcze NIE widział
- *    (śledzone po id w localStorage).
- *  - po wejściu na zakładkę Firmy (profile_tracker.html) wszystkie bieżące nowe id
- *    są oznaczane jako "zobaczone" → badge gaśnie na pozostałych stronach.
+ * Logika (spójna z sygnałami +N w zakładkach na profile_tracker.html):
+ *  - "nowa oferta firmowa" = first_seen późniejszy niż Twoja ostatnia wizyta
+ *    w TYM profilu (znacznik `firmy_last_visit` zapisuje profile_tracker.html).
+ *  - sufit 7 dni — po tygodniu nieobecności badge nie pokazuje miesięcznej zaległości.
+ *  - badge gaśnie profil po profilu: obejrzenie zakładki Poqui zdejmuje z licznika
+ *    tylko nowe oferty Poqui, reszta dalej się liczy.
  *
  * Dołączany na każdej stronie z belką: <script src="firmy_badge.js" defer></script>
  * Samowystarczalny — sam wstrzykuje CSS i znajduje link Firmy.
@@ -17,17 +16,24 @@
 (function () {
   'use strict';
 
-  var SEEN_KEY = 'firmy_seen_new_ids';
+  var VISIT_KEY    = 'firmy_last_visit';   // { profileKey: epoch_ms } — pisze profile_tracker.html
+  var OLD_SEEN_KEY = 'firmy_seen_new_ids'; // poprzedni mechanizm (po id) — już nieużywany
+  var VISIT_CAP_MS = 7 * 24 * 60 * 60 * 1000;
   var DATA_URL = 'profile_data.json';
 
-  function readSeen() {
-    try {
-      var raw = localStorage.getItem(SEEN_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch (e) { return []; }
+  function readVisits() {
+    try { return JSON.parse(localStorage.getItem(VISIT_KEY)) || {}; } catch (e) { return {}; }
   }
-  function writeSeen(ids) {
-    try { localStorage.setItem(SEEN_KEY, JSON.stringify(ids)); } catch (e) {}
+
+  // PL "DD.MM.YYYY HH:MM" / "DD.MM.YYYY" oraz ISO "YYYY-MM-DD" — new Date() nie
+  // sparsuje pierwszego formatu, więc parsujemy sami.
+  function parseAnyDate(s) {
+    if (!s) return null;
+    var m = String(s).match(/^(\d{2})\.(\d{2})\.(\d{4})(?:[ T](\d{2}):(\d{2}))?/);
+    if (m) return new Date(+m[3], +m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0)).getTime();
+    m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/);
+    if (m) return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)).getTime();
+    return null;
   }
 
   function injectCSS() {
@@ -53,21 +59,21 @@
         || document.querySelector('a[href$="profile_tracker.html"]');
   }
 
-  function collectNewIds(data) {
-    var ids = [];
+  // Nowe oferty = pojawiły się po ostatniej wizycie w danym profilu (sufit 7 dni).
+  function countNewSinceVisit(data) {
     var profiles = (data && data.profiles) || {};
+    var visits = readVisits();
+    var capTs = Date.now() - VISIT_CAP_MS;
+    var n = 0;
     Object.keys(profiles).forEach(function (k) {
+      var since = Math.max(capTs, visits[k] || 0);
       var offers = (profiles[k] && profiles[k].offers) || [];
       offers.forEach(function (o) {
-        if (o && (o.is_new || o.recent_change) && o.id) ids.push(String(o.id));
+        var first = o && parseAnyDate(o.first_seen);
+        if (first && first > since) n++;
       });
     });
-    return ids;
-  }
-
-  function onProfileTrackerPage() {
-    return /profile_tracker\.html$/.test(location.pathname)
-        || /profile_tracker\.html/.test(location.href.split('?')[0].split('#')[0]);
+    return n;
   }
 
   function render(count, link) {
@@ -84,33 +90,26 @@
     link.appendChild(b);
   }
 
+  function onProfileTrackerPage() {
+    return /profile_tracker\.html/.test(location.href.split('?')[0].split('#')[0]);
+  }
+
   function init() {
     var link = findFirmyLink();
     if (!link) return;
+
+    // Sprzątanie po poprzednim mechanizmie (lista id) — znaczniki wizyt go zastąpiły.
+    try { localStorage.removeItem(OLD_SEEN_KEY); } catch (e) {}
+
+    // Na samej zakładce Firmy licznik w belce jest zbędny — sygnały +N / ✳ / −N
+    // przy zakładkach profili mówią to samo, tylko dokładniej.
+    if (onProfileTrackerPage()) { render(0, link); return; }
 
     fetch(DATA_URL, { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
         if (!data) return;
-        var newIds = collectNewIds(data);
-        var newSet = {};
-        newIds.forEach(function (id) { newSet[id] = true; });
-
-        // Jesteśmy NA zakładce Firmy → oznacz wszystkie bieżące nowe jako zobaczone.
-        if (onProfileTrackerPage()) {
-          writeSeen(newIds);
-          render(0, link);
-          return;
-        }
-
-        // Przytnij "seen" do tych, które nadal są nowe (żeby nie rosło w nieskończoność).
-        var seen = readSeen().filter(function (id) { return newSet[id]; });
-        writeSeen(seen);
-        var seenSet = {};
-        seen.forEach(function (id) { seenSet[id] = true; });
-
-        var unseen = newIds.filter(function (id) { return !seenSet[id]; }).length;
-        render(unseen, link);
+        render(countNewSinceVisit(data), link);
       })
       .catch(function () { /* brak danych / offline — nie pokazuj badge */ });
   }
