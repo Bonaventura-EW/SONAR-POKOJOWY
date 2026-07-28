@@ -968,7 +968,11 @@ function renderProfile(key) {
         }
         return true; // brak danych → zakładamy Lublin
     };
-    const active = prof.offers.filter(o => o.active && isLublin(o));
+    // Aktywne: najświeższa aktywność na górze (nowe, zmiany, podbicia, powroty).
+    // Ta sama miara co sygnały przy zakładce — to, co zapala +N / ✳ / 🔄, ląduje
+    // na czele listy, a oferty bez ruchu spadają na dół.
+    const active = prof.offers.filter(o => o.active && isLublin(o))
+                              .sort((a, b) => lastActivityTs(b) - lastActivityTs(a));
     const archived = prof.offers.filter(o => !o.active && isLublin(o));
     const prices = active.map(o => o.price).filter(Boolean);
     const avg = prices.length ? Math.round(prices.reduce((a,b)=>a+b,0)/prices.length) : null;
@@ -1063,6 +1067,22 @@ function plural(n, one, few, many) {
     if (n === 1) return one;
     const t = n % 10, h = n % 100;
     return (t >= 2 && t <= 4 && (h < 12 || h > 14)) ? few : many;
+}
+
+// Najświeższa aktywność oferty — max ze wszystkiego, co uznajemy za ruch:
+// pojawienie się, zmiana tytułu / adresu / ceny, podbicie, powrót na OLX.
+// Oferta bez żadnej zmiany ma tu swoją datę pierwszego widzenia.
+function lastActivityTs(o) {
+    const ts = [
+        parseAnyDate(o.first_seen),
+        parseAnyDate(o.title_changed_at),
+        parseAnyDate(o.address_changed_at),
+        parseAnyDate(((o.price_history || []).at(-1) || {}).date)
+    ];
+    (o.refresh_dates || []).forEach(d => ts.push(parseAnyDate(d)));
+    (o.reactivation_dates || []).forEach(d => ts.push(parseAnyDate(d)));
+    const known = ts.filter(Boolean);
+    return known.length ? Math.max.apply(null, known) : 0;
 }
 
 function computeSignals(prof, since) {

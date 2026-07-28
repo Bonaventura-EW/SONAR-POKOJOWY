@@ -9,6 +9,12 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Firmy: aktywne ogłoszenia sortowane po najświeższej aktywności (2026-07-28)
+- **feat (zgłoszenie Mateusza)**: sekcja aktywnych w `profile_tracker.html` idzie od **najświeższego ruchu**, a nie w kolejności z `profile_data.json`. Miara (`lastActivityTs`) to maksimum z: pojawienia się oferty, zmiany tytułu, zmiany adresu, ostatniego wpisu w historii cen, podbicia i powrotu na OLX — czyli **dokładnie to, co zapala sygnały `+N` / `✳` / `🔄` przy zakładce**. Oferta bez żadnej zmiany rankuje po dacie pierwszego widzenia i spada na dół.
+- **konsekwencja**: `refresh_dates` i `reactivation_dates` mają dokładność doby (parsowane na północ), więc w obrębie tego samego dnia zdarzenia z godziną (nowa oferta, zmiana tytułu/ceny/adresu) wychodzą **nad** podbicia — ale podbicie z dzisiaj wyprzedza zmianę tytułu z wczoraj. Zwykłe podbicie starej oferty może więc wskoczyć nad świeższe ogłoszenie z poprzedniego dnia.
+- **archiwalne bez zmian** — kolejność jak dotąd.
+- **weryfikacja**: headless (Chromium, realne `profile_data.json`) — Poqui i MyRent posortowane malejąco, 0 błędów JS.
+
 ### Przesunięcie porannego slotu skanu: 9:00 → 8:00 CEST (2026-07-27)
 - **chore (decyzja Mateusza)**: `.github/workflows/scanner.yml` — cron `0 7,13,19 * * *` → **`0 6,13,19 * * *`**. Sloty: **8:00 / 15:00 / 21:00 CEST** (było 9:00 / 15:00 / 21:00). Popołudniowy i wieczorny bez zmian.
 - **uwaga na czas zimowy**: cron jest zafiksowany pod CEST (UTC+2). Po przejściu na CET (UTC+1, koniec października) sloty przesuną się na 7:00 / 14:00 / 20:00 czasu polskiego — wtedy trzeba ręcznie ustawić `0 7,14,20 * * *`.
