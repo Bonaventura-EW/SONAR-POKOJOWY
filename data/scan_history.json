@@ -1,78 +1,5 @@
 [
   {
-    "timestamp": "2026-07-05T16:25:14.508434+02:00",
-    "status": "completed",
-    "phases": {
-      "scraping": {
-        "duration": 45.61,
-        "details": {
-          "offers_found": 666,
-          "max_pages": 50
-        }
-      },
-      "profile_scraping": {
-        "duration": 2.71,
-        "details": {
-          "profiles": 6,
-          "profile_offers": 50,
-          "new_from_profiles": 27,
-          "tagged_existing": 23
-        }
-      },
-      "processing": {
-        "duration": 3.62,
-        "details": {
-          "processed": 599,
-          "skipped_no_address": 30,
-          "skipped_no_price": 1,
-          "skipped_no_coords": 9,
-          "skipped_duplicate": 4,
-          "skipped_excluded": 0,
-          "skipped_price_outlier": 0
-        }
-      },
-      "geocoding": {
-        "duration": 3.42,
-        "details": {
-          "geocoded_addresses": 599
-        }
-      }
-    },
-    "stats": {
-      "raw_offers": 693,
-      "processed": 599,
-      "new": 5,
-      "updated": 594,
-      "reactivated": 0,
-      "total_in_db": 1272,
-      "active": 592,
-      "inactive": 680,
-      "skipped_no_address": 30,
-      "skipped_no_price": 1,
-      "skipped_no_coords": 9,
-      "skipped_duplicate": 4,
-      "skipped_excluded": 0,
-      "skipped_price_outlier": 0,
-      "verification": {
-        "verified": 50,
-        "reactivated": 0,
-        "confirmed_inactive": 50,
-        "errors": 0
-      }
-    },
-    "errors": [],
-    "end_timestamp": "2026-07-05T16:26:12.370229+02:00",
-    "total_duration": 57.86,
-    "performance": {
-      "offers_per_second": 11.98,
-      "pages_scanned": 50,
-      "geocoding_duration": 3.42,
-      "geocoding_per_address": 0.01,
-      "scraping_per_page": 0.91,
-      "processing_success_rate": 86.4
-    }
-  },
-  {
     "timestamp": "2026-07-05T22:05:49.340039+02:00",
     "status": "completed",
     "phases": {
@@ -7419,6 +7346,86 @@
       "geocoding_per_address": 0.01,
       "scraping_per_page": 1.17,
       "processing_success_rate": 92.7
+    }
+  },
+  {
+    "timestamp": "2026-07-30T10:24:57.048365+02:00",
+    "status": "completed",
+    "phases": {
+      "scraping": {
+        "duration": 62.37,
+        "details": {
+          "offers_found": 914,
+          "max_pages": 50
+        }
+      },
+      "profile_scraping": {
+        "duration": 7.76,
+        "details": {
+          "profiles": 9,
+          "profile_offers": 125,
+          "new_from_profiles": 52,
+          "tagged_existing": 73
+        }
+      },
+      "processing": {
+        "duration": 8.03,
+        "details": {
+          "processed": 898,
+          "skipped_no_address": 47,
+          "skipped_no_price": 1,
+          "skipped_no_coords": 12,
+          "skipped_duplicate": 8,
+          "skipped_excluded": 0,
+          "skipped_price_outlier": 0
+        }
+      },
+      "geocoding": {
+        "duration": 7.73,
+        "details": {
+          "geocoded_addresses": 898
+        }
+      },
+      "address_corrections": {
+        "duration": 0.0,
+        "details": {
+          "corrected": 0
+        }
+      }
+    },
+    "stats": {
+      "raw_offers": 966,
+      "processed": 898,
+      "new": 4,
+      "updated": 894,
+      "reactivated": 2,
+      "total_in_db": 1806,
+      "active": 797,
+      "inactive": 1009,
+      "skipped_no_address": 47,
+      "skipped_no_price": 1,
+      "skipped_no_coords": 12,
+      "skipped_duplicate": 8,
+      "skipped_excluded": 0,
+      "skipped_price_outlier": 0,
+      "verification": {
+        "verified": 50,
+        "reactivated": 0,
+        "kept_alive": 0,
+        "confirmed_inactive": 50,
+        "errors": 0
+      }
+    },
+    "errors": [],
+    "end_timestamp": "2026-07-30T10:26:29.910194+02:00",
+    "total_duration": 92.86,
+    "performance": {
+      "offers_per_second": 10.4,
+      "pages_scanned": 50,
+      "geocoding_duration": 7.73,
+      "geocoding_per_address": 0.01,
+      "scraping_per_page": 1.25,
+      "processing_success_rate": 93.0
     }
   }
 ]
