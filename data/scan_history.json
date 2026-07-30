@@ -1,78 +1,5 @@
 [
   {
-    "timestamp": "2026-07-06T18:11:46.457604+02:00",
-    "status": "completed",
-    "phases": {
-      "scraping": {
-        "duration": 37.21,
-        "details": {
-          "offers_found": 675,
-          "max_pages": 50
-        }
-      },
-      "profile_scraping": {
-        "duration": 3.27,
-        "details": {
-          "profiles": 6,
-          "profile_offers": 49,
-          "new_from_profiles": 27,
-          "tagged_existing": 22
-        }
-      },
-      "processing": {
-        "duration": 3.59,
-        "details": {
-          "processed": 609,
-          "skipped_no_address": 31,
-          "skipped_no_price": 0,
-          "skipped_no_coords": 9,
-          "skipped_duplicate": 5,
-          "skipped_excluded": 0,
-          "skipped_price_outlier": 0
-        }
-      },
-      "geocoding": {
-        "duration": 3.4,
-        "details": {
-          "geocoded_addresses": 609
-        }
-      }
-    },
-    "stats": {
-      "raw_offers": 702,
-      "processed": 609,
-      "new": 4,
-      "updated": 605,
-      "reactivated": 4,
-      "total_in_db": 1292,
-      "active": 601,
-      "inactive": 691,
-      "skipped_no_address": 31,
-      "skipped_no_price": 0,
-      "skipped_no_coords": 9,
-      "skipped_duplicate": 5,
-      "skipped_excluded": 0,
-      "skipped_price_outlier": 0,
-      "verification": {
-        "verified": 50,
-        "reactivated": 2,
-        "confirmed_inactive": 48,
-        "errors": 0
-      }
-    },
-    "errors": [],
-    "end_timestamp": "2026-07-06T18:12:35.501972+02:00",
-    "total_duration": 49.04,
-    "performance": {
-      "offers_per_second": 14.31,
-      "pages_scanned": 50,
-      "geocoding_duration": 3.4,
-      "geocoding_per_address": 0.01,
-      "scraping_per_page": 0.74,
-      "processing_success_rate": 86.8
-    }
-  },
-  {
     "timestamp": "2026-07-06T22:46:03.230544+02:00",
     "status": "completed",
     "phases": {
@@ -7445,6 +7372,86 @@
       "geocoding_per_address": 0.01,
       "scraping_per_page": 1.3,
       "processing_success_rate": 92.8
+    }
+  },
+  {
+    "timestamp": "2026-07-30T22:13:38.245935+02:00",
+    "status": "completed",
+    "phases": {
+      "scraping": {
+        "duration": 48.86,
+        "details": {
+          "offers_found": 911,
+          "max_pages": 50
+        }
+      },
+      "profile_scraping": {
+        "duration": 7.44,
+        "details": {
+          "profiles": 9,
+          "profile_offers": 131,
+          "new_from_profiles": 52,
+          "tagged_existing": 79
+        }
+      },
+      "processing": {
+        "duration": 9.56,
+        "details": {
+          "processed": 896,
+          "skipped_no_address": 46,
+          "skipped_no_price": 2,
+          "skipped_no_coords": 12,
+          "skipped_duplicate": 7,
+          "skipped_excluded": 0,
+          "skipped_price_outlier": 0
+        }
+      },
+      "geocoding": {
+        "duration": 9.23,
+        "details": {
+          "geocoded_addresses": 896
+        }
+      },
+      "address_corrections": {
+        "duration": 0.0,
+        "details": {
+          "corrected": 0
+        }
+      }
+    },
+    "stats": {
+      "raw_offers": 963,
+      "processed": 896,
+      "new": 3,
+      "updated": 893,
+      "reactivated": 6,
+      "total_in_db": 1825,
+      "active": 797,
+      "inactive": 1028,
+      "skipped_no_address": 46,
+      "skipped_no_price": 2,
+      "skipped_no_coords": 12,
+      "skipped_duplicate": 7,
+      "skipped_excluded": 0,
+      "skipped_price_outlier": 0,
+      "verification": {
+        "verified": 50,
+        "reactivated": 0,
+        "kept_alive": 0,
+        "confirmed_inactive": 50,
+        "errors": 0
+      }
+    },
+    "errors": [],
+    "end_timestamp": "2026-07-30T22:14:57.028688+02:00",
+    "total_duration": 78.78,
+    "performance": {
+      "offers_per_second": 12.22,
+      "pages_scanned": 50,
+      "geocoding_duration": 9.23,
+      "geocoding_per_address": 0.01,
+      "scraping_per_page": 0.98,
+      "processing_success_rate": 93.0
     }
   }
 ]
