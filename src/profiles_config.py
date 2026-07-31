@@ -6,7 +6,7 @@ Każdy profil ma unikalny klucz, wyświetlaną nazwę i URL strony użytkownika.
 TRACKED_PROFILES = {
     'villahome': {
         'name': 'VillaHome',
-        'url': 'https://www.olx.pl/oferty/uzytkownik/1n7fOJ/',
+        'url': 'https://www.olx.pl/oferty/uzytkownik/2MKggM/',
         'user_id': 1257717661,
     },
     'mzuri': {
