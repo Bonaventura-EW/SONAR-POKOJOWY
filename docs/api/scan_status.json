@@ -1,17 +1,39 @@
 {
-  "generatedAt": "2026-07-30T22:42:40.638344+02:00",
+  "generatedAt": "2026-07-31T10:55:55.370987+02:00",
   "lastScan": {
-    "id": "2026-07-30T22-37-54",
-    "timestamp": "2026-07-30T22:37:54.793931+02:00",
-    "durationFormatted": "1m 27s",
-    "success": true,
-    "failureReason": null,
-    "newOffers": 1,
-    "deactivatedOffers": 3,
-    "activeOffers": 797,
-    "foundOffers": 958
+    "id": "2026-07-31T10-51-24",
+    "timestamp": "2026-07-31T10:51:24.307304+02:00",
+    "durationFormatted": "1m 3s",
+    "success": false,
+    "failureReason": "SCRAPE_PARTIAL: scrape 471 ofert to mniej niż 70% mediany ostatnich zdrowych skanów (966). Prawdopodobnie urwana paginacja / soft-block OLX. Paginacja urwana na pustej stronie.",
+    "newOffers": 2,
+    "deactivatedOffers": 0,
+    "activeOffers": 802,
+    "foundOffers": 471
   },
   "recentScans": [
+    {
+      "id": "2026-07-31T10-51-24",
+      "timestamp": "2026-07-31T10:51:24.307304+02:00",
+      "durationFormatted": "1m 3s",
+      "success": false,
+      "failureReason": "SCRAPE_PARTIAL: scrape 471 ofert to mniej niż 70% mediany ostatnich zdrowych skanów (966). Prawdopodobnie urwana paginacja / soft-block OLX. Paginacja urwana na pustej stronie.",
+      "newOffers": 2,
+      "deactivatedOffers": 0,
+      "activeOffers": 802,
+      "foundOffers": 471
+    },
+    {
+      "id": "2026-07-31T10-48-18",
+      "timestamp": "2026-07-31T10:48:18.092721+02:00",
+      "durationFormatted": "5s",
+      "success": false,
+      "failureReason": "SCRAPE_BLOCKED: scraper zwrócił 0 ofert (baza: 797 aktywnych). Prawdopodobna blokada OLX/Cloudflare lub zmiana struktury HTML.",
+      "newOffers": 0,
+      "deactivatedOffers": 0,
+      "activeOffers": 797,
+      "foundOffers": 0
+    },
     {
       "id": "2026-07-30T22-37-54",
       "timestamp": "2026-07-30T22:37:54.793931+02:00",
@@ -22,31 +44,38 @@
       "deactivatedOffers": 3,
       "activeOffers": 797,
       "foundOffers": 958
-    },
-    {
-      "id": "2026-07-30T22-13-38",
-      "timestamp": "2026-07-30T22:13:38.245935+02:00",
-      "durationFormatted": "1m 18s",
-      "success": true,
-      "failureReason": null,
-      "newOffers": 3,
-      "deactivatedOffers": 13,
-      "activeOffers": 797,
-      "foundOffers": 963
-    },
-    {
-      "id": "2026-07-30T17-14-47",
-      "timestamp": "2026-07-30T17:14:47.367496+02:00",
-      "durationFormatted": "1m 35s",
-      "success": true,
-      "failureReason": null,
-      "newOffers": 0,
-      "deactivatedOffers": 15,
-      "activeOffers": 801,
-      "foundOffers": 967
     }
   ],
-  "nextScanAt": "2026-07-31T09:00:00+02:00",
-  "alert": null,
-  "alerts": []
+  "nextScanAt": "2026-07-31T15:00:00+02:00",
+  "alert": {
+    "type": "partial_scrape",
+    "severity": "critical",
+    "scanId": "2026-07-31T10-51-24",
+    "message": "Częściowy scrape OLX — dezaktywacja ofert wstrzymana. Dane z tego skanu są niepełne.",
+    "details": {
+      "reason": "SCRAPE_PARTIAL: scrape 471 ofert to mniej niż 70% mediany ostatnich zdrowych skanów (966). Prawdopodobnie urwana paginacja / soft-block OLX. Paginacja urwana na pustej stronie."
+    }
+  },
+  "alerts": [
+    {
+      "type": "partial_scrape",
+      "severity": "critical",
+      "scanId": "2026-07-31T10-51-24",
+      "message": "Częściowy scrape OLX — dezaktywacja ofert wstrzymana. Dane z tego skanu są niepełne.",
+      "details": {
+        "reason": "SCRAPE_PARTIAL: scrape 471 ofert to mniej niż 70% mediany ostatnich zdrowych skanów (966). Prawdopodobnie urwana paginacja / soft-block OLX. Paginacja urwana na pustej stronie."
+      }
+    },
+    {
+      "type": "scrape_drop",
+      "severity": "warning",
+      "scanId": "2026-07-31T10-51-24",
+      "message": "Scraper pobrał 471 ofert — tylko 48.8% mediany ostatnich skanów (966).",
+      "details": {
+        "rawOffers": 471,
+        "medianRawOffers": 966,
+        "percentOfMedian": 48.8
+      }
+    }
+  ]
 }
