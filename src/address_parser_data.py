@@ -199,6 +199,19 @@ HARDCODED_LUBLIN_STREETS = {
 }
 
 
+# FIX 2026-07-31: nazwy które są JEDNOCZEŚNIE dzielnicą i realną ulicą Lublina
+# (np. ul. Kalinowszczyzna biegnie przez dzielnicę Kalinowszczyzna). Domyślnie
+# blokowane jako dzielnica (są w EXCLUDED_WORDS i non_street_names), więc
+# "ul. Kalinowszczyzna 10" gubiło numer i realny adres. Traktuj jako ULICĘ
+# TYLKO z jawnym prefiksem adresowym ul./ulica/... (patrz extract_address /
+# extract_street_only). Bez prefiksu ("na Kalinowszczyźnie") pozostają
+# dzielnicą — dlatego świadomie NIE dodajemy ich do HARDCODED_LUBLIN_STREETS
+# (whitelist matchuje bez prefiksu i psułby regułę "bez ul. = dzielnica").
+DISTRICT_ALSO_STREET = {
+    'kalinowszczyzna',
+}
+
+
 # Aliasy nazw ulic: forma jak piszą wynajmujący → forma kanoniczna (geokodowalna).
 # Klucze i wartości lowercase. Głównie mianownik→dopełniacz dla ulic, których
 # Nominatim NIE zna w formie mianownikowej — np. wynajmujący pisze w tytule

@@ -9,6 +9,12 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Adres: dzielnica-i-ulica (Kalinowszczyzna) rozpoznawana jako ulica z prefiksem (2026-07-31)
+- **fix (zgłoszenie Mateusza — 2 oferty bez precyzyjnego adresu)**: `ul. Kalinowszczyzna 10` gubiło adres, bo `kalinowszczyzna` jest na blokliście `EXCLUDED_WORDS`/`non_street_names` jako **dzielnica**. W Lublinie to jednocześnie **realna ulica** — `ul. Kalinowszczyzna` biegnie przez dzielnicę o tej samej nazwie.
+- **rozwiązanie**: nowy set `DISTRICT_ALSO_STREET` (`address_parser_data.py`). `extract_address` i `extract_street_only` traktują takie nazwy jako **ulicę wyłącznie z jawnym prefiksem adresowym** (`ul./ulica/al.` — NIE `os./pl.`). Bez prefiksu (`na Kalinowszczyźnie`, `bliska Kalinowszczyzna`) pozostają **dzielnicą** — dlatego świadomie NIE trafiają do whitelisty/HARDCODED (whitelist matchuje bez prefiksu i psułby regułę).
+- **golden przebudowany**: 3 zamierzone zmiany (m.in. naprawa wcześniejszego błędnego „Plac Stingera" → Kalinowszczyzna). Test: **3726/3726, 0 regresji**.
+- **DIAGNOZA szersza (czeka na decyzję)**: zanieczyszczony wpis `"Uniwersytetu Medycznego"` w `geocoding_cache.json` (punkt orientacyjny, nie ulica) kradł adres **19 ofertom**, wrzucając je na centroid UM `51.26116, 22.56288`. Usunięcie wpisu + reprocessing = osobna migracja (m.in. `Prusa 2` odzyskuje adres). Nie ruszam `data/` bez zgody Mateusza.
+
 ### Firmy: aktywne ogłoszenia sortowane po najświeższej aktywności (2026-07-28)
 - **feat (zgłoszenie Mateusza)**: sekcja aktywnych w `profile_tracker.html` idzie od **najświeższego ruchu**, a nie w kolejności z `profile_data.json`. Miara (`lastActivityTs`) to maksimum z: pojawienia się oferty, zmiany tytułu, zmiany adresu, ostatniego wpisu w historii cen, podbicia i powrotu na OLX — czyli **dokładnie to, co zapala sygnały `+N` / `✳` / `🔄` przy zakładce**. Oferta bez żadnej zmiany rankuje po dacie pierwszego widzenia i spada na dół.
 - **konsekwencja**: `refresh_dates` i `reactivation_dates` mają dokładność doby (parsowane na północ), więc w obrębie tego samego dnia zdarzenia z godziną (nowa oferta, zmiana tytułu/ceny/adresu) wychodzą **nad** podbicia — ale podbicie z dzisiaj wyprzedza zmianę tytułu z wczoraj. Zwykłe podbicie starej oferty może więc wskoczyć nad świeższe ogłoszenie z poprzedniego dnia.
