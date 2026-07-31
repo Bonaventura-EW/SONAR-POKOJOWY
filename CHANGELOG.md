@@ -9,8 +9,10 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
-### Profil VillaHome: zaktualizowany link OLX (2026-07-31)
-- **chore (zgłoszenie Mateusza)**: podmieniony URL profilu firmowego `villahome` w `src/profiles_config.py` na `https://www.olx.pl/oferty/uzytkownik/2MKggM/` (poprzednio slug `1n7fOJ`). `user_id` bez zmian (1257717661) — to stały identyfikator konta, niezależny od vanity-slugu w URL-u. Zregenerowane pliki pochodne: `docs/data.json` (`tracked_profiles`) i `docs/profile_data.json`.
+### Profil VillaHome: przepięty na nowe aktywne konto OLX (2026-07-31)
+- **chore (zgłoszenie Mateusza)**: profil firmowy `villahome` przepięty na nowe konto OLX. Stare konto (`user_id=1257717661`, slug `1n7fOJ`, sprzedawca „Katarzyna") było **martwe — 0 ofert** już od kilku skanów wstecz. Nowe konto: slug `2MKggM`, **`user_id=2552555424`** (sprzedawca „Magda", 13 ofert).
+- **root cause podmiany URL nie wystarczył**: skaner pobiera oferty przez OLX API v1 `/api/v1/offers/?user_id=X` (`scraper.py` → `_fetch_profile_offers_api`), więc liczy się `user_id`, nie vanity-slug w URL-u. Sama zmiana `url` zostawiała skaner na martwym starym `user_id`. Zmieniony też `user_id` → oferty wpadają przy najbliższym skanie.
+- Zregenerowane pliki pochodne: `docs/data.json` (`tracked_profiles`) i `docs/profile_data.json`.
 
 ### Adres: dzielnica-i-ulica (Kalinowszczyzna) rozpoznawana jako ulica z prefiksem (2026-07-31)
 - **fix (zgłoszenie Mateusza — 2 oferty bez precyzyjnego adresu)**: `ul. Kalinowszczyzna 10` gubiło adres, bo `kalinowszczyzna` jest na blokliście `EXCLUDED_WORDS`/`non_street_names` jako **dzielnica**. W Lublinie to jednocześnie **realna ulica** — `ul. Kalinowszczyzna` biegnie przez dzielnicę o tej samej nazwie.

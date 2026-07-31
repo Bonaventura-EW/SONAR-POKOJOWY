@@ -7,7 +7,7 @@ TRACKED_PROFILES = {
     'villahome': {
         'name': 'VillaHome',
         'url': 'https://www.olx.pl/oferty/uzytkownik/2MKggM/',
-        'user_id': 1257717661,
+        'user_id': 2552555424,
     },
     'mzuri': {
         'name': 'Mzuri',
