@@ -72,6 +72,14 @@ class AddressParser:
     # Lowercase. Merge'owane z _known_streets w __init__.
     HARDCODED_LUBLIN_STREETS = _apd.HARDCODED_LUBLIN_STREETS
 
+    # FIX 2026-07-31: nazwy dzielnic które są też realną ulicą (Kalinowszczyzna).
+    # Akceptowane jako ULICA tylko z jawnym prefiksem ul./ulica/... — dane w
+    # address_parser_data.py. Świadomie NIE w whiteliście (bez prefiksu = dzielnica).
+    DISTRICT_ALSO_STREET = _apd.DISTRICT_ALSO_STREET
+    # Formy prefiksu adresowego (ulica-family), które kwalifikują DISTRICT_ALSO_STREET
+    # jako ulicę. NIE os./pl. — "os. Kalinowszczyzna" opisuje osiedle/dzielnicę.
+    _STREET_PREFIX_FORMS = {'ul', 'ulica', 'ulicy', 'ulicą', 'al', 'aleja', 'aleje', 'alei', 'alejami'}
+
     # FIX 2026-07-14: aliasy nazw ulic (mianownik→dopełniacz itp.) — dane w
     # address_parser_data.py. Stosowane w _canonicalize_street na wyniku ekstraktorów.
     STREET_ALIASES = _apd.STREET_ALIASES
@@ -631,11 +639,22 @@ class AddressParser:
                 print(f"      ⚠️ Odrzucono fałszywy adres: {potential_addr} (wykryto 'X minut/metrów')")
                 continue
             
+            # FIX 2026-07-31: nazwa będąca dzielnicą-i-ulicą (Kalinowszczyzna) z JAWNYM
+            # prefiksem adresowym (ul./ulica/...) to realny adres, nie dzielnica —
+            # przepuść przez filtry non_street_names / EXCLUDED_WORDS niżej.
+            prefix_is_address = (
+                prefix is not None
+                and prefix.lower().rstrip('.') in self._STREET_PREFIX_FORMS
+            )
+            is_district_street = (
+                prefix_is_address and street.lower() in self.DISTRICT_ALSO_STREET
+            )
+
             # NOWY FILTR: Sprawdź czy nazwa ulicy to nie instytucja/miejsce (nie ulica)
-            if street.lower() in non_street_names:
+            if street.lower() in non_street_names and not is_district_street:
                 print(f"      ⚠️ Odrzucono: '{street}' to nie jest nazwa ulicy")
                 continue
-            
+
             # Sprawdź czy którekolwiek słowo w nazwie ulicy NIE jest słowem wykluczonym
             # FIX 2026-07-09: WYJĄTEK dla znanych ulic Lublina (jak w extract_street_only) —
             # np. "Obrońców Pokoju" zawiera blacklistowane "pokoju", ale to realna ulica.
@@ -643,7 +662,7 @@ class AddressParser:
             is_known_full = ' '.join(w.lower() for w in street_words) in self._known_streets
             is_valid = True
 
-            if not is_known_full:
+            if not is_known_full and not is_district_street:
                 for word in street_words:
                     if word.lower() in excluded_words_lower:
                         is_valid = False
@@ -927,7 +946,16 @@ class AddressParser:
             first_word_lower = street_words[0].lower()
             full_lower = ' '.join(w.lower() for w in street_words)
             is_known_full = full_lower in self._known_streets
-            if first_word_lower in self.EXCLUDED_WORDS and not is_known_full:
+            # FIX 2026-07-31: dzielnica-i-ulica (Kalinowszczyzna) z jawnym prefiksem
+            # ulica-family — realny adres bez numeru ("ul. Kalinowszczyzna"). Prefiks
+            # jest tu zawsze obecny (STREET_ONLY_PATTERN go wymaga); ograniczamy do
+            # ul./aleja, bo "os. Kalinowszczyzna" opisuje osiedle (dzielnicę).
+            is_district_street = (
+                first_word_lower in self.DISTRICT_ALSO_STREET
+                and prefix_raw.lower().rstrip('.') in self._STREET_PREFIX_FORMS
+            )
+            if first_word_lower in self.EXCLUDED_WORDS and not is_known_full \
+                    and not is_district_street:
                 continue
 
             # Fix #4.3 (2026-05-11): jeśli któreś ze słów PO pierwszym jest na blackliście,
@@ -942,8 +970,11 @@ class AddressParser:
                 pass
             else:
                 valid_words = []
-                for w in street_words:
-                    if w.lower() in self.EXCLUDED_WORDS:
+                for idx, w in enumerate(street_words):
+                    # FIX 2026-07-31: dla dzielnicy-ulicy (Kalinowszczyzna) pierwsze
+                    # słowo jest w EXCLUDED_WORDS, ale to realna nazwa — nie przerywaj
+                    # na nim. Dalsze słowa ("Lublin Pokój") przycinaj normalnie.
+                    if w.lower() in self.EXCLUDED_WORDS and not (idx == 0 and is_district_street):
                         break  # przerwij na pierwszym blacklisted słowie
                     valid_words.append(w)
 
