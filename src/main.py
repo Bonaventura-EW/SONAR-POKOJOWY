@@ -416,7 +416,18 @@ class SonarPokojowy:
                 cached_full = str(cached_addr_raw)
                 cached_street = None
                 cached_number = None
-                cached_precision = 'exact'
+                # FIX 2026-08-01: goły string cache domyślnie dostawał precision='exact'
+                # (rank 2) — mina, przez którą ZGRUBNA etykieta (np. lokalizacja z OLX
+                # API "Szerokie", bez numeru, będąca nazwą dzielnicy/miejscowości) biła
+                # realną ulicę sparsowaną z tytułu (ID1aTdJS: "ul. Biedronki" → marker
+                # 2 km obok). String bez cyfry, który parser rozpoznaje jako dzielnicę,
+                # to poziom dzielnicy, nie exact. Realne ulice (z numerem albo spoza
+                # listy dzielnic, np. "Krakowskie Przedmieście") zostają exact.
+                if not any(ch.isdigit() for ch in cached_full) \
+                        and self.address_parser.extract_district(cached_full):
+                    cached_precision = 'district'
+                else:
+                    cached_precision = 'exact'
 
             cached_same_as_fresh = bool(
                 address_data
