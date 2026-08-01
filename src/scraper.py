@@ -691,7 +691,19 @@ class OLXScraper:
             city_name = city.get('name', '')
             district_name = district.get('name', '')
             if city_name:
-                offer['cached_address'] = f"{district_name + ', ' if district_name else ''}{city_name}"
+                # FIX 2026-08-01: lokalizacja z OLX API to poziom dzielnicy/miejscowości
+                # (np. city="Szerokie"), NIE dokładny adres. Zapisuj ją jako dict z
+                # precision='district', inaczej goły string dostaje w _process_offer
+                # domyślne precision='exact' (rank 2) i zgrubna etykieta OLX bije realną
+                # ulicę sparsowaną z tytułu (ID1aTdJS: "ul. Biedronki" przegrywało z
+                # "Szerokie" → marker ~2 km obok, na przybliżonym punkcie OLX zamiast
+                # na geokodowanej ul. Biedronki w Czubach).
+                offer['cached_address'] = {
+                    'full': f"{district_name + ', ' if district_name else ''}{city_name}",
+                    'street': None,
+                    'number': None,
+                    'precision': 'district',
+                }
 
             # Sprawdź cache - próbuj pełny ID, potem krótki (IDxxxxx)
             # OLX zmienia slug URL gdy tytuł ogłoszenia jest edytowany

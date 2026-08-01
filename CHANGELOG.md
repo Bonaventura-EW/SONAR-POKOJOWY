@@ -9,6 +9,15 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Adres: zgrubna lokalizacja z OLX API (dzielnica) biła realną ulicę z tytułu (2026-08-01)
+- **fix (zgłoszenie Mateusza — ID1aTdJS „w tytule ul. Biedronki, a marker na Szerokim")**: oferty firmowe (VillaHome) pobierane przez OLX API dostawały z pola `location` zgrubną etykietę (dla tej oferty `city="Szerokie"` — miejscowość, nie adres). Scraper zapisywał ją jako `cached_address` **gołym stringiem** + przybliżone współrzędne z API (`map`).
+- **root cause**: w `main.py:_process_offer` goły string cache dostawał **domyślnie `precision='exact'` (rank 2)**, a świeżo sparsowana z tytułu ulica „Biedronki" miała `street_only` (rank 1). `cached_rank(2) > fresh_rank(1)` → zgrubna „Szerokie" wygrywała, marker lądował na przybliżonym punkcie OLX (`51.25051, 22.47406`) zamiast na geokodowanej ul. Biedronki. Zweryfikowane w Nominatim: **ul. Biedronki realnie leży w Czuby Północne (`51.2317, 22.5061`)** — ~2 km od Szerokiego; lokalizacja OLX była zwyczajnie zgrubna/zła.
+- **fix dwustronny**:
+  - **producent (`scraper.py` → `_fetch_profile_offers_api`)**: lokalizacja z OLX API zapisywana jako dict z **`precision='district'`** (rank 0), a nie goły string. Każda realna ulica z tytułu/opisu ją teraz bije.
+  - **konsument (`main.py` → `_process_offer`)**: pas bezpieczeństwa — goły string cache **bez cyfry**, który parser rozpoznaje jako dzielnicę, dostaje `precision='district'` zamiast `exact`. Realne ulice (z numerem albo spoza listy dzielnic, np. „Krakowskie Przedmieście") zostają `exact`. Chroni też przed nawrotem z innych ścieżek/starych danych.
+- **zasięg**: 2 aktywne oferty firmowe dotknięte (ID1aTdJS „Biedronki", `ul-barszczewskiego-konstantynowska` „Barszczewskiego"). `offers.json` **nie ruszany ręcznie** — oba markery poprawią się same przy najbliższym skanie (świeży parsing ulicy z tytułu bije zdemotowaną dzielnicę).
+- **weryfikacja**: `test_integration.py` + golden parsera OK.
+
 ### Profil VillaHome: przepięty na nowe aktywne konto OLX (2026-07-31)
 - **chore (zgłoszenie Mateusza)**: profil firmowy `villahome` przepięty na nowe konto OLX. Stare konto (`user_id=1257717661`, slug `1n7fOJ`, sprzedawca „Katarzyna") było **martwe — 0 ofert** już od kilku skanów wstecz. Nowe konto: slug `2MKggM`, **`user_id=2552555424`** (sprzedawca „Magda", 13 ofert).
 - **root cause podmiany URL nie wystarczył**: skaner pobiera oferty przez OLX API v1 `/api/v1/offers/?user_id=X` (`scraper.py` → `_fetch_profile_offers_api`), więc liczy się `user_id`, nie vanity-slug w URL-u. Sama zmiana `url` zostawiała skaner na martwym starym `user_id`. Zmieniony też `user_id` → oferty wpadają przy najbliższym skanie.
