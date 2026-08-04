@@ -9,6 +9,10 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Profile: badge „zdjęte z OLX" ze szarego na zielony (2026-08-04)
+- **zmiana wizualna (zgłoszenie Mateusza)**: w `profile_tracker.html` badge sygnału `.sig-gone` („−N zdjęte z OLX") był szary (`#e2e8f0` / `#475569`). Zmieniony na solidny zielony (`#16a34a`, biały tekst) — spójny z resztą belki RUCH (`+N` czerwony, zmiany fiolet). Wybór wariantu A z before/after.
+- **zasięg**: legenda (belka RUCH) + realne badge na kaflach profili — obie sterowane tą samą klasą `.sig-gone`. Zaktualizowane też komentarze mówiące „szary".
+
 ### Adres: zgrubna lokalizacja z OLX API (dzielnica) biła realną ulicę z tytułu (2026-08-01)
 - **fix (zgłoszenie Mateusza — ID1aTdJS „w tytule ul. Biedronki, a marker na Szerokim")**: oferty firmowe (VillaHome) pobierane przez OLX API dostawały z pola `location` zgrubną etykietę (dla tej oferty `city="Szerokie"` — miejscowość, nie adres). Scraper zapisywał ją jako `cached_address` **gołym stringiem** + przybliżone współrzędne z API (`map`).
 - **root cause**: w `main.py:_process_offer` goły string cache dostawał **domyślnie `precision='exact'` (rank 2)**, a świeżo sparsowana z tytułu ulica „Biedronki" miała `street_only` (rank 1). `cached_rank(2) > fresh_rank(1)` → zgrubna „Szerokie" wygrywała, marker lądował na przybliżonym punkcie OLX (`51.25051, 22.47406`) zamiast na geokodowanej ul. Biedronki. Zweryfikowane w Nominatim: **ul. Biedronki realnie leży w Czuby Północne (`51.2317, 22.5061`)** — ~2 km od Szerokiego; lokalizacja OLX była zwyczajnie zgrubna/zła.
