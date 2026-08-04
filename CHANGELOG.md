@@ -9,6 +9,10 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Profile: nowy śledzony profil firmowy „Łukasz" (2026-08-04)
+- **feature (zgłoszenie Mateusza)**: dodany profil `lukasz` do `profiles_config.py` (`user_id=72066646`, URL `uzytkownik/4SnPg/`). Numeryczny `user_id` wyciągnięty z prerendered state strony OLX (slug `4SnPg` → id 72066646). API v1 zweryfikowane: 11 ofert, wszystkie Lublin (pokoje dla studentów przy UP/UMCS).
+- **zasięg**: wszyscy konsumenci (`main`, `scraper`, `map_generator`, `profile_generator`, `favorites_generator`) czytają dynamicznie z `TRACKED_PROFILES` — zakładka i markery zapełnią się przy najbliższym skanie.
+
 ### Profile: badge „zdjęte z OLX" ze szarego na zielony (2026-08-04)
 - **zmiana wizualna (zgłoszenie Mateusza)**: w `profile_tracker.html` badge sygnału `.sig-gone` („−N zdjęte z OLX") był szary (`#e2e8f0` / `#475569`). Zmieniony na solidny zielony (`#16a34a`, biały tekst) — spójny z resztą belki RUCH (`+N` czerwony, zmiany fiolet). Wybór wariantu A z before/after.
 - **zasięg**: legenda (belka RUCH) + realne badge na kaflach profili — obie sterowane tą samą klasą `.sig-gone`. Zaktualizowane też komentarze mówiące „szary".
