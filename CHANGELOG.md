@@ -9,6 +9,9 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: +1 oferta „Pokój jednosobowy LSM Lublin" (2026-08-05)
+- **feature (zgłoszenie Mateusza)**: dodana do `data/favorites.json` oferta `1bJns7` — „Pokój jednosobowy LSM Lublin" (900 zł, `numeric_id=1089487443`). Aktywna, Lublin, zweryfikowana przez OLX API v1. Snapshot (cena/wyświetlenia/status) i pliki pochodne zapełnią się przy najbliższym skanie (favorites_tracker).
+
 ### Ulubione: +3 oferty pokoi blisko uczelni (2026-08-04)
 - **feature (zgłoszenie Mateusza)**: dodane do `data/favorites.json` 3 oferty (wszystkie aktywne, Lublin, zweryfikowane przez OLX API v1):
   - `1biKnq` — „Nowoczesny pokój... ul. Irydiona" (850 zł, numeric_id 1083140708)
