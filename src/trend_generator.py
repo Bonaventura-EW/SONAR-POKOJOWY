@@ -37,8 +37,10 @@ RELIABLE_START = date(2026, 5, 16)
 # (guard nie zablokował — 40% > próg 30%), przez co ~560 ofert błędnie oznaczono
 # jako nieaktywne; następny pełny skan zobaczył je z powrotem i „zreaktywował"
 # hurtem (429 ofert z identycznym znacznikiem 11:23:30 = jeden skan). Realny odpływ
-# rynkowy to ~9/dzień. Naprawione u źródła auto-retry po częściowym scrape (22.07).
-# Takie dni rysujemy jako lukę i nie liczymy do średniej/statystyk reaktywacji.
+# rynkowy to ~9/dzień. Naprawione u źródła auto-retry po częściowym scrape (22.07);
+# same artefakty USUNIĘTE z offers.json 2026-08-06 (608 wpisów batcha, backup w
+# data/backups/). Dziś ten próg NIC nie tnie (dane czyste) — zostaje jako tania
+# asekuracja: taki dzień rysowałby się jako luka i nie wchodził do średniej/statystyk.
 REACT_ARTIFACT_THRESHOLD = 100
 
 
