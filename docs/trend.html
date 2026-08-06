@@ -35,6 +35,20 @@
 
         #chart { margin-top: 4px; min-height: 520px; }
 
+        .idxToolbar { display: flex; gap: 10px; flex-wrap: wrap; margin: 6px 0 10px; }
+        .idxBtn {
+            background: #333c4e; color: #c7cede; border: 1px solid #3f4a5e; border-radius: 10px;
+            padding: 8px 15px; font-size: 13.5px; font-weight: 600; cursor: pointer;
+            font-family: inherit; transition: .15s;
+        }
+        .idxBtn:hover { background: #3b465b; }
+        .idxBtn.on { background: #6c7bf2; color: #fff; border-color: #6c7bf2; }
+        .idxLegend { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 8px; }
+        .idxLegend:empty { margin: 0; }
+        .idxLegend .ci { display: flex; align-items: center; gap: 7px; color: #a9b2c4; font-size: 13px; }
+        .idxLegend .ci.muted { color: #8b93a7; } .idxLegend .ci b { color: #e8ecf3; }
+        .idxLegend .dot { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+
         .foot {
             color: #8b93a7; font-size: 12.5px; margin-top: 16px; line-height: 1.65;
         }
@@ -102,6 +116,11 @@
             <h2 id="title">Lublin &ndash; pokoje: wynajem</h2>
             <div class="sub"><span id="lastLabel">&mdash;</span> (<span id="curVal">&mdash;</span>)</div>
             <div class="deltas" id="deltas"></div>
+            <div class="idxToolbar">
+                <button id="idxSum" class="idxBtn on" type="button">📈 Suma aktywnych</button>
+                <button id="idxSplit" class="idxBtn" type="button">🔀 Rozbij &mdash; nowe / reaktywacje</button>
+            </div>
+            <div class="idxLegend" id="idxLegend"></div>
             <div id="chart"><div class="loading">Ładowanie danych…</div></div>
         </div>
 
@@ -125,6 +144,46 @@
             (oferta nieaktywna, jej <code>last_seen</code> = ten dzień). Czerwona linia to dzienny odpływ,
             pomarańczowa to średnia krocząca z 7 dni — wygładza dzienny szum i pokazuje trend nasilenia znikania.
             Ten sam start <strong>16.05.2026</strong> i to samo źródło co Indeks powyżej.
+        </div>
+
+        <div class="card" style="margin-top:22px">
+            <h2>🆕 Nowe oferty &ndash; ile pojawia się na rynku</h2>
+            <div class="sub" id="newLabel">Dzienny napływ nowych ofert (bez reaktywacji) + średnia 7-dniowa</div>
+            <div id="chart3"><div class="loading">Ładowanie danych…</div></div>
+        </div>
+
+        <div class="foot">
+            <strong>Skąd dane:</strong> dla każdego dnia liczba ofert, które tego dnia pojawiły się
+            po raz pierwszy (<code>first_seen</code> = ten dzień) &mdash; <strong>bez</strong> reaktywacji.
+            Zielona linia to dzienny napływ świeżych ogłoszeń, jasna to średnia krocząca z 7 dni.
+            Ten sam start <strong>16.05.2026</strong> i to samo źródło co Indeks powyżej.
+        </div>
+
+        <div class="card" style="margin-top:22px">
+            <h2>🔀 Napływ całkowity &ndash; nowe + reaktywacje</h2>
+            <div class="sub" id="allLabel">Wszystkie pojawienia się na rynku (świeże + wskrzeszone) + średnia 7-dniowa</div>
+            <div id="chart4"><div class="loading">Ładowanie danych…</div></div>
+        </div>
+
+        <div class="foot">
+            <strong>Skąd dane:</strong> suma nowych ofert (<code>first_seen</code>) i reaktywacji
+            (<code>reactivation_dates</code>) danego dnia &mdash; łączny „dopływ" ofert na rynek.
+            Dni-artefakty reaktywacji (bug pętli, naprawiony 24.07) są wycięte także tutaj.
+        </div>
+
+        <div class="card" style="margin-top:22px">
+            <h2>♻️ Reaktywacje &ndash; oferty wracające na rynek</h2>
+            <div class="sub" id="reactLabel">Dzienne reaktywacje + średnia 7-dniowa</div>
+            <div id="chart5"><div class="loading">Ładowanie danych…</div></div>
+        </div>
+
+        <div class="foot">
+            <strong>Skąd dane:</strong> dla każdego dnia liczba ofert, które tego dnia wróciły na rynek
+            po wcześniejszym zniknięciu (data w <code>reactivation_dates</code> = ten dzień).
+            <strong>Dwa dni (21.07, 12.06) są wycięte</strong> jako artefakt pipeline'u &mdash; bug pętli
+            <code>scrape&rarr;inactive&rarr;verify&rarr;reactivate</code> + jednorazowy backfill dat
+            (naprawione 24.07) wygenerowały piki 432 i 182, kilkanaście % bazy w jeden dzień. Na osi
+            widnieją jako luka; do średniej i statystyk nie wchodzą.
         </div>
     </div>
 
@@ -239,8 +298,60 @@
             }
         };
 
-        document.getElementById('chart').innerHTML = '';
-        new ApexCharts(document.querySelector('#chart'), options).render();
+        // --- Indeks: przełącznik Suma <-> rozbicie na pasma (nowe / recykling) ---
+        // Suma (mode 0) = istniejący wykres pola. Rozbicie (mode 1) = stacked area:
+        // dół = oferty świeże (nigdy nie reaktywowane), góra = recykling (kiedyś
+        // wróciły z martwych). Suma pasm == linia Indeksu. Dane z d.bands.
+        const bands = d.bands || null;
+        let idxChart = null, idxMode = 0;
+
+        function idxChip(color, label) {
+            return '<span class="ci"><span class="dot" style="background:' + color + '"></span>' + label + '</span>';
+        }
+
+        function stackedOptions() {
+            const zip = arr => arr;  // bands.new/react już są [[ms,v],...]
+            return Object.assign({}, options, {
+                chart: Object.assign({}, options.chart, { stacked: true, animations: { enabled: true, speed: 450 } }),
+                series: [
+                    { name: 'Nowe (świeże)', data: zip(bands.new) },
+                    { name: 'Reaktywacje (recykling)', data: zip(bands.react) }
+                ],
+                colors: ['#37c26b', '#e8830f'],
+                stroke: { curve: 'straight', width: 1.5 },
+                fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.75, opacityTo: 0.35, stops: [0, 100] } },
+                annotations: {},
+                tooltip: { theme: 'dark', shared: true, x: { format: 'dd.MM.yyyy' }, y: { formatter: function (v) { return v == null ? '—' : (v + ' ' + unit); } } }
+            });
+        }
+
+        function renderIndex() {
+            if (idxChart) idxChart.destroy();
+            document.getElementById('chart').innerHTML = '';
+            const opts = (idxMode === 1 && bands) ? stackedOptions() : options;
+            idxChart = new ApexCharts(document.querySelector('#chart'), opts);
+            idxChart.render();
+            document.getElementById('idxSum').classList.toggle('on', idxMode === 0);
+            document.getElementById('idxSplit').classList.toggle('on', idxMode === 1);
+            const leg = document.getElementById('idxLegend');
+            if (idxMode === 1 && bands) {
+                const n = bands.new[bands.new.length - 1][1], r = bands.react[bands.react.length - 1][1], t = n + r;
+                const pct = t ? Math.round(100 * r / t) : 0;
+                leg.innerHTML = idxChip('#37c26b', 'Nowe (świeże) &mdash; dół') + idxChip('#e8830f', 'Reaktywacje (recykling) &mdash; góra')
+                    + '<span class="ci muted">' + n + ' + ' + r + ' = ' + t + ' aktywnych &middot; <b>' + pct + '%</b> recykling</span>';
+            } else {
+                leg.innerHTML = '';
+            }
+        }
+
+        const idxSplitBtn = document.getElementById('idxSplit');
+        if (bands && bands.new && bands.new.length) {
+            document.getElementById('idxSum').addEventListener('click', function () { idxMode = 0; renderIndex(); });
+            idxSplitBtn.addEventListener('click', function () { idxMode = 1; renderIndex(); });
+        } else if (idxSplitBtn) {
+            idxSplitBtn.style.display = 'none';  // brak danych pasm → tylko Suma
+        }
+        renderIndex();
 
         // --- drugi wykres: dzienny odpływ ofert + średnia krocząca 7 dni ---
         const of = d.outflow;
@@ -284,6 +395,64 @@
             new ApexCharts(document.querySelector('#chart2'), opts2).render();
         } else {
             document.getElementById('chart2').innerHTML = '<div class="loading">Brak danych o odpływie.</div>';
+        }
+
+        // --- wykresy napływu: nowe / nowe+reaktywacje / reaktywacje ---
+        // Wspólny renderer w stylu wykresu odpływu (linia dzienna + smooth avg 7 dni).
+        function renderFlowChart(elId, metric, dailyName, colors) {
+            const opts = {
+                chart: {
+                    type: 'line', height: 380, background: 'transparent',
+                    locales: [PL_LOCALE], defaultLocale: 'pl',
+                    fontFamily: 'inherit', foreColor: '#8b93a7',
+                    toolbar: { show: true, tools: { download: true, selection: true, zoom: true, zoomin: true, zoomout: true, pan: true, reset: true } },
+                    animations: { enabled: true, speed: 550 },
+                    zoom: { enabled: true }
+                },
+                theme: { mode: 'dark' },
+                series: [
+                    { name: dailyName, data: metric.daily },
+                    { name: 'Średnia 7 dni', data: metric.avg }
+                ],
+                colors: colors,
+                stroke: { curve: ['straight', 'smooth'], width: [2, 3] },
+                dataLabels: { enabled: false },
+                markers: { size: 0, hover: { size: 5 } },
+                grid: { borderColor: '#3a4255', strokeDashArray: 4, xaxis: { lines: { show: true } }, yaxis: { lines: { show: true } } },
+                xaxis: {
+                    type: 'datetime', axisBorder: { show: false }, axisTicks: { color: '#3a4255' },
+                    labels: {
+                        datetimeUTC: false, style: { colors: '#8b93a7' },
+                        datetimeFormatter: { year: 'yyyy', month: "MMM 'yy", day: 'dd MMM', hour: 'HH:mm' }
+                    }
+                },
+                yaxis: { min: 0, tickAmount: 4, labels: { style: { colors: '#8b93a7' }, formatter: function (v) { return Math.round(v); } } },
+                legend: { labels: { colors: '#8b93a7' }, markers: { radius: 12 }, itemMargin: { horizontal: 10 } },
+                tooltip: { theme: 'dark', shared: true, x: { format: 'dd.MM.yyyy' }, y: { formatter: function (v) { return v == null ? '—' : (v + ' ofert'); } } }
+            };
+            document.getElementById(elId).innerHTML = '';
+            new ApexCharts(document.querySelector('#' + elId), opts).render();
+        }
+
+        const inf = d.inflow;
+        if (inf && inf.new && inf.new.daily && inf.new.daily.length) {
+            document.getElementById('newLabel').innerHTML =
+                'Pojawia się średnio <b>' + String(inf.new.rate).replace('.', ',') + '/dzień</b>, ' +
+                'rekord <b>' + inf.new.max_day + '</b> (' + inf.new.max_label + '). Zielona = nowe, jasna = trend 7 dni.';
+            document.getElementById('allLabel').innerHTML =
+                'Średnio <b>' + String(inf.new_react.rate).replace('.', ',') + '/dzień</b> pojawień (świeże + wskrzeszone), ' +
+                'rekord <b>' + inf.new_react.max_day + '</b> (' + inf.new_react.max_label + ').';
+            document.getElementById('reactLabel').innerHTML =
+                'Wraca średnio <b>' + String(inf.react.rate).replace('.', ',') + '/dzień</b>, ' +
+                'rekord <b>' + inf.react.max_day + '</b> (' + inf.react.max_label + '). Piki-artefakty wycięte.';
+
+            renderFlowChart('chart3', inf.new, 'Nowe danego dnia', ['#37c26b', '#82d3a3']);
+            renderFlowChart('chart4', inf.new_react, 'Pojawiło się danego dnia', ['#6c7bf2', '#a6b0f5']);
+            renderFlowChart('chart5', inf.react, 'Reaktywacje danego dnia', ['#2bb6c4', '#7fd6df']);
+        } else {
+            ['chart3', 'chart4', 'chart5'].forEach(function (id) {
+                document.getElementById(id).innerHTML = '<div class="loading">Brak danych o napływie.</div>';
+            });
         }
     })();
     </script>

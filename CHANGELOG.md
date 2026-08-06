@@ -9,6 +9,20 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Indeks: guzik „Rozbij" — nowe (świeże) vs recykling z reaktywacji (2026-08-06)
+- **feature (zgłoszenie Mateusza)**: na wykresie Indeksu (`trend.html`) doszedł przełącznik **Suma aktywnych ↔ Rozbij**. „Rozbij" pokazuje stacked area: dół = oferty świeże (do danego dnia nigdy nie reaktywowane), góra = „recykling" (kiedyś wróciły z martwych). Suma pasm == linia Indeksu. Dziś ~**39% żywego rynku to recykling** (504 świeże + 324 z reaktywacji = 828).
+- **backend (`src/trend_generator.py`)**: nowy `build_bands()` — najwcześniejsza `reactivation_dates` per oferta, dzienna rekonstrukcja wyrównana do `series` (ta sama konwencja `first_seen ≤ D ≤ end` co Indeks). Output → blok `bands` (`new`/`react`) w `trend_data.json`.
+- **front (`docs/trend.html`)**: toggle Suma/Rozbij, `stackedOptions()` dziedziczy po `options` Indeksu; w trybie Rozbij bez adnotacji MAX/MIN, legenda z % recyklingu. Fallback: brak `bands` → guzik ukryty. `node --check` inline-JS OK.
+
+### Indeks: 3 nowe wykresy napływu ofert — nowe / nowe+reaktywacje / reaktywacje (2026-08-06)
+- **feature (zgłoszenie Mateusza)**: pod „Odpływ ofert" na `trend.html` doszły trzy wykresy w tym samym stylu (linia dzienna + smooth średnia 7 dni):
+  - 🆕 **Nowe oferty** (bez reaktywacji) — `first_seen` = dany dzień (śr. 17,7/dzień).
+  - 🔀 **Napływ całkowity** — nowe + reaktywacje (śr. 27,2/dzień).
+  - ♻️ **Same reaktywacje** — `reactivation_dates` = dany dzień (śr. 9,4/dzień).
+- **backend (`src/trend_generator.py`)**: nowy `build_inflow()` + wspólny helper `_flow_metric()` (zrefaktorowany z `build_outflow()` — DRY). Output w `trend_data.json` → blok `inflow` z trzema metrykami.
+- **artefakty reaktywacji USUNIĘTE u źródła** (backup: `data/backups/offers.backup_reactivation_artifact_*`): piki 432 (21.07) i 182 (12.06) to skutek **częściowego scrape'u** (blokada OLX), nie rynek. Dowód w danych: 428/432 reaktywacji 21.07 ma identyczny znacznik `11:23:30` (jeden skan — batch). Mechanizm: skan 20.07 22:15 złapał tylko 299 ofert (norma ~840; guard nie zablokował, bo 40% > próg 30%) → ~560 ofert błędnie zdeaktywowanych → następny pełny skan 21.07 11:22 zobaczył je z powrotem i „zreaktywował" 429 hurtem. To samo 12.06 (`18:12:08`, 180 ofert). **Chirurgiczne czyszczenie**: usunięto dokładnie **608 wpisów batcha** z `reactivation_dates` w 589 ofertach (po znaczniku co-do-sekundy, nie po całym dniu — ~6 realnych reaktywacji z tych dni z innymi godzinami zostało), przeliczono `reactivation_count`, poprawiono `reactivated_at` (133 przestawione na wcześniejszą realną datę, 320 → `None`). Naprawia i wykresy napływu, i badge „reaktywacja ×N". Realny odpływ ~9/dzień. Źródło problemu już nie wróci — auto-retry po częściowym scrape (22.07). Próg `REACT_ARTIFACT_THRESHOLD=100` w `trend_generator` zostaje jako **tania asekuracja na przyszłość** (dziś nic nie tnie — dane czyste).
+- **front (`docs/trend.html`)**: 3 karty + wspólny renderer `renderFlowChart()`. `test_integration.py` OK.
+
 ### Ulubione: +1 oferta „Pokój jednosobowy LSM Lublin" (2026-08-05)
 - **feature (zgłoszenie Mateusza)**: dodana do `data/favorites.json` oferta `1bJns7` — „Pokój jednosobowy LSM Lublin" (900 zł, `numeric_id=1089487443`). Aktywna, Lublin, zweryfikowana przez OLX API v1. Snapshot (cena/wyświetlenia/status) i pliki pochodne zapełnią się przy najbliższym skanie (favorites_tracker).
 
