@@ -32,9 +32,12 @@ DAY_MS = 86_400_000
 RELIABLE_START = date(2026, 5, 16)
 
 # Dzień z liczbą reaktywacji powyżej tego progu traktujemy jako artefakt
-# pipeline'u, nie realny sygnał rynkowy: bug pętli scrape→inactive→verify→
-# reactivate + jednorazowy backfill dat (naprawione 2026-07-24) wygenerowały
-# piki rzędu 432 (21.07) i 182 (12.06) — kilkanaście % całej bazy w jeden dzień.
+# pipeline'u, nie realny sygnał rynkowy. Piki 432 (21.07) i 182 (12.06) to skutek
+# CZĘŚCIOWEGO SCRAPE'U (blokada OLX): poprzedni skan złapał ~299 zamiast ~840 ofert
+# (guard nie zablokował — 40% > próg 30%), przez co ~560 ofert błędnie oznaczono
+# jako nieaktywne; następny pełny skan zobaczył je z powrotem i „zreaktywował"
+# hurtem (429 ofert z identycznym znacznikiem 11:23:30 = jeden skan). Realny odpływ
+# rynkowy to ~9/dzień. Naprawione u źródła auto-retry po częściowym scrape (22.07).
 # Takie dni rysujemy jako lukę i nie liczymy do średniej/statystyk reaktywacji.
 REACT_ARTIFACT_THRESHOLD = 100
 

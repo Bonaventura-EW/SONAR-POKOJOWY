@@ -15,7 +15,7 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
   - 🔀 **Napływ całkowity** — nowe + reaktywacje (śr. 27,2/dzień).
   - ♻️ **Same reaktywacje** — `reactivation_dates` = dany dzień (śr. 9,4/dzień).
 - **backend (`src/trend_generator.py`)**: nowy `build_inflow()` + wspólny helper `_flow_metric()` (zrefaktorowany z `build_outflow()` — DRY). Output w `trend_data.json` → blok `inflow` z trzema metrykami.
-- **artefakty reaktywacji wycięte u źródła**: piki 432 (21.07) i 182 (12.06) to bug pętli `scrape→inactive→verify→reactivate` + jednorazowy backfill dat (naprawione 24.07) — kilkanaście % bazy w jeden dzień. Próg `REACT_ARTIFACT_THRESHOLD=100`: taki dzień rysuje się jako luka i nie wchodzi do średniej ani statystyk (dotyczy też napływu całkowitego; nowe oferty nietknięte).
+- **artefakty reaktywacji wycięte u źródła**: piki 432 (21.07) i 182 (12.06) to skutek **częściowego scrape'u** (blokada OLX), nie rynek. Dowód w danych: 428/432 reaktywacji 21.07 ma identyczny znacznik `11:23:30` (jeden skan). Mechanizm: skan 20.07 22:15 złapał tylko 299 ofert (norma ~840; guard nie zablokował, bo 40% > próg 30%) → ~560 ofert błędnie zdeaktywowanych → następny pełny skan 21.07 11:22 zobaczył je z powrotem i zreaktywował 429 hurtem. Realny odpływ ~9/dzień. Naprawione u źródła auto-retry po częściowym scrape (22.07). Próg `REACT_ARTIFACT_THRESHOLD=100`: taki dzień rysuje się jako luka i nie wchodzi do średniej ani statystyk (dotyczy też napływu całkowitego; nowe oferty nietknięte).
 - **front (`docs/trend.html`)**: 3 karty + wspólny renderer `renderFlowChart()`. `test_integration.py` OK.
 
 ### Ulubione: +1 oferta „Pokój jednosobowy LSM Lublin" (2026-08-05)
