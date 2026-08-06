@@ -9,6 +9,15 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Indeks: 3 nowe wykresy napływu ofert — nowe / nowe+reaktywacje / reaktywacje (2026-08-06)
+- **feature (zgłoszenie Mateusza)**: pod „Odpływ ofert" na `trend.html` doszły trzy wykresy w tym samym stylu (linia dzienna + smooth średnia 7 dni):
+  - 🆕 **Nowe oferty** (bez reaktywacji) — `first_seen` = dany dzień (śr. 17,7/dzień).
+  - 🔀 **Napływ całkowity** — nowe + reaktywacje (śr. 27,2/dzień).
+  - ♻️ **Same reaktywacje** — `reactivation_dates` = dany dzień (śr. 9,4/dzień).
+- **backend (`src/trend_generator.py`)**: nowy `build_inflow()` + wspólny helper `_flow_metric()` (zrefaktorowany z `build_outflow()` — DRY). Output w `trend_data.json` → blok `inflow` z trzema metrykami.
+- **artefakty reaktywacji wycięte u źródła**: piki 432 (21.07) i 182 (12.06) to bug pętli `scrape→inactive→verify→reactivate` + jednorazowy backfill dat (naprawione 24.07) — kilkanaście % bazy w jeden dzień. Próg `REACT_ARTIFACT_THRESHOLD=100`: taki dzień rysuje się jako luka i nie wchodzi do średniej ani statystyk (dotyczy też napływu całkowitego; nowe oferty nietknięte).
+- **front (`docs/trend.html`)**: 3 karty + wspólny renderer `renderFlowChart()`. `test_integration.py` OK.
+
 ### Ulubione: +1 oferta „Pokój jednosobowy LSM Lublin" (2026-08-05)
 - **feature (zgłoszenie Mateusza)**: dodana do `data/favorites.json` oferta `1bJns7` — „Pokój jednosobowy LSM Lublin" (900 zł, `numeric_id=1089487443`). Aktywna, Lublin, zweryfikowana przez OLX API v1. Snapshot (cena/wyświetlenia/status) i pliki pochodne zapełnią się przy najbliższym skanie (favorites_tracker).
 
