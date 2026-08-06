@@ -234,6 +234,59 @@ def build_inflow(offers):
     }
 
 
+def build_bands(offers):
+    """Rozbicie dziennej liczby AKTYWNYCH ofert na dwa pasma (suma = Indeks):
+
+    - `new`   : oferty świeże — do dnia D nie miały ani jednej reaktywacji,
+    - `react` : „recykling" — oferty, które do dnia D już kiedyś wróciły z martwych
+                (najwcześniejsza data w `reactivation_dates` <= D).
+
+    Ten sam zakres i konwencja co Indeks (`build_series`): oferta żyje w [first_seen,
+    end], end = dziś dla aktywnych, inaczej last_seen. Zwraca serie [[ms, v], ...]
+    wyrównane dzień-w-dzień do `series`, żeby front mógł je ustawić w stack.
+    """
+    spans, today = build_spans(offers)
+    if not spans:
+        return {'new': [], 'react': []}
+
+    # najwcześniejsza data reaktywacji per oferta (None = nigdy nie reaktywowana).
+    # Bazujemy na tej samej kolejności co build_spans (pomija oferty bez dat).
+    firsts = []
+    for o in offers:
+        if not o.get('first_seen') or not o.get('last_seen'):
+            continue
+        try:
+            _d(o['first_seen']); _d(o['last_seen'])
+        except (ValueError, TypeError):
+            continue
+        fr = None
+        for rr in (o.get('reactivation_dates') or []):
+            try:
+                rd = _d(rr)
+            except (ValueError, TypeError):
+                continue
+            if fr is None or rd < fr:
+                fr = rd
+        firsts.append(fr)
+
+    start = max(RELIABLE_START, min(s for s, _ in spans))
+    new_series, react_series = [], []
+    day = start
+    while day <= today:
+        ms = _day_ms(day)
+        r = 0
+        t = 0
+        for (s, e), fr in zip(spans, firsts):
+            if s <= day <= e:
+                t += 1
+                if fr is not None and fr <= day:
+                    r += 1
+        new_series.append([ms, t - r])
+        react_series.append([ms, r])
+        day += timedelta(days=1)
+    return {'new': new_series, 'react': react_series}
+
+
 def _value_at_or_before(series, target_ms):
     best = None
     for ms, val in series:
@@ -304,6 +357,7 @@ def generate_trend_data(base_dir: Path = None) -> bool:
         'series': series,
         'outflow': build_outflow(offers),
         'inflow': build_inflow(offers),
+        'bands': build_bands(offers),
     }
 
     write_json_atomic(output_file, out)

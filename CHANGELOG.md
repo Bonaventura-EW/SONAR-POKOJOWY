@@ -9,6 +9,11 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Indeks: guzik „Rozbij" — nowe (świeże) vs recykling z reaktywacji (2026-08-06)
+- **feature (zgłoszenie Mateusza)**: na wykresie Indeksu (`trend.html`) doszedł przełącznik **Suma aktywnych ↔ Rozbij**. „Rozbij" pokazuje stacked area: dół = oferty świeże (do danego dnia nigdy nie reaktywowane), góra = „recykling" (kiedyś wróciły z martwych). Suma pasm == linia Indeksu. Dziś ~**39% żywego rynku to recykling** (504 świeże + 324 z reaktywacji = 828).
+- **backend (`src/trend_generator.py`)**: nowy `build_bands()` — najwcześniejsza `reactivation_dates` per oferta, dzienna rekonstrukcja wyrównana do `series` (ta sama konwencja `first_seen ≤ D ≤ end` co Indeks). Output → blok `bands` (`new`/`react`) w `trend_data.json`.
+- **front (`docs/trend.html`)**: toggle Suma/Rozbij, `stackedOptions()` dziedziczy po `options` Indeksu; w trybie Rozbij bez adnotacji MAX/MIN, legenda z % recyklingu. Fallback: brak `bands` → guzik ukryty. `node --check` inline-JS OK.
+
 ### Indeks: 3 nowe wykresy napływu ofert — nowe / nowe+reaktywacje / reaktywacje (2026-08-06)
 - **feature (zgłoszenie Mateusza)**: pod „Odpływ ofert" na `trend.html` doszły trzy wykresy w tym samym stylu (linia dzienna + smooth średnia 7 dni):
   - 🆕 **Nowe oferty** (bez reaktywacji) — `first_seen` = dany dzień (śr. 17,7/dzień).

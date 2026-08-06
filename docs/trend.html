@@ -35,6 +35,20 @@
 
         #chart { margin-top: 4px; min-height: 520px; }
 
+        .idxToolbar { display: flex; gap: 10px; flex-wrap: wrap; margin: 6px 0 10px; }
+        .idxBtn {
+            background: #333c4e; color: #c7cede; border: 1px solid #3f4a5e; border-radius: 10px;
+            padding: 8px 15px; font-size: 13.5px; font-weight: 600; cursor: pointer;
+            font-family: inherit; transition: .15s;
+        }
+        .idxBtn:hover { background: #3b465b; }
+        .idxBtn.on { background: #6c7bf2; color: #fff; border-color: #6c7bf2; }
+        .idxLegend { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 8px; }
+        .idxLegend:empty { margin: 0; }
+        .idxLegend .ci { display: flex; align-items: center; gap: 7px; color: #a9b2c4; font-size: 13px; }
+        .idxLegend .ci.muted { color: #8b93a7; } .idxLegend .ci b { color: #e8ecf3; }
+        .idxLegend .dot { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+
         .foot {
             color: #8b93a7; font-size: 12.5px; margin-top: 16px; line-height: 1.65;
         }
@@ -102,6 +116,11 @@
             <h2 id="title">Lublin &ndash; pokoje: wynajem</h2>
             <div class="sub"><span id="lastLabel">&mdash;</span> (<span id="curVal">&mdash;</span>)</div>
             <div class="deltas" id="deltas"></div>
+            <div class="idxToolbar">
+                <button id="idxSum" class="idxBtn on" type="button">📈 Suma aktywnych</button>
+                <button id="idxSplit" class="idxBtn" type="button">🔀 Rozbij &mdash; nowe / reaktywacje</button>
+            </div>
+            <div class="idxLegend" id="idxLegend"></div>
             <div id="chart"><div class="loading">Ładowanie danych…</div></div>
         </div>
 
@@ -279,8 +298,60 @@
             }
         };
 
-        document.getElementById('chart').innerHTML = '';
-        new ApexCharts(document.querySelector('#chart'), options).render();
+        // --- Indeks: przełącznik Suma <-> rozbicie na pasma (nowe / recykling) ---
+        // Suma (mode 0) = istniejący wykres pola. Rozbicie (mode 1) = stacked area:
+        // dół = oferty świeże (nigdy nie reaktywowane), góra = recykling (kiedyś
+        // wróciły z martwych). Suma pasm == linia Indeksu. Dane z d.bands.
+        const bands = d.bands || null;
+        let idxChart = null, idxMode = 0;
+
+        function idxChip(color, label) {
+            return '<span class="ci"><span class="dot" style="background:' + color + '"></span>' + label + '</span>';
+        }
+
+        function stackedOptions() {
+            const zip = arr => arr;  // bands.new/react już są [[ms,v],...]
+            return Object.assign({}, options, {
+                chart: Object.assign({}, options.chart, { stacked: true, animations: { enabled: true, speed: 450 } }),
+                series: [
+                    { name: 'Nowe (świeże)', data: zip(bands.new) },
+                    { name: 'Reaktywacje (recykling)', data: zip(bands.react) }
+                ],
+                colors: ['#37c26b', '#e8830f'],
+                stroke: { curve: 'straight', width: 1.5 },
+                fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.75, opacityTo: 0.35, stops: [0, 100] } },
+                annotations: {},
+                tooltip: { theme: 'dark', shared: true, x: { format: 'dd.MM.yyyy' }, y: { formatter: function (v) { return v == null ? '—' : (v + ' ' + unit); } } }
+            });
+        }
+
+        function renderIndex() {
+            if (idxChart) idxChart.destroy();
+            document.getElementById('chart').innerHTML = '';
+            const opts = (idxMode === 1 && bands) ? stackedOptions() : options;
+            idxChart = new ApexCharts(document.querySelector('#chart'), opts);
+            idxChart.render();
+            document.getElementById('idxSum').classList.toggle('on', idxMode === 0);
+            document.getElementById('idxSplit').classList.toggle('on', idxMode === 1);
+            const leg = document.getElementById('idxLegend');
+            if (idxMode === 1 && bands) {
+                const n = bands.new[bands.new.length - 1][1], r = bands.react[bands.react.length - 1][1], t = n + r;
+                const pct = t ? Math.round(100 * r / t) : 0;
+                leg.innerHTML = idxChip('#37c26b', 'Nowe (świeże) &mdash; dół') + idxChip('#e8830f', 'Reaktywacje (recykling) &mdash; góra')
+                    + '<span class="ci muted">' + n + ' + ' + r + ' = ' + t + ' aktywnych &middot; <b>' + pct + '%</b> recykling</span>';
+            } else {
+                leg.innerHTML = '';
+            }
+        }
+
+        const idxSplitBtn = document.getElementById('idxSplit');
+        if (bands && bands.new && bands.new.length) {
+            document.getElementById('idxSum').addEventListener('click', function () { idxMode = 0; renderIndex(); });
+            idxSplitBtn.addEventListener('click', function () { idxMode = 1; renderIndex(); });
+        } else if (idxSplitBtn) {
+            idxSplitBtn.style.display = 'none';  // brak danych pasm → tylko Suma
+        }
+        renderIndex();
 
         // --- drugi wykres: dzienny odpływ ofert + średnia krocząca 7 dni ---
         const of = d.outflow;
