@@ -9,6 +9,9 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: +3 oferty — mieszkania 2 pok. Lublin centrum (2026-08-06)
+- **feature (zgłoszenie Mateusza)**: dodano do ulubionych `1bKGbp`, `1bKFSC`, `1bKa4H` (mieszkania 2-pokojowe, Lublin centrum). Tracker: wszystkie active, po 2500 zł. Regeneracja `favorites_data.json` (25 ofert).
+
 ### Ulubione: +1 oferta — Pana Balcera (UP/UMCS/KUL/Politechnika) (2026-08-06)
 - **feature (zgłoszenie Mateusza)**: dodano do ulubionych ofertę `1bKmlM` (Pana Balcera, blisko UP/UMCS/KUL/Politechniki). Tracker: active, cena 1100 zł, strona 1. Regeneracja `favorites_data.json` (22 oferty).
 
