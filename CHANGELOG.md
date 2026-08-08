@@ -9,6 +9,14 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Mapa: tryb „Zniknięcia" pokazuje wszystkie zniknięcia z danego dnia (2026-08-08)
+- **bug (zgłoszenie Mateusza)**: wykres odpływu na `trend.html` pokazywał dla 06.08.2026 **27 zniknięć**, suwak „📤 Zniknięcia" na mapie też liczył 27, a na mapie było **0 markerów** (po ręcznym włączeniu „Nieaktywne" — 2). Trzy niezależne przyczyny, wszystkie w `docs/assets/script.js`:
+  - **warstwy nieaktywnych zostawały wyłączone** — markery zniknięć są z definicji nieaktywne, a domyślnie żadna z warstw `layer-inactive` / `layer-inactive-approx` / `layer-firm-inactive` nie jest zaznaczona → pusta mapa. Fix: `applyGoneModeLayers()` włącza je przy wejściu w tryb i **przywraca stan sprzed wejścia** przy wyjściu (bez nadpisywania wyboru użytkownika). Warstwa „przybliżone nieaktywne" trafia na mapę przez `toggleInactiveApproxLayer()`, bo sam checkbox nie wystarcza (pułapka „LayerGroup bez `.addTo(map)`").
+  - **filtr „ostatnich N dni" (domyślnie 30) obcinał zniknięcia** — liczy po `first_seen`/`price_changed_at`, więc oferta dodana pół roku temu i zniknięta wczoraj wypadała z mapy (27 → 2). Fix: `isTimeFilterExempt()` — w trybie „Zniknięcia" okno N dni nie dotyczy ofert nieaktywnych. Aktywnych nie rusza.
+  - **oś suwaka przeskakiwała dni** — zawierała TYLKO dni, w których coś zniknęło. Fix: oś **ciągła** (z dniami zerowymi), start = `GONE_RELIABLE_START` (16.05.2026, zgodne z `RELIABLE_START` w `src/trend_generator.py`). Suwak ma teraz te same 84 dni co wykres odpływu.
+- **liczniki**: `updatePriceRangeCounts` / `updateBadgeCounts` dostały ten sam wyjątek czasowy **oraz** brakujący `passesGoneSliderFilter`, żeby pokazywały to samo, co mapa w tym trybie.
+- **weryfikacja headless** (Chromium/Playwright na `docs/`): oś 84 dni `16.05.2026 → 07.08.2026`; dzień 06.08 → odczyt „27 ofert” i **27 nieaktywnych markerów** na mapie; wyjście z trybu przywraca warstwy do stanu wyjściowego. Backend nietknięty.
+
 ### Ulubione: +3 oferty — mieszkania 2 pok. Lublin centrum (2026-08-06)
 - **feature (zgłoszenie Mateusza)**: dodano do ulubionych `1bKGbp`, `1bKFSC`, `1bKa4H` (mieszkania 2-pokojowe, Lublin centrum). Tracker: wszystkie active, po 2500 zł. Regeneracja `favorites_data.json` (25 ofert).
 
