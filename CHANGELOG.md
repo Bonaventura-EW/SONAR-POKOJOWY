@@ -9,6 +9,11 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Mapa: panel statystyk liczył inaczej niż mapa (507 vs 573) (2026-08-08)
+- **bug (znaleziony przy weryfikacji trybu „Zniknięcia")**: panel „Widoczne oferty / średnia / min / max" pokazywał **mniej ofert, niż było markerów na mapie** — przy domyślnym filtrze 30 dni **507 vs 573**. Dwa miejsca liczyły ten sam filtr czasowy różnie: `filterMarkers()` (mapa) przepuszczał ofertę gdy `first_seen` **LUB** `price_changed_at` mieści się w oknie, a `calculateFilteredStats()` → `passesTimeFilter()` (panel) patrzył **tylko na `first_seen`**. Efekt: oferta dodana dawno, ale z wczorajszą zmianą ceny była na mapie i nie było jej w statystykach — a średnia/min/max liczyły się bez tych 66 ofert.
+- **fix (`docs/assets/script.js`)**: `passesTimeFilter()` używa teraz dokładnie tego samego warunku co `filterMarkers()` (`first_seen` LUB `price_changed_at`). Przy okazji ujednolicone traktowanie braku daty — wcześniej niesparsowana data przepuszczała ofertę do statystyk, choć mapa ją odrzucała (dziś 0 ofert bez `first_seen`, więc bez efektu na danych).
+- **weryfikacja headless** (Chromium na `docs/`) — panel == liczba markerów w **8 stanach**: domyślny 573, filtr „Wszystkie" 780, „7 dni" 189, „90 dni" 764, z warstwą nieaktywnych 631, tryb „Zniknięcia" 06.08 → 27, powrót 573, wyszukiwarka → 1. Brak błędów JS.
+
 ### Mapa: tryb „Zniknięcia" wygasza warstwy aktywnych (2026-08-08)
 - **bug (zgłoszenie Mateusza)**: po poprzedniej poprawce zniknięcia były już na mapie, ale **warstwy aktywnych zostawały włączone** — 27 zniknięć tonęło wśród 573 aktywnych ofert (razem 600 markerów).
 - **fix (`docs/assets/script.js`)**: `applyGoneModeLayers()` działa teraz na obie strony — `GONE_MODE_SHOW_IDS` włącza nieaktywne, `GONE_MODE_HIDE_IDS` wyłącza `layer-active` / `layer-active-approx` / `layer-firm`. Wyjście z trybu przywraca stan sprzed wejścia (jeden wspólny backup). Checkboxy zostają klikalne — aktywne można w trakcie dołożyć ręcznie.
