@@ -497,11 +497,14 @@ function calculateFilteredStats() {
         // Tryb "Zniknięcia": nieaktywne nie podlegają oknu N dni (patrz isTimeFilterExempt)
         if (isTimeFilterExempt(offer.active)) return true;
 
-        // Użycie wspólnego helpera parsePolishDate (linia 5)
-        // parsePolishDate zwraca null przy błędzie - uwzględniamy ofertę (zachowane zachowanie)
-        const offerDate = parsePolishDate(offer.first_seen);
-        if (!offerDate) return true;
-        return offerDate >= cutoffDate;
+        // DOKŁADNIE ten sam warunek co w filterMarkers: first_seen LUB price_changed_at
+        // w oknie. Wcześniej liczyło się tylko first_seen, więc oferta ze świeżą zmianą
+        // ceny, ale starym first_seen, była NA MAPIE i nie było jej w statystykach
+        // (przy filtrze 30 dni panel pokazywał 507 przy 573 markerach).
+        const firstSeen = parsePolishDate(offer.first_seen);
+        const priceChanged = parsePolishDate(offer.price_changed_at);
+        return Boolean((firstSeen && firstSeen >= cutoffDate) ||
+                       (priceChanged && priceChanged >= cutoffDate));
     }
     
     // Zbierz wszystkie widoczne oferty (aktywne + nieaktywne razem)
