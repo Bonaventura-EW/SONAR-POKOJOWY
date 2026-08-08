@@ -494,7 +494,9 @@ function calculateFilteredStats() {
     // Funkcja pomocnicza sprawdzająca czy oferta spełnia kryteria czasowe
     function passesTimeFilter(offer) {
         if (!cutoffDate) return true;
-        
+        // Tryb "Zniknięcia": nieaktywne nie podlegają oknu N dni (patrz isTimeFilterExempt)
+        if (isTimeFilterExempt(offer.active)) return true;
+
         // Użycie wspólnego helpera parsePolishDate (linia 5)
         // parsePolishDate zwraca null przy błędzie - uwzględniamy ofertę (zachowane zachowanie)
         const offerDate = parsePolishDate(offer.first_seen);
@@ -1314,7 +1316,7 @@ function filterMarkers() {
         
         // Filtr czasowy - uwzględnia first_seen ORAZ price_changed_at
         // Oferta przechodzi gdy KTÓRAKOLWIEK z dat mieści się w zakresie
-        if (visible && cutoffDate) {
+        if (visible && cutoffDate && !isTimeFilterExempt(item.isActive)) {
             const firstSeenOk = item.firstSeenDate && item.firstSeenDate >= cutoffDate;
             const priceChangedOk = item.priceChangedAtDate && item.priceChangedAtDate >= cutoffDate;
             if (!firstSeenOk && !priceChangedOk) {
@@ -1329,7 +1331,6 @@ function filterMarkers() {
 
         // Filtr daty zniknięcia — dotyczy nieaktywnych ofert
         if (visible && !item.isActive && goneSliderState.enabled) {
-            const lastSeenDate = item.originalOffer ? parsePolishDate(item.originalOffer.last_seen) : null;
             if (!passesGoneSliderFilter(item.originalOffer || {})) {
                 visible = false;
             }
@@ -1684,6 +1685,14 @@ function passesDaySliderFilter(firstSeenDate) {
            firstSeenDate.getDate() === selected.getDate();
 }
 
+// W trybie "Zniknięcia" filtr "ostatnich N dni" (liczony po first_seen / price_changed_at)
+// NIE dotyczy ofert nieaktywnych — oferta mogła zostać dodana pół roku temu, a zniknąć
+// wczoraj. Bez tego wyjątku wybrany dzień odpływu pokazywał tylko te zniknięcia, które
+// zdążyły się też POJAWIĆ w oknie N dni (27 zniknięć na wykresie → 2 markery na mapie).
+function isTimeFilterExempt(isActive) {
+    return goneSliderState.enabled && !isActive;
+}
+
 // Sprawdź czy oferta (nieaktywna) przeszła przez filtr daty zniknięcia
 function passesGoneSliderFilter(offer) {
     if (!goneSliderState.enabled) return true;
@@ -1699,6 +1708,11 @@ function passesGoneSliderFilter(offer) {
            lastSeenDate.getMonth() === selected.getMonth() &&
            lastSeenDate.getDate() === selected.getDate();
 }
+
+// Pierwszy wiarygodny dzień odpływu — MUSI być zgodny z RELIABLE_START
+// w src/trend_generator.py. Wcześniejsze last_seen to artefakt rozpędzania scrapera
+// (maj 2026), wykres odpływu na trend.html też ich nie pokazuje.
+const GONE_RELIABLE_START = new Date(2026, 4, 16);  // 16.05.2026
 
 // Inicjalizacja suwaka daty zniknięcia
 function initGoneSlider() {
@@ -1719,12 +1733,25 @@ function initGoneSlider() {
 
     if (Object.keys(countsPerDay).length === 0) return;
 
-    // Zakres: od najstarszego do najnowszego last_seen
+    // Oś dni CIĄGŁA (z dniami zerowymi), od pierwszego wiarygodnego dnia — dokładnie
+    // tak jak wykres odpływu na trend.html. Wcześniej oś zawierała TYLKO dni, w których
+    // coś zniknęło, więc suwak przeskakiwał dni i rozjeżdżał się z wykresem.
     const sortedKeys = Object.keys(countsPerDay).sort();
-    const days = sortedKeys.map(k => {
+    const seenDays = sortedKeys.map(k => {
         const [y, m, d] = k.split('-').map(Number);
         return new Date(y, m - 1, d);
     });
+
+    const startDay = seenDays[0] > GONE_RELIABLE_START ? seenDays[0] : GONE_RELIABLE_START;
+    const endDay = seenDays[seenDays.length - 1];
+    if (endDay < startDay) return;
+
+    const days = [];
+    const cursor = new Date(startDay);
+    while (cursor <= endDay) {
+        days.push(new Date(cursor));
+        cursor.setDate(cursor.getDate() + 1);
+    }
 
     goneSliderState.days = days;
     goneSliderState.countsPerDay = countsPerDay;
@@ -1810,6 +1837,37 @@ function buildGoneHistogram() {
         goneSliderState.selectedIndex, goneSliderState.enabled, pickGoneDay);
 }
 
+// ===== Warstwy nieaktywnych w trybie "Zniknięcia" =====
+// Bez widocznych warstw nieaktywnych tryb "Zniknięcia" pokazywał pustą mapę (markery
+// zniknięć są z definicji nieaktywne). Wejście w tryb włącza je automatycznie,
+// wyjście przywraca stan sprzed wejścia — żeby nie nadpisać wyboru użytkownika.
+const GONE_MODE_LAYER_IDS = ['layer-inactive', 'layer-inactive-approx', 'layer-firm-inactive'];
+let goneModeLayerBackup = null;
+
+function applyGoneModeLayers(on) {
+    if (on) {
+        if (goneModeLayerBackup) return;   // już w trybie — nie nadpisuj backupu
+        goneModeLayerBackup = {};
+        GONE_MODE_LAYER_IDS.forEach(id => {
+            const cb = document.getElementById(id);
+            if (!cb) return;
+            goneModeLayerBackup[id] = cb.checked;
+            cb.checked = true;
+        });
+    } else {
+        if (!goneModeLayerBackup) return;  // nie byliśmy w trybie — nic do przywracania
+        GONE_MODE_LAYER_IDS.forEach(id => {
+            const cb = document.getElementById(id);
+            if (cb && id in goneModeLayerBackup) cb.checked = goneModeLayerBackup[id];
+        });
+        goneModeLayerBackup = null;
+    }
+    // Warstwa przybliżonych nieaktywnych trafia na mapę TYLKO przez swój toggle
+    // (sam checkbox nie wystarczy — patrz pułapka "LayerGroup bez .addTo(map)").
+    // toggleInactiveApproxLayer na końcu woła filterMarkers().
+    toggleInactiveApproxLayer();
+}
+
 // ===== Przełącznik trybu filtra dat =====
 // Jeden panel na raz: "Bez filtra" | "Dodania" | "Zniknięcia".
 // Steruje istniejącą logiką przez ukryte checkboxy — nie da się włączyć obu naraz.
@@ -1837,6 +1895,8 @@ function initDateModeToggle() {
         // Sterowanie istniejącą logiką filtrów przez ukryte checkboxy (tylko jeden aktywny)
         if (cbAdded && cbAdded.checked !== added) { cbAdded.checked = added; cbAdded.dispatchEvent(new Event('change')); }
         if (cbGone && cbGone.checked !== gone) { cbGone.checked = gone; cbGone.dispatchEvent(new Event('change')); }
+        // Tryb "Zniknięcia" wymaga widocznych warstw nieaktywnych (patrz applyGoneModeLayers)
+        applyGoneModeLayers(gone);
     }
 
     btns.forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
@@ -2109,14 +2169,16 @@ function updatePriceRangeCounts() {
         }
         
         // Filtr czasowy (first_seen LUB price_changed_at)
-        if (cutoffDate) {
+        if (cutoffDate && !isTimeFilterExempt(item.isActive)) {
             const firstSeenOk = item.firstSeenDate && item.firstSeenDate >= cutoffDate;
             const priceChangedOk = item.priceChangedAtDate && item.priceChangedAtDate >= cutoffDate;
             if (!firstSeenOk && !priceChangedOk) return;
         }
-        
+
         // Filtr suwaka dni
         if (!passesDaySliderFilter(item.firstSeenDate)) return;
+        // Filtr daty zniknięcia — żeby liczniki pokazywały to samo, co mapa w trybie "Zniknięcia"
+        if (!item.isActive && !passesGoneSliderFilter(item.originalOffer || {})) return;
         
         // Precyzyjny filtr cen
         const price = item.offers[0].price;
@@ -2193,14 +2255,16 @@ function updateBadgeCounts() {
         if (tag === 'mieszkanie' && !showMieszkanie) return;
         
         // Filtr czasowy (first_seen LUB price_changed_at)
-        if (cutoffDate) {
+        if (cutoffDate && !isTimeFilterExempt(item.isActive)) {
             const firstSeenOk = item.firstSeenDate && item.firstSeenDate >= cutoffDate;
             const priceChangedOk = item.priceChangedAtDate && item.priceChangedAtDate >= cutoffDate;
             if (!firstSeenOk && !priceChangedOk) return;
         }
-        
+
         // Filtr suwaka dni
         if (!passesDaySliderFilter(item.firstSeenDate)) return;
+        // Filtr daty zniknięcia — żeby liczniki pokazywały to samo, co mapa w trybie "Zniknięcia"
+        if (!item.isActive && !passesGoneSliderFilter(item.originalOffer || {})) return;
         
         // Filtr zakresów cenowych
         if (selectedRanges.length > 0 && !selectedRanges.includes(item.priceRange)) return;
