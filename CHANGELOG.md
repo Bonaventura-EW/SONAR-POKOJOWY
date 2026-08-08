@@ -9,6 +9,13 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Mapa: tryb „Zniknięcia" wygasza warstwy aktywnych (2026-08-08)
+- **bug (zgłoszenie Mateusza)**: po poprzedniej poprawce zniknięcia były już na mapie, ale **warstwy aktywnych zostawały włączone** — 27 zniknięć tonęło wśród 573 aktywnych ofert (razem 600 markerów).
+- **fix (`docs/assets/script.js`)**: `applyGoneModeLayers()` działa teraz na obie strony — `GONE_MODE_SHOW_IDS` włącza nieaktywne, `GONE_MODE_HIDE_IDS` wyłącza `layer-active` / `layer-active-approx` / `layer-firm`. Wyjście z trybu przywraca stan sprzed wejścia (jeden wspólny backup). Checkboxy zostają klikalne — aktywne można w trakcie dołożyć ręcznie.
+- **`layer-firm` przestawiany BEZ `onFirmLayerToggle()`** — ten synchronizuje checkboxy profili firmowych i skasowałby ręczny wybór profili. Sam checkbox wystarcza, bo `itemPassesLayerFilter` sprawdza `showFirm` przed listą profili. Zweryfikowane: profile zostają 10/10 przez cały cykl.
+- **weryfikacja headless** (Chromium na `docs/`): 573 → **27** markerów w trybie (06.08), 29 dla 30.07, powrót do trybu „off" odtwarza stan **1:1** (573, wszystkie checkboxy), tryb „Dodania" po „Zniknięciach" bez wygaszonych warstw, ręczne dołożenie „Aktywne" w trakcie działa (155). Brak błędów JS.
+- **znalezione przy okazji, NIE naprawione** (osobny, wcześniejszy bug): `calculateFilteredStats()` filtruje aktywne oferty tylko po `first_seen`, podczas gdy `filterMarkers()` używa `first_seen` **LUB** `price_changed_at`. Efekt: panel statystyk pokazuje mniej ofert niż jest markerów na mapie (przy domyślnych filtrach 507 vs 573 — 66 ofert różnicy; te ze zmianą ceny, ale starym `first_seen`). Nie dotyczy trybu „Zniknięcia" (tam 27 = 27).
+
 ### Mapa: tryb „Zniknięcia" pokazuje wszystkie zniknięcia z danego dnia (2026-08-08)
 - **bug (zgłoszenie Mateusza)**: wykres odpływu na `trend.html` pokazywał dla 06.08.2026 **27 zniknięć**, suwak „📤 Zniknięcia" na mapie też liczył 27, a na mapie było **0 markerów** (po ręcznym włączeniu „Nieaktywne" — 2). Trzy niezależne przyczyny, wszystkie w `docs/assets/script.js`:
   - **warstwy nieaktywnych zostawały wyłączone** — markery zniknięć są z definicji nieaktywne, a domyślnie żadna z warstw `layer-inactive` / `layer-inactive-approx` / `layer-firm-inactive` nie jest zaznaczona → pusta mapa. Fix: `applyGoneModeLayers()` włącza je przy wejściu w tryb i **przywraca stan sprzed wejścia** przy wyjściu (bez nadpisywania wyboru użytkownika). Warstwa „przybliżone nieaktywne" trafia na mapę przez `toggleInactiveApproxLayer()`, bo sam checkbox nie wystarcza (pułapka „LayerGroup bez `.addTo(map)`").

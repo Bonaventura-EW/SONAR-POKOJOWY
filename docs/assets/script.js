@@ -1837,34 +1837,43 @@ function buildGoneHistogram() {
         goneSliderState.selectedIndex, goneSliderState.enabled, pickGoneDay);
 }
 
-// ===== Warstwy nieaktywnych w trybie "Zniknięcia" =====
-// Bez widocznych warstw nieaktywnych tryb "Zniknięcia" pokazywał pustą mapę (markery
-// zniknięć są z definicji nieaktywne). Wejście w tryb włącza je automatycznie,
-// wyjście przywraca stan sprzed wejścia — żeby nie nadpisać wyboru użytkownika.
-const GONE_MODE_LAYER_IDS = ['layer-inactive', 'layer-inactive-approx', 'layer-firm-inactive'];
+// ===== Warstwy w trybie "Zniknięcia" =====
+// Tryb pokazuje odpływ z JEDNEGO dnia, więc przestawia warstwy na obie strony:
+//  - WŁĄCZA nieaktywne — markery zniknięć są z definicji nieaktywne, bez tego pusta mapa,
+//  - WYŁĄCZA aktywne — inaczej kilkadziesiąt zniknięć tonie wśród ~570 aktywnych ofert.
+// Wyjście z trybu przywraca stan sprzed wejścia, żeby nie nadpisać wyboru użytkownika.
+const GONE_MODE_SHOW_IDS = ['layer-inactive', 'layer-inactive-approx', 'layer-firm-inactive'];
+const GONE_MODE_HIDE_IDS = ['layer-active', 'layer-active-approx', 'layer-firm'];
 let goneModeLayerBackup = null;
 
 function applyGoneModeLayers(on) {
+    const remember = (id) => {
+        const cb = document.getElementById(id);
+        if (!cb) return null;
+        goneModeLayerBackup[id] = cb.checked;
+        return cb;
+    };
+
     if (on) {
         if (goneModeLayerBackup) return;   // już w trybie — nie nadpisuj backupu
         goneModeLayerBackup = {};
-        GONE_MODE_LAYER_IDS.forEach(id => {
-            const cb = document.getElementById(id);
-            if (!cb) return;
-            goneModeLayerBackup[id] = cb.checked;
-            cb.checked = true;
-        });
+        GONE_MODE_SHOW_IDS.forEach(id => { const cb = remember(id); if (cb) cb.checked = true; });
+        // layer-firm przestawiamy BEZ onFirmLayerToggle — ten synchronizuje checkboxy
+        // profili firmowych i skasowałby ręczny wybór profili. Sam checkbox wystarcza,
+        // bo itemPassesLayerFilter sprawdza showFirm PRZED listą profili.
+        GONE_MODE_HIDE_IDS.forEach(id => { const cb = remember(id); if (cb) cb.checked = false; });
     } else {
         if (!goneModeLayerBackup) return;  // nie byliśmy w trybie — nic do przywracania
-        GONE_MODE_LAYER_IDS.forEach(id => {
+        [...GONE_MODE_SHOW_IDS, ...GONE_MODE_HIDE_IDS].forEach(id => {
             const cb = document.getElementById(id);
             if (cb && id in goneModeLayerBackup) cb.checked = goneModeLayerBackup[id];
         });
         goneModeLayerBackup = null;
     }
-    // Warstwa przybliżonych nieaktywnych trafia na mapę TYLKO przez swój toggle
+    // Warstwy "przybliżone" trafiają na mapę TYLKO przez swoje toggle
     // (sam checkbox nie wystarczy — patrz pułapka "LayerGroup bez .addTo(map)").
     // toggleInactiveApproxLayer na końcu woła filterMarkers().
+    toggleActiveApproxLayer();
     toggleInactiveApproxLayer();
 }
 
