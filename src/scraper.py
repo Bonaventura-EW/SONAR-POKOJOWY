@@ -343,10 +343,24 @@ class OLXScraper:
         # FAZA 1: Pobierz wszystkie podstawowe oferty ze stron listingowych
         while current_url and page_num <= max_pages:
             print(f"📄 Strona {page_num}: {current_url}")
-            
-            soup = self._fetch_page(current_url)
+
+            # RETRY paginacji (2026-08-11): pojedynczy przejściowy reset/blok
+            # połączenia (curl_cffi bywa resetowany, _fetch_page robi cooldown
+            # i zwraca None) NIE może uciąć całego listingu. Bez retry jeden
+            # feler na stronie 3 dawał scrape 97/295 ofert zamiast ~900 →
+            # masowa fałszywa deaktywacja. Ponawiamy TĘ SAMĄ stronę do 4× z
+            # rosnącym backoffem; dopiero trwała porażka = urwana paginacja.
+            soup = None
+            for attempt in range(4):
+                soup = self._fetch_page(current_url)
+                if soup:
+                    break
+                if attempt < 3:
+                    backoff = 5 * (attempt + 1)  # 5s, 10s, 15s
+                    print(f"   ↻ Strona {page_num} nieudana (próba {attempt + 1}/4) — ponawiam za {backoff}s")
+                    time.sleep(backoff)
             if not soup:
-                print(f"⚠️ Nie udało się pobrać strony {page_num}")
+                print(f"⚠️ Nie udało się pobrać strony {page_num} po 4 próbach")
                 self.pagination_truncated = True
                 break
 

@@ -9,6 +9,12 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Scraper: retry paginacji + uszczelnienie guardu przed masową deaktywacją (2026-08-11)
+- **objaw**: pierwszy scan po wdrożeniu impersonacji (produkcja #612+) przebił blok (0 → 295 ofert), ale był CZĘŚCIOWY i zdeaktywował **773 → 336** ofert aktywnych (inactive 1277 → 1728). Status `completed`, `errors: []` — guardy się nie odpaliły.
+- **root cause #1 — brak retry w paginacji** (`src/scraper.py` → `scrape_all_pages`): pojedynczy przejściowy reset połączenia (curl_cffi bywa resetowany, `_fetch_page` robi cooldown i zwraca `None`) był traktowany jak KONIEC listingu → `pagination_truncated=True; break`. Jeden feler na stronie 3 dawał 97-295 ofert zamiast ~900. Dowód że to nie OLX ucina: każda strona 1/3/4/5/6/10 pobrana OSOBNO zwraca ~50 ofert z linkiem „następna". **Fix**: retry TEJ SAMEJ strony do 4× z backoffem 5/10/15s; dopiero trwała porażka = urwana paginacja. Po fixie pełna paginacja: **908 ofert z 21 stron, truncated=False**.
+- **root cause #2 — dziura w guardzie przy serii blokad** (`src/main.py`): `_reference_scrape_size()` liczy medianę z ostatnich 8 skanów pomijając `SCRAPE_BLOCKED`. Po 8 blokadach pod rząd `healthy` było puste → `None` → obie zapory oparte o medianę (SOFT_RATIO 70%, TRUNCATED_RATIO) WYŁĄCZONE. Została tylko dolna zapora 30% aktywnych (231) — scrape 385 > 231 przeszedł. **Fix**: dwie zapory awaryjne niezależne od mediany: (a) `pagination_truncated` + scrape < 90% aktywnej bazy → pomiń deaktywację; (b) brak mediany + scrape < 60% aktywnej bazy → pomiń deaktywację.
+- **naprawa szkody**: nie trzeba ręcznie — deaktywowane oferty NIE są skasowane (tylko `active=false`), a najbliższy PEŁNY scan zobaczy je w listingu i zreaktywuje (active wróci do ~770).
+
 ### Scraper: impersonacja TLS Safari (curl_cffi) — obejście bloku CloudFront/WAF (2026-08-11)
 - **kontekst**: po diagnozie bloku (wpis niżej) przetestowane opcje D (impersonacja TLS) i E (headless Chromium). Wynik testów na żywym bloku z datacenter IP: `requests` → 403, fingerprint **Chrome** (curl_cffi chrome120/124/131 ORAZ prawdziwy Playwright/Chromium) → **connection reset**, **`safari17_0` → 200 OK**. Wniosek: WAF tnie po **TLS fingerprincie (JA3)**, nie po IP. Opcja E odrzucona (ten sam reset co impersonacje Chrome + wolniejszy scan).
 - **zmiana**: wszystkie requesty do OLX idą przez `curl_cffi` z `impersonate="safari17_0"`:
