@@ -1840,6 +1840,30 @@ class SonarPokojowy:
                     f"SCRAPE_PARTIAL: paginacja urwana na pustej stronie, scrape {scraped_count} ofert "
                     f"(mediana zdrowych skanów: {reference_scrape}). Prawdopodobny soft-block OLX."
                 )
+            elif pagination_truncated and active_in_db >= 10 and scraped_count < active_in_db * TRUNCATED_RATIO:
+                # ZAPORA BEZ MEDIANY (2026-08-11): po serii SCRAPE_BLOCKED mediana
+                # zdrowych skanów znika (_reference_scrape_size → None), więc dwie
+                # zapory wyżej są WYŁĄCZONE. Wtedy sam fakt urwanej paginacji przy
+                # scrape mniejszym niż baza aktywnych = nie ufaj, nie dezaktywuj.
+                # Bez tego scrape 385 (urwany na str. 3) zdeaktywował 773→336.
+                print(f"   ⚠️  OCHRONA: Paginacja urwana, scrape {scraped_count} < baza "
+                      f"{active_in_db} aktywnych (brak mediany — seria blokad). Pomijam dezaktywację.")
+                scrape_blocked = True
+                self.scan_logger.log_error(
+                    f"SCRAPE_PARTIAL: paginacja urwana, scrape {scraped_count} ofert < baza "
+                    f"{active_in_db} aktywnych, brak mediany odniesienia (seria blokad OLX)."
+                )
+            elif reference_scrape is None and active_in_db >= 10 and scraped_count < active_in_db * 0.6:
+                # Mediana niedostępna (seria blokad) I scrape < 60% aktywnej bazy —
+                # nawet bez urwanej paginacji nie ufamy tak dużemu spadkowi zaraz
+                # po blokadach. Realny rynek nie kurczy się o 40% między skanami.
+                print(f"   ⚠️  OCHRONA: Brak mediany (seria blokad), scrape {scraped_count} < 60% "
+                      f"bazy {active_in_db} aktywnych. Pomijam dezaktywację.")
+                scrape_blocked = True
+                self.scan_logger.log_error(
+                    f"SCRAPE_PARTIAL: scrape {scraped_count} ofert < 60% bazy {active_in_db} "
+                    f"aktywnych, brak mediany odniesienia (seria blokad OLX)."
+                )
             else:
                 self._mark_inactive_offers(current_offer_ids, skipped_ids, skipped_refresh_map)
             
