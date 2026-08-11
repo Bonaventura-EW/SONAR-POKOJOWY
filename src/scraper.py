@@ -138,19 +138,32 @@ class OLXScraper:
         try:
             response = self.session.get(url, timeout=15)
             
-            # === WYKRYWANIE BLOKADY CLOUDFLARE / RATE LIMIT ===
-            # 403 + Cloudflare lub 429 = serwer nas hamuje
+            # === WYKRYWANIE BLOKADY CLOUDFLARE / CLOUDFRONT / RATE LIMIT ===
+            # 403/429/503 = serwer nas hamuje. OLX stoi za DWOMA warstwami:
+            #   - Cloudflare ("just a moment", cf-ray) — challenge/rate-limit
+            #   - AWS CloudFront ("Request blocked", Server: CloudFront) — WAF/blok IP
+            # Bez rozpoznania CloudFront _fetch_page traktował jego 403 jak zwykły
+            # błąd sieci (raise_for_status), więc scraper nie robił cooldownu ani
+            # auto-spowolnienia i nie logował poprawnie że został zablokowany.
             if response.status_code in (403, 429, 503):
                 content_lower = response.text[:2000].lower() if response.text else ''
-                is_cf = ('cloudflare' in content_lower or 'cf-ray' in str(response.headers).lower()
-                         or 'just a moment' in content_lower or 'attention required' in content_lower)
-                
-                if is_cf or response.status_code == 429:
+                headers_lower = str(response.headers).lower()
+                server_lower = response.headers.get('Server', '').lower()
+
+                is_cloudflare = ('cloudflare' in content_lower or 'cf-ray' in headers_lower
+                                 or 'just a moment' in content_lower or 'attention required' in content_lower)
+                is_cloudfront = ('cloudfront' in server_lower or 'cloudfront' in headers_lower
+                                 or 'request blocked' in content_lower
+                                 or 'the request could not be satisfied' in content_lower)
+                is_blocked = is_cloudflare or is_cloudfront
+
+                if is_blocked or response.status_code == 429:
+                    edge = 'CloudFront/WAF' if is_cloudfront else ('Cloudflare' if is_cloudflare else 'rate-limit')
                     with self._global_lock:
                         # Podwój globalny min_interval (auto-spowolnienie)
                         old_interval = self._global_min_interval
                         self._global_min_interval = min(old_interval * 2, 2.0)
-                        print(f"\n🛑 Wykryto blokadę ({response.status_code}) - spowalniam: "
+                        print(f"\n🛑 Wykryto blokadę {edge} ({response.status_code}) - spowalniam: "
                               f"{old_interval:.2f}s → {self._global_min_interval:.2f}s globalny interval")
                     # Cooldown 30s
                     time.sleep(30)
