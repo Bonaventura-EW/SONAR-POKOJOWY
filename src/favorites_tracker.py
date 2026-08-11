@@ -20,9 +20,12 @@ import re
 import sys
 from datetime import datetime
 
-import requests
-
+from scraper import OLXScraper, NETWORK_EXCEPTIONS
 from shared_utils import DATA_DIR, TZ, write_json_atomic
+
+# Sesja z impersonacją TLS Safari — zwykły requests dostaje 403 od WAF
+# CloudFront OLX (patrz scraper.py IMPERSONATE, 2026-08-11).
+_session = OLXScraper.make_olx_session()
 
 FAVORITES_FILE = DATA_DIR / 'favorites.json'
 TRACKING_FILE = DATA_DIR / 'favorites_tracking.json'
@@ -34,9 +37,9 @@ LISTING_POSITIONS_FILE = DATA_DIR / 'listing_positions.json'
 LISTING_MAX_AGE_H = 12
 
 API_URL = 'https://www.olx.pl/api/v1/offers/{numeric_id}/'
+# UA spójny z impersonacją TLS (Safari) — patrz scraper.py HEADERS.
 HEADERS = {
-    'User-Agent': ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                   'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36'),
+    'User-Agent': OLXScraper.HEADERS['User-Agent'],
     'Accept': 'application/json',
 }
 REQUEST_TIMEOUT = 20
@@ -83,15 +86,14 @@ def resolve_numeric_id(url: str) -> int | None:
     """Numeryczne ID oferty z window.__PRERENDERED_STATE__ strony OLX.
     Potrzebne raz — wynik zapisywany z powrotem do favorites.json."""
     try:
-        resp = requests.get(url, headers={'User-Agent': HEADERS['User-Agent']},
-                            timeout=REQUEST_TIMEOUT)
+        resp = _session.get(url, timeout=REQUEST_TIMEOUT)
         m = re.search(r'"sku":\s*"?(\d{6,})', resp.text)
         if m:
             return int(m.group(1))
         m = re.search(r'\\"id\\":(\d{6,}),\\"title\\"', resp.text)
         if m:
             return int(m.group(1))
-    except requests.RequestException as e:
+    except NETWORK_EXCEPTIONS as e:
         print(f"   ⚠️ Nie udało się pobrać strony {url}: {e}")
     return None
 
@@ -100,9 +102,9 @@ def fetch_api_snapshot(numeric_id: int) -> dict | None:
     """Snapshot z OLX API v1 (anonimowe). None = błąd sieci (nie zapisuj),
     {'status': 'removed'} = oferta usunięta z OLX (404)."""
     try:
-        resp = requests.get(API_URL.format(numeric_id=numeric_id),
+        resp = _session.get(API_URL.format(numeric_id=numeric_id),
                             headers=HEADERS, timeout=REQUEST_TIMEOUT)
-    except requests.RequestException as e:
+    except NETWORK_EXCEPTIONS as e:
         print(f"   ⚠️ Błąd API dla {numeric_id}: {e}")
         return None
 

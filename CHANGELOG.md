@@ -9,6 +9,16 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Scraper: impersonacja TLS Safari (curl_cffi) — obejście bloku CloudFront/WAF (2026-08-11)
+- **kontekst**: po diagnozie bloku (wpis niżej) przetestowane opcje D (impersonacja TLS) i E (headless Chromium). Wynik testów na żywym bloku z datacenter IP: `requests` → 403, fingerprint **Chrome** (curl_cffi chrome120/124/131 ORAZ prawdziwy Playwright/Chromium) → **connection reset**, **`safari17_0` → 200 OK**. Wniosek: WAF tnie po **TLS fingerprincie (JA3)**, nie po IP. Opcja E odrzucona (ten sam reset co impersonacje Chrome + wolniejszy scan).
+- **zmiana**: wszystkie requesty do OLX idą przez `curl_cffi` z `impersonate="safari17_0"`:
+  - `src/scraper.py`: nowy `OLXScraper.make_olx_session()` — **jedno źródło prawdy** dla sesji HTTP do OLX (impersonacja + nagłówki + CA z `CURL_CA_BUNDLE`/`REQUESTS_CA_BUNDLE` dla środowisk za MITM-proxy). `HEADERS['User-Agent']` zmieniony na Safari 17 (macOS) — **spójny z fingerprintem TLS** (UA Chrome + TLS Safari to niespójność wykrywalna przez WAF). Stała `IMPERSONATE='safari17_0'` z komentarzem „NIE zmieniaj na chrome*". Nowa krotka `NETWORK_EXCEPTIONS` (requests + curl_cffi — curl_cffi NIE dziedziczy po `requests.RequestException`) użyta we wszystkich `except`.
+  - `src/main.py` → `_verify_inactive_offers`: sesja weryfikacji z `make_olx_session()` (wcześniej osobny `requests.Session` z UA Chrome — też dostawał 403).
+  - `src/favorites_tracker.py`: moduł przechodzi na wspólną sesję (`resolve_numeric_id` + `fetch_api_snapshot`), UA importowany ze scrapera.
+  - `requirements.txt`: + `curl_cffi==0.16.0`.
+- **weryfikacja na żywym bloku**: listing 2 strony → 99 ofert (paginacja OK), 3 detale równolegle OK, API v1 profilu VillaHome → 13 ofert, thread-safety sesji 10 req / 5 wątków → 10×200. `test_integration.py` ✅, golden 2255/2255 ✅.
+- **plan awaryjny** (gdyby OLX zaczął ciąć też fingerprint Safari): retry-scan z Actions (nowy runner = nowe IP), zmiana godzin crona poza szczyt, self-hosted runner na residential IP. Notatki w dyskusji, nie wdrożone.
+
 ### Scraper: rozpoznawanie blokady AWS CloudFront/WAF w `_fetch_page` (2026-08-11)
 - **diagnoza (zgłoszenie Mateusza „zobacz co z ostatnimi scanami")**: od ~16:18 dnia 11.08 cztery scany pod rząd zwracały **0 ofert** → `SCRAPE_BLOCKED` (16:18, 16:22, 16:30, 16:33). Empty-scrape guard zadziałał — baza nietknięta (2050 total / 773 aktywne / 1277 nieaktywne bez zmian, nic fałszywie nie zdeaktywowane). Ostatni zdrowy scan 09:05 (905 ofert). Blok włączył się ~16:00.
 - **root cause**: OLX oddał `403` z krawędzi **AWS CloudFront** (`Server: CloudFront`, `x-cache: Error from cloudfront`, „Request blocked / The request could not be satisfied") — **nie** Cloudflare. Empirycznie potwierdzone: stary UA, nowy Chrome/131 z pełnym `sec-ch-ua`/`sec-fetch-*`, oraz `Referer: google.pl` — **wszystkie 403**, nawet samo `olx.pl` root. To blok na poziomie reputacji IP (zakres datacenter/Actions), przed logiką aplikacji — **żaden tuning nagłówków/UA go nie przebija**.

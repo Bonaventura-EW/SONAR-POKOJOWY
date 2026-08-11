@@ -1176,10 +1176,10 @@ class SonarPokojowy:
         Returns:
             Dict ze statystykami: {'verified': N, 'reactivated': N, 'confirmed_inactive': N, 'errors': N}
         """
-        import requests
         from bs4 import BeautifulSoup
         from concurrent.futures import ThreadPoolExecutor, as_completed
         import threading
+        from scraper import NETWORK_EXCEPTIONS
         
         stats = {
             'verified': 0,
@@ -1211,13 +1211,9 @@ class SonarPokojowy:
         
         print(f"   🔍 Weryfikuję {len(to_verify)} nieaktywnych ofert (z {len(inactive_offers)} łącznie) [10 wątków]...")
         
-        # Użyj sesji scrapera z odpowiednimi headerami (Session jest thread-safe dla GET)
-        session = requests.Session()
-        session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'pl-PL,pl;q=0.9,en;q=0.8'
-        })
+        # Sesja z impersonacją TLS Safari (WAF CloudFront tnie po JA3 —
+        # patrz scraper.py IMPERSONATE). Thread-safe dla GET.
+        session = OLXScraper.make_olx_session()
         
         now = datetime.now(self.tz).isoformat()
         # Per-thread rate limiter dla weryfikacji (delay 0.2-0.5s per wątek)
@@ -1307,7 +1303,7 @@ class SonarPokojowy:
                 # NIE reaktywujemy - oferta zostanie inactive aż wróci do listingu.
                 return (offer, 'confirmed_inactive', None)
                     
-            except requests.RequestException:
+            except NETWORK_EXCEPTIONS:
                 return (offer, 'error', None)
             except Exception as e:
                 # Nie-sieciowy wyjątek (np. zmiana HTML) — loguj, nie połykaj po cichu

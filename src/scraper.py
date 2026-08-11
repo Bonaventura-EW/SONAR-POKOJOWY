@@ -4,7 +4,9 @@ Obsługuje paginację (wszystkie strony), opóźnienia anti-block
 WERSJA 2.0: Równoległe pobieranie szczegółów (ThreadPoolExecutor)
 """
 
+import os
 import requests
+from curl_cffi import requests as cffi_requests
 from bs4 import BeautifulSoup
 import time
 import random
@@ -22,17 +24,49 @@ from address_parser_data import LUBLIN_DISTRICTS
 # inaczej oferta znika ze scanu i jej cena nigdy się nie aktualizuje.
 LUBLIN_CITY_NAMES = {'lublin'} | {d.lower() for d in LUBLIN_DISTRICTS}
 
+# === IMPERSONACJA TLS (2026-08-11) ===
+# WAF OLX (AWS CloudFront) tnie po TLS fingerprincie (JA3), nie po IP:
+# pythonowy requests → 403 "Request blocked", fingerprint Chrome
+# (curl_cffi chrome120/124/131 ORAZ prawdziwy headless Chromium) → connection
+# reset, safari17_0 → 200 z tego samego datacenter IP. Dlatego wszystkie
+# requesty do OLX idą przez curl_cffi z impersonacją Safari.
+# NIE zmieniaj na chrome* — empirycznie blokowane (2026-08-11).
+IMPERSONATE = 'safari17_0'
+
+# Wyjątki sieciowe: curl_cffi ma własną hierarchię (NIE dziedziczy po
+# requests.RequestException). Łap obie — część kodu (bs4/json helpers)
+# nadal może rzucić requests.RequestException.
+NETWORK_EXCEPTIONS = (requests.RequestException, cffi_requests.exceptions.RequestException)
+
 class OLXScraper:
     BASE_URL = "https://www.olx.pl/nieruchomosci/stancje-pokoje/lublin/"
     
+    # UA MUSI być spójny z impersonacją TLS (IMPERSONATE = safari17_0).
+    # Nagłówek Chrome + TLS Safari = niespójność, którą WAF może wyłapać.
     HEADERS = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'pl,en-US;q=0.7,en;q=0.3',
         'Connection': 'keep-alive',
         'Upgrade-Insecure-Requests': '1'
     }
-    
+
+    @staticmethod
+    def make_olx_session() -> 'cffi_requests.Session':
+        """
+        Jedno źródło prawdy dla sesji HTTP do OLX — curl_cffi z impersonacją
+        TLS Safari (patrz komentarz przy IMPERSONATE). Używane przez scraper,
+        weryfikację nieaktywnych (main.py) i favorites_tracker.
+
+        verify: w GitHub Actions ruch idzie bezpośrednio (default True);
+        CURL_CA_BUNDLE/REQUESTS_CA_BUNDLE pozwala podać własne CA
+        (np. środowiska za MITM-proxy).
+        """
+        ca = os.environ.get('CURL_CA_BUNDLE') or os.environ.get('REQUESTS_CA_BUNDLE')
+        session = cffi_requests.Session(impersonate=IMPERSONATE, verify=ca if ca else True)
+        session.headers.update(OLXScraper.HEADERS)
+        return session
+
     def __init__(self, delay_range: tuple = (2, 4), max_workers: int = 5, existing_offers: dict = None):
         """
         Args:
@@ -44,8 +78,7 @@ class OLXScraper:
         """
         self.delay_min, self.delay_max = delay_range
         self.max_workers = max_workers
-        self.session = requests.Session()
-        self.session.headers.update(self.HEADERS)
+        self.session = self.make_olx_session()
         
         # Per-thread rate limiter (KAŻDY WĄTEK MA SWÓJ LICZNIK)
         # Wcześniej globalny self._lock + self._last_request_time powodował, że
@@ -171,7 +204,7 @@ class OLXScraper:
             
             response.raise_for_status()
             return BeautifulSoup(response.text, 'lxml')
-        except requests.RequestException as e:
+        except NETWORK_EXCEPTIONS as e:
             print(f"❌ Błąd pobierania {url}: {e}")
             return None
     
@@ -445,7 +478,7 @@ class OLXScraper:
                             
                             progress = (completed / total) * 100
                             print(f"\r   Postęp: [{completed}/{total}] {progress:.1f}%", end='', flush=True)
-                        except (requests.RequestException, AttributeError, TypeError) as e:
+                        except (*NETWORK_EXCEPTIONS, AttributeError, TypeError) as e:
                             print(f"\n   ⚠️ Błąd pobierania: {e}")
                 
                 elapsed = time.time() - start_time
@@ -528,7 +561,7 @@ class OLXScraper:
                     n = future_to_page[future]
                     try:
                         _absorb(future.result(), n)
-                    except (requests.RequestException, AttributeError, TypeError) as e:
+                    except (*NETWORK_EXCEPTIONS, AttributeError, TypeError) as e:
                         print(f"   ⚠️ Strona {n}: {e}")
 
         print(f"   ✅ {len(positions)} ofert zmapowanych z {last_page} stron")
@@ -632,7 +665,7 @@ class OLXScraper:
 
                 self._random_delay()
 
-            except (requests.RequestException, ValueError, KeyError) as e:
+            except (*NETWORK_EXCEPTIONS, ValueError, KeyError) as e:
                 print(f"   ⚠️ Błąd API strona {page_num}: {e}")
                 break
 
@@ -779,7 +812,7 @@ class OLXScraper:
                         if completed % 10 == 0 or completed == total_fetch:
                             print(f"\r   Postęp: [{completed}/{total_fetch}] "
                                   f"{completed/total_fetch*100:.0f}%", end='', flush=True)
-                    except (requests.RequestException, AttributeError, TypeError) as e:
+                    except (*NETWORK_EXCEPTIONS, AttributeError, TypeError) as e:
                         print(f"\n   ⚠️ Błąd: {e}")
 
             print(f"\n   ✅ Szczegóły profili pobrane")
