@@ -643,6 +643,92 @@
                 currentDate.setDate(currentDate.getDate() + 1);
             }
 
+            // --- Dzień "w toku" (opcja A) ---
+            // Ostatni słupek to DZISIAJ. Zniknięcia wykrywane są z opóźnieniem
+            // (oferta musi zniknąć z kolejnego skanu + weryfikacja URL), więc
+            // czerwony słupek dzisiejszego dnia jest strukturalnie niekompletny.
+            // Oznaczamy go wizualnie i dorysowujemy "ducha" prognozy — bez zmian w danych.
+            const lastIdx = labels.length - 1;
+            const todayKey = now.toISOString().split('T')[0];
+            const isTodayLast = labels[lastIdx] === todayKey;
+            const actualGoneToday = dailyRemoved[labels[lastIdx]] || 0;
+            // prognoza = mediana zniknięć z max 7 poprzednich (pełnych) dni
+            const prevGone = labels.slice(Math.max(0, lastIdx - 7), lastIdx)
+                .map(d => dailyRemoved[d] || 0)
+                .sort((a, b) => a - b);
+            const estimatedGone = prevGone.length
+                ? Math.round(prevGone[Math.floor(prevGone.length / 2)])
+                : 0;
+
+            // Rysuje: szrafowane tło kolumny "dziś", plakietkę "w toku"
+            // oraz przerywanego "ducha" brakującego czerwonego słupka.
+            const incompleteDayPlugin = {
+                id: 'incompleteDay',
+                afterDatasetsDraw(chart) {
+                    if (!isTodayLast) return;
+                    const meta0 = chart.getDatasetMeta(0).data[lastIdx];
+                    const meta1 = chart.getDatasetMeta(1).data[lastIdx];
+                    if (!meta0 || !meta1) return;
+                    const yScale = chart.scales.y;
+                    const area = chart.chartArea;
+                    const g = chart.ctx;
+                    const left = meta0.x - meta0.width / 2 - 2;
+                    const right = meta1.x + meta1.width / 2 + 2;
+                    const base = yScale.getPixelForValue(0);
+
+                    g.save();
+                    // Szrafowane tło kolumny
+                    g.beginPath();
+                    g.rect(left, area.top, right - left, base - area.top);
+                    g.clip();
+                    g.strokeStyle = 'rgba(107,114,128,0.22)';
+                    g.lineWidth = 1;
+                    for (let x = left - (base - area.top); x < right; x += 7) {
+                        g.beginPath();
+                        g.moveTo(x, base);
+                        g.lineTo(x + (base - area.top), area.top);
+                        g.stroke();
+                    }
+                    g.restore();
+
+                    // "Duch" prognozowanych zniknięć (tylko brakująca część)
+                    if (estimatedGone > actualGoneToday) {
+                        const topGhost = yScale.getPixelForValue(estimatedGone);
+                        const fromGhost = yScale.getPixelForValue(actualGoneToday);
+                        g.save();
+                        g.fillStyle = 'rgba(239,68,68,0.12)';
+                        g.strokeStyle = 'rgba(239,68,68,0.65)';
+                        g.lineWidth = 1.2;
+                        g.setLineDash([4, 3]);
+                        const gx = meta1.x - meta1.width / 2;
+                        g.fillRect(gx, topGhost, meta1.width, fromGhost - topGhost);
+                        g.strokeRect(gx, topGhost, meta1.width, fromGhost - topGhost);
+                        g.restore();
+                    }
+
+                    // Plakietka "w toku"
+                    g.save();
+                    const cx = (left + right) / 2;
+                    const label = 'w toku';
+                    g.font = '700 10px -apple-system, Segoe UI, Roboto, sans-serif';
+                    const tw = g.measureText(label).width;
+                    const padX = 6, bh = 15;
+                    const by = area.top + 2;
+                    const bx = cx - tw / 2 - padX;
+                    const bw = tw + padX * 2;
+                    g.fillStyle = getComputedStyle(document.body).backgroundColor || '#fff';
+                    g.strokeStyle = 'rgba(107,114,128,0.5)';
+                    g.lineWidth = 1;
+                    if (g.roundRect) { g.beginPath(); g.roundRect(bx, by, bw, bh, 7); g.fill(); g.stroke(); }
+                    else { g.fillRect(bx, by, bw, bh); g.strokeRect(bx, by, bw, bh); }
+                    g.fillStyle = '#6b7280';
+                    g.textAlign = 'center';
+                    g.textBaseline = 'middle';
+                    g.fillText(label, cx, by + bh / 2 + 0.5);
+                    g.restore();
+                }
+            };
+
             const ctx = document.getElementById('newOffersChart');
 
             if (window.newOffersChartInstance) {
@@ -651,6 +737,7 @@
 
             window.newOffersChartInstance = new Chart(ctx, {
                 type: 'bar',
+                plugins: [incompleteDayPlugin],
                 data: {
                     labels: labels.map(d => new Date(d).toLocaleDateString('pl-PL')),
                     datasets: [
@@ -687,7 +774,15 @@
                                     const n = dailyNew[labels[idx]] || 0;
                                     const r = dailyRemoved[labels[idx]] || 0;
                                     const bilans = n - r;
-                                    return 'Bilans: ' + (bilans >= 0 ? '+' : '') + bilans;
+                                    let out = 'Bilans: ' + (bilans >= 0 ? '+' : '') + bilans;
+                                    if (isTodayLast && idx === lastIdx) {
+                                        out += '\n\n📅 Dzień niekompletny — zniknięcia wykrywane'
+                                             + '\nsą z opóźnieniem (oferta musi zniknąć z'
+                                             + '\nkolejnego skanu i przejść weryfikację URL).'
+                                             + '\nCzerwony słupek dopełni się w ciągu 1–2 dni.'
+                                             + (estimatedGone > r ? '\nPrognoza zniknięć: ~' + estimatedGone : '');
+                                    }
+                                    return out;
                                 }
                             }
                         }

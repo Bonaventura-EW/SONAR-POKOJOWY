@@ -9,6 +9,12 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Analityka: dzień „w toku" na wykresie „Nowe oferty dziennie" (2026-08-14)
+- **zgłoszenie Mateusza**: na `analytics.html` najświeższy dzień (dziś) miał zielony słupek „Nowe", ale **zerowy czerwony „Zniknęły"** — wyglądało jak dziura w danych.
+- **root cause (nie bug w danych)**: wykres liczy ofertę jako „zniknęła" gdy `!active && last_seen == dany dzień` (`analytics.html:632`). Oferta staje się `active=false` z **opóźnieniem** — musi zniknąć z KOLEJNEGO skanu i przejść weryfikację URL (`_verify_inactive_offers`: 410/404/brak `InStock`), a jej `last_seen` zostaje na ostatnim żywym dniu. Dziś nic nie zdążyło zostać potwierdzone jako zniknięte (jeden skan 09:23, cron 9/15/21) → czerwony słupek dnia bieżącego jest strukturalnie niekompletny i dopełnia się wstecznie przez 1–2 dni. Dowód: 13.08 już ma pełne 36 zniknięć, 14.08 = 0.
+- **fix (wyłącznie warstwa wizualna, zero zmian w pipeline/danych — opcja A wybrana przez Mateusza)** w `createNewOffersChart` (`docs/analytics.html`): lokalny plugin `incompleteDayPlugin` oznacza ostatni słupek (jeśli = dzisiaj) — szrafowane tło kolumny, plakietka **„w toku"**, oraz przerywany **„duch"** brakującego czerwonego słupka (prognoza = mediana zniknięć z 7 poprzednich dni). Tooltip dnia bieżącego dostał notkę wyjaśniającą opóźnienie deaktywacji + prognozę. Oznaczanie warunkowe (`labels[last] === todayKey`), więc przy podglądzie historycznym nic się nie dorysowuje.
+- **weryfikacja**: `test_analytics.py` ✅ (struktura HTML OK), headless Chromium na `docs/` — wykres renderuje się bez błędów JS, plugin aktywny, ostatni słupek 14.08 z plakietką „w toku" + duchem ~27.
+
 ### Trend: czyszczenie artefaktu reaktywacji z fałszywej deaktywacji (2026-08-11)
 - **objaw (zgłoszenie Mateusza — „duża linia spadkowa")**: na `trend.html` w trybie „Rozbij — nowe / reaktywacje" zielone pasmo „świeże" runęło 11.08 z ~480 do **252**, a pomarańczowy „recykling" skoczył do 549 (suma 801 bez zmian). Ostry „V" na końcu wykresu.
 - **root cause**: artefakt incydentu z tego samego dnia. Częściowy scan 20:34 fałszywie zdeaktywował 443 oferty, naprawczy scan 20:53 wskrzesił je hurtem i dopisał każdej `reactivation_dates = 2026-08-11T20:53:04`. `build_bands` (`src/trend_generator.py`) klasyfikuje ofertę jako „recykling" gdy jej NAJWCZEŚNIEJSZA reaktywacja ≤ dany dzień — dla **241 ofert 11.08 była pierwszą reaktywacją w życiu**, więc przeskoczyły „świeże → recykling". To nie sygnał rynkowy, oferty nigdy realnie nie zniknęły.
