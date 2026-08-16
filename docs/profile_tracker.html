@@ -88,6 +88,14 @@
         .sig-chg  { background: #7c3aed; color: #fff; }
         .sig-gone { background: #16a34a; color: #fff; }
         .sig[data-tip] { cursor: help; }
+        /* Znacznik zmiany ceny w legendzie mapy — kółko jak badge na pinezce */
+        .pin-sig {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 17px; height: 17px; border-radius: 50%;
+            color: #fff; font-size: 11px; font-weight: 800; line-height: 1;
+            border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.12);
+            flex-shrink: 0;
+        }
         @keyframes sigPulse {
             0%, 100% { opacity: 1; }
             55% { opacity: 0.55; }
@@ -473,6 +481,12 @@
             </div>
 
             <div class="lg-group">
+                <span class="lg-title">Na mapie</span>
+                <span class="lg"><span class="pin-sig" style="background:#28a745">↓</span> <em>pinezka — cena spadła</em></span>
+                <span class="lg"><span class="pin-sig" style="background:#dc3545">↑</span> <em>pinezka — cena wzrosła</em></span>
+            </div>
+
+            <div class="lg-group">
                 <span class="lg-title">W karcie</span>
                 <span class="lg">📅 <em>pierwszy raz widziane</em></span>
                 <span class="lg">⏳ <em>dni na rynku</em></span>
@@ -528,7 +542,7 @@ function initMap() {
     }).addTo(map);
 }
 
-function makeLeafletIcon(color, active, highlighted) {
+function makeLeafletIcon(color, active, highlighted, trend) {
     const stroke = highlighted ? '#f59e0b' : '#d97706';
     const sw = highlighted ? 4 : 2.5;
     const glow = highlighted ? 'filter:drop-shadow(0 0 5px #f59e0b)' : '';
@@ -537,14 +551,25 @@ function makeLeafletIcon(color, active, highlighted) {
         : highlighted
         ? '<circle cx="12" cy="11" r="5" fill="white"/><text x="12" y="11" text-anchor="middle" dominant-baseline="central" font-size="9" font-weight="800" fill="' + color + '">★</text>'
         : '<circle cx="12" cy="11" r="5" fill="white" opacity="0.9"/>';
+    // Badge zmiany ceny (spójny z _drawCornerBadge mapy głównej): ↓ zielony spadek /
+    // ↑ czerwony wzrost. Tylko dla aktywnych — nieaktywne mają × w środku.
+    let badge = '';
+    if (active && (trend === 'down' || trend === 'up')) {
+        const bc = trend === 'down' ? '#28a745' : '#dc3545';
+        const arr = trend === 'down' ? '↓' : '↑';
+        badge = '<circle cx="20" cy="4" r="6.3" fill="' + bc + '" stroke="#fff" stroke-width="2"/>'
+              + '<text x="20" y="4.6" text-anchor="middle" dominant-baseline="central" font-size="9.5" font-weight="800" fill="#fff">' + arr + '</text>';
+    }
+    // viewBox z 2px marginesem, by badge w rogu nie był przycięty; ostrze kropli (12,32)
+    // → piksel (14,34), więc iconAnchor bez zmian względem kształtu.
     return L.divIcon({
         className: '',
-        html: '<svg width="24" height="32" viewBox="0 0 24 32" style="' + glow + '">'
+        html: '<svg width="28" height="34" viewBox="-2 -2 28 34" style="overflow:visible;' + glow + '">'
             + '<path d="M12 0C5 0 0 5 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5 19 0 12 0Z"'
             + ' fill="' + color + '" stroke="' + stroke + '" stroke-width="' + sw + '"'
             + (active ? '' : ' opacity="0.35"') + '/>'
-            + inner + '</svg>',
-        iconSize: [24, 32], iconAnchor: [12, 32], popupAnchor: [0, -34]
+            + inner + badge + '</svg>',
+        iconSize: [28, 34], iconAnchor: [14, 34], popupAnchor: [0, -36]
     });
 }
 
@@ -582,7 +607,7 @@ function renderMarkers(profileKey) {
         if (!o.lat || !o.lon || !inLublin) return;
 
         const color = pc(o.price);
-        const marker = L.marker([o.lat, o.lon], { icon: makeLeafletIcon(color, o.active, false) });
+        const marker = L.marker([o.lat, o.lon], { icon: makeLeafletIcon(color, o.active, false, o.price_trend) });
 
         const typeLabel = o.offer_type === 'mieszkanie' ? '🏠 mieszkanie' : o.offer_type === 'pokoj' ? '🛏 pokój' : '';
         const histHtml = (o.price_history || []).slice(-4).map(h =>
@@ -603,7 +628,7 @@ function renderMarkers(profileKey) {
 
         marker.on('click', () => hlOffer(o.id || o.url));
         marker.addTo(map);
-        leafletMarkers[o.id || o.url] = { marker, color, active: o.active };
+        leafletMarkers[o.id || o.url] = { marker, color, active: o.active, trend: o.price_trend };
         bounds.push([o.lat, o.lon]);
 
         // Archiwalne pinezki POPRZEDNICH adresów (oferta zmieniła adres)
@@ -641,7 +666,7 @@ function hlOffer(id) {
     // Reset poprzedniego
     if (hlId && leafletMarkers[hlId]) {
         const old = leafletMarkers[hlId];
-        old.marker.setIcon(makeLeafletIcon(old.color, old.active, false));
+        old.marker.setIcon(makeLeafletIcon(old.color, old.active, false, old.trend));
         old.marker.setZIndexOffset(0);
     }
     document.querySelectorAll('.row.hl').forEach(r => r.classList.remove('hl'));
@@ -651,7 +676,7 @@ function hlOffer(id) {
 
     if (leafletMarkers[id]) {
         const m = leafletMarkers[id];
-        m.marker.setIcon(makeLeafletIcon(m.color, m.active, true));
+        m.marker.setIcon(makeLeafletIcon(m.color, m.active, true, m.trend));
         m.marker.setZIndexOffset(1000);
         m.marker.openPopup();
         map.panTo(m.marker.getLatLng(), { animate: true });
