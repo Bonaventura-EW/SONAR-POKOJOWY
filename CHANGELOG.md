@@ -9,6 +9,9 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: +2 oferty ze Skrzetuskiego (LSM) (2026-08-16)
+- Dodane do `data/favorites.json`: `1bSaBF` (numeric_id 1091583015) i `1bSaKg` (numeric_id 1091583548) — pokoje jednoosobowe na LSM, ul. Skrzetuskiego. `numeric_id` rozwiązane od razu przez `resolve_numeric_id`, tracker doładuje snapshoty przy najbliższym scanie.
+
 ### Analityka: dzień „w toku" na wykresie „Nowe oferty dziennie" (2026-08-14)
 - **zgłoszenie Mateusza**: na `analytics.html` najświeższy dzień (dziś) miał zielony słupek „Nowe", ale **zerowy czerwony „Zniknęły"** — wyglądało jak dziura w danych.
 - **root cause (nie bug w danych)**: wykres liczy ofertę jako „zniknęła" gdy `!active && last_seen == dany dzień` (`analytics.html:632`). Oferta staje się `active=false` z **opóźnieniem** — musi zniknąć z KOLEJNEGO skanu i przejść weryfikację URL (`_verify_inactive_offers`: 410/404/brak `InStock`), a jej `last_seen` zostaje na ostatnim żywym dniu. Dziś nic nie zdążyło zostać potwierdzone jako zniknięte (jeden skan 09:23, cron 9/15/21) → czerwony słupek dnia bieżącego jest strukturalnie niekompletny i dopełnia się wstecznie przez 1–2 dni. Dowód: 13.08 już ma pełne 36 zniknięć, 14.08 = 0.
