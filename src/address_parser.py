@@ -628,6 +628,20 @@ class AddressParser:
                     if len(parts) == 2:
                         prefix = parts[0]
                         street = parts[1].strip()
+
+            # FIX 2026-08-17: 'Miasteczko' to kwalifikator osiedla (deweloperska nazwa
+            # inwestycji), nie część nazwy ulicy. Tytuł "Miasteczko Spadochroniarzy 2"
+            # dotyczy ul. Spadochroniarzy 2 — bez tego parser dawał street
+            # "Miasteczko Spadochroniarzy" (niegeokodowalne, null w cache), a marker
+            # spadał do fallbacku "Legionowa" z opisu firmówki. (ID1bycCH)
+            # GUARD: ścinamy 'Miasteczko' TYLKO gdy kolejne słowo to ZNANA ulica —
+            # inaczej "Miasteczko Akademickie" (kampus UMCS, NIE ulica) dałoby fałszywy
+            # adres "Akademickie N".
+            if prefix is None and street and street.split()[0].lower() in ('miasteczko', 'miasteczku'):
+                parts = street.split(maxsplit=1)
+                if len(parts) == 2 and parts[1].strip().lower() in self._known_streets:
+                    prefix = parts[0]
+                    street = parts[1].strip()
             
             # Sprawdź minimum 4 litery w nazwie ulicy (żeby wykluczyć "dla", "bez" etc)
             if len(street.replace(' ', '')) < 4:
