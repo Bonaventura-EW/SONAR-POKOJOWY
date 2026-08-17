@@ -9,6 +9,12 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Adres: "Miasteczko Spadochroniarzy 2" → pinezka na ul. Spadochroniarzy 2 (2026-08-17)
+- **zgłoszenie Mateusza**: oferta `ID1bycCH` ("Miasteczko Spadochroniarzy 2 z prywatną łazienką") ma konkretny adres, a na mapie stała niekonkretna pinezka.
+- **root cause**: `extract_address` łapał wzorzec dwuwyrazowy i zwracał street `"Miasteczko Spadochroniarzy"` (`Miasteczko` to deweloperski kwalifikator osiedla, NIE część nazwy ulicy). Ten string jest `null` w `geocoding_cache.json`, więc geokoder nie znalazł koordynatów i marker spadał do fallbacku `extract_street_only` z opisu firmówki → `"Legionowa"` (opis wymieniał "ul. Legionowa 3", inne mieszkanie tego samego wynajmującego).
+- **fix (`src/address_parser.py`)**: w `extract_address` ścinamy wiodące `Miasteczko`/`Miasteczku` jako prefiks — ale TYLKO gdy kolejne słowo to ZNANA ulica (`self._known_streets`). Guard chroni kampus UMCS: `"Miasteczko Akademickie"` (`akademickie` spoza whitelisty) zostaje nietknięte, `"Miasteczko Spadochroniarzy 2"` → `Spadochroniarzy 2` (precision `exact`, w cache: 51.250002, 22.5321102).
+- **dane**: poprawiony bieżący adres oferty w `offers.json` (Legionowa street_only → Spadochroniarzy 2 exact) + regeneracja `docs/data.json`. Golden: 1 zamierzona zmiana (ta oferta), fixture przebudowany `scripts/build_golden.py`. `test_integration.py` ✅.
+
 ### Firmy: znacznik zmiany ceny na pinezkach mapy (2026-08-16)
 - **prośba Mateusza**: na mapie strony Firmy (`profile_tracker.html`) pinezki ofert z obniżoną ceną mają dostać zieloną strzałkę ↓, a z podwyżką — czerwoną ↑.
 - **implementacja (wyłącznie frontend, spójna z mapą główną)**: `makeLeafletIcon()` dostał 4. argument `trend` i rysuje badge w prawym-górnym rogu kropli — zielone kółko z białym ↓ (`#28a745`) dla `price_trend==='down'`, czerwone z ↑ (`#dc3545`) dla `'up'`. Kolory i glify **identyczne** jak `_drawCornerBadge` w `assets/script.js`. Badge tylko dla aktywnych (nieaktywne mają × w środku). ViewBox pinezki poszerzony o 2px margines (`iconSize [28,34]`, ostrze wciąż zakotwiczone w współrzędnych), badge przekazywany też przy highlightcie i resecie. Źródło kierunku: `o.price_trend` z `profile_data.json` (to samo pole co mapa główna). Legenda dostała grupę „Na mapie" z ↓/↑.
