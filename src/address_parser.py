@@ -761,11 +761,32 @@ class AddressParser:
                 # Mamy kandydatów z prefiksem - tylko ich rozważamy
                 candidates = candidates_with_prefix
             else:
-                # Tekst zawiera prefiks (np. "ul. Wigilijnej") ale parser nie znalazł
-                # match z prefiksem (bo nie ma numeru) - odrzuć WSZYSTKICH kandydatów
-                # bez prefiksu. Niech fallback (extract_street_only) zadziała.
-                print(f"      ⚠️ Tekst zawiera 'ul./al./...' ale parser ma tylko matche bez prefiksu - odrzucam (fallback do street_only)")
-                candidates = []
+                # FIX 2026-08-18: NIE odrzucaj kandydata bez prefiksu, jeśli jego ulica
+                # jest ZNANĄ ulicą Lublina, ma numer domu i stoi PRZED pierwszym jawnym
+                # prefiksem w tekście. Tytuł "Niecała 10 ścicłe centrum Plac Litewski"
+                # ma faktyczny adres "Niecała 10" (bez "ul.") na początku, a przypadkowe
+                # słowo-prefiks "Plac" (bez numeru, dot. pobliskiego placu) dalej w tytule
+                # wcześniej kasowało WSZYSTKICH kandydatów → marker spadał do street_only
+                # "Litewski". (ID1bT7ya)
+                # WARUNEK POZYCJI chroni firmówki: "ul. Nadbystrzycka ... [w opisie]
+                # Krakowskie Przedmieście 20" — tam znana ulica z numerem jest PO prefiksie
+                # (inna lokalizacja z listy firmy), więc odpada. "Wymagana 1" odpada bo
+                # "Wymagana" nie jest znaną ulicą.
+                first_prefix = PREFIX_REGEX.search(text)
+                prefix_pos = first_prefix.start() if first_prefix else len(text)
+                known_candidates = [
+                    c for c in candidates
+                    if c['pos'] < prefix_pos
+                    and ' '.join(w.lower() for w in c['street'].split()) in self._known_streets
+                ]
+                if known_candidates:
+                    candidates = known_candidates
+                else:
+                    # Tekst zawiera prefiks (np. "ul. Wigilijnej") ale parser nie znalazł
+                    # match z prefiksem (bo nie ma numeru) - odrzuć WSZYSTKICH kandydatów
+                    # bez prefiksu. Niech fallback (extract_street_only) zadziała.
+                    print(f"      ⚠️ Tekst zawiera 'ul./al./...' ale parser ma tylko matche bez prefiksu - odrzucam (fallback do street_only)")
+                    candidates = []
         
         # Jeśli znaleziono kandydatów, wybierz najlepszego: prefiks, potem najwcześniejszy
         if candidates:

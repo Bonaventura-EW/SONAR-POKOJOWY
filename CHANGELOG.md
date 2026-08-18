@@ -9,6 +9,12 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Adres: "Niecała 10 ... Plac Litewski" → precyzyjna pinezka Niecała 10 (2026-08-18)
+- **zgłoszenie Mateusza**: oferta `ID1bT7ya` ("Niecała 10 ścicłe centrum Plac Litewski") ma w tytule konkretny adres z numerem, a na mapie stała przybliżona pinezka na Placu Litewskim (`street_only` "Litewski").
+- **root cause** (`src/address_parser.py` → `extract_address`): tytuł ma faktyczny adres "Niecała 10" (bez prefiksu "ul.") na początku i słowo-prefiks "Plac" (Plac Litewski, BEZ numeru) dalej. Guard z 2026-05-14 („tekst zawiera jawny prefiks, ale parser ma tylko matche bez prefiksu → odrzuć wszystkich kandydatów") kasował poprawnego kandydata "Niecała 10", bo w tekście było słowo "Plac". Parser zwracał `None` → fallback `extract_street_only` wybierał "Litewski".
+- **fix**: w tym guardzie nie odrzucamy na ślepo kandydata bez prefiksu, jeśli jego ulica jest ZNANĄ ulicą Lublina (`self._known_streets`), ma numer domu i stoi **PRZED** pierwszym jawnym prefiksem w tekście. Warunek pozycji chroni firmówki ("ul. X ... [w opisie] Znana 20" — inna lokalizacja z listy odpada, bo jest PO prefiksie), a "Wymagana 1" (przy "ul. Rycerskiej") dalej odpada, bo "Wymagana" nie jest znaną ulicą.
+- **dane**: poprawiony adres oferty w `offers.json` (Litewski street_only → Niecała 10 exact, 51.2507112 / 22.5605703, cache doładowany) + regeneracja `docs/data.json`. Golden: 9 zamierzonych zmian (wszystkie to prawdziwe adresy z leadu wcześniej gubione do `None` — Kiepury 11, Orla 12, Dzieci Zamojszczyzny 15, Chodźki 13/Student Depot, Pana Balcera 1), fixture przebudowany `scripts/build_golden.py` → 4644/4644. `test_integration.py` ✅.
+
 ### Adres: "Miasteczko Spadochroniarzy 2" → pinezka na ul. Spadochroniarzy 2 (2026-08-17)
 - **zgłoszenie Mateusza**: oferta `ID1bycCH` ("Miasteczko Spadochroniarzy 2 z prywatną łazienką") ma konkretny adres, a na mapie stała niekonkretna pinezka.
 - **root cause**: `extract_address` łapał wzorzec dwuwyrazowy i zwracał street `"Miasteczko Spadochroniarzy"` (`Miasteczko` to deweloperski kwalifikator osiedla, NIE część nazwy ulicy). Ten string jest `null` w `geocoding_cache.json`, więc geokoder nie znalazł koordynatów i marker spadał do fallbacku `extract_street_only` z opisu firmówki → `"Legionowa"` (opis wymieniał "ul. Legionowa 3", inne mieszkanie tego samego wynajmującego).
