@@ -338,6 +338,19 @@
         .ver.current { border-color: #c7f0d6; background: #f6fef9; }
         .ver.clickable { cursor: pointer; transition: border-color .1s, box-shadow .1s; }
         .ver.clickable:hover { border-color: #a855f7; box-shadow: 0 1px 4px rgba(168,85,247,0.18); }
+        /* Błysk wersji po kliknięciu fioletowej pinezki na mapie */
+        .ver.ver-flash { animation: verFlash 1.8s ease-out; }
+        @keyframes verFlash {
+            0%   { border-color: #a855f7; box-shadow: 0 0 0 3px rgba(168,85,247,0.35); background: #faf5ff; }
+            60%  { border-color: #a855f7; box-shadow: 0 0 0 3px rgba(168,85,247,0.18); background: #faf5ff; }
+            100% { border-color: #e7ecf2; box-shadow: 0 0 0 0 rgba(168,85,247,0); }
+        }
+        .ver.current.ver-flash { animation: verFlashCurrent 1.8s ease-out; }
+        @keyframes verFlashCurrent {
+            0%   { border-color: #a855f7; box-shadow: 0 0 0 3px rgba(168,85,247,0.35); }
+            60%  { border-color: #a855f7; box-shadow: 0 0 0 3px rgba(168,85,247,0.18); }
+            100% { border-color: #c7f0d6; box-shadow: 0 0 0 0 rgba(168,85,247,0); }
+        }
         .ver::before { content: ''; position: absolute; left: 7px; top: 12px; width: 7px; height: 7px; border-radius: 50%; background: #cbd5e1; }
         .ver.current::before { background: #16a34a; }
         .ver-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -647,6 +660,9 @@ function renderMarkers(profileKey) {
                 + '</div>',
                 { maxWidth: 240 }
             );
+            // Klik w fioletową pinezkę poprzedniego adresu → przewiń panel do karty
+            // tej oferty i podświetl konkretną wersję adresu (bez odjeżdżania mapy).
+            am.on('click', () => scrollToOfferCard(o.id || o.url, vIndex));
             am.addTo(map);
             archivalMarkers.push(am);
             archivalByKey[(o.id || o.url) + ':' + vIndex] = am;
@@ -686,6 +702,35 @@ function hlOffer(id) {
     if (row) {
         row.classList.add('hl');
         row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+// Klik w archiwalną (fioletową) pinezkę poprzedniego adresu: przewiń panel do
+// karty tej oferty i podświetl konkretną wersję adresu. NIE panujemy mapy (dymek
+// "POPRZEDNI ADRES" ma zostać otwarty na klikniętej pinezce).
+function scrollToOfferCard(offerId, vIndex) {
+    // Zresetuj poprzednie podświetlenie (bieżący marker + wiersz)
+    if (hlId && leafletMarkers[hlId]) {
+        const old = leafletMarkers[hlId];
+        old.marker.setIcon(makeLeafletIcon(old.color, old.active, false, old.trend));
+        old.marker.setZIndexOffset(0);
+    }
+    document.querySelectorAll('.row.hl').forEach(r => r.classList.remove('hl'));
+    hlId = offerId;
+
+    const row = document.querySelector('.row[data-id="' + offerId + '"]');
+    if (!row) return;
+    row.classList.add('hl');
+
+    // Preferuj przewinięcie do konkretnej wersji adresu (fioletowa pinezka = ta wersja)
+    const ver = row.querySelector('.ver[data-ver-key="' + offerId + ':' + vIndex + '"]');
+    const target = ver || row;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (ver) {
+        ver.classList.remove('ver-flash');
+        void ver.offsetWidth;            // restart animacji przy powtórnym kliknięciu
+        ver.classList.add('ver-flash');
+        setTimeout(() => ver.classList.remove('ver-flash'), 1800);
     }
 }
 
@@ -803,6 +848,7 @@ function verCard(v, offerId, vIndex, o) {
         : (v.lat && v.lon ? "event.stopPropagation(); focusArchival('" + offerId + "', " + vIndex + ")" : '');
     const titleAttr = (!v.current && v.lat && v.lon) ? ' title="Pokaż na mapie poprzedni adres"' : '';
     return '<div class="ver' + (v.current ? ' current' : '') + (clickable ? ' clickable' : '') + '"'
+        + ' data-ver-key="' + offerId + ':' + vIndex + '"'
         + (onclick ? ' onclick="' + onclick + '"' : '') + titleAttr + '>'
         + '<div class="ver-top"><span class="ver-addr' + (v.current ? '' : ' old') + '">' + (v.address || '—') + '</span>' + status + '</div>'
         + '<div class="ver-range">' + range + '</div>'

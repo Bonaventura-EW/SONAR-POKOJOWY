@@ -9,6 +9,12 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Firmy: klik w fioletową pinezkę (poprzedni adres) przewija panel do ogłoszenia (2026-08-18)
+- **prośba Mateusza**: na mapie zakładki Firmy klik w fioletowe pinezki ofert ze zmienionym adresem (archiwalne „POPRZEDNI ADRES") ma przenosić do wpisu tego ogłoszenia w panelu po prawej.
+- **stan przed**: pinezki bieżące (aktualny adres) już wołały `hlOffer()` → podświetlenie + scroll do karty. Archiwalne (fioletowe) miały tylko `bindPopup` — klik otwierał dymek, ale panel się nie przewijał.
+- **implementacja (wyłącznie frontend, `docs/profile_tracker.html`)**: archiwalny marker dostał `am.on('click', () => scrollToOfferCard(offerId, vIndex))`. Nowa funkcja `scrollToOfferCard` przewija panel do karty oferty (`.row[data-id]`), podświetla konkretną wersję adresu (`.ver[data-ver-key="offerId:vIndex"]`, nowy atrybut) błyskiem CSS `verFlash`, i — inaczej niż `hlOffer` — NIE panuje mapy (dymek „POPRZEDNI ADRES" zostaje otwarty na klikniętej pinezce). Reszta bez zmian (zero zmian w danych/pipeline).
+- **weryfikacja (headless Chromium, realne dane profil Artymiuk)**: klik w archiwalną pinezkę „Spadochroniarzy 2" (oferta `ID1bKjtF`, obecnie Chopina 7) → panel skoczył do karty Chopina 7, wersja „Spadochroniarzy 2" podświetlona; stan: `rowHl=true, verFound=true, rowInView=true`. Wizualizacja before/after pokazana do akceptacji przed mergem do `main`.
+
 ### Adres: "Niecała 10 ... Plac Litewski" → precyzyjna pinezka Niecała 10 (2026-08-18)
 - **zgłoszenie Mateusza**: oferta `ID1bT7ya` ("Niecała 10 ścicłe centrum Plac Litewski") ma w tytule konkretny adres z numerem, a na mapie stała przybliżona pinezka na Placu Litewskim (`street_only` "Litewski").
 - **root cause** (`src/address_parser.py` → `extract_address`): tytuł ma faktyczny adres "Niecała 10" (bez prefiksu "ul.") na początku i słowo-prefiks "Plac" (Plac Litewski, BEZ numeru) dalej. Guard z 2026-05-14 („tekst zawiera jawny prefiks, ale parser ma tylko matche bez prefiksu → odrzuć wszystkich kandydatów") kasował poprawnego kandydata "Niecała 10", bo w tekście było słowo "Plac". Parser zwracał `None` → fallback `extract_street_only` wybierał "Litewski".
