@@ -33,28 +33,55 @@ from shared_utils import write_json_atomic        # noqa: E402
 OFFERS = REPO / 'data' / 'offers.json'
 CACHE = REPO / 'data' / 'geocoding_cache.json'
 
-# Klucze cache z audytu, pod którymi siedzi punkt NIE-ulicy (osiedle/park/sklep)
-# albo śmieć po starym parserze. Po skasowaniu geokoder odpyta Nominatim ponownie,
-# już z preferencją wyniku typu "ulica".
-POISONED_KEYS = [
-    'Chopina',                    # → osiedle Chopina (Czechów) zamiast ul. Fryderyka Chopina
-    'Konopnickiej',               # → osiedle Konopnickiej (Rury) zamiast ul. Konopnickiej
-    'Popiełuszki',                # → skwer Popiełuszki (Bronowice) zamiast ulicy na Wieniawie
-    'Zana',                       # → "Centrum Zana Holding" (Konstantynów) zamiast ul. Zana
-    'Zana, Lublin',
-    'Skłodowskiej',               # → punkt przy Akademickiej zamiast ulicy
-    'tylko 2',                    # śmieć parsera (ID1bFuLU)
-    'Skierki w 3',                # śmieć parsera (ID1b3zK8)
-    'Lipińskiego Lublin Lublin',  # śmieć parsera (ID16uG5V)
-]
+# Klucze cache z audytu, pod którymi siedzi punkt NIE-ulicy (osiedle/park/sklep/
+# biblioteka o tej samej nazwie) albo śmieć po starym parserze. Wartość to ZŁY punkt,
+# który tam zastaliśmy — czyścimy klucz tylko wtedy, gdy nadal wskazuje właśnie ten
+# punkt. Dzięki temu skrypt jest idempotentny: po naprawie kolejne uruchomienie nie
+# kasuje już dobrego wpisu (a każde skasowanie to nowe zapytanie do Nominatim, które
+# na długiej ulicy potrafi zwrócić inny jej odcinek — marker skakałby bez powodu).
+POISONED_KEYS = {
+    # Tura 1 (2026-08-18) — z audytu markerów.
+    'Chopina': (51.2694257, 22.5474285),       # osiedle Chopina zamiast ul. Fryderyka Chopina
+    'Konopnickiej': (51.2365964, 22.5254332),  # osiedle Konopnickiej zamiast ul. Konopnickiej
+    'Popiełuszki': (51.2343329, 22.5975718),   # skwer na Bronowicach zamiast ulicy na Wieniawie
+    'Zana': (51.2481738, 22.5177575),          # "Centrum Zana Holding" zamiast ul. Tomasza Zana
+    'Zana, Lublin': (51.2481738, 22.5177575),
+    'Skłodowskiej': (51.242925, 22.5419752),   # punkt przy Akademickiej zamiast ulicy
+    'tylko 2': (51.2046604, 22.5870081),       # śmieć parsera (ID1bFuLU)
+    'Skierki w 3': (51.2436962, 22.517454),    # śmieć parsera (ID1b3zK8)
+    'Lipińskiego Lublin Lublin': (51.2579395, 22.5493814),  # śmieć parsera (ID16uG5V)
+    # Tura 2 (2026-08-19) — przegląd CAŁEGO cache: każdy klucz bez numeru porównany
+    # z geometrią ulic OSM (Overpass). Te trzy punkty leżały 1,4–2,7 km od ulicy,
+    # której nazwę noszą. Wzorzec ten sam co wyżej: pierwszym wynikiem Nominatim jest
+    # obiekt nazwany od tej samej postaci, ulica dopiero drugim.
+    'Prusa': (51.2346058, 22.5348422),          # osiedle Prusa (LSM) zamiast ul. Bolesława Prusa
+    'Wyszyńskiego': (51.2328464, 22.5876506),   # skwer Wyszyńskiego zamiast ul. Prymasa S. Wyszyńskiego
+    'Łopacińskiego': (51.2465117, 22.5632522),  # biblioteka im. Łopacińskiego zamiast ul. H. Łopacińskiego
+}
 
 
-def house_number_keys_with_street_coords(cache):
+def still_poisoned(cache, key, bad_point, tolerance_m=30):
+    """Czy pod kluczem nadal stoi TEN zły punkt? (a nie już poprawiony)"""
+    v = cache.get(key)
+    if not v:
+        return False
+    import math
+    p = math.pi / 180
+    d = 2 * 6371000 * math.asin(math.sqrt(
+        math.sin((bad_point[0] - v['lat']) * p / 2) ** 2
+        + math.cos(v['lat'] * p) * math.cos(bad_point[0] * p)
+        * math.sin((bad_point[1] - v['lon']) * p / 2) ** 2))
+    return d <= tolerance_m
+
+
+def house_number_keys_with_street_coords(cache, apartment_keys=False):
     """Klucze z numerem domu, pod którymi NIE stoi budynek:
       - koordynaty identyczne z punktem samej ulicy (fallback zapisany jako
         "dokładny adres"),
-      - numer z mieszkaniem ('29/4') — Nominatim takich nie zna i przed poprawką
-        z 2026-08-18 zawsze oddawał punkt ulicy.
+      - numer z mieszkaniem ('29/4') — Nominatim takich nie znał i przed poprawką
+        z 2026-08-18 zawsze oddawał punkt ulicy; TYLKO przy apartment_keys=True
+        (tura 1). Po poprawce geokoder ucina część po '/' i trafia w budynek, więc
+        domyślnie tych kluczy nie ruszamy — kolejne czyszczenie byłoby pustą pracą.
     """
     import re
     out = []
@@ -65,7 +92,7 @@ def house_number_keys_with_street_coords(cache):
         m = num_re.match(key.strip())
         if not m:
             continue
-        if '/' in key:
+        if '/' in key and apartment_keys:
             out.append(key)
             continue
         street = m.group(1).strip()
@@ -148,12 +175,16 @@ def main():
     ap.add_argument('--apply', action='store_true', help='zapisz zmiany do bazy')
     ap.add_argument('--dry-run', action='store_true', help='tylko raport (domyślne)')
     ap.add_argument('--limit', type=int, default=0, help='przetwórz tylko N ofert (debug)')
+    ap.add_argument('--purge-apartment-keys', action='store_true',
+                    help='czyść też klucze z numerem mieszkania ("29/4") — użyte w turze 1, '
+                         'przed poprawką geokodera; dziś zbędne')
     args = ap.parse_args()
     apply_changes = args.apply and not args.dry_run
 
     cache = json.loads(CACHE.read_text(encoding='utf-8'))
-    purge = [k for k in POISONED_KEYS if k in cache]
-    purge += [k for k in house_number_keys_with_street_coords(cache) if k not in purge]
+    purge = [k for k, bad in POISONED_KEYS.items() if still_poisoned(cache, k, bad)]
+    purge += [k for k in house_number_keys_with_street_coords(cache, args.purge_apartment_keys)
+              if k not in purge]
     print(f"🧹 Zatrute klucze cache do usunięcia: {len(purge)}")
     for k in sorted(purge):
         print(f"   - {k!r} = {cache[k]}")
