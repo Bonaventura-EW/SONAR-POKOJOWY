@@ -13,6 +13,16 @@ from typing import Optional, Dict
 
 import address_parser_data as _apd
 
+try:
+    from Levenshtein import distance as _lev_distance
+except ImportError:  # pragma: no cover — bez python-Levenshtein korekta literówek jest OFF
+    _lev_distance = None
+
+# Jednoliterowe wyrazy polszczyzny — nigdy nie są członem nazwy ulicy, a regex
+# potrafi je wciągnąć do nazwy ("ul. Skierki, w 3-pokojowym" → "Skierki w 3").
+_ONE_LETTER_WORDS = {'w', 'z', 'i', 'o', 'u', 'a', 'k', 'e'}
+
+
 class AddressParser:
     # Prefiksy ulic - teraz jako GRUPY do wyciągnięcia
     # Grupa 1: prefiks (opcjonalny)
@@ -45,6 +55,9 @@ class AddressParser:
     )
     _ROOMCOUNT_WORDS = r'(?:pokojow|osobow|pi[eę]trow|poziomow|izbow)'
     _NUM_ROOMCOUNT = re.compile(rf'^[-‐‑‒–]\s*{_ROOMCOUNT_WORDS}', re.IGNORECASE | re.UNICODE)
+    # FIX 2026-08-18 (audyt markerów): "<Nazwa> N piętro/pietro/piętrze" to KONDYGNACJA,
+    # nie numer domu ("Centrum Kalina 2 pietro" → fałszywy adres "Kalina 2").
+    _NUM_FLOOR = re.compile(r'^\s*(?:pi[eę]tr|p\.)', re.IGNORECASE | re.UNICODE)
     # myślnik opcjonalny: extract_from_whitelist zamienia interpunkcję na spacje,
     # więc "2-pokojowa" trafia tu jako "2 pokojowa".
     _ADJ_ROOMCOUNT = re.compile(rf'^\s+\d+\s*[-‐‑‒–]?\s*{_ROOMCOUNT_WORDS}', re.IGNORECASE | re.UNICODE)
@@ -116,6 +129,26 @@ class AddressParser:
     #   - 80A, 10A, 15B (numery domów: cyfra + pojedyncza wielka litera)
     #   - 10A/15 (numer + lokal)
     #   - Polski Centrum, UMCS KUL (sekwencje słów z wielkich liter)
+    # FIX 2026-08-18 (audyt markerów, klasa F): inicjały z kropkami przed nazwiskiem
+    # w nazwie ulicy — "ul. M.C.Skłodowskiej 54", "ul. ks. J. Popiełuszki 33".
+    # Regex nazwy ulicy nie zna kropek w środku wyrazu, więc cały adres przepadał
+    # (ID1bO3Si: numer 54 zgubiony, marker 365 m obok). Ścinamy same inicjały —
+    # zostaje nazwisko, na którym parser i Nominatim działają.
+    _NAME_INITIALS = re.compile(
+        r'\b(?:[A-ZĄĘĆŁŃÓŚŹŻ]\.\s*){1,3}(?=[A-ZĄĘĆŁŃÓŚŹŻ][a-ząęćłńóśźż])'
+    )
+    # Skróty tytułów/stopni przed nazwiskiem w nazwie ulicy: "ul. ks. Popiełuszki 33",
+    # "al. gen. Andersa". NIE ma tu 'św.' — świętowie bywają częścią nazwy urzędowej
+    # ("ul. Św. Ducha"), a Nominatim zna te formy.
+    _NAME_HONORIFICS = re.compile(
+        r'\b(?:ks|gen|płk|ppłk|mjr|kpt|por|ppor|dr|prof|abp|bp|bł|hr)\.\s*'
+        r'(?=[A-ZĄĘĆŁŃÓŚŹŻ])',
+        re.IGNORECASE
+    )
+    # FIX 2026-08-18: rozjechany skrót prefiksu ("przy ul .Paganiniego 9") — spacja
+    # przed kropką rozbija dopasowanie prefiksu, więc adres z numerem przegrywał
+    # z guardem "tekst ma prefiks, kandydat go nie ma" i gubił numer domu (ID14dmoV).
+    _PREFIX_SPACED_DOT = re.compile(r'\b(ul|al|pl|os)\s+\.', re.IGNORECASE)
     _CAMELCASE_SPLIT = re.compile(r'(?<=[a-ząęćłńóśźż])(?=[A-ZĄĘĆŁŃÓŚŹŻ])')
     _DIGIT_CAPITAL_SPLIT = re.compile(r'(?<=\d)(?=[A-ZĄĘĆŁŃÓŚŹŻ][a-ząęćłńóśźż])')
     _MULTIPLE_WHITESPACE = re.compile(r'\s+')
@@ -226,10 +259,16 @@ class AddressParser:
         """
         if not text:
             return text
+        # FIX 2026-08-18: "ul ." → "ul." (spacja przed kropką w skrócie prefiksu)
+        text = cls._PREFIX_SPACED_DOT.sub(r'\1.', text)
         # Rozdziel CamelCase: małaWielka → mała Wielka
         text = cls._CAMELCASE_SPLIT.sub(' ', text)
         # Rozdziel cyfrę od wielkiej litery: 100D → 100 D
         text = cls._DIGIT_CAPITAL_SPLIT.sub(' ', text)
+        # FIX 2026-08-18: inicjały i skróty tytułów przed nazwiskiem
+        # ("M.C.Skłodowskiej" → "Skłodowskiej", "ks. J. Popiełuszki" → "Popiełuszki")
+        text = cls._NAME_INITIALS.sub('', text)
+        text = cls._NAME_HONORIFICS.sub('', text)
         # FIX 2026-07-13: usuń nazwę ulicy po "boczna ul./ulica/al." (przecznica ≠ adres)
         text = cls._BOCZNA_STREET.sub(r'\1', text)
         # FIX 2026-07-23: usuń nazwę miejsca w kontekście orientacyjnym
@@ -335,6 +374,43 @@ class AddressParser:
         if not canon:
             return street
         return ' '.join(w.capitalize() for w in canon.split())
+
+    def _fix_street_typo(self, street: str) -> str:
+        """Literówka wynajmującego w nazwie ulicy → najbliższa ZNANA ulica Lublina.
+
+        FIX 2026-08-18 (audyt markerów, klasa E): ogłoszenie ID1bv47Y ma w tytule
+        "ul. Leszyteckiego 5" (poprawnie: Leszetyckiego). Taki adres nie geokoduje
+        się wcale, więc marker spadał na ulicę z opisu — 4,5 km obok.
+
+        Kryteria są celowo wąskie, bo fałszywa "poprawka" realnej ulicy spoza naszej
+        whitelisty byłaby gorsza niż brak poprawki:
+          - jeden wyraz, co najmniej 9 znaków (krótkie nazwy zbyt łatwo mylić),
+          - ta sama długość i ta sama końcówka 2 znaków — poprawiamy RDZEŃ słowa,
+            nigdy końcówkę fleksyjną ('Bukietowej' NIE staje się 'Bukietowa',
+            odmianą zajmuje się geokoder), ani nie dodajemy/gubimy liter
+            ('Ogródkowa' to inna realna ulica niż 'Ogrodowa'),
+          - ta sama pierwsza trójka liter,
+          - odległość Levenshteina ≤ 2 i DOKŁADNIE jeden taki kandydat.
+        """
+        if not street or _lev_distance is None:
+            return street
+        low = street.lower()
+        if ' ' in low or len(low) < 9 or low in self._known_streets:
+            return street
+
+        matches = [
+            known for known in self._known_streets
+            if ' ' not in known
+            and len(known) == len(low)
+            and known[:3] == low[:3]
+            and known[-2:] == low[-2:]
+            and _lev_distance(known, low) <= 2
+        ]
+        if len(matches) != 1:
+            return street
+        fixed = matches[0].capitalize()
+        print(f"      🔤 Literówka w nazwie ulicy: '{street}' → '{fixed}'")
+        return fixed
 
     def extract_from_whitelist(self, text: str) -> Optional[Dict[str, Optional[str]]]:
         """
@@ -611,6 +687,14 @@ class AddressParser:
             if self._NUM_ROOMCOUNT.match(text[match.end(3):match.end(3) + 12]):
                 continue
 
+            # FIX 2026-08-18: numer + "piętro" to kondygnacja, nie numer domu
+            # ("Centrum Kalina 2 pietro" → fałszywy adres "Kalina 2").
+            # WYJĄTEK: przy jawnym prefiksie albo numerze z mieszkaniem to realny adres,
+            # po którym autor podaje kondygnację ("ul. Langiewicza 3/20 piętro 3").
+            if self._NUM_FLOOR.match(text[match.end(3):match.end(3) + 12]) \
+                    and prefix is None and '/' not in number:
+                continue
+
             # FIX 2026-05-13: jeśli prefix jest None ale street zaczyna się od formy prefiksu
             # (np. 'ulicy Kryształowej'), oddziel prefiks od nazwy ulicy.
             # Dzieje się tak gdy regex matchuje bez prefiksu (opcjonalnego) i pochłania
@@ -642,7 +726,34 @@ class AddressParser:
                 if len(parts) == 2 and parts[1].strip().lower() in self._known_streets:
                     prefix = parts[0]
                     street = parts[1].strip()
-            
+
+            # FIX 2026-08-18 (audyt markerów, klasy D i F): wiodące słowo-śmieć przed
+            # ZNANĄ ulicą. Regex bierze dwa wyrazy przed numerem, więc "Lublin Probostwo 9"
+            # dawało nazwę "Lublin Probostwo" → odrzucaną przez filtr EXCLUDED_WORDS
+            # (ID19aIWa: adres z tytułu przepadał, marker lądował na Rynku).
+            # Analogicznie "balkonem POPIEŁUSZKI 33", "studentek Narutowicza 64".
+            # GUARD jak przy 'Miasteczko': ścinamy TYLKO gdy reszta to ZNANA ulica
+            # i tylko śmieć z blocklisty (a nie dowolny pierwszy wyraz).
+            # GUARD 2: tylko dla kandydatów BEZ prefiksu. Z prefiksem jedyne trafienia
+            # to artefakt regexu ("1-osobowy" → prefix 'os' + nazwa 'obowy Chrobrego"),
+            # gdzie trim wskrzeszałby kandydata z fałszywym "Osiedle" w etykiecie.
+            if prefix is None and street and len(street.split()) >= 2:
+                head, tail = street.split(maxsplit=1)
+                if head.lower().rstrip('.,') in self.EXCLUDED_WORDS \
+                        and tail.strip().lower() in self._known_streets \
+                        and street.lower() not in self._known_streets:
+                    street = tail.strip()
+
+            # FIX 2026-08-18 (audyt markerów, klasa D): jednoliterowy ogonek nazwy
+            # ("Skierki w 3" z "ul. Skierki, w 3-pokojowym mieszkaniu") to spójnik
+            # wciągnięty przez regex, nigdy część nazwy ulicy. (ID1b3zK8)
+            # ODRZUCAMY całego kandydata, nie tylko ogonek: po "w"/"z" stoi liczba
+            # pokoi albo piętro, nie numer domu — sam trim zrobiłby z tego zmyślony
+            # adres "Skierki 3". Bez kandydata parser spada do extract_street_only
+            # i daje uczciwe przybliżenie "Skierki".
+            if street and len(street.split()) >= 2 and street.split()[-1].lower() in _ONE_LETTER_WORDS:
+                continue
+
             # Sprawdź minimum 4 litery w nazwie ulicy (żeby wykluczyć "dla", "bez" etc)
             if len(street.replace(' ', '')) < 4:
                 continue
@@ -711,7 +822,9 @@ class AddressParser:
             # FIX 2026-07-14: kanonizacja formy ulicy (mianownik→dopełniacz) PRZED
             # zbudowaniem full_address, żeby geokoder dostał formę, którą zna Nominatim.
             street = self._canonicalize_street(street)
-            
+            # FIX 2026-08-18: literówka w nazwie ulicy (patrz _fix_street_typo)
+            street = self._fix_street_typo(street)
+
             # NOWE: Buduj pełny adres z prefixem (jeśli jest)
             full_address = street
             has_prefix = False

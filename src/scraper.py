@@ -108,6 +108,28 @@ class OLXScraper:
             'fetched_price_changed': 0
         }
     
+    @staticmethod
+    def _listing_title_changed(existing: dict, offer: dict) -> bool:
+        """Czy tytuł ogłoszenia zmienił się od ostatniego scanu?
+
+        FIX 2026-08-18 (audyt markerów, klasa E): przy niezmienionej cenie scraper
+        pomijał pobranie szczegółów, więc oferta z PRZEPISANYM tytułem (wynajmujący
+        podmienia mieszkanie w tym samym ogłoszeniu) dostawała nowy tytuł z listingu,
+        ale adres zostawał ze starego mieszkania — marker wisiał kilka km od prawdy
+        (ID1bybLl: tytuł "Wyżynna", marker "Krasińskiego"; ID1bv47Y: tytuł
+        "Leszyteckiego 5", marker "Jana Sawy").
+
+        Porównanie odporne na szum OLX: wielkość liter, wielokrotne spacje oraz
+        doklejone na końcu "Lublin" (og:title ze strony oferty ma miasto, tytuł
+        z listingu nie — bez tego KAŻDA oferta byłaby pobierana co scan).
+        """
+        def norm(t):
+            t = ' '.join((t or '').lower().split())
+            return re.sub(r'[\s,–-]*lublin$', '', t).strip()
+
+        old, new = norm(existing.get('title')), norm(offer.get('title'))
+        return bool(old) and bool(new) and old != new
+
     def _extract_price_number(self, price_raw: str) -> Optional[int]:
         """
         Wyciąga samą liczbę z tekstu ceny.
@@ -407,9 +429,11 @@ class OLXScraper:
                     existing = self.existing_offers[offer_id]
                     existing_price = existing.get('price')
                     
-                    # Porównaj ceny (tylko cyfry)
-                    if listing_price and existing_price and listing_price == existing_price:
-                        # Ta sama cena → pomiń pobieranie szczegółów
+                    # Porównaj ceny (tylko cyfry). Zmiana TYTUŁU też wymusza pobranie —
+                    # patrz _listing_title_changed (FIX 2026-08-18).
+                    if listing_price and existing_price and listing_price == existing_price \
+                            and not self._listing_title_changed(existing, offer):
+                        # Ta sama cena i ten sam tytuł → pomiń pobieranie szczegółów
                         offers_to_skip.append({
                             'offer': offer,
                             'existing': existing,
@@ -773,7 +797,8 @@ class OLXScraper:
                         or (self.existing_offers.get(short_key) if short_key else None))
             if existing:
                 existing_price = existing.get('price')
-                if listing_price and existing_price and listing_price == existing_price:
+                if listing_price and existing_price and listing_price == existing_price \
+                        and not self._listing_title_changed(existing, offer):
                     offers_to_skip.append({'offer': offer, 'existing': existing})
                 else:
                     offers_to_fetch.append({'offer': offer})

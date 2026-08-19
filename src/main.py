@@ -91,6 +91,11 @@ class SonarPokojowy:
                 # Pole jest stopniowo wycofywane.
                 'coordinates': offer.get('coordinates', {}),
                 'profile_name': offer.get('profile_name'),
+                # FIX 2026-08-18 (audyt markerów, klasa E): scraper porównuje tytuł
+                # z listingu z tym z bazy — przepisany tytuł (podmienione mieszkanie
+                # w tym samym ogłoszeniu) musi wymusić pobranie szczegółów i re-parsing
+                # adresu, inaczej marker zostaje pod starym adresem.
+                'title': offer.get('title'),
             }
             # Indeksuj po pełnym ID
             index[offer['id']] = offer_entry
