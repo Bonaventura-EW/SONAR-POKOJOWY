@@ -73,6 +73,7 @@
     .refresh-legend { font-size: 11px; color: #f59e0b; display: inline-flex; align-items: center; gap: 6px; margin: -2px 0 8px; }
     .refresh-legend .rl-dash { width: 18px; height: 0; border-top: 1.6px dashed #f59e0b; display: inline-block; }
     .chart-wrap-sm { height: 170px; }
+    .chart-wrap-price { height: 88px; }
     .price-up { color: #dc2626; font-weight: 700; }
     .price-down { color: #16a34a; font-weight: 700; }
     .chart-wrap { position: relative; height: 220px; }
@@ -100,6 +101,41 @@
     }
     .copy-btn:hover { background: #d97706; }
     .empty-state { text-align: center; padding: 50px 20px; color: #94a3b8; }
+
+    /* Wybierałka sortowania / grupowania nad listą ofert */
+    .fav-controls {
+        display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+        background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px;
+        padding: 10px 14px; margin-bottom: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .fav-controls .fc-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; }
+    .fav-controls select {
+        font-family: inherit; font-size: 13px; font-weight: 600; color: #1e293b; background: #fff;
+        border: 1px solid #e2e8f0; border-radius: 8px; padding: 7px 30px 7px 11px; cursor: pointer;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23667eea' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat; background-position: right 10px center;
+    }
+    .fav-controls select:focus { outline: 2px solid #667eea; outline-offset: 1px; }
+    .fc-toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600;
+        color: #92400e; background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 6px 11px; cursor: pointer; user-select: none; }
+    .fc-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .fc-toggle .fc-box { width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid #d97706; background: #fff;
+        display: inline-flex; align-items: center; justify-content: center; transition: background .12s; }
+    .fc-toggle input:checked + .fc-box { background: #f59e0b; border-color: #f59e0b; }
+    .fc-toggle input:checked + .fc-box::after { content: '✓'; color: #fff; font-size: 11px; font-weight: 900; }
+    .fc-toggle input:focus-visible + .fc-box { outline: 2px solid #667eea; outline-offset: 1px; }
+    .fav-controls .fc-count { font-size: 11px; color: #64748b; margin-left: auto; font-variant-numeric: tabular-nums; }
+
+    /* Klaster ofert jednej firmy: kolorowy pasek z lewej + nagłówek z nazwą i licznikiem */
+    .fav-group-head {
+        display: flex; align-items: center; gap: 8px; margin: 22px 0 10px;
+        font-size: 12px; font-weight: 800; letter-spacing: 0.3px; color: #334155;
+        padding-left: 12px; border-left: 4px solid var(--grp-color, #94a3b8);
+    }
+    .fav-group-head .fg-count { font-weight: 700; color: #94a3b8; }
+    .fav-group-head.mat { color: #92400e; }
+    .fav-card.grouped { border-left: 4px solid var(--grp-color, #e2e8f0); }
 </style>
 </head>
 <body>
@@ -157,6 +193,23 @@
   <div class="page-head">
     <h2>⭐ Ulubione oferty</h2>
     <span class="updated" id="updated"></span>
+  </div>
+
+  <div class="fav-controls" id="fav-controls" style="display:none">
+    <span class="fc-label">Sortuj</span>
+    <select id="fav-sort">
+      <option value="price-asc">Cena: rosnąco ↑</option>
+      <option value="price-desc">Cena: malejąco ↓</option>
+      <option value="views-desc">Wyświetlenia ↓</option>
+      <option value="growth-desc">Przyrost/dzień ↓</option>
+      <option value="newest">Najnowsze</option>
+      <option value="firm">Firma (A–Z)</option>
+    </select>
+    <label class="fc-toggle">
+      <input type="checkbox" id="fav-group" checked>
+      <span class="fc-box"></span> Grupuj po firmie
+    </label>
+    <span class="fc-count" id="fav-count"></span>
   </div>
 
   <div id="fav-list"></div>
@@ -285,12 +338,101 @@ function statusBadge(status) {
     return `<span class="status-badge other">${escapeHtml(status)}</span>`;
 }
 
+// Śr. przyrost dzienny wyświetleń (do sortowania) — ta sama logika co chip „Śr. przyrost/dzień":
+// porównanie stanów na koniec każdej doby, znormalizowane liczbą dni. Brak danych → null.
+function dailyGrowthValue(vh) {
+    const dayLast = new Map();
+    (vh || []).forEach(v => { if (v.date_iso) dayLast.set(v.date_iso.slice(0, 10), v.views); });
+    const keys = [...dayLast.keys()].sort();
+    if (keys.length < 2) return null;
+    return (dayLast.get(keys[keys.length - 1]) - dayLast.get(keys[0])) / (keys.length - 1);
+}
+
+function addedTs(f) {
+    const t = f.added ? new Date(f.added).getTime() : NaN;
+    return isNaN(t) ? null : t;
+}
+
+// Definicje kryteriów wybierałki. val → wartość porównywana, dir: 1 rosnąco / -1 malejąco.
+// num=true → wartości null/NaN zawsze na końcu (bez względu na kierunek).
+const FAV_SORTS = {
+    'price-asc':   { val: f => f.current_price, dir: 1,  num: true },
+    'price-desc':  { val: f => f.current_price, dir: -1, num: true },
+    'views-desc':  { val: f => f.current_views, dir: -1, num: true },
+    'growth-desc': { val: f => dailyGrowthValue(f.views_history), dir: -1, num: true },
+    'newest':      { val: f => addedTs(f), dir: -1, num: true },
+    'firm':        { val: f => (f.profile_name || '').toLowerCase(), dir: 1, num: false },
+};
+
+// Kolory pasków klastrów firm (MAT ma swój bursztyn; reszta rotacyjnie z tej palety).
+const GROUP_COLORS = ['#38bdf8', '#a78bfa', '#34d399', '#fb7185', '#f59e0b', '#22d3ee', '#c084fc'];
+
+function favCmp(a, b, s) {
+    const va = s.val(a), vb = s.val(b);
+    const na = va == null || (s.num && (va === '' || isNaN(va)));
+    const nb = vb == null || (s.num && (vb === '' || isNaN(vb)));
+    if (na && nb) return 0;
+    if (na) return 1;          // null zawsze na dół
+    if (nb) return -1;
+    if (va < vb) return -1 * s.dir;
+    if (va > vb) return 1 * s.dir;
+    return 0;
+}
+
+// Buduje sekwencję renderu z aktywnych ofert: gdy grupowanie ON — klastry firm
+// (MAT pierwszy, reszta wg kryterium na najlepszej ofercie grupy, prywatne razem na końcu);
+// gdy OFF — płaska lista posortowana samym kryterium. Zwraca listę elementów:
+// {kind:'head', ...} nagłówek grupy lub {kind:'card', f} karta.
+function buildFavSequence(active, s, grouped) {
+    const sorted = active.slice().sort((a, b) => favCmp(a, b, s));
+    if (!grouped) return sorted.map(f => ({ kind: 'card', f }));
+
+    const byKey = new Map();
+    const privs = [];
+    sorted.forEach(f => {
+        if (f.profile_key) {
+            if (!byKey.has(f.profile_key))
+                byKey.set(f.profile_key, { key: f.profile_key, name: f.profile_name || f.profile_key, offers: [] });
+            byKey.get(f.profile_key).offers.push(f);
+        } else {
+            privs.push(f);
+        }
+    });
+    // Oferty w grupie są już posortowane (pochodzą z `sorted`), więc offers[0] to reprezentant grupy.
+    const mat = [...byKey.values()].filter(g => g.key === 'mat');
+    const rest = [...byKey.values()].filter(g => g.key !== 'mat')
+        .sort((g1, g2) => favCmp(g1.offers[0], g2.offers[0], s));
+    const orderedGroups = mat.concat(rest);
+
+    const seq = [];
+    let ci = 0;
+    orderedGroups.forEach(g => {
+        seq.push({ kind: 'head', name: g.name, isMat: g.key === 'mat', count: g.offers.length,
+                   color: g.key === 'mat' ? '#f59e0b' : GROUP_COLORS[ci++ % GROUP_COLORS.length] });
+        g.offers.forEach(f => seq.push({ kind: 'card', f, color: g.key === 'mat' ? '#f59e0b' : GROUP_COLORS[(ci - 1) % GROUP_COLORS.length] }));
+    });
+    if (privs.length) {
+        seq.push({ kind: 'head', name: '👤 Prywatne', isMat: false, count: privs.length, color: '#94a3b8' });
+        privs.forEach(f => seq.push({ kind: 'card', f, color: '#94a3b8' }));
+    }
+    return seq;
+}
+
+let favChartInstances = [];
+
 function renderFavorites(data) {
     document.getElementById('updated').textContent =
         data.generated ? `Aktualizacja: ${data.generated}` : '';
     const list = document.getElementById('fav-list');
+    const controls = document.getElementById('fav-controls');
+
+    // Zniszcz wykresy z poprzedniego renderu (przełączenie sortowania odbudowuje listę).
+    favChartInstances.forEach(c => { try { c.destroy(); } catch (e) {} });
+    favChartInstances = [];
+    list.innerHTML = '';
 
     if (!data.favorites || data.favorites.length === 0) {
+        controls.style.display = 'none';
         list.innerHTML = '<div class="empty-state">Brak śledzonych ulubionych.<br>' +
             'Wyślij Claude\'owi: „dodaj do ulubionych: &lt;link OLX&gt;".</div>';
         return;
@@ -300,12 +442,39 @@ function renderFavorites(data) {
     const favInactive = f => (f.status || '') !== 'active';
     const active = data.favorites.filter(f => !favInactive(f));
     const inactive = data.favorites.filter(favInactive);
-    const ordered = active.concat(inactive);
-    let dividerDone = false;
 
-    ordered.forEach((f, idx) => {
+    // Odczyt stanu wybierałki (z kontrolek zsynchronizowanych z localStorage).
+    const sortKey = document.getElementById('fav-sort').value;
+    const grouped = document.getElementById('fav-group').checked;
+    const s = FAV_SORTS[sortKey] || FAV_SORTS['price-asc'];
+
+    const matCount = data.favorites.filter(f => f.profile_key === 'mat').length;
+    document.getElementById('fav-count').textContent =
+        `${data.favorites.length} ofert` + (matCount ? ` · ${matCount}× MAT` : '');
+    controls.style.display = 'flex';
+
+    // Sekwencja renderu = aktywne (grupowane lub płaskie) + nieaktywne pod separatorem.
+    const seq = buildFavSequence(active, s, grouped);
+    const items = seq.concat(inactive.map(f => ({ kind: 'card', f, inactive: true })));
+    let dividerDone = false;
+    let idx = -1;
+
+    items.forEach(item => {
+        if (item.kind === 'head') {
+            const h = document.createElement('div');
+            h.className = 'fav-group-head' + (item.isMat ? ' mat' : '');
+            h.style.setProperty('--grp-color', item.color);
+            // Prywatne mają swój prefix 👤 w nazwie; firmy dostają 🏢.
+            const prefix = item.name.startsWith('👤') ? '' : '🏢 ';
+            h.innerHTML = `${prefix}${escapeHtml(item.name)} <span class="fg-count">· ${item.count}</span>`;
+            list.appendChild(h);
+            return;
+        }
+        const f = item.f;
+        idx++;
         const card = document.createElement('div');
-        card.className = 'fav-card' + (favInactive(f) ? ' inactive' : '');
+        card.className = 'fav-card' + (favInactive(f) ? ' inactive' : '') + (grouped && !item.inactive ? ' grouped' : '');
+        if (item.color) card.style.setProperty('--grp-color', item.color);
 
         const priceStr = f.current_price != null ? `${f.current_price} zł` : '—';
         const viewsStr = f.current_views != null ? f.current_views : '—';
@@ -415,7 +584,7 @@ function renderFavorites(data) {
             ${priceHist}
             ${ph.length >= 2 ? `<div class="chart-block">
                 <h4>💰 Cena w czasie</h4>
-                <div class="chart-wrap chart-wrap-sm"><canvas id="price-chart-${idx}"></canvas></div>
+                <div class="chart-wrap chart-wrap-price"><canvas id="price-chart-${idx}"></canvas></div>
             </div>` : ''}
             ${(f.refresh_events || []).length ? `<div class="price-history-row">🔄 Odświeżenia: <b>${f.refresh_events.map(r => escapeHtml(r.date)).join(', ')}</b></div>` : ''}
             <div class="chart-block">
@@ -438,7 +607,7 @@ function renderFavorites(data) {
         list.appendChild(card);
 
         if (vh.length >= 2) {
-            new Chart(document.getElementById(`views-chart-${idx}`), {
+            favChartInstances.push(new Chart(document.getElementById(`views-chart-${idx}`), {
                 type: 'line',
                 plugins: [weekdayStripesPlugin, refreshMarkerPlugin],
                 data: {
@@ -500,11 +669,11 @@ function renderFavorites(data) {
                         }
                     }
                 }
-            });
+            }));
         }
 
         if (dailyBars.length) {
-            new Chart(document.getElementById(`daily-chart-${idx}`), {
+            favChartInstances.push(new Chart(document.getElementById(`daily-chart-${idx}`), {
                 type: 'bar',
                 data: {
                     labels: dailyBars.map(d => d.label),
@@ -542,11 +711,11 @@ function renderFavorites(data) {
                         }
                     }
                 }
-            });
+            }));
         }
 
         if (ph.length >= 2) {
-            new Chart(document.getElementById(`price-chart-${idx}`), {
+            favChartInstances.push(new Chart(document.getElementById(`price-chart-${idx}`), {
                 type: 'line',
                 data: {
                     labels: [...ph.map(p => p.date), 'teraz'],
@@ -586,8 +755,29 @@ function renderFavorites(data) {
                         }
                     }
                 }
-            });
+            }));
         }
+    });
+}
+
+// Kontrolki wybierałki: przywróć wybór z localStorage i odbuduj listę przy zmianie.
+const FAV_SORT_KEY = 'sonar_fav_sort';
+const FAV_GROUP_KEY = 'sonar_fav_group';
+let favDataCache = { favorites: [] };
+function initFavControls() {
+    const sortEl = document.getElementById('fav-sort');
+    const groupEl = document.getElementById('fav-group');
+    const savedSort = localStorage.getItem(FAV_SORT_KEY);
+    if (savedSort && FAV_SORTS[savedSort]) sortEl.value = savedSort;
+    const savedGroup = localStorage.getItem(FAV_GROUP_KEY);
+    if (savedGroup !== null) groupEl.checked = savedGroup === '1';
+    sortEl.addEventListener('change', () => {
+        localStorage.setItem(FAV_SORT_KEY, sortEl.value);
+        renderFavorites(favDataCache);
+    });
+    groupEl.addEventListener('change', () => {
+        localStorage.setItem(FAV_GROUP_KEY, groupEl.checked ? '1' : '0');
+        renderFavorites(favDataCache);
     });
 }
 
@@ -618,14 +808,17 @@ function renderLocalStars(trackedIds) {
     });
 }
 
+initFavControls();
 fetch('favorites_data.json?t=' + Date.now())
     .then(r => r.ok ? r.json() : { favorites: [] })
     .then(data => {
+        favDataCache = data;
         renderFavorites(data);
         const trackedIds = new Set((data.favorites || []).map(f => f.short_id));
         renderLocalStars(trackedIds);
     })
     .catch(() => {
+        favDataCache = { favorites: [] };
         renderFavorites({ favorites: [] });
         renderLocalStars(new Set());
     });
