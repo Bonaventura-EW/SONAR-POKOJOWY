@@ -9,6 +9,10 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: wykres „Cena w czasie" faktycznie obniżony + fix kolejności CSS (2026-08-20)
+- **bug**: reguła `.chart-wrap-price` (i `.chart-wrap-sm`) stała PRZED `.chart-wrap { height: 220px }` w arkuszu — przy równej specyficzności wygrywa późniejsza, więc override wysokości **nigdy nie działał**, wykres ceny cały czas miał 220 px (wcześniejsze „88 px" było iluzją).
+- **fix**: override przeniesiony ZA `.chart-wrap` i podbita specyficzność (`.chart-wrap.chart-wrap-price`). Wykres „💰 Cena w czasie" ustawiony na **74 px** (≈ 1/3 z 220 — „o 2/3 niższy" wg Mateusza). `.chart-wrap-sm` (przyrost dzienny) analogicznie utrwalone na 170 px.
+
 ### Ulubione: wybierałka sortowania + grupowanie po firmie (2026-08-20)
 - **zlecenie Mateusza**: w zakładce Ulubione dodać wybierałkę kolejności ofert; oferty MAT domyślnie na wierzchu, a oferty innych profili też trzymane razem w grupach.
 - **implementacja (`docs/ulubione.html`, tylko frontend)**: nad listą kontrolka `SORTUJ` (select) + przełącznik `Grupuj po firmie` (domyślnie ON) + licznik `N ofert · M× MAT`. Kryteria: cena ↑/↓, wyświetlenia ↓, przyrost/dzień ↓, najnowsze, firma (A–Z); domyślnie cena rosnąco.

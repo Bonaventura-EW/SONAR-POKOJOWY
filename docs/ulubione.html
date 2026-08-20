@@ -72,11 +72,12 @@
     .chart-block h4 { font-size: 12px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
     .refresh-legend { font-size: 11px; color: #f59e0b; display: inline-flex; align-items: center; gap: 6px; margin: -2px 0 8px; }
     .refresh-legend .rl-dash { width: 18px; height: 0; border-top: 1.6px dashed #f59e0b; display: inline-block; }
-    .chart-wrap-sm { height: 170px; }
-    .chart-wrap-price { height: 88px; }
     .price-up { color: #dc2626; font-weight: 700; }
     .price-down { color: #16a34a; font-weight: 700; }
     .chart-wrap { position: relative; height: 220px; }
+    /* Override PO .chart-wrap (równa specyficzność — musi być później, inaczej 220px wygrywa). */
+    .chart-wrap.chart-wrap-sm { height: 170px; }
+    .chart-wrap.chart-wrap-price { height: 74px; }
     .chart-empty {
         border: 1px dashed #cbd5e1; border-radius: 8px; padding: 22px;
         text-align: center; color: #94a3b8; font-size: 13px; background: #f8fafc;
