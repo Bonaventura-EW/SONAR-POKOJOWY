@@ -9,6 +9,14 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: wybierałka sortowania + grupowanie po firmie (2026-08-20)
+- **zlecenie Mateusza**: w zakładce Ulubione dodać wybierałkę kolejności ofert; oferty MAT domyślnie na wierzchu, a oferty innych profili też trzymane razem w grupach.
+- **implementacja (`docs/ulubione.html`, tylko frontend)**: nad listą kontrolka `SORTUJ` (select) + przełącznik `Grupuj po firmie` (domyślnie ON) + licznik `N ofert · M× MAT`. Kryteria: cena ↑/↓, wyświetlenia ↓, przyrost/dzień ↓, najnowsze, firma (A–Z); domyślnie cena rosnąco.
+- **grupowanie**: oferty jednego profilu tworzą klaster (kolorowy pasek + nagłówek z nazwą i licznikiem). **MAT zawsze pierwszy**, pozostałe firmy niżej wg wybranego kryterium na najlepszej ofercie grupy (dla ceny↑ = najtańsza), oferty prywatne zebrane w jedną grupę `👤 Prywatne` na końcu. Wewnątrz grupy obowiązuje wybrane kryterium. Wyłączenie przełącznika = płaska lista posortowana samym kryterium. Nieaktywne oferty jak dotąd pod separatorem na dole.
+- **trwałość**: wybór (kryterium + grupowanie) zapamiętywany w `localStorage` (`sonar_fav_sort`, `sonar_fav_group`); przełączenie odbudowuje listę i **niszczy stare instancje Chart.js** (bez wycieku canvasów).
+- **przy okazji**: wykres „💰 Cena w czasie" zmniejszony (nowa klasa `.chart-wrap-price`, 118 px zamiast 170 px) — był za wysoki.
+- **weryfikacja**: render realnych 27 ofert (Playwright) we wszystkich trybach — grupowany (MAT→firmy wg ceny→Prywatne), płaski, sort firma/przyrost — bez błędów JS.
+
 ### Markery: druga tura czyszczenia cache (audyt CAŁEGO cache, nie tylko markerów) (2026-08-19)
 - **kontekst**: po mergu #125 odpalony scan produkcyjny (`workflow_dispatch`, run 32256134875) zakończył się `status: completed`, `errors: []`, guard „częściowy scrape" nie zapalił się. Zatrute klucze naprawione w #125 **nie wróciły** (`Chopina`, `Zana`, `Konopnickiej`, `Wileńskiej 15`, `Krańcowej 106` — ten sam punkt co po naprawie), ale scan przyniósł **nową ofertę z tym samym objawem**: `1bUG8v` („ul Bolesława Prusa, blisko UM") dostała pinezkę 2,7 km obok.
 - **root cause**: czyszczenie w #125 objęło tylko klucze wykryte przez audyt **markerów** — a zatruty wpis może siedzieć w cache pod nazwą ulicy, której akurat żadna aktywna oferta nie używała. Przy pierwszej nowej ofercie z tą ulicą wychodzi jak nowy.
