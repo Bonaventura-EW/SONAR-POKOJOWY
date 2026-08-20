@@ -14,7 +14,7 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 - **implementacja (`docs/ulubione.html`, tylko frontend)**: nad listą kontrolka `SORTUJ` (select) + przełącznik `Grupuj po firmie` (domyślnie ON) + licznik `N ofert · M× MAT`. Kryteria: cena ↑/↓, wyświetlenia ↓, przyrost/dzień ↓, najnowsze, firma (A–Z); domyślnie cena rosnąco.
 - **grupowanie**: oferty jednego profilu tworzą klaster (kolorowy pasek + nagłówek z nazwą i licznikiem). **MAT zawsze pierwszy**, pozostałe firmy niżej wg wybranego kryterium na najlepszej ofercie grupy (dla ceny↑ = najtańsza), oferty prywatne zebrane w jedną grupę `👤 Prywatne` na końcu. Wewnątrz grupy obowiązuje wybrane kryterium. Wyłączenie przełącznika = płaska lista posortowana samym kryterium. Nieaktywne oferty jak dotąd pod separatorem na dole.
 - **trwałość**: wybór (kryterium + grupowanie) zapamiętywany w `localStorage` (`sonar_fav_sort`, `sonar_fav_group`); przełączenie odbudowuje listę i **niszczy stare instancje Chart.js** (bez wycieku canvasów).
-- **przy okazji**: wykres „💰 Cena w czasie" zmniejszony (nowa klasa `.chart-wrap-price`, 118 px zamiast 170 px) — był za wysoki.
+- **przy okazji**: wykres „💰 Cena w czasie" zmniejszony (nowa klasa `.chart-wrap-price`, 88 px zamiast 170 px) — był za wysoki.
 - **weryfikacja**: render realnych 27 ofert (Playwright) we wszystkich trybach — grupowany (MAT→firmy wg ceny→Prywatne), płaski, sort firma/przyrost — bez błędów JS.
 
 ### Markery: druga tura czyszczenia cache (audyt CAŁEGO cache, nie tylko markerów) (2026-08-19)
