@@ -621,6 +621,14 @@ class SonarPokojowy:
             'last_refresh_date': raw_offer.get('api_last_refresh', ''),
             'reactivation_count': 0,     # ile razy reaktywowano po zniknięciu
             'reactivation_dates': [],    # daty reaktywacji ['YYYY-MM-DDT...', ...]
+            # Płatne wyróżnienie na listingu OLX (scraper._is_promoted_href).
+            # `promoted` = stan z OSTATNIEGO skanu, `promoted_dates` = dni, w
+            # których ofertę widzieliśmy jako promowaną (max 1/dzień) — z tego
+            # trend_generator buduje dzienny szereg „ile ofert jest promowanych".
+            'promoted': bool(raw_offer.get('promoted')),
+            'promoted_dates': ([datetime.now(self.tz).strftime('%Y-%m-%d')]
+                               if raw_offer.get('promoted') else []),
+            'promoted_count': 1 if raw_offer.get('promoted') else 0,
         }
     
     def _find_existing_offer(self, offer_id: str) -> Dict:
@@ -738,6 +746,26 @@ class SonarPokojowy:
         except (ValueError, TypeError, AttributeError):
             pass
         return False
+
+    def _track_promoted(self, existing: Dict, promoted: bool) -> bool:
+        """Zapisuje płatne wyróżnienie oferty na listingu OLX — max 1 dzień/wpis.
+
+        `promoted` = flaga z bieżącego skanu (scraper czyta ją z parametru
+        atrybucji w href kafelka). Aktualizuje stan bieżący i dopisuje dzisiejszą
+        datę do `promoted_dates`, jeśli jeszcze jej tam nie ma. Skanujemy 3×
+        dziennie, więc dzień z choć jednym promowanym wystąpieniem liczy się raz.
+        Zwraca True, gdy dopisano nowy dzień.
+        """
+        existing['promoted'] = bool(promoted)
+        if not promoted:
+            return False
+        today = datetime.now(self.tz).strftime('%Y-%m-%d')
+        dates = existing.setdefault('promoted_dates', [])
+        if today in dates:
+            return False
+        dates.append(today)
+        existing['promoted_count'] = len(dates)
+        return True
 
     def _apply_price_change(self, offer: Dict, new_price: int, new_source: str,
                             update_reason: str):
@@ -1007,6 +1035,9 @@ class SonarPokojowy:
         # klucz — nie 'api_last_refresh', którego przetworzona oferta nie ma.
         self._track_refresh(existing, new_data.get('last_refresh_date', ''))
 
+        # Śledź płatne wyróżnienie na listingu (dotyczy każdej oferty, nie tylko firmowej)
+        self._track_promoted(existing, new_data.get('promoted', False))
+
         # Śledź reaktywacje — inkrementuj licznik i dopisz datę przy każdej reaktywacji
         if was_inactive:
             existing['reactivation_count'] = existing.get('reactivation_count', 0) + 1
@@ -1048,6 +1079,9 @@ class SonarPokojowy:
             existing['reactivation_count'] = 0
             existing['reactivation_dates'] = []
             existing.pop('reactivated_at', None)
+            existing['promoted_dates'] = ([datetime.now(self.tz).strftime('%Y-%m-%d')]
+                                          if existing.get('promoted') else [])
+            existing['promoted_count'] = len(existing['promoted_dates'])
 
     def _update_days_active(self):
         """
@@ -1089,7 +1123,8 @@ class SonarPokojowy:
         return int(statistics.median(healthy))
 
     def _mark_inactive_offers(self, current_offer_ids: List[str], skipped_offer_ids: List[str] = None,
-                              skipped_refresh_map: Dict[str, str] = None):
+                              skipped_refresh_map: Dict[str, str] = None,
+                              promoted_ids: List[str] = None):
         """
         Oznacza ogłoszenia jako nieaktywne jeśli nie ma ich w bieżącym scanie.
         Reaktywuje oferty które pojawiły się ponownie (w skipped_ids).
@@ -1099,11 +1134,14 @@ class SonarPokojowy:
             skipped_offer_ids: Lista ID ofert które zostały pominięte przez inteligentne skanowanie
             skipped_refresh_map: id oferty pominiętej → api_last_refresh (do śledzenia bumpów
                                  bez zmiany ceny — oferta skipped nie przechodzi _update_existing_offer)
+            promoted_ids: ID ofert, które w TYM skanie były płatnie wyróżnione na listingu
+                          (ratunek dla ofert skipped, które nie przeszły _process_offer)
         """
         if skipped_offer_ids is None:
             skipped_offer_ids = []
         if skipped_refresh_map is None:
             skipped_refresh_map = {}
+        promoted_set = set(promoted_ids or [])
 
         # Wszystkie oferty które powinny być aktywne = przetworzone + pominięte
         all_active_ids = set(current_offer_ids + skipped_offer_ids)
@@ -1157,9 +1195,14 @@ class SonarPokojowy:
                     # Śledź odświeżenie (bump) — skipped nie wchodzi w _update_existing_offer,
                     # więc bez tego bump bez zmiany ceny nigdy nie trafia do licznika
                     self._track_refresh(offer, skipped_refresh_map.get(offer['id'], ''))
+                    # Wyróżnienie — jw., skipped omija _update_existing_offer
+                    self._track_promoted(offer, offer['id'] in promoted_set)
             elif offer['active']:
                 # Oferta nie jest w scanie - dezaktywuj
                 offer['active'] = False
+                # Nie ma jej na listingu → nie jest już promowana. Historia dni
+                # (promoted_dates) zostaje — z niej liczy się szereg czasowy.
+                offer['promoted'] = False
                 deactivated_count += 1
         
         if deactivated_count > 0:
@@ -1777,6 +1820,13 @@ class SonarPokojowy:
                 for offer in raw_offers
                 if offer.get('skipped', False) and offer.get('api_last_refresh')
             }
+            # ID ofert płatnie wyróżnionych na listingu w TYM skanie
+            promoted_ids = [
+                offer['url'].split('/')[-1].split('.')[0]
+                for offer in raw_offers
+                if offer.get('promoted')
+            ]
+            print(f"   ⭐ Promowane na listingu: {len(promoted_ids)} ofert")
 
             # ZABEZPIECZENIE: Ochrona przed masową dezaktywacją przy blokadzie OLX
             # (Cloudflare, rate limit, pusta odpowiedź, itp.)
@@ -1870,7 +1920,8 @@ class SonarPokojowy:
                     f"aktywnych, brak mediany odniesienia (seria blokad OLX)."
                 )
             else:
-                self._mark_inactive_offers(current_offer_ids, skipped_ids, skipped_refresh_map)
+                self._mark_inactive_offers(current_offer_ids, skipped_ids, skipped_refresh_map,
+                                           promoted_ids=promoted_ids)
             
             # Aktualizuj days_active dla WSZYSTKICH ofert
             self._update_days_active()
