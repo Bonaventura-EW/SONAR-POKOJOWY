@@ -10,7 +10,7 @@ how: Wyróżnienie czytamy z parametru atrybucji, który serwer OLX doszywa do h
 surface: src/scraper.py, src/main.py, src/trend_generator.py, docs/trend.html, test_promoted.py
 generality: family
 propagate: maybe
-commit: 441cba4
+commit: bab2ffb
 ---
 
 # Kontekst
