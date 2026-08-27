@@ -287,6 +287,122 @@ def build_bands(offers):
     return {'new': new_series, 'react': react_series}
 
 
+def load_scan_days(base_dir: Path) -> set:
+    """Dni z ZAKOŃCZONYM skanem, wg data/scan_history.json (źródło prawdy o skanach).
+
+    Historia trzyma ostatnie ~100 skanów (≈33 dni przy 3 skanach dziennie), więc
+    starsze dni dobiera _scanned_days z `last_seen` ofert. Brak pliku = pusty zbiór.
+    """
+    path = base_dir / 'data' / 'scan_history.json'
+    days = set()
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            history = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return days
+    if isinstance(history, dict):
+        history = history.get('scans', [])
+    for scan in history or []:
+        if scan.get('status') not in ('completed', 'warning'):
+            continue
+        ts = scan.get('timestamp')
+        if not ts:
+            continue
+        try:
+            days.add(_d(ts))
+        except (ValueError, TypeError):
+            continue
+    return days
+
+
+def _scanned_days(offers):
+    """Dni, w których scan REALNIE zebrał dane (jakakolwiek oferta ma tam last_seen).
+
+    Dzień bez skanu (awaria Actions, blokada OLX) miałby zero promowanych i
+    rysowałby się jak realne załamanie metryki. Takie dni oznaczamy jako lukę.
+    Uzupełnienie dla dni starszych niż okno scan_history.json.
+    """
+    days = set()
+    for o in offers:
+        if not o.get('last_seen'):
+            continue
+        try:
+            days.add(_d(o['last_seen']))
+        except (ValueError, TypeError):
+            continue
+    return days
+
+
+def build_promoted(offers, series, scan_days=None):
+    """Dzienna liczba ofert PROMOWANYCH (płatne wyróżnienie na listingu OLX).
+
+    Źródło: `promoted_dates` w offers.json — dni, w których scraper zobaczył
+    ofertę jako wyróżnioną (main._track_promoted, max 1 wpis/dzień). To metryka
+    STANU (ile ofert jest promowanych danego dnia), nie przepływu, więc z bloku
+    _flow_metric front używa `daily`/`avg`/`rate`/`max_day` — `total` (suma po
+    dniach) nie ma tu sensu i nie jest pokazywane.
+
+    Historia zaczyna się w dniu wdrożenia detekcji — wyróżnienia NIE DA SIĘ
+    odtworzyć wstecz (to stan chwilowy na listingu, nie ślad w ofercie), więc
+    seria startuje od pierwszego dnia z danymi, nie od RELIABLE_START.
+
+    Druga seria to udział promowanych w rynku (% aktywnych ofert danego dnia),
+    liczony na tym samym mianowniku co Indeks (`series`).
+    """
+    counts = {}
+    for o in offers:
+        for pd in (o.get('promoted_dates') or []):
+            try:
+                d = date.fromisoformat(str(pd)[:10])
+            except (ValueError, TypeError):
+                continue
+            counts[d] = counts.get(d, 0) + 1
+
+    if not counts:
+        return None
+
+    _, today = build_spans(offers)
+    start = min(counts)
+    days = _daily_range(start, max(today, max(counts)))
+
+    # Dzień liczy się jako zeskanowany, gdy: jest w historii skanów, jakaś oferta
+    # ma tam last_seen, albo widzieliśmy tego dnia promowaną ofertę. Reszta = luka
+    # (brak skanu), żeby awaria Actions nie wyglądała jak zerowe promowanie.
+    scanned = set(scan_days or set()) | _scanned_days(offers) | set(counts)
+    missing = {d for d in days if d not in scanned}
+
+    metric = _flow_metric(counts, days, exclude=missing)
+
+    active_by_ms = {ms: val for ms, val in (series or [])}
+    share = []
+    for d in days:
+        ms = _day_ms(d)
+        active = active_by_ms.get(ms)
+        if d in missing or not active:
+            share.append([ms, None])
+        else:
+            share.append([ms, round(100 * counts.get(d, 0) / active, 1)])
+
+    last_day = next((d for d in reversed(days) if d not in missing), None)
+    current = counts.get(last_day, 0) if last_day else None
+    current_share = None
+    if last_day:
+        active = active_by_ms.get(_day_ms(last_day))
+        if active:
+            current_share = round(100 * counts.get(last_day, 0) / active, 1)
+
+    metric.pop('total', None)
+    metric.update({
+        'share': share,
+        'current': current,
+        'current_share': current_share,
+        'start': start.isoformat(),
+        'start_label': start.strftime('%d.%m.%Y'),
+        'days': len(days),
+    })
+    return metric
+
+
 def _value_at_or_before(series, target_ms):
     best = None
     for ms, val in series:
@@ -358,6 +474,7 @@ def generate_trend_data(base_dir: Path = None) -> bool:
         'outflow': build_outflow(offers),
         'inflow': build_inflow(offers),
         'bands': build_bands(offers),
+        'promoted': build_promoted(offers, series, load_scan_days(base_dir)),
     }
 
     write_json_atomic(output_file, out)
@@ -366,6 +483,13 @@ def generate_trend_data(base_dir: Path = None) -> bool:
           f"teraz={current}, max={mx}, min={mn}; "
           f"odpływ: łącznie={of.get('total')}, śr={of.get('rate')}/dzień, "
           f"rekord={of.get('max_day')} ({of.get('max_label')})")
+    pr = out['promoted']
+    if pr:
+        print(f"   ⭐ promowane: teraz={pr.get('current')} ({pr.get('current_share')}% rynku), "
+              f"śr={pr.get('rate')}/dzień, rekord={pr.get('max_day')} ({pr.get('max_label')}), "
+              f"historia od {pr.get('start_label')}")
+    else:
+        print("   ⭐ promowane: brak danych (metryka zbiera się od pierwszego skanu po wdrożeniu)")
     return True
 
 
