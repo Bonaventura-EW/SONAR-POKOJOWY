@@ -231,6 +231,76 @@
         }
         #map { width: 100%; height: 100%; }
 
+        /* ── SKOKI PO LIŚCIE (przyciski na prawej krawędzi mapy) ──
+           Pionowy napis NIE przez writing-mode: przeglądarka centruje wtedy
+           line-box, a nie litery (ascent > descent), przez co tekst siada
+           ~1,5 px od osi paska. Dlatego tło/ramka siedzą na pionowym
+           .jump-slot, a w środku leży POZIOMY przycisk obrócony o 90° —
+           tekst centruje zwykły flex, strzałka i licznik są odkręcone
+           z powrotem do pionu. Wyśrodkowanie z geometrii, nie z metryki fontu. */
+        .jump-nav {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 1000;          /* nad kafelkami i markerami Leafletu */
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 5px;
+        }
+        .jump-slot {
+            position: relative;
+            width: 22px;
+            height: 86px;
+            background: var(--jump-bg);
+            border: 1px solid var(--jump-bd);
+            border-right: none;
+            border-radius: 4px 0 0 4px;
+            box-shadow: -1px 1px 3px rgba(15,23,42,0.12);
+            transition: filter 0.14s;
+        }
+        .jump-slot:hover { filter: brightness(0.96); }
+        .jump-slot.up   { --jump-bg: #dcfce7; --jump-bd: #86efac; --jump-fg: #166534; }
+        .jump-slot.down { --jump-bg: #fee2e2; --jump-bd: #fca5a5; --jump-fg: #991b1b; }
+        .jump {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 84px;
+            height: 20px;
+            transform: translate(-50%, -50%) rotate(90deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            background: none;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 8px;
+            font-weight: 700;
+            line-height: 1;
+            letter-spacing: 0.03em;
+            color: var(--jump-fg);
+            white-space: nowrap;
+        }
+        .jump .ar { transform: rotate(-90deg); font-size: 9px; }
+        .jump .cnt {
+            transform: rotate(-90deg);
+            background: #fff;
+            border-radius: 3px;
+            padding: 1px 3px;
+            font-size: 8px;
+            font-variant-numeric: tabular-nums;
+            order: 2;
+        }
+        .jump .lb { order: 3; }
+        .jump-slot.down .jump { flex-direction: row-reverse; }
+        .jump:focus-visible { outline: 2px solid #0f172a; outline-offset: 3px; border-radius: 3px; }
+        @media (prefers-reduced-motion: reduce) { .jump-slot { transition: none; } }
+
         /* ── LISTA (prawa, scrolluje) ── */
         .list-col { overflow-y: auto; }
         .list-col::-webkit-scrollbar { width: 4px; }
@@ -517,7 +587,23 @@
 
     <div class="statsbar" id="statsbar"></div>
     <div class="main">
-        <div class="map-col"><div id="map"></div></div>
+        <div class="map-col">
+            <div id="map"></div>
+            <div class="jump-nav" id="jump-nav" hidden>
+                <div class="jump-slot up">
+                    <button class="jump" type="button" data-jump="active"
+                            title="Skocz na początek aktywnych ogłoszeń">
+                        <span class="ar">↑</span><span class="cnt" id="jump-cnt-active">0</span><span class="lb">aktywne</span>
+                    </button>
+                </div>
+                <div class="jump-slot down" id="jump-slot-archived">
+                    <button class="jump" type="button" data-jump="archived"
+                            title="Skocz na początek ogłoszeń archiwalnych">
+                        <span class="ar">↓</span><span class="cnt" id="jump-cnt-archived">0</span><span class="lb">nieaktywne</span>
+                    </button>
+                </div>
+            </div>
+        </div>
         <div class="list-col" id="list-col">
             <div class="list-hdr">
                 <strong id="list-title">Ogłoszenia</strong>
@@ -1086,8 +1172,43 @@ function renderProfile(key) {
     }
     document.getElementById('list-body').innerHTML = html;
 
+    // Przyciski skoku po liście (na krawędzi mapy)
+    updateJumpNav(active.length, archived.length);
+
     // Markers
     renderMarkers(key);
+}
+
+// ── SKOKI PO LIŚCIE ───────────────────────────────────────────────────
+// ↑ aktywne  → początek listy
+// ↓ nieaktywne → belka „╳ ogłoszenia archiwalne" tuż pod lipkim nagłówkiem.
+// Pozycję liczymy z getBoundingClientRect, bo .list-col nie jest offsetParentem
+// wierszy (nie ma position), więc offsetTop wskazywałby na <body>.
+function updateJumpNav(activeCount, archivedCount) {
+    const nav = document.getElementById('jump-nav');
+    nav.hidden = (activeCount + archivedCount) === 0;
+    document.getElementById('jump-cnt-active').textContent = activeCount;
+    document.getElementById('jump-cnt-archived').textContent = archivedCount;
+    document.getElementById('jump-slot-archived').hidden = archivedCount === 0;
+}
+
+function initJumpNav() {
+    const smooth = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    document.getElementById('jump-nav').addEventListener('click', e => {
+        const btn = e.target.closest('.jump');
+        if (!btn) return;
+        const listCol = document.getElementById('list-col');
+        if (btn.dataset.jump === 'active') {
+            listCol.scrollTo({ top: 0, behavior: smooth });
+            return;
+        }
+        const divider = listCol.querySelector('.archive-divider');
+        if (!divider) return;
+        const hdr = listCol.querySelector('.list-hdr');
+        const top = divider.getBoundingClientRect().top - listCol.getBoundingClientRect().top
+                  + listCol.scrollTop - (hdr ? hdr.offsetHeight : 0);
+        listCol.scrollTo({ top: top, behavior: smooth });
+    });
 }
 
 // ── SYGNAŁY ZMIAN OD OSTATNIEJ WIZYTY ─────────────────────────────────
@@ -1427,6 +1548,7 @@ async function loadData() {
         initMap();
         initLegend();
         initSigTip();
+        initJumpNav();
 
         // Sygnały liczymy PRZED oznaczeniem wizyty — inaczej wejście na stronę
         // wyzerowałoby to, co ma pokazać.
