@@ -9,6 +9,14 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Firmy: skoki po liście — przyciski „aktywne / nieaktywne" na krawędzi mapy (2026-08-31)
+- **zlecenie Mateusza**: dwa przyciski przy granicy mapy i listy — górny ze strzałką w górę „aktywne", dolny ze strzałką w dół „nieaktywne" — przenoszące listę na początek odpowiedniej sekcji.
+- **implementacja (`docs/profile_tracker.html`, tylko frontend)**: pionowe paski (~22 px) doklejone do PRAWEJ krawędzi `.map-col`, czyli leżą na mapie, nie na kartach ofert. Zielony tint `#dcfce7` = aktywne, czerwony `#fee2e2` = nieaktywne, obrys w mocniejszym odcieniu, biała plakietka z liczbą ofert w sekcji. `↑` skacze na `scrollTop = 0`, `↓` ustawia belkę `.archive-divider` pod lipkim nagłówkiem listy.
+- **wyśrodkowanie napisu bez `writing-mode`**: przy `writing-mode: vertical-rl` przeglądarka centruje **line-box**, a nie litery — łaciński ascent jest większy od descentu, więc napis siadał ~1,5 px od osi paska (zmierzone na zrzutach 5×). Zamiast dobierać przesunięcie w pikselach (zależne od fontu) tło/ramka siedzą na pionowym `.jump-slot` (22 × 86), a w środku leży POZIOMY `<button>` 84 × 20 z `rotate(90deg)`; strzałka i licznik dostają `rotate(-90deg)`, żeby stać prosto. Wyśrodkowanie wynika z geometrii, nie z metryki fontu.
+- **szczegóły**: liczniki odświeżane w `renderProfile` (te same `active`/`archived` co nagłówek listy), pasek „nieaktywne" chowa się przy zerze archiwalnych, cała nawigacja znika dla profilu bez ofert. Pozycja belki liczona z `getBoundingClientRect`, bo `.list-col` nie ma `position` i nie jest `offsetParentem` wierszy. `z-index: 1000` — nad kafelkami i markerami Leafletu. Ruch szanuje `prefers-reduced-motion`.
+- **weryfikacja**: klikalne na realnej stronie (Poqui: 77/112 aktywnych, 35 archiwalnych) — `↓` ustawia belkę pod nagłówkiem, `↑` wraca na 0, zero błędów w konsoli. `test_integration.py` ✅.
+
+
 ### Promowane ogłoszenia: detekcja płatnych wyróżnień OLX + wykres w zakładce Indeks (2026-08-26)
 - **zlecenie Mateusza**: zbierać informację, czy ogłoszenie jest promowane, i pokazać w zakładce Indeks wykres liczby promowanych ofert.
 - **stan przed**: nie zbieraliśmy tego nigdzie. Listing dawał tylko url/tytuł/cenę, JSON-LD strony oferty nie niesie promocji, a pełny obiekt z API v1 profili (z sekcją `promotion`) był `pop`owany i wyrzucany w `scraper.py`.
