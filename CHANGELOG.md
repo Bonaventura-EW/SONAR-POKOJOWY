@@ -9,6 +9,14 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Górna belka na całą szerokość okna na wszystkich zakładkach (2026-08-31)
+- **zgłoszenie Mateusza**: belka nawigacji wygląda inaczej na różnych zakładkach i „czasem nie wykorzystuje całego okna przeglądarki".
+- **diagnoza**: wszystkie 10 stron ciągnie ten sam `assets/header.css?v=3` i renderuje identyczną belkę (56 px, ten sam padding, ta sama lista zakładek) — ale cztery trzymały `<header class="sp-header">` WEWNĄTRZ `.container` z `max-width`. Przy oknie 1600 px: Analityka / Monitoring / Analiza Rynku 1400 px, Indeks 1280 px, reszta 1600 px. Hack `.container > .sp-header { margin: 0 -20px }` kasował tylko boczny padding kontenera, nie jego `max-width`, więc belka i tak zostawała wyspą z tłem strony po bokach.
+- **fix (`analytics.html`, `monitoring.html`, `market_analysis.html`, `trend.html`)**: nagłówek wyjęty przed `.container` (tak jak już było na Mapie, Firmach, Top 5, Ruchu, Ulubionych i Pominiętych), hack z ujemnym marginesem usunięty, odstęp pod belką przejmuje `padding-top` kontenera (20 px, na Indeksie 22 px — tyle, ile dawał wcześniej `margin-bottom`).
+- **weryfikacja**: zmierzone w przeglądarce przy oknie 1600 px na wszystkich dziesięciu stronach — po zmianie każda belka ma `x = 0` i szerokość 1600 px, wysokość bez zmian (56 px).
+- **znane, do decyzji**: zakładka `ostatnie.html` nazywa się `🔄 Ruch` w nawigacji tej strony, a `🆕 Ostatnie` na pozostałych dziewięciu — czeka na wybór jednej nazwy.
+
+
 ### Firmy: skoki po liście — przyciski „aktywne / nieaktywne" na krawędzi mapy (2026-08-31)
 - **zlecenie Mateusza**: dwa przyciski przy granicy mapy i listy — górny ze strzałką w górę „aktywne", dolny ze strzałką w dół „nieaktywne" — przenoszące listę na początek odpowiedniej sekcji.
 - **implementacja (`docs/profile_tracker.html`, tylko frontend)**: pionowe paski (~22 px) doklejone do PRAWEJ krawędzi `.map-col`, czyli leżą na mapie, nie na kartach ofert. Zielony tint `#dcfce7` = aktywne, czerwony `#fee2e2` = nieaktywne, obrys w mocniejszym odcieniu, biała plakietka z liczbą ofert w sekcji. `↑` skacze na `scrollTop = 0`, `↓` ustawia belkę `.archive-divider` pod lipkim nagłówkiem listy.
