@@ -9,6 +9,18 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Firmy: stos ofert pod jednym adresem = jedna pinezka z listą (2026-08-31)
+- **zgłoszenie Mateusza**: pinezki ofert spod tego samego adresu leżą jedna na drugiej — klikalna jest tylko wierzchnia.
+- **skala problemu (audyt `profile_data.json`)**: 39 punktów z więcej niż jedną ofertą, **69 ofert nie do kliknięcia**, 9 z 10 profili dotkniętych. Rekord: `Letniej 2` (Łukasz) — **12 ofert w jednym punkcie**, czyli cały profil na jednej pinezce. Zgłoszony przypadek `Skrzetuskiego 2B` (MAT) to stos 5.
+- **wybór Mateusza po przeglądzie 20 wariantów**: „licznik + popup z płaską listą" (wariant 11), nie rozbicie geometryczne — pinezka ma zostać w prawdziwym miejscu, bo adresy na mapie mają być dokładne.
+- **implementacja (`docs/profile_tracker.html`, tylko frontend)**: `renderMarkers` grupuje oferty po współrzędnych (`lat.toFixed(6),lon.toFixed(6)`). Grupa >1 dostaje JEDNĄ pinezkę (`makeStackIcon`) — ten sam kształt co zwykła, ale w środku liczba ofert zamiast białej kropki; kolor z **najtańszej** oferty pod adresem, żeby skala cen dalej działała; same archiwalne → pinezka wyblakła. Adres z jedną ofertą renderuje się dokładnie jak wcześniej.
+- **popup stosu**: nagłówek (adres + `N ofert` + rozbicie aktywne/archiwalne) i płaska lista — cena, typ lub `NIEAKTYWNE`, strzałka zmiany ceny, tytuł, odnośnik OLX. Kolejność: aktywne od najtańszej, potem archiwalne od ostatnio widzianej. Klik w wiersz woła istniejące `hlOffer()`, więc karta w prawym panelu podświetla się i przewija tak samo jak przy kliknięciu pinezki.
+- **spójność podświetlania**: każde ID oferty ze stosu wskazuje w `leafletMarkers` na ten sam marker, a ikonę przełącza nowe `applyMarkerIcon()` — dzięki temu klik w kartę na liście podświetla pinezkę stosu jako stos (wcześniej `setIcon(makeLeafletIcon(...))` zamieniłby ją w zwykłą pinezkę i zgubił liczbę). Otwarty popup nie jest przeładowywany przy kliknięciu wiersza (`isPopupOpen()`), żeby przewinięta lista 12 ofert nie skakała na górę.
+- **bezpieczeństwo**: tytuły i adresy escapowane (`escHtml`), `href` przepuszczony przez nowe `safeUrl()` (tylko `http(s)`), zero inline `onclick` — klik obsługuje delegacja (`initStackPopups`), bo popupy Leafletu powstają dopiero przy otwarciu.
+- **fioletowe pinezki poprzednich adresów** wydzielone do `renderArchivalVersions()` i rysowane też dla ofert ze stosów — bez zmian w wyglądzie i zachowaniu.
+- **weryfikacja na żywo**: MAT → 2 pinezki (stos „5" + pojedyncza), popup listuje 3 aktywne i 2 archiwalne, klik w wiersz podświetla właściwą kartę; Łukasz → jedna pinezka „12"; pojedyncze oferty mają stary popup; przełączanie profili nie zostawia markerów ani błędów w konsoli. `test_integration.py` ✅.
+
+
 ### Górna belka na całą szerokość okna na wszystkich zakładkach (2026-08-31)
 - **zgłoszenie Mateusza**: belka nawigacji wygląda inaczej na różnych zakładkach i „czasem nie wykorzystuje całego okna przeglądarki".
 - **diagnoza**: wszystkie 10 stron ciągnie ten sam `assets/header.css?v=3` i renderuje identyczną belkę (56 px, ten sam padding, ta sama lista zakładek) — ale cztery trzymały `<header class="sp-header">` WEWNĄTRZ `.container` z `max-width`. Przy oknie 1600 px: Analityka / Monitoring / Analiza Rynku 1400 px, Indeks 1280 px, reszta 1600 px. Hack `.container > .sp-header { margin: 0 -20px }` kasował tylko boczny padding kontenera, nie jego `max-width`, więc belka i tak zostawała wyspą z tłem strony po bokach.

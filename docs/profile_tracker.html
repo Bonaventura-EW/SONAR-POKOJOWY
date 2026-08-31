@@ -428,6 +428,35 @@
         .change b { color: #0f172a; }
         .change .ico { color: #a855f7; }
 
+        /* ── POPUP STOSU (kilka ofert pod tym samym adresem) ──
+           Adres z >1 ofertą dostaje JEDNĄ pinezkę z liczbą; popup listuje
+           wszystkie oferty spod tego adresu, klik w wiersz podświetla kartę. */
+        .stk { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: -2px -4px; }
+        .stk-hd {
+            display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+            padding: 7px 10px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0;
+        }
+        .stk-hd b { font-size: 12.5px; color: #0f172a; }
+        .stk-hd span { font-size: 10px; color: #64748b; white-space: nowrap; }
+        .stk-sub { padding: 4px 10px; font-size: 10px; color: #64748b; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+        .stk-body { max-height: 208px; overflow-y: auto; }
+        .stk-body::-webkit-scrollbar { width: 5px; }
+        .stk-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .stk-row {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 10px; border-bottom: 0.5px solid #eef2f6; cursor: pointer;
+        }
+        .stk-row:hover { background: #f8fafc; }
+        .stk-row.sel { background: rgba(245,158,11,0.1); }
+        .stk-row .stk-price { font-size: 12.5px; font-weight: 800; font-variant-numeric: tabular-nums; min-width: 52px; }
+        .stk-row.inact .stk-price { color: #94a3b8; }
+        .stk-row .stk-tr { font-size: 10px; font-weight: 800; }
+        .stk-row .stk-tr.down { color: #28a745; }
+        .stk-row .stk-tr.up { color: #dc3545; }
+        .stk-row .stk-ttl { flex: 1; font-size: 10px; color: #475569; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        .stk-row .stk-olx { font-size: 9.5px; font-weight: 700; color: #3b82f6; text-decoration: none; white-space: nowrap; }
+        .stk-ft { padding: 5px 10px; font-size: 9.5px; color: #94a3b8; background: #f8fafc; border-top: 1px solid #e2e8f0; }
+
         /* Belka archiwalna */
         .archive-divider {
             display: flex;
@@ -657,6 +686,40 @@ function makeLeafletIcon(color, active, highlighted, trend) {
     });
 }
 
+// Pinezka stosu — ten sam kształt co zwykła, ale w środku LICZBA ofert
+// zamiast białej kropki. Kolor bierzemy z najtańszej oferty pod adresem,
+// żeby skala cen na mapie dalej działała.
+function makeStackIcon(color, count, allInactive, highlighted) {
+    const stroke = highlighted ? '#f59e0b' : '#d97706';
+    const sw = highlighted ? 4 : 2.5;
+    const glow = highlighted ? 'filter:drop-shadow(0 0 5px #f59e0b)' : '';
+    const op = allInactive ? ' opacity="0.4"' : '';
+    return L.divIcon({
+        className: '',
+        html: '<svg width="28" height="34" viewBox="-2 -2 28 34" style="overflow:visible;' + glow + '">'
+            + '<path d="M12 0C5 0 0 5 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5 19 0 12 0Z"'
+            + ' fill="' + color + '" stroke="' + stroke + '" stroke-width="' + sw + '"' + op + '/>'
+            + '<circle cx="12" cy="11" r="7.4" fill="white"' + op + '/>'
+            + '<text x="12" y="11.4" text-anchor="middle" dominant-baseline="central"'
+            + ' font-size="10" font-weight="800" fill="' + (allInactive ? '#94a3b8' : '#334155') + '">' + count + '</text>'
+            + '</svg>',
+        iconSize: [28, 34], iconAnchor: [14, 34], popupAnchor: [0, -36]
+    });
+}
+
+// Jedno miejsce na przełączanie ikony — wpis w leafletMarkers może być
+// pojedynczą ofertą albo stosem, a te mają różne ikony.
+function applyMarkerIcon(m, highlighted) {
+    m.marker.setIcon(m.stack
+        ? makeStackIcon(m.color, m.count, m.allInactive, highlighted)
+        : makeLeafletIcon(m.color, m.active, highlighted, m.trend));
+}
+
+// Tylko http(s) trafia do href — dane pochodzą z OLX-a, nie ufamy im w ciemno.
+function safeUrl(u) {
+    return /^https?:\/\//i.test(u || '') ? u : '#';
+}
+
 // Ikona archiwalnego adresu (po zmianie adresu) — fioletowy pin, przerywany obrys, strzałka ↩
 function makeArchivalIcon() {
     return L.divIcon({
@@ -686,9 +749,21 @@ function renderMarkers(profileKey) {
     const bounds = [];
     const allOffers = [...prof.offers];
 
+    // Oferty pod tym samym adresem mają te same współrzędne i pinezki zasłaniają
+    // się nawzajem (rekord w bazie: 12 ofert w jednym punkcie). Grupujemy je i
+    // rysujemy JEDNĄ pinezkę z liczbą — lista ofert siedzi w popupie.
+    const groups = new Map();
     allOffers.forEach(o => {
         const inLublin = !o.city || o.city.toLowerCase() === 'lublin';
         if (!o.lat || !o.lon || !inLublin) return;
+        const key = o.lat.toFixed(6) + ',' + o.lon.toFixed(6);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(o);
+    });
+
+    groups.forEach(group => {
+        if (group.length > 1) { renderStackMarker(group, bounds); return; }
+        const o = group[0];
 
         const color = pc(o.price);
         const marker = L.marker([o.lat, o.lon], { icon: makeLeafletIcon(color, o.active, false, o.price_trend) });
@@ -715,8 +790,27 @@ function renderMarkers(profileKey) {
         leafletMarkers[o.id || o.url] = { marker, color, active: o.active, trend: o.price_trend };
         bounds.push([o.lat, o.lon]);
 
-        // Archiwalne pinezki POPRZEDNICH adresów (oferta zmieniła adres)
-        // address_versions[0] = bieżąca (już wyrenderowana wyżej); [1..] = poprzednie
+        renderArchivalVersions(o, bounds);
+    });
+
+    // Poprzednie adresy ofert ze stosów — pętla wyżej obsłużyła tylko adresy
+    // pojedyncze, a fioletowe pinezki należą się każdej ofercie ze zmianą adresu.
+    allOffers.forEach(o => {
+        const key = (o.lat && o.lon) ? o.lat.toFixed(6) + ',' + o.lon.toFixed(6) : null;
+        if (!key || (groups.get(key) || []).length < 2) return;
+        renderArchivalVersions(o, bounds);
+    });
+
+    // Zawsze wyśrodkuj na Lublinie
+    if (bounds.length > 0) {
+        try { map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 }); } catch(e) {}
+    }
+    map.setView([51.246, 22.565], 13);
+}
+
+// Fioletowe pinezki poprzednich adresów oferty (po zmianie adresu).
+// address_versions[0] = bieżąca (rysowana jako zwykła pinezka); [1..] = poprzednie.
+function renderArchivalVersions(o, bounds) {
         (o.address_versions || []).forEach((v, vIndex) => {
             if (vIndex === 0 || !v.lat || !v.lon) return;   // [0] = bieżąca (wyżej)
             const vColor = pc((v.price_history?.at(-1) || {}).price || 0);
@@ -739,13 +833,74 @@ function renderMarkers(profileKey) {
             archivalByKey[(o.id || o.url) + ':' + vIndex] = am;
             bounds.push([v.lat, v.lon]);
         });
-    });
+}
 
-    // Zawsze wyśrodkuj na Lublinie
-    if (bounds.length > 0) {
-        try { map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 }); } catch(e) {}
-    }
-    map.setView([51.246, 22.565], 13);
+// ── PINEZKA STOSU + POPUP Z LISTĄ ────────────────────────────────────
+// Kilka ofert pod jednym adresem = jedna pinezka z liczbą. Popup listuje je
+// płasko (cena, typ, trend, tytuł, OLX); klik w wiersz podświetla kartę na
+// liście po prawej przez hlOffer(), czyli tę samą drogę co klik w pinezkę.
+function renderStackMarker(group, bounds) {
+    const first = group[0];
+    const prices = group.map(o => o.price).filter(p => typeof p === 'number');
+    const cheapest = prices.length ? Math.min.apply(null, prices) : 0;
+    const allInactive = group.every(o => !o.active);
+    const color = pc(cheapest);
+
+    const marker = L.marker([first.lat, first.lon], {
+        icon: makeStackIcon(color, group.length, allInactive, false)
+    });
+    marker.bindPopup(buildStackPopup(first.address, group), { maxWidth: 300, minWidth: 250 });
+    marker.addTo(map);
+
+    // Każde ID z grupy wskazuje na TEN SAM marker — dzięki temu klik w wiersz
+    // listy po prawej dalej trafia w pinezkę (hlOffer szuka po id oferty).
+    const entry = { marker, color, count: group.length, allInactive, stack: true };
+    group.forEach(o => { leafletMarkers[o.id || o.url] = entry; });
+    bounds.push([first.lat, first.lon]);
+}
+
+// Aktywne od najtańszej, potem archiwalne od ostatnio widzianej.
+function sortStackOffers(group) {
+    const act = group.filter(o => o.active).sort((a, b) => (a.price || 0) - (b.price || 0));
+    const arc = group.filter(o => !o.active)
+                     .sort((a, b) => (parseAnyDate(b.last_seen) || 0) - (parseAnyDate(a.last_seen) || 0));
+    return act.concat(arc);
+}
+
+function buildStackPopup(address, group) {
+    const act = group.filter(o => o.active).length;
+    const rows = sortStackOffers(group).map(o => {
+        const badge = !o.active
+            ? '<span class="badge badge-inactive">NIEAKTYWNE</span>'
+            : o.offer_type === 'mieszkanie' ? '<span class="badge badge-mieszkanie">🏠</span>'
+            : o.offer_type === 'pokoj' ? '<span class="badge badge-pokoj">🛏</span>' : '';
+        const trend = o.price_trend === 'down' ? '<span class="stk-tr down">↓</span>'
+                    : o.price_trend === 'up' ? '<span class="stk-tr up">↑</span>' : '';
+        return '<div class="stk-row' + (o.active ? '' : ' inact') + '" data-oid="' + escHtml(o.id || o.url) + '">'
+            + '<span class="stk-price" style="color:' + (o.active ? pc(o.price) : '#94a3b8') + '">'
+            + (o.price != null ? o.price + ' zł' : '—') + '</span>'
+            + badge + trend
+            + '<span class="stk-ttl">' + escHtml(o.title || '') + '</span>'
+            + '<a class="stk-olx" href="' + escHtml(safeUrl(o.url)) + '" target="_blank" rel="noopener">OLX ↗</a>'
+            + '</div>';
+    }).join('');
+
+    return '<div class="stk">'
+        + '<div class="stk-hd"><b>' + escHtml(address || '—') + '</b><span>' + group.length + ' ofert</span></div>'
+        + '<div class="stk-sub">' + act + ' aktywne · ' + (group.length - act) + ' archiwalne</div>'
+        + '<div class="stk-body">' + rows + '</div>'
+        + '<div class="stk-ft">klik w wiersz → karta oferty na liście</div>'
+        + '</div>';
+}
+
+// Klik w wiersz popupu stosu — delegacja, bo popupy Leafletu powstają dopiero
+// przy otwarciu. Odnośnik OLX obsługuje przeglądarka.
+function initStackPopups() {
+    document.addEventListener('click', ev => {
+        if (ev.target.closest('.stk-olx')) return;
+        const row = ev.target.closest('.stk-row');
+        if (row) hlOffer(row.dataset.oid);
+    });
 }
 
 // ── HIGHLIGHT ────────────────────────────────────────────────────────
@@ -753,20 +908,26 @@ function hlOffer(id) {
     // Reset poprzedniego
     if (hlId && leafletMarkers[hlId]) {
         const old = leafletMarkers[hlId];
-        old.marker.setIcon(makeLeafletIcon(old.color, old.active, false, old.trend));
+        applyMarkerIcon(old, false);
         old.marker.setZIndexOffset(0);
     }
     document.querySelectorAll('.row.hl').forEach(r => r.classList.remove('hl'));
+    document.querySelectorAll('.stk-row.sel').forEach(r => r.classList.remove('sel'));
 
     if (hlId === id) { hlId = null; return; }
     hlId = id;
 
     if (leafletMarkers[id]) {
         const m = leafletMarkers[id];
-        m.marker.setIcon(makeLeafletIcon(m.color, m.active, true, m.trend));
+        applyMarkerIcon(m, true);
         m.marker.setZIndexOffset(1000);
-        m.marker.openPopup();
-        map.panTo(m.marker.getLatLng(), { animate: true });
+        // Otwarty popup stosu zostawiamy jak jest — inaczej przewinięta lista
+        // ofert skakałaby na górę przy każdym kliknięciu wiersza.
+        if (!m.marker.isPopupOpen()) {
+            m.marker.openPopup();
+            map.panTo(m.marker.getLatLng(), { animate: true });
+        }
+        document.querySelectorAll('.stk-row[data-oid="' + id + '"]').forEach(r => r.classList.add('sel'));
     }
 
     const row = document.querySelector('.row[data-id="' + id + '"]');
@@ -783,7 +944,7 @@ function scrollToOfferCard(offerId, vIndex) {
     // Zresetuj poprzednie podświetlenie (bieżący marker + wiersz)
     if (hlId && leafletMarkers[hlId]) {
         const old = leafletMarkers[hlId];
-        old.marker.setIcon(makeLeafletIcon(old.color, old.active, false, old.trend));
+        applyMarkerIcon(old, false);
         old.marker.setZIndexOffset(0);
     }
     document.querySelectorAll('.row.hl').forEach(r => r.classList.remove('hl'));
@@ -1534,6 +1695,7 @@ async function loadData() {
         initLegend();
         initSigTip();
         initJumpNav();
+        initStackPopups();
 
         // Sygnały liczymy PRZED oznaczeniem wizyty — inaczej wejście na stronę
         // wyzerowałoby to, co ma pokazać.
