@@ -10,7 +10,7 @@ how: Paski są przyklejone do prawej krawędzi `.map-col` (leżą na mapie, nie 
 surface: docs/profile_tracker.html
 generality: family
 propagate: maybe
-commit: 2db819c
+commit: 10dff77
 ---
 
 # Kontekst
