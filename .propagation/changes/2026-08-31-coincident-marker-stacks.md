@@ -10,7 +10,7 @@ how: Przed rysowaniem markerów grupujemy rekordy po zaokrąglonych współrzęd
 surface: docs/profile_tracker.html
 generality: family
 propagate: maybe
-commit: PENDING
+commit: 5582713
 ---
 
 # Kontekst
