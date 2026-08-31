@@ -14,7 +14,8 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 - **diagnoza**: wszystkie 10 stron ciągnie ten sam `assets/header.css?v=3` i renderuje identyczną belkę (56 px, ten sam padding, ta sama lista zakładek) — ale cztery trzymały `<header class="sp-header">` WEWNĄTRZ `.container` z `max-width`. Przy oknie 1600 px: Analityka / Monitoring / Analiza Rynku 1400 px, Indeks 1280 px, reszta 1600 px. Hack `.container > .sp-header { margin: 0 -20px }` kasował tylko boczny padding kontenera, nie jego `max-width`, więc belka i tak zostawała wyspą z tłem strony po bokach.
 - **fix (`analytics.html`, `monitoring.html`, `market_analysis.html`, `trend.html`)**: nagłówek wyjęty przed `.container` (tak jak już było na Mapie, Firmach, Top 5, Ruchu, Ulubionych i Pominiętych), hack z ujemnym marginesem usunięty, odstęp pod belką przejmuje `padding-top` kontenera (20 px, na Indeksie 22 px — tyle, ile dawał wcześniej `margin-bottom`).
 - **weryfikacja**: zmierzone w przeglądarce przy oknie 1600 px na wszystkich dziesięciu stronach — po zmianie każda belka ma `x = 0` i szerokość 1600 px, wysokość bez zmian (56 px).
-- **znane, do decyzji**: zakładka `ostatnie.html` nazywa się `🔄 Ruch` w nawigacji tej strony, a `🆕 Ostatnie` na pozostałych dziewięciu — czeka na wybór jednej nazwy.
+- **druga rozjazda — nazwa zakładki**: pill prowadzący do `ostatnie.html` nazywał się `🔄 Ruch` w nawigacji tej strony, a `🆕 Ostatnie` na pozostałych dziewięciu (strona została kiedyś przemianowana na „Ruch na rynku", nawigacja reszty została po staremu). Mateusz wybrał wariant zgodny z tożsamością strony: **wszędzie `🔄 Ruch`** — poprawione w 9 plikach.
+- **cleanup**: z `profile_tracker.html` usunięte martwe reguły starej, granatowej belki (`.topbar`, `.topbar-title`, `.nav`, `.nav a`) — zostały po podmianie na `.sp-header`, żaden element ich nie używał.
 
 
 ### Firmy: skoki po liście — przyciski „aktywne / nieaktywne" na krawędzi mapy (2026-08-31)
