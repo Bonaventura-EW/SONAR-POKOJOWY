@@ -9,6 +9,17 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Firmy: odświeżenia i reaktywacje w oknach 30/60/90 dni w belce statystyk (2026-09-01)
+- **zlecenie Mateusza**: w wolne miejsce po prawej stronie pigułek na zakładce Firmy wstawić statystykę — ile odświeżeń i reaktywacji w ostatnich 30, 60 i 90 dniach.
+- **wybór wariantu**: po przeglądzie trzech propozycji (pigułka na okno / pigułka na metrykę / macierz 2×3) Mateusz wybrał **A — pigułka na okno**: `30 DNI 🔄307 ♻30`, `60 DNI …`, `90 DNI …`. Macierz odpadła, bo podnosiła belkę z 34 na ~46 px kosztem mapy.
+- **implementacja (`docs/profile_tracker.html`, tylko frontend)**: `countActivity()` liczy zdarzenia z pól, które już są w `profile_data.json` — `refresh_dates` (podbicia na OLX) i `reactivation_dates` (powroty ofert). Zero zmian w pipeline, zero regeneracji danych; tak samo jak śr. cena/min/max liczone są na froncie. Daty parsuje istniejące `parseAnyDate` (obsługuje oba formaty: `YYYY-MM-DD` z odświeżeń i `DD.MM.YYYY` z reaktywacji).
+- **liczymy ZDARZENIA, nie oferty**: oferta podbita 8× daje 8. Liczone po WSZYSTKICH ofertach profilu, także archiwalnych — reaktywacja z definicji dotyczy oferty, która wcześniej zniknęła z OLX.
+- **granica okna na północy**, nie „teraz minus N×24h": `refresh_dates` ma dokładność dnia, więc ruchoma granica ucinałaby część zdarzeń z najstarszego dnia okna (zależnie od pory, o której ktoś patrzy na stronę).
+- **uczciwość metryki**: odświeżenia zbieramy dopiero od **30.06.2026**, więc okno 90 dni jest dziś krótsze niż nazwa. `refreshCoverageNote()` dokleja do dymka „(mierzone od 30.06.2026)" — ale tylko dla okien dłuższych niż zebrana historia, więc adnotacja zniknie sama, gdy dane dorosną. Początek pomiaru bierze się z danych (`earliestRefresh()`), nie z hardkodu.
+- **kolor**: bursztyn (`#fffbeb` / `#fde68a` / `#b45309`) — ta sama rodzina co aktywna zakładka — oddziela metryki RUCHU od niebieskich pigułek STANU. Ikony 🔄 i ♻ są już w legendzie tej strony (podbicia / powrót oferty), więc nie wchodzi nowy słownik. Profil bez ofert (Mzuri) pigułek nie dostaje — trzy razy „0" to sam szum.
+- **weryfikacja w przeglądarce** (Chromium, 1280 px, cztery profile): liczby zgadzają się z niezależnym przeliczeniem z surowych dat (Poqui 307/430/444 odświeżeń i 30/32/36 reaktywacji), belka dalej ma **34 px** — mapa nie straciła ani piksela, zero błędów w konsoli. `test_integration.py` ✅.
+
+
 ### Firmy: stos ofert pod jednym adresem = jedna pinezka z listą (2026-08-31)
 - **zgłoszenie Mateusza**: pinezki ofert spod tego samego adresu leżą jedna na drugiej — klikalna jest tylko wierzchnia.
 - **skala problemu (audyt `profile_data.json`)**: 39 punktów z więcej niż jedną ofertą, **69 ofert nie do kliknięcia**, 9 z 10 profili dotkniętych. Rekord: `Letniej 2` (Łukasz) — **12 ofert w jednym punkcie**, czyli cały profil na jednej pinezce. Zgłoszony przypadek `Skrzetuskiego 2B` (MAT) to stos 5.
