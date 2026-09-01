@@ -705,6 +705,8 @@
         <div class="act-foot">
             <span class="act-key"><i style="background:#f59e0b"></i> odświeżenia (podbicia na OLX)</span>
             <span class="act-key"><i style="background:#7c3aed"></i> reaktywacje (powroty ofert)</span>
+            <span class="act-key"><i style="background:#16a34a"></i> zniknięcia (zdjęte z OLX na stałe)</span>
+            <span class="act-key"><i style="background:#0891b2"></i> zmiany adresu</span>
             <span class="act-cover" id="act-cover"></span>
         </div>
     </div>
@@ -1331,6 +1333,9 @@ const ACT_RANGES = [
     { k: 'all', label: 'wszystko' },
 ];
 const ACT_C_REF = '#f59e0b', ACT_C_REF_INK = '#b45309', ACT_C_ACT = '#7c3aed';
+// Zniknięcia zielone — ten sam kolor co sygnał „−N zdjęte z OLX" przy zakładce.
+// Zmiany adresu morskie, żeby nie myliły się z fioletem powrotów.
+const ACT_C_GONE = '#16a34a', ACT_C_ADDR = '#0891b2';
 const ACT_C_GRID = '#e8eef6', ACT_C_AXIS = '#94a3b8';
 const ACT_MONTHS = ['sty','lut','mar','kwi','maj','cze','lip','sie','wrz','paź','lis','gru'];
 const DAY_MS = 86400000;
@@ -1345,8 +1350,15 @@ function dayKey(d) {
 function shortDateY(ts) { return shortDate(ts) + '.' + new Date(ts).getFullYear(); }
 
 // Zdarzenia profilu zebrane per dzień (klucz YYYY-MM-DD w czasie lokalnym).
+//
+// Zniknięcia: oferta NIEAKTYWNA dziś, w dniu ostatniego widzenia na OLX — to
+// jedyna data zejścia, jaką mamy. Oferty, które zniknęły i wróciły, są dziś
+// aktywne, więc same wypadają z tej serii; jeśli po powrocie zeszły drugi raz,
+// liczy się to ostatnie, faktyczne zejście.
+// Zmiany adresu: każda wersja adresu poza najstarszą, w dniu jej pierwszego
+// widzenia (`address_versions` idzie od najnowszej, więc pomijamy ostatnią).
 function dailyActivity(offers) {
-    const refresh = {}, react = {};
+    const refresh = {}, react = {}, gone = {}, addr = {};
     let first = null;
     const bump = (bag, t) => {
         const k = dayKey(new Date(t));
@@ -1356,8 +1368,14 @@ function dailyActivity(offers) {
     (offers || []).forEach(o => {
         (o.refresh_dates || []).forEach(d => { const t = parseAnyDate(d); if (t) bump(refresh, t); });
         (o.reactivation_dates || []).forEach(d => { const t = parseAnyDate(d); if (t) bump(react, t); });
+        if (o.active === false) { const t = parseAnyDate(o.last_seen); if (t) bump(gone, t); }
+        const vs = o.address_versions || [];
+        for (let i = 0; i < vs.length - 1; i++) {
+            const t = parseAnyDate(vs[i].first_seen);
+            if (t) bump(addr, t);
+        }
     });
-    return { refresh, react, first };
+    return { refresh, react, gone, addr, first };
 }
 
 // Oś: pełna lista dni (także pustych) od początku zakresu do dziś.
@@ -1370,7 +1388,11 @@ function actDays(data, range) {
     const days = [];
     for (let t = from.getTime(); t <= today.getTime(); t += DAY_MS) {
         const d = new Date(t), k = dayKey(d);
-        days.push({ d, r: data.refresh[k] || 0, a: data.react[k] || 0 });
+        days.push({
+            d,
+            r: data.refresh[k] || 0, a: data.react[k] || 0,
+            g: data.gone[k] || 0,    m: data.addr[k] || 0,
+        });
     }
     return days;
 }
@@ -1385,16 +1407,25 @@ function actScale(v) {
 function actTooltip(day) {
     return shortDateY(day.d.getTime()) + ' — '
         + day.r + ' ' + plural(day.r, 'odświeżenie', 'odświeżenia', 'odświeżeń')
-        + ', ' + day.a + ' ' + plural(day.a, 'reaktywacja', 'reaktywacje', 'reaktywacji');
+        + ', ' + day.a + ' ' + plural(day.a, 'reaktywacja', 'reaktywacje', 'reaktywacji')
+        + ', ' + day.g + ' ' + plural(day.g, 'zniknięcie', 'zniknięcia', 'zniknięć')
+        + ', ' + day.m + ' ' + plural(day.m, 'zmiana adresu', 'zmiany adresu', 'zmian adresu');
 }
 
-// Wykres: dwa panele pod sobą (odświeżenia / reaktywacje), wspólna oś dat.
-// Osobne skale, bo proporcje bywają skrajne — 25 podbić dziennie kontra
-// pojedyncza reaktywacja raz na tydzień.
+// Wykres: cztery panele pod sobą, wspólna oś dat — podbicia, powroty, zejścia
+// z OLX i przeprowadzki. Każdy panel ma własną skalę, bo proporcje bywają
+// skrajne: 25 podbić dziennie kontra pojedyncza zmiana adresu raz na miesiąc.
+const ACT_PANELS = [
+    { key: 'r', color: ACT_C_REF,  label: '🔄 odświeżenia' },
+    { key: 'a', color: ACT_C_ACT,  label: '♻ reaktywacje' },
+    { key: 'g', color: ACT_C_GONE, label: '✖ zniknięcia (bez tych, co wróciły)' },
+    { key: 'm', color: ACT_C_ADDR, label: '📍 zmiany adresu' },
+];
 function buildActivityChart(days) {
-    const W = 900, H = 300, L = 36, R = 12, T = 18, GAP = 30, B = 26;
+    const W = 900, L = 36, R = 12, T = 18, GAP = 24, B = 26, PH = 78;
+    const H = T + ACT_PANELS.length * PH + (ACT_PANELS.length - 1) * GAP + B;
     const iw = W - L - R;
-    const ph = (H - T - GAP - B) / 2;
+    const ph = PH;
     const slot = iw / days.length;
     const bw = Math.max(1.2, slot - 1);
     const x = i => L + i * slot;
@@ -1450,10 +1481,10 @@ function buildActivityChart(days) {
         '<text x="' + (x(t.i) + slot / 2) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="9.5" fill="' + ACT_C_AXIS + '">' + t.label + '</text>'
     ).join('');
 
-    return '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Odświeżenia i reaktywacje dzień po dniu">'
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" '
+        + 'aria-label="Odświeżenia, reaktywacje, zniknięcia i zmiany adresu dzień po dniu">'
         + defs + band
-        + panel(T, 'r', ACT_C_REF, '🔄 odświeżenia')
-        + panel(T + ph + GAP, 'a', ACT_C_ACT, '♻ reaktywacje')
+        + ACT_PANELS.map((pn, i) => panel(T + i * (ph + GAP), pn.key, pn.color, pn.label)).join('')
         + ticksSvg + '</svg>';
 }
 
@@ -1461,21 +1492,22 @@ function renderActivityModal() {
     const prof = profileData.profiles[currentKey];
     const data = dailyActivity(prof.offers);
     const days = actDays(data, actRange);
-    const sumR = days.reduce((a, d) => a + d.r, 0);
-    const sumA = days.reduce((a, d) => a + d.a, 0);
+    const sum = k => days.reduce((a, d) => a + d[k], 0);
 
     document.getElementById('act-title').innerHTML =
         '📊 Ruch profilu ' + escHtml(prof.name)
         + '<span class="sub">' + shortDate(days[0].d.getTime()) + ' – ' + shortDate(days[days.length - 1].d.getTime())
-        + ' · ' + sumR + ' ' + plural(sumR, 'odświeżenie', 'odświeżenia', 'odświeżeń')
-        + ' · ' + sumA + ' ' + plural(sumA, 'reaktywacja', 'reaktywacje', 'reaktywacji') + '</span>';
+        + ' · ' + ACT_PANELS.map(pn =>
+            '<b style="color:' + pn.color + '">' + pn.label.split(' ')[0] + ' ' + sum(pn.key) + '</b>'
+          ).join(' · ')
+        + '</span>';
 
     document.getElementById('act-range').innerHTML = ACT_RANGES.map(r =>
         '<button type="button" data-r="' + r.k + '" aria-pressed="' + (actRange === r.k) + '">' + r.label + '</button>'
     ).join('');
 
     document.getElementById('act-body').innerHTML = data.first === null
-        ? '<div class="act-empty">Ten profil nie ma jeszcze zarejestrowanych odświeżeń ani reaktywacji.</div>'
+        ? '<div class="act-empty">Ten profil nie ma jeszcze żadnych zarejestrowanych zdarzeń.</div>'
         : buildActivityChart(days);
 
     document.getElementById('act-cover').textContent = REFRESH_TRACKED_FROM
