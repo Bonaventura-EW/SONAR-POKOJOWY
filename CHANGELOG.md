@@ -9,6 +9,15 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Firmy: okno „Ruch profilu" — doszły zniknięcia i zmiany adresu (2026-09-01)
+- **zlecenie Mateusza**: dołożyć wykres znikających ofert (oraz tych, które zmieniły adres), nie licząc tych, co zniknęły i zostały później reaktywowane.
+- **zniknięcia (`✖`, zielone)**: oferta, która **dziś jest nieaktywna**, w dniu `last_seen` — to jedyna data zejścia, jaką mamy w danych (pipeline nie zapisuje osobnego `deactivated_at`, przy dezaktywacji zostawia `last_seen` z ostatniego widzenia). Reguła Mateusza wychodzi z tego sama: oferta, która wróciła, jest dziś aktywna, więc nie trafia do serii; jeśli po powrocie zeszła drugi raz, liczy się to ostatnie, faktyczne zejście. Zieleń zgodna z sygnałem `−N zdjęte z OLX` przy zakładkach.
+- **zmiany adresu (`📍`, morskie)**: każda wersja z `address_versions` poza najstarszą, w dniu jej `first_seen` (lista idzie od najnowszej, więc pomijamy ostatni element). Oferta z dwiema przeprowadzkami daje dwa zdarzenia. Morski kolor, żeby nie mylił się z fioletem powrotów.
+- **układ**: cztery panele zamiast dwóch, wspólna oś dat, panel niższy (78 px zamiast 113) — okno urosło z 460 do **555 px** przy oknie 900 px, więc dalej mieści się bez przewijania. Panele budują się z listy `ACT_PANELS`, ta sama lista zasila podsumowanie w nagłówku (`🔄 444 · ♻ 36 · ✖ 47 · 📍 3`) — dołożenie piątej serii to jeden wpis.
+- **weryfikacja na realnej stronie** (Chromium 1440×900): Poqui 3 mies. `✖ 47 · 📍 3` i „wszystko" `✖ 50 · 📍 7`, PokojewLublinie `✖ 13 · 📍 19`, MAT 30 dni `✖ 2 · 📍 0` — zgodne z niezależnym przeliczeniem z `profile_data.json`. Puste panele piszą „brak w tym zakresie", zero błędów w konsoli. `test_integration.py` ✅.
+- **ograniczenie**: część zniknięć to nie zdjęcie oferty przez firmę, tylko nasze czyszczenie bazy (dezaktywacja rekordów z bogus adresem) — z danych po stronie frontu nie da się tego odróżnić.
+
+
 ### Firmy: okno „Ruch profilu" — wykres odświeżeń i reaktywacji w czasie (2026-09-01)
 - **zlecenie Mateusza**: przycisk pokazujący wykresy profilu — kiedy były odświeżenia i reaktywacje; wykres od początku zbierania danych, domyślnie ostatnie 3 miesiące.
 - **wybór wariantu**: po przeglądzie trzech propozycji na prawdziwych danych (pary słupków dziennych / lustro w górę-w dół / dwa panele ze wspólną osią) Mateusz wybrał **C — dwa panele**, obejrzany dodatkowo na realnej stronie przed wdrożeniem.
