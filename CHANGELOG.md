@@ -9,6 +9,17 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Firmy: okno „Ruch profilu" — wykres odświeżeń i reaktywacji w czasie (2026-09-01)
+- **zlecenie Mateusza**: przycisk pokazujący wykresy profilu — kiedy były odświeżenia i reaktywacje; wykres od początku zbierania danych, domyślnie ostatnie 3 miesiące.
+- **wybór wariantu**: po przeglądzie trzech propozycji na prawdziwych danych (pary słupków dziennych / lustro w górę-w dół / dwa panele ze wspólną osią) Mateusz wybrał **C — dwa panele**, obejrzany dodatkowo na realnej stronie przed wdrożeniem.
+- **wejście (`docs/profile_tracker.html`)**: przycisk `📊 wykres` na końcu pigułek ruchu, a same pigułki 30/60/90 stały się `<button>` — klik otwiera okno od razu na swoim zakresie. Pigułki mówią ILE, wykres mówi KIEDY.
+- **okno**: nagłówek (nazwa profilu, przedział dat, sumy w zakresie), przełącznik `30 dni · 60 dni · 3 miesiące · wszystko` (domyślnie 3 miesiące; „wszystko" sięga pierwszego zdarzenia tego profilu), dwa panele — 🔄 odświeżenia i ♻ reaktywacje — ze wspólną osią dat i osobnymi skalami. Osobne skale, bo proporcje bywają skrajne: 25 podbić dziennie kontra jedna reaktywacja na tydzień.
+- **uczciwość danych na wykresie**: obszar sprzed startu pomiaru odświeżeń (30.06.2026) jest zakreskowany i podpisany kreską „start pomiaru odświeżeń" — inaczej pusty lewy brzeg czytałby się jak brak podbić. Panel bez ani jednego zdarzenia w zakresie pisze „brak w tym zakresie" zamiast świecić pustką (profile bez reaktywacji, np. MAT).
+- **bez nowych bibliotek**: wykres to inline SVG budowane w JS, dokładnie jak istniejące `buildSparkline()` i paski odświeżeń w kartach — strona dalej dociąga wyłącznie Leaflet. Podziałki osi liczy `actScale()` z krokiem 1/2/5/10/…, żeby na osi stały liczby całkowite, a nie 6,25 · 12,5 · 18,75.
+- **obsługa**: zamykanie ✕ / Escape / klik w tło, focus wraca na element, który okno otworzył, `role="dialog"` + `aria-modal`. Zmiana zakładki zamyka okno — inaczej pokazywałoby dane poprzedniej firmy.
+- **weryfikacja na realnej stronie** (Chromium 1440×900): Poqui w trzech zakresach (3 miesiące = 444 odświeżenia i 36 reaktywacji, „wszystko" cofa się do 17.04 i łapie 37. reaktywację), klik w pigułkę MAT otwiera okno na 30 dniach, Escape zamyka, zero błędów w konsoli. `test_integration.py` ✅.
+
+
 ### Firmy: odświeżenia i reaktywacje w oknach 30/60/90 dni w belce statystyk (2026-09-01)
 - **zlecenie Mateusza**: w wolne miejsce po prawej stronie pigułek na zakładce Firmy wstawić statystykę — ile odświeżeń i reaktywacji w ostatnich 30, 60 i 90 dniach.
 - **wybór wariantu**: po przeglądzie trzech propozycji (pigułka na okno / pigułka na metrykę / macierz 2×3) Mateusz wybrał **A — pigułka na okno**: `30 DNI 🔄307 ♻30`, `60 DNI …`, `90 DNI …`. Macierz odpadła, bo podnosiła belkę z 34 na ~46 px kosztem mapy.
