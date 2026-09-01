@@ -10,7 +10,7 @@ how: Funkcja countActivity() przechodzi po ofertach profilu i zlicza ZDARZENIA z
 surface: docs/profile_tracker.html
 generality: family
 propagate: maybe
-commit: (uzupełniony przy commicie)
+commit: 9bcfe04
 ---
 
 # Kontekst
