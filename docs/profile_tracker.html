@@ -204,6 +204,61 @@
         .stat.win .m .i { font-size: 10px; opacity: .85; }
         .stat.win .m .n { font-size: 13px; font-weight: 600; color: #b45309; font-variant-numeric: tabular-nums; }
         .stat.win .sep { width: 1px; height: 13px; background: #fcd34d; }
+        /* Przycisk otwierający okno z historią ruchu profilu. */
+        .chart-btn {
+            display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+            font-family: inherit; font-size: 10px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .03em;
+            color: #92400e; background: #fef3c7; border: 1px solid #f59e0b;
+            border-radius: 6px; padding: 4px 10px;
+        }
+        .chart-btn:hover { background: #fde68a; }
+        .chart-btn:focus-visible { outline: 2px solid #b45309; outline-offset: 1px; }
+        .stat.win { cursor: pointer; font-family: inherit; }
+        .stat.win:hover { background: #fef3c7; }
+        .stat.win:focus-visible { outline: 2px solid #b45309; outline-offset: 1px; }
+
+        /* ── OKNO „RUCH PROFILU" ── */
+        .act-backdrop {
+            position: fixed; inset: 0; background: rgba(15,23,42,.45);
+            display: flex; align-items: center; justify-content: center; padding: 20px;
+            z-index: 3000;
+        }
+        .act-backdrop[hidden] { display: none; }
+        .act-modal {
+            background: #fff; border-radius: 10px; width: min(1000px, 96vw);
+            max-height: 92vh; display: flex; flex-direction: column; overflow: hidden;
+            box-shadow: 0 24px 60px -20px rgba(15,23,42,.55);
+        }
+        .act-head {
+            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+            padding: 11px 16px; border-bottom: 1px solid #e2e8f0; background: #fffdf7;
+        }
+        .act-title { font-size: 14px; font-weight: 700; color: #92400e; }
+        .act-title .sub { font-weight: 400; font-size: 11.5px; color: #b98b4a; margin-left: 8px; }
+        .act-range { display: flex; gap: 3px; margin-left: auto; }
+        .act-range button {
+            font-family: inherit; font-size: 11px; padding: 3px 9px; cursor: pointer;
+            background: #fff; color: #92400e; border: 1px solid #fde68a; border-radius: 5px;
+        }
+        .act-range button[aria-pressed="true"] { background: #f59e0b; border-color: #d97706; color: #fff; font-weight: 600; }
+        .act-range button:focus-visible { outline: 2px solid #b45309; outline-offset: 1px; }
+        .act-close {
+            border: 0; background: transparent; font-size: 17px; line-height: 1;
+            color: #b45309; cursor: pointer; padding: 2px 4px;
+        }
+        .act-close:focus-visible { outline: 2px solid #b45309; outline-offset: 1px; }
+        .act-body { padding: 12px 16px 6px; overflow: auto; }
+        .act-body svg { display: block; width: 100%; height: auto; }
+        .act-body .g-hit:hover rect { opacity: .75; }
+        .act-empty { padding: 26px 8px; text-align: center; color: #94a3b8; font-size: 13px; }
+        .act-foot {
+            display: flex; gap: 16px; flex-wrap: wrap; align-items: center;
+            padding: 8px 16px 12px; border-top: 1px solid #f1f5f9; font-size: 11px; color: #64748b;
+        }
+        .act-key { display: inline-flex; align-items: center; gap: 5px; }
+        .act-key i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+        .act-cover { margin-left: auto; color: #b45309; }
         .proflink { margin-left: auto; font-size: 10px; color: #3b82f6; text-decoration: none; }
         .proflink:hover { text-decoration: underline; }
 
@@ -634,6 +689,23 @@
                 <span id="list-count"></span>
             </div>
             <div id="list-body"></div>
+        </div>
+    </div>
+</div>
+
+<!-- OKNO „RUCH PROFILU" — historia odświeżeń i reaktywacji (otwiera przycisk w belce) -->
+<div class="act-backdrop" id="act-backdrop" hidden>
+    <div class="act-modal" role="dialog" aria-modal="true" aria-labelledby="act-title">
+        <div class="act-head">
+            <span class="act-title" id="act-title"></span>
+            <div class="act-range" id="act-range"></div>
+            <button class="act-close" id="act-close" type="button" aria-label="Zamknij">✕</button>
+        </div>
+        <div class="act-body" id="act-body"></div>
+        <div class="act-foot">
+            <span class="act-key"><i style="background:#f59e0b"></i> odświeżenia (podbicia na OLX)</span>
+            <span class="act-key"><i style="background:#7c3aed"></i> reaktywacje (powroty ofert)</span>
+            <span class="act-cover" id="act-cover"></span>
         </div>
     </div>
 </div>
@@ -1249,6 +1321,202 @@ function buildTitleHistory(o) {
     return html + '</div>';
 }
 
+// ── OKNO „RUCH PROFILU": KIEDY DZIAŁY SIĘ ODŚWIEŻENIA I REAKTYWACJE ──
+// Ten sam zbiór zdarzeń co pigułki, tylko rozłożony na oś czasu. Zakres
+// domyślny: 3 miesiące; „wszystko" sięga pierwszego zdarzenia w danych profilu.
+const ACT_RANGES = [
+    { k: '30',  label: '30 dni' },
+    { k: '60',  label: '60 dni' },
+    { k: '90',  label: '3 miesiące' },
+    { k: 'all', label: 'wszystko' },
+];
+const ACT_C_REF = '#f59e0b', ACT_C_REF_INK = '#b45309', ACT_C_ACT = '#7c3aed';
+const ACT_C_GRID = '#e8eef6', ACT_C_AXIS = '#94a3b8';
+const ACT_MONTHS = ['sty','lut','mar','kwi','maj','cze','lip','sie','wrz','paź','lis','gru'];
+const DAY_MS = 86400000;
+
+let actRange = '90';
+let actOpener = null;   // element, do którego wraca focus po zamknięciu
+
+function midnightToday() { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
+function dayKey(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function shortDateY(ts) { return shortDate(ts) + '.' + new Date(ts).getFullYear(); }
+
+// Zdarzenia profilu zebrane per dzień (klucz YYYY-MM-DD w czasie lokalnym).
+function dailyActivity(offers) {
+    const refresh = {}, react = {};
+    let first = null;
+    const bump = (bag, t) => {
+        const k = dayKey(new Date(t));
+        bag[k] = (bag[k] || 0) + 1;
+        if (first === null || t < first) first = t;
+    };
+    (offers || []).forEach(o => {
+        (o.refresh_dates || []).forEach(d => { const t = parseAnyDate(d); if (t) bump(refresh, t); });
+        (o.reactivation_dates || []).forEach(d => { const t = parseAnyDate(d); if (t) bump(react, t); });
+    });
+    return { refresh, react, first };
+}
+
+// Oś: pełna lista dni (także pustych) od początku zakresu do dziś.
+function actDays(data, range) {
+    const today = midnightToday();
+    let from;
+    if (range === 'all') from = data.first !== null ? new Date(data.first) : new Date(today - 30 * DAY_MS);
+    else from = new Date(today - (+range) * DAY_MS);
+    from.setHours(0, 0, 0, 0);
+    const days = [];
+    for (let t = from.getTime(); t <= today.getTime(); t += DAY_MS) {
+        const d = new Date(t), k = dayKey(d);
+        days.push({ d, r: data.refresh[k] || 0, a: data.react[k] || 0 });
+    }
+    return days;
+}
+
+// Podziałki z okrągłymi liczbami — krok 1/2/5/10/…, nie 6,25 · 12,5 · 18,75.
+function actScale(v) {
+    const raw = Math.max(v, 1) / 5;
+    const step = [1, 2, 5, 10, 20, 25, 50, 100].find(x => x >= raw) || Math.ceil(raw / 100) * 100;
+    return { step, max: Math.ceil(Math.max(v, 1) / step) * step };
+}
+
+function actTooltip(day) {
+    return shortDateY(day.d.getTime()) + ' — '
+        + day.r + ' ' + plural(day.r, 'odświeżenie', 'odświeżenia', 'odświeżeń')
+        + ', ' + day.a + ' ' + plural(day.a, 'reaktywacja', 'reaktywacje', 'reaktywacji');
+}
+
+// Wykres: dwa panele pod sobą (odświeżenia / reaktywacje), wspólna oś dat.
+// Osobne skale, bo proporcje bywają skrajne — 25 podbić dziennie kontra
+// pojedyncza reaktywacja raz na tydzień.
+function buildActivityChart(days) {
+    const W = 900, H = 300, L = 36, R = 12, T = 18, GAP = 30, B = 26;
+    const iw = W - L - R;
+    const ph = (H - T - GAP - B) / 2;
+    const slot = iw / days.length;
+    const bw = Math.max(1.2, slot - 1);
+    const x = i => L + i * slot;
+
+    const defs = '<defs><pattern id="act-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">'
+        + '<rect width="6" height="6" fill="#f8fafc"/><line x1="0" y1="0" x2="0" y2="6" stroke="#e2e8f0" stroke-width="2"/></pattern></defs>';
+
+    // Obszar sprzed startu pomiaru odświeżeń — zakreskowany, żeby pustka nie
+    // wyglądała jak brak podbić.
+    let band = '';
+    if (REFRESH_TRACKED_FROM) {
+        const idx = days.findIndex(d => d.d.getTime() >= REFRESH_TRACKED_FROM);
+        if (idx > 0) {
+            const w = idx * slot;
+            band = '<rect x="' + L + '" y="' + T + '" width="' + w + '" height="' + ph + '" fill="url(#act-hatch)"/>'
+                + '<line x1="' + (L + w) + '" y1="' + T + '" x2="' + (L + w) + '" y2="' + (T + ph) + '" stroke="' + ACT_C_REF_INK + '" stroke-width="1" stroke-dasharray="3 2"/>'
+                + '<text x="' + (L + w + 5) + '" y="' + (T + 11) + '" font-size="9.5" fill="' + ACT_C_REF_INK + '">start pomiaru odświeżeń</text>';
+        }
+    }
+
+    function panel(top, key, color, label) {
+        const sc = actScale(Math.max(...days.map(d => d[key])));
+        let out = '<text x="' + L + '" y="' + (top - 5) + '" font-size="10" font-weight="600" fill="' + color + '">' + label + '</text>';
+        for (let v = 0; v <= sc.max; v += sc.step) {
+            const yy = top + ph - (v / sc.max) * ph;
+            out += '<line x1="' + L + '" y1="' + yy + '" x2="' + (W - R) + '" y2="' + yy + '" stroke="' + ACT_C_GRID + '"/>'
+                + '<text x="' + (L - 6) + '" y="' + (yy + 3.5) + '" text-anchor="end" font-size="9.5" fill="' + ACT_C_AXIS + '">' + v + '</text>';
+        }
+        out += days.map((d, i) => {
+            const v = d[key];
+            return '<g class="g-hit"><title>' + actTooltip(d) + '</title>'
+                + (v ? '<rect x="' + x(i) + '" y="' + (top + ph - (v / sc.max) * ph) + '" width="' + bw
+                     + '" height="' + ((v / sc.max) * ph) + '" fill="' + color + '" rx="1"/>' : '')
+                + '<rect x="' + x(i) + '" y="' + top + '" width="' + slot + '" height="' + ph + '" fill="transparent"/></g>';
+        }).join('');
+        // Panel bez ani jednego zdarzenia w zakresie mówi to wprost — inaczej
+        // czyta się jak wykres, który się nie doczytał.
+        if (!days.some(d => d[key])) {
+            out += '<text x="' + (L + iw / 2) + '" y="' + (top + ph / 2 + 3) + '" text-anchor="middle" '
+                + 'font-size="10.5" fill="#b6bfcd">brak w tym zakresie</text>';
+        }
+        return out + '<line x1="' + L + '" y1="' + (top + ph) + '" x2="' + (W - R) + '" y2="' + (top + ph) + '" stroke="' + ACT_C_AXIS + '"/>';
+    }
+
+    // Podpisy osi X: pierwszy dzień miesiąca + początek zakresu; przy długim
+    // zakresie co drugi, żeby daty się nie zlepiały.
+    let ticks = [];
+    days.forEach((day, i) => {
+        if (i === 0 || day.d.getDate() === 1) ticks.push({ i, label: shortDate(day.d.getTime()) + '.' + ACT_MONTHS[day.d.getMonth()] });
+    });
+    if (ticks.length > 8) ticks = ticks.filter((_, i) => i % 2 === 0);
+    const ticksSvg = ticks.map(t =>
+        '<text x="' + (x(t.i) + slot / 2) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="9.5" fill="' + ACT_C_AXIS + '">' + t.label + '</text>'
+    ).join('');
+
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Odświeżenia i reaktywacje dzień po dniu">'
+        + defs + band
+        + panel(T, 'r', ACT_C_REF, '🔄 odświeżenia')
+        + panel(T + ph + GAP, 'a', ACT_C_ACT, '♻ reaktywacje')
+        + ticksSvg + '</svg>';
+}
+
+function renderActivityModal() {
+    const prof = profileData.profiles[currentKey];
+    const data = dailyActivity(prof.offers);
+    const days = actDays(data, actRange);
+    const sumR = days.reduce((a, d) => a + d.r, 0);
+    const sumA = days.reduce((a, d) => a + d.a, 0);
+
+    document.getElementById('act-title').innerHTML =
+        '📊 Ruch profilu ' + escHtml(prof.name)
+        + '<span class="sub">' + shortDate(days[0].d.getTime()) + ' – ' + shortDate(days[days.length - 1].d.getTime())
+        + ' · ' + sumR + ' ' + plural(sumR, 'odświeżenie', 'odświeżenia', 'odświeżeń')
+        + ' · ' + sumA + ' ' + plural(sumA, 'reaktywacja', 'reaktywacje', 'reaktywacji') + '</span>';
+
+    document.getElementById('act-range').innerHTML = ACT_RANGES.map(r =>
+        '<button type="button" data-r="' + r.k + '" aria-pressed="' + (actRange === r.k) + '">' + r.label + '</button>'
+    ).join('');
+
+    document.getElementById('act-body').innerHTML = data.first === null
+        ? '<div class="act-empty">Ten profil nie ma jeszcze zarejestrowanych odświeżeń ani reaktywacji.</div>'
+        : buildActivityChart(days);
+
+    document.getElementById('act-cover').textContent = REFRESH_TRACKED_FROM
+        ? 'odświeżenia mierzone od ' + shortDateY(REFRESH_TRACKED_FROM) : '';
+}
+
+function openActivityModal(range, opener) {
+    if (!profileData || !profileData.profiles[currentKey]) return;
+    actRange = ACT_RANGES.some(r => r.k === String(range)) ? String(range) : '90';
+    actOpener = opener || null;
+    renderActivityModal();
+    document.getElementById('act-backdrop').hidden = false;
+    document.getElementById('act-close').focus();
+}
+
+function closeActivityModal() {
+    document.getElementById('act-backdrop').hidden = true;
+    if (actOpener && document.body.contains(actOpener)) actOpener.focus();
+    actOpener = null;
+}
+
+function initActivityModal() {
+    // Klik w pigułkę otwiera okno na jej zakresie; przycisk 📊 na domyślnych 3 miesiącach.
+    document.getElementById('statsbar').addEventListener('click', e => {
+        const b = e.target.closest('.chart-btn, .stat.win');
+        if (b) openActivityModal(b.dataset.win, b);
+    });
+    const back = document.getElementById('act-backdrop');
+    back.addEventListener('click', e => { if (e.target === back) closeActivityModal(); });
+    document.getElementById('act-close').addEventListener('click', closeActivityModal);
+    document.getElementById('act-range').addEventListener('click', e => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        actRange = b.dataset.r;
+        renderActivityModal();
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && !back.hidden) closeActivityModal();
+    });
+}
+
 // ── RENDER PROFILE ────────────────────────────────────────────────────
 // ── RUCH PROFILU: ODŚWIEŻENIA I REAKTYWACJE W OKNACH 30/60/90 DNI ─────
 // Liczymy ZDARZENIA, nie oferty: jedna oferta podbita 8 razy daje 8. Bierzemy
@@ -1304,7 +1572,7 @@ function buildActivityPills(offers) {
     // Profil bez ofert nie dostaje pigułek — trzy razy „0" to sam szum.
     if (!offers || !offers.length) return '';
     return countActivity(offers).map(w =>
-        '<div class="stat win" title="Ostatnie ' + w.days + ' dni: '
+        '<button type="button" class="stat win" data-win="' + w.days + '" title="Ostatnie ' + w.days + ' dni: '
             + w.refresh + ' ' + plural(w.refresh, 'odświeżenie', 'odświeżenia', 'odświeżeń')
             + ' (podbicia na OLX)' + refreshCoverageNote(w.days) + ' · '
             + w.react + ' ' + plural(w.react, 'reaktywacja', 'reaktywacje', 'reaktywacji')
@@ -1313,11 +1581,16 @@ function buildActivityPills(offers) {
         + '<span class="m"><span class="i">🔄</span><span class="n">' + w.refresh + '</span></span>'
         + '<span class="sep"></span>'
         + '<span class="m"><span class="i">♻</span><span class="n">' + w.react + '</span></span>'
-        + '</div>'
-    ).join('');
+        + '</button>'
+    ).join('')
+    // Wejście do historii: kiedy te zdarzenia się działy, nie tylko ile ich było.
+    + '<button type="button" class="chart-btn" data-win="90">📊 wykres</button>';
 }
 
 function renderProfile(key) {
+    const actBack = document.getElementById('act-backdrop');
+    if (actBack && !actBack.hidden) closeActivityModal();
+
     currentKey = key;
     hlId = null;
 
@@ -1775,6 +2048,7 @@ async function loadData() {
         initSigTip();
         initJumpNav();
         initStackPopups();
+        initActivityModal();
 
         // Sygnały liczymy PRZED oznaczeniem wizyty — inaczej wejście na stronę
         // wyzerowałoby to, co ma pokazać.
