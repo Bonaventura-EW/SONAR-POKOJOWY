@@ -22,6 +22,7 @@ from geocoder import Geocoder
 from duplicate_detector import DuplicateDetector
 from scan_logger import ScanLogger
 from shared_utils import write_json_atomic, DATA_DIR
+import index_history
 
 class SonarPokojowy:
     # Hierarchia precyzji adresu — im wyżej, tym lepszy marker. Używane przy
@@ -621,6 +622,12 @@ class SonarPokojowy:
             'last_refresh_date': raw_offer.get('api_last_refresh', ''),
             'reactivation_count': 0,     # ile razy reaktywowano po zniknięciu
             'reactivation_dates': [],    # daty reaktywacji ['YYYY-MM-DDT...', ...]
+            # Daty deaktywacji — dzień, w którym oferta ZNIKNĘŁA z listingu.
+            # Bez tego pola przedział życia oferty z reaktywacjami jest jednym
+            # ciągłym odcinkiem i przerwy w życiu (martwa → wróciła) znikają:
+            # trend_generator liczył taką ofertę jako żywą przez całą przerwę,
+            # a jej wcześniejsze zniknięcia nie wchodziły do odpływu. (2026-09-03)
+            'deactivation_dates': [],    # ['YYYY-MM-DDT...', ...]
             # Płatne wyróżnienie na listingu OLX (scraper._is_promoted_href).
             # `promoted` = stan z OSTATNIEGO skanu, `promoted_dates` = dni, w
             # których ofertę widzieliśmy jako promowaną (max 1/dzień) — z tego
@@ -851,6 +858,7 @@ class SonarPokojowy:
                 'refresh_dates': list(existing.get('refresh_dates', [])),
                 'reactivation_count': existing.get('reactivation_count', 0),
                 'reactivation_dates': list(existing.get('reactivation_dates', [])),
+                'deactivation_dates': list(existing.get('deactivation_dates', [])),
                 'last_price': existing.get('price', {}).get('current'),
             }
 
@@ -1078,6 +1086,7 @@ class SonarPokojowy:
             existing['last_refresh_date'] = ''
             existing['reactivation_count'] = 0
             existing['reactivation_dates'] = []
+            existing['deactivation_dates'] = []
             existing.pop('reactivated_at', None)
             existing['promoted_dates'] = ([datetime.now(self.tz).strftime('%Y-%m-%d')]
                                           if existing.get('promoted') else [])
@@ -1164,6 +1173,10 @@ class SonarPokojowy:
                    or any(addr_full.startswith(p) for p in BOGUS_PREFIXES))
         
         now = datetime.now(self.tz).isoformat()
+        # Znacznik TEGO przebiegu deaktywacji. _verify_inactive_offers cofa po nim
+        # wpis ofercie, która wcale nie zniknęła z rynku (firmówka spoza listingu
+        # z InStock leci inactive→active w tym samym skanie).
+        self._deactivation_stamp = now
         deactivated_count = 0
         deactivated_bogus_count = 0
         reactivated_from_skipped = 0
@@ -1176,6 +1189,7 @@ class SonarPokojowy:
                 and offer['id'] not in processed_set):
                 if offer.get('active', True):
                     offer['active'] = False
+                    offer.setdefault('deactivation_dates', []).append(now)
                     deactivated_bogus_count += 1
                 continue
             
@@ -1200,6 +1214,10 @@ class SonarPokojowy:
             elif offer['active']:
                 # Oferta nie jest w scanie - dezaktywuj
                 offer['active'] = False
+                # Dzień zniknięcia. Razem z reactivation_dates domyka przedziały
+                # życia oferty — bez tego przerwa „martwa → wróciła" jest
+                # niewidoczna i oferta liczy się jako żywa przez całą przerwę.
+                offer.setdefault('deactivation_dates', []).append(now)
                 # Nie ma jej na listingu → nie jest już promowana. Historia dni
                 # (promoted_dates) zostaje — z niej liczy się szereg czasowy.
                 offer['promoted'] = False
@@ -1382,6 +1400,15 @@ class SonarPokojowy:
                             self, '_active_before_deactivation', set())
                         offer['active'] = True
                         offer['last_seen'] = reactivation_data['last_seen']
+                        if not was_inactive_before:
+                            # Oferta nie zniknęła z rynku — to _mark_inactive_offers
+                            # zdjęło ją minutę temu, bo nie było jej na listingu.
+                            # Zostawiony wpis udawałby zgon w przedziałach życia
+                            # i podbijał odpływ o zdarzenie, którego nie było.
+                            stamp = getattr(self, '_deactivation_stamp', None)
+                            dates = offer.get('deactivation_dates') or []
+                            if stamp and dates and dates[-1] == stamp:
+                                dates.pop()
                         if was_inactive_before:
                             offer['reactivated_at'] = reactivation_data['reactivated_at']
                             offer['reactivation_source'] = 'verification'
@@ -1976,6 +2003,12 @@ class SonarPokojowy:
                 'verification': verification_stats
             })
             
+            # Dzienny stan bazy → data/index_history.json (źródło prawdy Indeksu).
+            # Zapisujemy TĘ SAMĄ liczbę, którą pokazuje monitoring; wartość dnia to
+            # maksimum z odczytów, więc skan częściowy nie obniży już zapisanego dnia.
+            scan_ts = (self.scan_logger.current_scan or {}).get('timestamp')
+            index_history.record(active, scan_ts)
+
             final_status = 'warning' if scrape_blocked else 'completed'
             self.scan_logger.end_scan(final_status, total_duration)
             
