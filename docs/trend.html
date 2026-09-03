@@ -125,9 +125,12 @@
 
         <div class="foot">
             <strong>Skąd dane:</strong> zapisany stan bazy po każdym skanie — ile ofert ma <code>active: true</code>
-            (<code>data/index_history.json</code>). Ta sama liczba, którą pokazuje Monitoring i mapa: mierzona, nie odtwarzana.
-            Wartość dnia to najwyższy z trzech dziennych odczytów, więc skan częściowy (blokada OLX) nie rysuje się jak
-            załamanie rynku; dzień bez ani jednego skanu zostaje luką. Historia 16.05&ndash;02.09.2026 odtworzona ze
+            (<code>data/index_history.json</code>) &mdash; mierzone, nie odtwarzane.
+            Wartość dnia to <strong>najwyższy z dziennych odczytów</strong> (skanujemy 3&times; dziennie): dzięki temu skan
+            częściowy przy blokadzie OLX nie rysuje się jak załamanie rynku. Konsekwencja: dzień jeszcze trwający może
+            urosnąć do wieczora, a licznik na mapie &mdash; pokazujący stan po <em>ostatnim</em> skanie &mdash; bywa o kilka
+            ofert niższy od punktu na wykresie. Dzień bez ani jednego skanu zostaje luką: na Indeksie i na wszystkich
+            wykresach przepływów, żeby awaria Actions nie udawała dnia bez ruchu. Historia 16.05&ndash;02.09.2026 odtworzona ze
             starszych rewizji <code>scan_history.json</code> z gita. To analog indeksu podaży z betonometr.pl.
             <strong>Do 03.09.2026 wykres liczył to inaczej</strong> &mdash; rekonstrukcją wsteczną z <code>offers.json</code>
             (<code>first_seen &le; dzień &le; last_seen</code>) &mdash; i zawyżał przeszłość od <strong>+27%</strong> (koniec maja)
