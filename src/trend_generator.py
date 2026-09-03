@@ -2,25 +2,29 @@
 """
 Generator trend_data.json dla SONAR POKOJOWY
 
-Buduje DZIENNY szereg czasowy liczby aktywnych ofert pokoi przez rekonstrukcję
-z data/offers.json: dla każdego dnia D liczy ile ofert "żyło" tego dnia
-(first_seen <= D <= last_seen; dla wciąż aktywnych granicą jest dziś).
+Buduje DZIENNY szereg czasowy liczby aktywnych ofert pokoi — "indeks podaży" w
+stylu betonometr.pl: ile żywych ofert wynajmu pokoi w Lublinie jest danego dnia
+na rynku.
 
-To "indeks podaży" w stylu betonometr.pl: ile żywych ofert wynajmu pokoi w
-Lublinie jest danego dnia na rynku.
+Indeks czytamy z data/index_history.json — MIERZONEGO stanu bazy po każdym
+skanie (patrz src/index_history.py). Wcześniej był REKONSTRUOWANY wstecz z
+offers.json (dla dnia D: ile ofert miało first_seen <= D <= last_seen) i zawyżał
+przeszłość o +27% (koniec maja) do +4% (dziś), bo oferta z przerwą w życiu ma w
+bazie jeden ciągły przedział. Zawyżenie malało z wiekiem punktu, więc prawy
+koniec wykresu zawsze opadał i mylił kierunek trendu. Rekonstrukcja została jako
+build_series_reconstructed() — awaryjne źródło, gdy nie ma zapisanej historii.
 
-Dlaczego nie scan_history.json: tam dane sięgają tylko 24.05 (od kiedy w ogóle
-zapisujemy historię skanów). offers.json sięga lutego, ale rekonstrukcja sprzed
-~16.05 jest niewiarygodna — to moment, w którym scraper ruszył na pełnych
-obrotach (skok ~119 -> 330 w tygodniu 10-16.05). Wcześniejszy okres jest
-zaniżony (survivorship: w bazie zostały tylko długo żyjące oferty z tamtych dni),
-więc odcinamy go i rysujemy tylko wiarygodny zakres.
+Dlaczego nie sam scan_history.json: trzyma tylko ostatnie ~100 skanów (≈33 dni).
+index_history.json rośnie bezterminowo, a jego historia 14.05–02.09.2026 jest
+odtworzona ze starszych rewizji scan_history.json z gita
+(scripts/backfill_index_history.py).
 """
 
 import json
 from datetime import datetime, date, timedelta
 from pathlib import Path
 
+import index_history
 from shared_utils import write_json_atomic
 
 TITLE = "Lublin – pokoje: wynajem"
@@ -30,6 +34,21 @@ DAY_MS = 86_400_000
 # Pierwszy wiarygodny dzień (po zakończeniu rozpędzania scrapera w maju 2026).
 # Wszystko wcześniej to artefakt zbierania danych, nie obraz rynku.
 RELIABLE_START = date(2026, 5, 16)
+
+# Reaktywacje: pierwszy dzień, od którego seria jest RZETELNA. Pole
+# `reactivation_dates` nie istniało do początku lipca 2026 (starsze rewizje
+# main.py mają wyłącznie licznik `reactivation_count`), a przy wdrożeniu zrobiono
+# backfill po JEDNEJ dacie na ofertę — wszystkie 224 oferty z datą sprzed 01.07
+# mają dokładnie jedną, choć realnie było 3-20 reaktywacji dziennie. Wcześniejszy
+# odcinek to zaślepka, nie historia: wykres pokazywał tam 104 zdarzenia zamiast
+# 260. Dni sprzed tej granicy rysujemy jako lukę i nie wliczamy do statystyk.
+REACT_RELIABLE_START = date(2026, 7, 1)
+
+# Ta sama asekuracja po stronie odpływu. Dzień z taką liczbą deaktywacji to skutek
+# częściowego scrape'u (guard w main.py łapie większość przypadków, ale nie wszystkie),
+# nie ruch na rynku — realny odpływ to ~15 ofert dziennie. Taki dzień rysuje się jako
+# luka i nie wchodzi do średniej ani statystyk. Dziś nic nie tnie (rekord to 42).
+OUTFLOW_ARTIFACT_THRESHOLD = 100
 
 # Dzień z liczbą reaktywacji powyżej tego progu traktujemy jako artefakt
 # pipeline'u, nie realny sygnał rynkowy. Piki 432 (21.07) i 182 (12.06) to skutek
@@ -53,11 +72,44 @@ def _d(iso_string: str) -> date:
     return datetime.fromisoformat(iso_string).date()
 
 
-def build_spans(offers):
-    """[(start_date, end_date), ...] — okres życia każdej oferty.
+def collect_dates(offer, field):
+    """Wszystkie daty z pola `field` — także te schowane w `versions[]`.
 
-    end = dziś dla ofert wciąż aktywnych (last_seen może być nieco w tyle przez
-    inteligentne pomijanie), inaczej last_seen.
+    Zmiana adresu otwiera nową wersję oferty: `_update_existing_offer` resetuje
+    `refresh_dates` / `reactivation_dates` / `deactivation_dates` i chowa stare
+    do `versions[]`. Czytając tylko wierzch gubiliśmy tę historię (43 reaktywacje
+    i 188 odświeżeń), a szeregi czasowe robiły się wstecz coraz rzadsze.
+    """
+    out = []
+    for raw in (offer.get(field) or []):
+        try:
+            out.append(_d(str(raw)))
+        except (ValueError, TypeError):
+            continue
+    for version in (offer.get('versions') or []):
+        for raw in (version.get(field) or []):
+            try:
+                out.append(_d(str(raw)))
+            except (ValueError, TypeError):
+                continue
+    return sorted(out)
+
+
+def build_spans(offers):
+    """[(offer, [(start, end), ...]), ...] — PRZEDZIAŁY życia każdej oferty.
+
+    Oferta może żyć na raty: zniknęła z listingu (`deactivation_dates`) i wróciła
+    (`reactivation_dates`). Każda taka przerwa zamyka jeden przedział i otwiera
+    następny, więc dzień w środku przerwy nie liczy się jako żywy.
+
+    UWAGA na dane historyczne: `deactivation_dates` zapisujemy dopiero od
+    03.09.2026. Oferta bez ani jednej daty deaktywacji dostaje — jak dawniej —
+    jeden ciągły przedział, czyli jej dawne przerwy nadal są niewidoczne. Dlatego
+    Indeks NIE jest już z tego liczony (patrz build_series); przedziały służą
+    podziałowi na pasma i będą dokładne dla dni od wdrożenia w górę.
+
+    end ostatniego przedziału = dziś dla ofert wciąż aktywnych (last_seen bywa w
+    tyle przez inteligentne pomijanie), inaczej last_seen.
     """
     today = max(
         (_d(o['last_seen']) for o in offers if o.get('last_seen')),
@@ -69,28 +121,93 @@ def build_spans(offers):
             continue
         try:
             start = _d(o['first_seen'])
-            end = today if o.get('active') else _d(o['last_seen'])
+            final_end = today if o.get('active') else _d(o['last_seen'])
         except (ValueError, TypeError):
             continue
-        if end < start:
-            end = start
-        spans.append((start, end))
+        if final_end < start:
+            final_end = start
+
+        deactivations = [d for d in collect_dates(o, 'deactivation_dates') if start <= d <= final_end]
+        reactivations = collect_dates(o, 'reactivation_dates')
+
+        intervals = []
+        cursor = start
+        for gap_start in deactivations:
+            if gap_start < cursor:
+                continue
+            intervals.append((cursor, gap_start))
+            back = next((r for r in reactivations if r >= gap_start), None)
+            if back is None or back > final_end:
+                cursor = None
+                break
+            cursor = back
+        if cursor is not None:
+            intervals.append((cursor, final_end))
+        elif o.get('active') and intervals:
+            # Oferta jest AKTYWNA, ale po ostatniej deaktywacji nie ma daty powrotu
+            # (niespójny rekord). Skoro żyje dziś, domykamy ostatni przedział do końca
+            # zamiast chować ją z wykresu na dobre.
+            last_start, last_end = intervals[-1]
+            intervals[-1] = (last_start, final_end)
+        spans.append((o, intervals))
     return spans, today
 
 
-def build_series(offers):
-    """Dzienna seria [[ms, liczba_aktywnych], ...] od RELIABLE_START do dziś."""
+def _alive(intervals, day):
+    """Czy oferta żyła danego dnia. Przedziały mogą się stykać (deaktywacja i
+    powrót tego samego dnia) — liczy się raz, `any` nie sumuje."""
+    return any(s <= day <= e for s, e in intervals)
+
+
+def build_series(offers, base_dir=None):
+    """Dzienna seria [[ms, aktywne|None], ...] — MIERZONY stan bazy.
+
+    Źródłem jest data/index_history.json: ile ofert miało `active=true` po skanie
+    danego dnia. `None` = dzień, w którym nie odbył się ani jeden skan (awaria
+    Actions) — front rysuje lukę zamiast zmyślonego zera.
+
+    Gdy pliku nie ma (świeży klon, repo-brat bez historii), spadamy na starą
+    rekonstrukcję — z jej znanym zawyżeniem przeszłości.
+    """
+    measured = index_history.daily_series(start=RELIABLE_START, base_dir=base_dir)
+    if measured:
+        return [[_day_ms(day), value] for day, value in measured]
+    return build_series_reconstructed(offers)
+
+
+def build_series_reconstructed(offers):
+    """AWARYJNE źródło Indeksu: rekonstrukcja wsteczna z offers.json.
+
+    Zawyża przeszłość (przerwy w życiu ofert sprzed 03.09.2026 są niewidoczne),
+    a zawyżenie maleje z wiekiem punktu, więc prawy koniec sztucznie opada.
+    Używane tylko, gdy nie ma data/index_history.json.
+    """
     spans, today = build_spans(offers)
     if not spans:
         return []
-    start = max(RELIABLE_START, min(s for s, _ in spans))
+    starts = [iv[0][0] for _, iv in spans if iv]
+    if not starts:
+        return []
+    start = max(RELIABLE_START, min(starts))
     series = []
     day = start
     while day <= today:
-        count = sum(1 for s, e in spans if s <= day <= e)
-        series.append([_day_ms(day), count])
+        series.append([_day_ms(day), sum(1 for _, iv in spans if _alive(iv, day))])
         day += timedelta(days=1)
     return series
+
+
+def _axis(offers, series=None):
+    """Wspólna oś dni dla wszystkich szeregów: dokładnie te dni, które są na
+    Indeksie. Dzięki temu odpływ, napływ i pasma stoją w tych samych słupkach."""
+    if series:
+        days = [datetime.fromtimestamp(ms / 1000).date() for ms, _ in series]
+        return days, days[-1]
+    spans, today = build_spans(offers)
+    starts = [iv[0][0] for _, iv in spans if iv]
+    if not starts:
+        return [], today
+    return _daily_range(max(RELIABLE_START, min(starts)), today), today
 
 
 def _daily_range(start, today):
@@ -154,34 +271,41 @@ def _flow_metric(counts, days, exclude=None):
     }
 
 
-def build_outflow(offers):
+def build_outflow(offers, series=None):
     """Dzienny odpływ ofert (ile zniknęło danego dnia) + średnia krocząca 7 dni.
 
-    „Zniknięcie" = oferta nieaktywna, której `last_seen` przypada danego dnia —
-    to ostatni dzień, w którym żyła. Liczymy narastająco tak samo jak Indeks:
-    od RELIABLE_START do dziś, dzień po dniu. Druga seria to trailing average
-    z 7 dni — wygładza dzienny szum i pokazuje trend nasilenia znikania.
+    Zniknięcie bierzemy z `deactivation_dates` — KAŻDE wypadnięcie z listingu,
+    także to, po którym oferta wróciła. Oferta bez tych dat (wszystko sprzed
+    03.09.2026) ma tylko jeden ślad: `last_seen`, czyli WYŁĄCZNIE ostatnią
+    śmierć. Dlatego historyczny odpływ jest zaniżony — bilans się nie spinał:
+    napływ 3174 − odpływ 1590 = +1584, a Indeks urósł w tym czasie o +480;
+    różnica ≈ 1131 reaktywacji, których poprzedzające zgony nigdzie nie trafiły.
+    Od wdrożenia `deactivation_dates` szereg domyka się sam.
+
+    Druga seria to trailing average z 7 dni — wygładza dzienny szum.
     """
-    spans, today = build_spans(offers)
-    if not spans:
+    days, _ = _axis(offers, series)
+    if not days:
         return None
-    start = max(RELIABLE_START, min(s for s, _ in spans))
+    start = days[0]
 
     dep = {}
     for o in offers:
-        if o.get('active') or not o.get('last_seen'):
-            continue
-        try:
-            d = _d(o['last_seen'])
-        except (ValueError, TypeError):
-            continue
-        if d >= start:
-            dep[d] = dep.get(d, 0) + 1
+        gone = collect_dates(o, 'deactivation_dates')
+        if not gone and not o.get('active') and o.get('last_seen'):
+            try:
+                gone = [_d(o['last_seen'])]
+            except (ValueError, TypeError):
+                gone = []
+        for d in gone:
+            if d >= start:
+                dep[d] = dep.get(d, 0) + 1
 
-    return _flow_metric(dep, _daily_range(start, today))
+    artifacts = {d for d, v in dep.items() if v > OUTFLOW_ARTIFACT_THRESHOLD}
+    return _flow_metric(dep, days, exclude=artifacts)
 
 
-def build_inflow(offers):
+def build_inflow(offers, series=None):
     """Dzienny NAPŁYW ofert — trzy powiązane metryki (każda jak outflow):
 
     - `new`       : nowe oferty (pierwsze pojawienie się, `first_seen` = ten dzień),
@@ -192,12 +316,13 @@ def build_inflow(offers):
                     dnia (świeże + wskrzeszone).
 
     Ten sam zakres (od RELIABLE_START do dziś) i konwencja co Indeks/odpływ.
+    Serie z reaktywacjami zaczynają się dopiero od REACT_RELIABLE_START — patrz
+    komentarz przy tej stałej.
     """
-    spans, today = build_spans(offers)
-    if not spans:
+    days, _ = _axis(offers, series)
+    if not days:
         return None
-    start = max(RELIABLE_START, min(s for s, _ in spans))
-    days = _daily_range(start, today)
+    start = days[0]
 
     new = {}
     react = {}
@@ -210,80 +335,83 @@ def build_inflow(offers):
                     new[d] = new.get(d, 0) + 1
             except (ValueError, TypeError):
                 pass
-        for rr in (o.get('reactivation_dates') or []):
-            try:
-                d = _d(rr)
-                if d >= start:
-                    react[d] = react.get(d, 0) + 1
-            except (ValueError, TypeError):
-                pass
+        for d in collect_dates(o, 'reactivation_dates'):
+            if d >= start:
+                react[d] = react.get(d, 0) + 1
 
     combined = {}
     for d in set(new) | set(react):
         combined[d] = new.get(d, 0) + react.get(d, 0)
 
-    # Dni-artefakty reaktywacji (patrz REACT_ARTIFACT_THRESHOLD). Wykluczamy je z
-    # serii reaktywacji ORAZ z napływu całkowitego (bo składnik reaktywacji tego
-    # dnia jest nierynkowy). Nowe oferty (`new`) zostają nietknięte.
-    react_artifacts = {d for d, v in react.items() if v > REACT_ARTIFACT_THRESHOLD}
+    # Dni-artefakty reaktywacji (patrz REACT_ARTIFACT_THRESHOLD) + odcinek sprzed
+    # REACT_RELIABLE_START. Wykluczamy je z serii reaktywacji ORAZ z napływu
+    # całkowitego (bo składnik reaktywacji tego dnia jest nierzetelny). Nowe
+    # oferty (`new`) zostają nietknięte — ta seria trzyma się realiów (1879 wobec
+    # 1894 zapisanych w historii skanów).
+    unreliable = {d for d in days if d < REACT_RELIABLE_START}
+    unreliable |= {d for d, v in react.items() if v > REACT_ARTIFACT_THRESHOLD}
+
+    react_metric = _flow_metric(react, days, exclude=unreliable)
+    combined_metric = _flow_metric(combined, days, exclude=unreliable)
+    for metric in (react_metric, combined_metric):
+        metric['reliable_start'] = REACT_RELIABLE_START.isoformat()
+        metric['reliable_start_ms'] = _day_ms(REACT_RELIABLE_START)
 
     return {
         'new': _flow_metric(new, days),
-        'react': _flow_metric(react, days, exclude=react_artifacts),
-        'new_react': _flow_metric(combined, days, exclude=react_artifacts),
+        'react': react_metric,
+        'new_react': combined_metric,
     }
 
 
-def build_bands(offers):
+def build_bands(offers, series=None):
     """Rozbicie dziennej liczby AKTYWNYCH ofert na dwa pasma (suma = Indeks):
 
     - `new`   : oferty świeże — do dnia D nie miały ani jednej reaktywacji,
     - `react` : „recykling" — oferty, które do dnia D już kiedyś wróciły z martwych
                 (najwcześniejsza data w `reactivation_dates` <= D).
 
-    Ten sam zakres i konwencja co Indeks (`build_series`): oferta żyje w [first_seen,
-    end], end = dziś dla aktywnych, inaczej last_seen. Zwraca serie [[ms, v], ...]
-    wyrównane dzień-w-dzień do `series`, żeby front mógł je ustawić w stack.
+    Metoda: UDZIAŁ pasm liczymy z rekonstrukcji przedziałów życia (build_spans),
+    a potem nakładamy go na MIERZONY Indeks, żeby suma pasm dalej równała się
+    linii Indeksu. Same liczby z rekonstrukcji nie mogą tu wejść — zawyżają
+    przeszłość o kilkanaście procent i stos wystawałby ponad linię.
+
+    Czego ten podział jeszcze nie widzi: oferta, która w dniu D była martwa i
+    wróciła później, jest w rekonstrukcji liczona jako żywa i trafia do pasma
+    „świeże" (jej pierwsza reaktywacja jest PO D). Recykling jest więc zaniżony —
+    dziś co najmniej o 65 aktywnych ofert, które mają `reactivation_count > 0`, a
+    zerową albo skróconą listę dat. Domknie się to samo, gdy przybędzie
+    `deactivation_dates` (od 03.09.2026) i przedziały przestaną kleić przerwy.
     """
-    spans, today = build_spans(offers)
-    if not spans:
+    spans, _ = build_spans(offers)
+    days, _ = _axis(offers, series)
+    if not spans or not days:
         return {'new': [], 'react': []}
 
-    # najwcześniejsza data reaktywacji per oferta (None = nigdy nie reaktywowana).
-    # Bazujemy na tej samej kolejności co build_spans (pomija oferty bez dat).
-    firsts = []
-    for o in offers:
-        if not o.get('first_seen') or not o.get('last_seen'):
-            continue
-        try:
-            _d(o['first_seen']); _d(o['last_seen'])
-        except (ValueError, TypeError):
-            continue
-        fr = None
-        for rr in (o.get('reactivation_dates') or []):
-            try:
-                rd = _d(rr)
-            except (ValueError, TypeError):
-                continue
-            if fr is None or rd < fr:
-                fr = rd
-        firsts.append(fr)
+    first_reactivation = []
+    for offer, intervals in spans:
+        dates = collect_dates(offer, 'reactivation_dates')
+        first_reactivation.append((intervals, dates[0] if dates else None))
 
-    start = max(RELIABLE_START, min(s for s, _ in spans))
+    measured = {ms: value for ms, value in (series or [])}
+
     new_series, react_series = [], []
-    day = start
-    while day <= today:
+    for day in days:
         ms = _day_ms(day)
-        r = 0
-        t = 0
-        for (s, e), fr in zip(spans, firsts):
-            if s <= day <= e:
-                t += 1
-                if fr is not None and fr <= day:
-                    r += 1
-        new_series.append([ms, t - r])
-        react_series.append([ms, r])
-        day += timedelta(days=1)
+        total = recycled = 0
+        for intervals, first in first_reactivation:
+            if _alive(intervals, day):
+                total += 1
+                if first is not None and first <= day:
+                    recycled += 1
+        index_value = measured.get(ms, total if not measured else None)
+        if index_value is None:
+            new_series.append([ms, None])
+            react_series.append([ms, None])
+            continue
+        scaled = round(index_value * recycled / total) if total else 0
+        new_series.append([ms, index_value - scaled])
+        react_series.append([ms, scaled])
     return {'new': new_series, 'react': react_series}
 
 
@@ -333,7 +461,7 @@ def _scanned_days(offers):
     return days
 
 
-def build_promoted(offers, series, scan_days=None):
+def build_promoted(offers, series, scan_days=None, base_dir=None):
     """Dzienna liczba ofert PROMOWANYCH (płatne wyróżnienie na listingu OLX).
 
     Źródło: `promoted_dates` w offers.json — dni, w których scraper zobaczył
@@ -365,15 +493,17 @@ def build_promoted(offers, series, scan_days=None):
     start = min(counts)
     days = _daily_range(start, max(today, max(counts)))
 
-    # Dzień liczy się jako zeskanowany, gdy: jest w historii skanów, jakaś oferta
+    # Dzień liczy się jako zeskanowany, gdy: zapisał się w index_history (najpewniejsze
+    # źródło — wpis powstaje przy każdym skanie), jest w oknie scan_history, jakaś oferta
     # ma tam last_seen, albo widzieliśmy tego dnia promowaną ofertę. Reszta = luka
     # (brak skanu), żeby awaria Actions nie wyglądała jak zerowe promowanie.
-    scanned = set(scan_days or set()) | _scanned_days(offers) | set(counts)
+    recorded = {day for day, value in index_history.daily_series(base_dir=base_dir) if value}
+    scanned = recorded | set(scan_days or set()) | _scanned_days(offers) | set(counts)
     missing = {d for d in days if d not in scanned}
 
     metric = _flow_metric(counts, days, exclude=missing)
 
-    active_by_ms = {ms: val for ms, val in (series or [])}
+    active_by_ms = {ms: val for ms, val in (series or []) if val}
     share = []
     for d in days:
         ms = _day_ms(d)
@@ -404,29 +534,31 @@ def build_promoted(offers, series, scan_days=None):
 
 
 def _value_at_or_before(series, target_ms):
+    """Ostatni ZMIERZONY odczyt nie później niż target_ms. Dni bez skanu (None)
+    przeskakujemy — inaczej awaria Actions kasowałaby porównanie."""
     best = None
     for ms, val in series:
-        if ms <= target_ms:
-            best = val
-        else:
+        if ms > target_ms:
             break
+        if val is not None:
+            best = val
     return best
 
 
 def compute_deltas(series):
     """Zmiany 1D/1M/6M/1Y vs dziś. None gdy nie mamy tak starej historii."""
-    if not series:
+    measured = [(ms, val) for ms, val in (series or []) if val is not None]
+    if not measured:
         return {}
-    now_ms = series[-1][0]
-    current = series[-1][1]
-    first_ms = series[0][0]
+    now_ms, current = measured[-1]
+    first_ms = measured[0][0]
     out = {}
     for label, days in (('1D', 1), ('1M', 30), ('6M', 182), ('1Y', 365)):
         target = now_ms - days * DAY_MS
         if target < first_ms:
             out[label] = None  # brak tak starych danych → front pokaże "—"
             continue
-        past = _value_at_or_before(series, target)
+        past = _value_at_or_before(measured, target)
         out[label] = (current - past) if past is not None else None
     return out
 
@@ -443,18 +575,21 @@ def generate_trend_data(base_dir: Path = None) -> bool:
         data = json.load(f)
     offers = data.get('offers', [])
 
-    series = build_series(offers)
-    if not series:
-        print("⚠️  Brak danych do rekonstrukcji — pomijam trend_data.json")
+    series = build_series(offers, base_dir)
+    measured = [(ms, val) for ms, val in series if val is not None]
+    if not measured:
+        print("⚠️  Brak danych do Indeksu — pomijam trend_data.json")
         return False
+    index_source = ('measured' if index_history.daily_series(base_dir=base_dir)
+                    else 'reconstructed')
 
-    values = [val for _, val in series]
+    values = [val for _, val in measured]
     current = values[-1]
     mx, mn = max(values), min(values)
     # MAX: pierwsze wystąpienie, MIN: ostatnie (spójnie z mockupem)
-    max_ts = next(ms for ms, val in series if val == mx)
-    min_ts = next(ms for ms, val in reversed(series) if val == mn)
-    last_day = datetime.fromtimestamp(series[-1][0] / 1000).date()
+    max_ts = next(ms for ms, val in measured if val == mx)
+    min_ts = next(ms for ms, val in reversed(measured) if val == mn)
+    last_day = datetime.fromtimestamp(measured[-1][0] / 1000).date()
 
     out = {
         'generated_at': datetime.now().astimezone().isoformat(),
@@ -462,6 +597,9 @@ def generate_trend_data(base_dir: Path = None) -> bool:
         'metric': 'active_daily',
         'unit': UNIT,
         'reliable_start': RELIABLE_START.isoformat(),
+        # 'measured' = zapisany stan bazy (data/index_history.json),
+        # 'reconstructed' = awaryjna rekonstrukcja z offers.json (zawyża przeszłość)
+        'index_source': index_source,
         'current': current,
         'max': mx,
         'min': mn,
@@ -469,17 +607,20 @@ def generate_trend_data(base_dir: Path = None) -> bool:
         'min_ts': min_ts,
         'last_label': last_day.strftime('%d.%m.%Y'),
         'points': len(series),
+        'measured_points': len(measured),
         'deltas': compute_deltas(series),
         'series': series,
-        'outflow': build_outflow(offers),
-        'inflow': build_inflow(offers),
-        'bands': build_bands(offers),
-        'promoted': build_promoted(offers, series, load_scan_days(base_dir)),
+        'outflow': build_outflow(offers, series),
+        'inflow': build_inflow(offers, series),
+        'bands': build_bands(offers, series),
+        'promoted': build_promoted(offers, series, load_scan_days(base_dir), base_dir),
     }
 
     write_json_atomic(output_file, out)
     of = out['outflow'] or {}
-    print(f"✅ trend_data.json: {len(series)} dni od {RELIABLE_START}, "
+    gaps = len(series) - len(measured)
+    print(f"✅ trend_data.json: {len(series)} dni od {RELIABLE_START} "
+          f"({index_source}, luk bez skanu: {gaps}), "
           f"teraz={current}, max={mx}, min={mn}; "
           f"odpływ: łącznie={of.get('total')}, śr={of.get('rate')}/dzień, "
           f"rekord={of.get('max_day')} ({of.get('max_label')})")

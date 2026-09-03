@@ -124,12 +124,18 @@
         </div>
 
         <div class="foot">
-            <strong>Skąd dane:</strong> dzienna rekonstrukcja z <code>data/offers.json</code> — dla każdego dnia
-            liczba ofert, które tego dnia „żyły" (<code>first_seen &le; dzień &le; last_seen</code>). Każdy punkt = jeden dzień.
-            To analog indeksu podaży z betonometr.pl — pokazuje, ile żywych ofert wynajmu pokoi w Lublinie jest na rynku.
-            Wykres startuje <strong>16.05.2026</strong> — wcześniejsze dane są niewiarygodne (scraper dopiero się rozpędzał,
-            stara baza zaniżona przez survivorship). MAX/MIN/zakres liczone automatycznie; zmiany 6M/1Y pojawią się,
-            gdy uzbieramy dłuższą historię.
+            <strong>Skąd dane:</strong> zapisany stan bazy po każdym skanie — ile ofert ma <code>active: true</code>
+            (<code>data/index_history.json</code>). Ta sama liczba, którą pokazuje Monitoring i mapa: mierzona, nie odtwarzana.
+            Wartość dnia to najwyższy z trzech dziennych odczytów, więc skan częściowy (blokada OLX) nie rysuje się jak
+            załamanie rynku; dzień bez ani jednego skanu zostaje luką. Historia 16.05&ndash;02.09.2026 odtworzona ze
+            starszych rewizji <code>scan_history.json</code> z gita. To analog indeksu podaży z betonometr.pl.
+            <strong>Do 03.09.2026 wykres liczył to inaczej</strong> &mdash; rekonstrukcją wsteczną z <code>offers.json</code>
+            (<code>first_seen &le; dzień &le; last_seen</code>) &mdash; i zawyżał przeszłość od <strong>+27%</strong> (koniec maja)
+            do +4% (dziś), bo oferta z przerwą w życiu ma w bazie jeden ciągły przedział. Zawyżenie malało z wiekiem punktu,
+            więc prawy koniec zawsze opadał: od 29.07 wykres pokazywał &minus;10%, a rynek w tym czasie urósł o +1,9%.
+            Przełącznik <strong>Rozbij</strong> dzieli tę samą liczbę na pasma &mdash; udział pasm bierze się z rekonstrukcji
+            przedziałów życia, więc recykling jest <em>zaniżony</em> (oferta martwa danego dnia, wskrzeszona później, liczy się
+            jeszcze jako świeża). MAX/MIN/zakres liczone automatycznie; zmiany 6M/1Y pojawią się, gdy uzbieramy dłuższą historię.
         </div>
 
         <div class="card" style="margin-top:22px">
@@ -139,10 +145,14 @@
         </div>
 
         <div class="foot">
-            <strong>Skąd dane:</strong> dla każdego dnia liczba ofert, które tego dnia zniknęły z rynku
-            (oferta nieaktywna, jej <code>last_seen</code> = ten dzień). Czerwona linia to dzienny odpływ,
-            pomarańczowa to średnia krocząca z 7 dni — wygładza dzienny szum i pokazuje trend nasilenia znikania.
-            Ten sam start <strong>16.05.2026</strong> i to samo źródło co Indeks powyżej.
+            <strong>Skąd dane:</strong> dla każdego dnia liczba ofert, które tego dnia wypadły z listingu
+            (<code>deactivation_dates</code>). Czerwona linia to dzienny odpływ, pomarańczowa to średnia krocząca
+            z 7 dni — wygładza dzienny szum i pokazuje trend nasilenia znikania.
+            <strong>Historia jest zaniżona</strong>: daty deaktywacji zapisujemy dopiero od 03.09.2026, a starsze oferty
+            zostawiły tylko <code>last_seen</code>, czyli <em>wyłącznie ostatnie</em> zniknięcie — oferta, która umarła
+            i wróciła, nie ma śladu po swojej pierwszej śmierci. Widać to w bilansie: napływ 3174 &minus; odpływ 1590 = +1584,
+            a Indeks urósł w tym czasie o +480; różnica to prawie dokładnie liczba reaktywacji. Szereg domyka się sam
+            w miarę kolejnych skanów.
         </div>
 
         <div class="card" style="margin-top:22px">
@@ -155,7 +165,8 @@
             <strong>Skąd dane:</strong> dla każdego dnia liczba ofert, które tego dnia pojawiły się
             po raz pierwszy (<code>first_seen</code> = ten dzień) &mdash; <strong>bez</strong> reaktywacji.
             Zielona linia to dzienny napływ świeżych ogłoszeń, jasna to średnia krocząca z 7 dni.
-            Ten sam start <strong>16.05.2026</strong> i to samo źródło co Indeks powyżej.
+            <strong>Ta seria trzyma się realiów na całej długości</strong>: 1879 nowych ofert wobec 1894 zapisanych
+            w historii skanów (&minus;0,8%; różnica to oferty skasowane z bazy przy czyszczeniach).
         </div>
 
         <div class="card" style="margin-top:22px">
@@ -168,6 +179,10 @@
             <strong>Skąd dane:</strong> suma nowych ofert (<code>first_seen</code>) i reaktywacji
             (<code>reactivation_dates</code>) danego dnia &mdash; łączny „dopływ" ofert na rynek.
             Dni-artefakty reaktywacji (bug pętli, naprawiony 24.07) są wycięte także tutaj.
+            <strong>Odcinek do 30.06.2026 jest wycięty</strong> &mdash; pole <code>reactivation_dates</code> nie istniało
+            do początku lipca (starsze wersje pipeline'u miały wyłącznie licznik <code>reactivation_count</code>), a przy
+            wdrożeniu zrobiono backfill po JEDNEJ dacie na ofertę: wszystkie 224 oferty z datą sprzed 01.07 mają dokładnie
+            jedną, choć realnie wracało 3&ndash;20 ofert dziennie. Zakreskowany obszar to brak danych, nie brak zdarzeń.
         </div>
 
         <div class="card" style="margin-top:22px">
@@ -183,6 +198,10 @@
             <code>scrape&rarr;inactive&rarr;verify&rarr;reactivate</code> + jednorazowy backfill dat
             (naprawione 24.07) wygenerowały piki 432 i 182, kilkanaście % bazy w jeden dzień. Na osi
             widnieją jako luka; do średniej i statystyk nie wchodzą.
+            <strong>Odcinek do 30.06.2026 jest wycięty</strong> &mdash; pole <code>reactivation_dates</code> nie istniało
+            do początku lipca (starsze wersje pipeline'u miały wyłącznie licznik <code>reactivation_count</code>), a przy
+            wdrożeniu zrobiono backfill po JEDNEJ dacie na ofertę: wszystkie 224 oferty z datą sprzed 01.07 mają dokładnie
+            jedną, choć realnie wracało 3&ndash;20 ofert dziennie. Zakreskowany obszar to brak danych, nie brak zdarzeń.
         </div>
 
         <div class="card" style="margin-top:22px">
@@ -251,7 +270,9 @@
         const curNearEdge = Math.abs(cur - mx) <= range * 0.07 || Math.abs(cur - mn) <= range * 0.07;
         const yAnnotations = [
             { y: mx, borderColor: '#e8624c', strokeDashArray: 5, label: { text: 'MAX: ' + mx, style: { background: '#e8624c', color: '#fff', fontSize: '12px', fontWeight: 600 }, position: 'left', offsetX: 64 } },
-            { y: mn, borderColor: '#37c26b', strokeDashArray: 5, label: { text: 'MIN: ' + mn, style: { background: '#37c26b', color: '#08210f', fontSize: '12px', fontWeight: 600 }, position: 'left', offsetX: 64 } }
+            // MIN po PRAWEJ: linia minimum biegnie na wysokości pierwszych punktów serii,
+            // więc etykieta przy lewej krawędzi ginęła pod danymi z pierwszych dni.
+            { y: mn, borderColor: '#37c26b', strokeDashArray: 5, label: { text: 'MIN: ' + mn, style: { background: '#37c26b', color: '#08210f', fontSize: '12px', fontWeight: 600 }, position: 'right', offsetX: -6 } }
         ];
         if (!curNearEdge) {
             yAnnotations.push({ y: cur, borderColor: '#5a7bc4', strokeDashArray: 3, label: { text: String(cur), style: { background: '#5a7bc4', color: '#fff', fontSize: '12px', fontWeight: 700 }, position: 'left', offsetX: 40 } });
@@ -304,9 +325,18 @@
                     datetimeFormatter: { year: 'yyyy', month: "MMM 'yy", day: 'dd MMM', hour: 'HH:mm' }
                 }
             },
-            yaxis: { labels: { style: { colors: '#8b93a7' }, formatter: function (v) { return Math.round(v); } }, tickAmount: 5 },
+            yaxis: {
+                // Bez widełek Apex dobiera „ładną" skalę schodzącą poniżej zera
+                // (przy MIN 277 rysował oś do −100) — ujemna liczba ofert nie znaczy nic.
+                min: Math.max(0, Math.floor((mn - Math.max(20, range * 0.08)) / 50) * 50),
+                max: Math.ceil((mx + Math.max(20, range * 0.08)) / 50) * 50,
+                labels: { style: { colors: '#8b93a7' }, formatter: function (v) { return Math.round(v); } }, tickAmount: 5
+            },
             tooltip: { theme: 'dark', x: { format: 'dd.MM.yyyy' }, y: { formatter: function (v) { return v + ' ' + unit; } } },
             annotations: {
+                // 'front' — inaczej wypełnienie pola zamalowuje etykietę MIN
+                // (leży nisko, dokładnie w obszarze serii). MAX jest nad polem, więc było widać.
+                position: 'front',
                 yaxis: yAnnotations,
                 points: [
                     { x: d.max_ts, y: mx, marker: { size: 5, fillColor: '#e8624c', strokeColor: '#fff', strokeWidth: 1 } },
@@ -355,7 +385,8 @@
                 const n = bands.new[bands.new.length - 1][1], r = bands.react[bands.react.length - 1][1], t = n + r;
                 const pct = t ? Math.round(100 * r / t) : 0;
                 leg.innerHTML = idxChip('#37c26b', 'Nowe (świeże) &mdash; dół') + idxChip('#e8830f', 'Reaktywacje (recykling) &mdash; góra')
-                    + '<span class="ci muted">' + n + ' + ' + r + ' = ' + t + ' aktywnych &middot; <b>' + pct + '%</b> recykling</span>';
+                    + '<span class="ci muted">' + n + ' + ' + r + ' = ' + t + ' aktywnych &middot; <b>' + pct + '%</b> recykling'
+                    + ' &middot; podział szacunkowy, recykling zaniżony</span>';
             } else {
                 leg.innerHTML = '';
             }
@@ -447,6 +478,25 @@
                 legend: { labels: { colors: '#8b93a7' }, markers: { radius: 12 }, itemMargin: { horizontal: 10 } },
                 tooltip: { theme: 'dark', shared: true, x: { format: 'dd.MM.yyyy' }, y: { formatter: function (v) { return v == null ? '—' : (v + ' ofert'); } } }
             };
+            // Odcinek sprzed startu rzetelnego pomiaru reaktywacji: zakreskowany, podpisany.
+            // Pusty lewy brzeg czytałby się jak „nic nie wracało", a to brak danych, nie brak zdarzeń.
+            if (metric.reliable_start_ms && metric.daily.length) {
+                const first = metric.daily[0][0];
+                if (first < metric.reliable_start_ms) {
+                    opts.annotations = {
+                        xaxis: [{
+                            x: first, x2: metric.reliable_start_ms,
+                            fillColor: '#3a4255', opacity: 0.28,
+                            borderColor: '#5a6478',
+                            label: {
+                                text: 'brak zapisu reaktywacji', orientation: 'horizontal', position: 'top',
+                                textAnchor: 'start', offsetX: 6, offsetY: -2,
+                                style: { background: '#2f3950', color: '#c2c9d8', fontSize: '11px' }
+                            }
+                        }]
+                    };
+                }
+            }
             document.getElementById(elId).innerHTML = '';
             new ApexCharts(document.querySelector('#' + elId), opts).render();
         }
@@ -461,7 +511,7 @@
                 'rekord <b>' + inf.new_react.max_day + '</b> (' + inf.new_react.max_label + ').';
             document.getElementById('reactLabel').innerHTML =
                 'Wraca średnio <b>' + String(inf.react.rate).replace('.', ',') + '/dzień</b>, ' +
-                'rekord <b>' + inf.react.max_day + '</b> (' + inf.react.max_label + '). Piki-artefakty wycięte.';
+                'rekord <b>' + inf.react.max_day + '</b> (' + inf.react.max_label + '). Liczone od 01.07.2026 &mdash; wcześniej brak zapisu.';
 
             renderFlowChart('chart3', inf.new, 'Nowe danego dnia', ['#37c26b', '#82d3a3']);
             renderFlowChart('chart4', inf.new_react, 'Pojawiło się danego dnia', ['#6c7bf2', '#a6b0f5']);
