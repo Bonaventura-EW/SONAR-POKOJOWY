@@ -29,6 +29,12 @@ Konwencja dnia: `active` = MAKSIMUM z odczytów danego dnia. Skan częściowy
 przerwany scrape rysowałby się jak załamanie rynku. `record()` nigdy nie obniża
 już zapisanej wartości.
 
+Cena tej konwencji: to szereg DZIENNYCH SZCZYTÓW, nie stanu na daną godzinę.
+Dzień jeszcze trwający rośnie do wieczora (mediana przyrostu od pierwszego skanu
+do maksimum: +5 ofert), a licznik na mapie — stan po OSTATNIM skanie — bywa o
+kilka ofert niższy od punktu na wykresie. Przesunięcie jest w każdym dniu takie
+samo, więc kształt i kierunek trendu są nietknięte.
+
 Dzień bez ani jednego skanu (awaria Actions) NIE MA tu wpisu i `daily_series()`
 zwraca dla niego `None` — front rysuje lukę zamiast zmyślonego zera.
 
@@ -50,26 +56,58 @@ NOTE = ("Dzienny stan bazy: ile ofert ma active=true po skanie. Zrodlo prawdy dl
         "(skan czesciowy nie moze zanizyc historii). Nie edytowac recznie.")
 
 
+class IndexHistoryError(RuntimeError):
+    """Plik istnieje, ale nie da się go odczytać (ucięty zapis, konflikt gita)."""
+
+
 def _path(base_dir=None) -> Path:
     return INDEX_HISTORY_FILE if base_dir is None else Path(base_dir) / 'data' / 'index_history.json'
 
 
-def load(base_dir=None) -> dict:
-    """Cała zawartość pliku. Brak pliku / uszkodzony JSON = pusty szkielet."""
+def load(base_dir=None, strict: bool = False) -> dict:
+    """Cała zawartość pliku. Brak pliku = pusty szkielet.
+
+    Plik, który ISTNIEJE, ale jest nieczytelny (ucięty zapis, ślady konfliktu
+    gita), to co innego niż brak pliku: przy `strict=True` leci
+    IndexHistoryError zamiast pustego szkieletu. Bez tego rozróżnienia
+    `record()` zapisywał na uszkodzonym pliku sam dzisiejszy dzień i kasował
+    całą historię — 113 dni pomiaru w jednym zapisie.
+    """
+    path = _path(base_dir)
     try:
-        with open(_path(base_dir), 'r', encoding='utf-8') as f:
+        with open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-    except (OSError, json.JSONDecodeError):
+    except FileNotFoundError:
+        return {'note': NOTE, 'days': {}}
+    except (OSError, json.JSONDecodeError) as exc:
+        if strict:
+            raise IndexHistoryError(f"{path}: {exc}") from exc
         return {'note': NOTE, 'days': {}}
     if not isinstance(data, dict) or not isinstance(data.get('days'), dict):
+        if strict:
+            raise IndexHistoryError(f"{path}: brak slownika 'days'")
         return {'note': NOTE, 'days': {}}
     return data
 
 
 def save(data: dict, base_dir=None) -> None:
+    """Zapis atomowy. NIE pozwala zastąpić niepustej historii pustą — taki zapis
+    zawsze znaczy, że wołający czytał uszkodzony albo cudzy plik."""
+    days = data.get('days') or {}
+    if not days:
+        # Pusty zapis wolno przepuścić tylko wtedy, gdy DA SIĘ udowodnić, że nie ma
+        # czego stracić. Plik nieczytelny nie jest dowodem na pustkę.
+        try:
+            existing = load(base_dir, strict=True).get('days') or {}
+        except IndexHistoryError as exc:
+            raise IndexHistoryError(
+                f"odmowa zapisu pustki: nie da sie odczytac istniejacej historii ({exc})") from exc
+        if existing:
+            raise IndexHistoryError(
+                f"odmowa zapisu: {len(existing)} dni historii mialoby zniknac")
     data['note'] = NOTE
     data['generated_at'] = datetime.now().astimezone().isoformat()
-    data['days'] = {d: data['days'][d] for d in sorted(data['days'])}
+    data['days'] = {d: days[d] for d in sorted(days)}
     write_json_atomic(_path(base_dir), data)
 
 
@@ -88,7 +126,13 @@ def record(active: int, timestamp: str = None, base_dir=None) -> dict:
     except (ValueError, TypeError):
         day = date.today().isoformat()
 
-    data = load(base_dir)
+    try:
+        data = load(base_dir, strict=True)
+    except IndexHistoryError as exc:
+        # Lepiej zgubić jeden odczyt niż nadpisać historię pustką. Plik zostaje
+        # nietknięty, żeby dało się go naprawić ręcznie (backfill albo git).
+        print(f"   ⚠️  index_history.json nieczytelny — NIE zapisuję dnia ({exc})")
+        return {}
     entry = data['days'].get(day) or {'active': 0, 'scans': 0}
     entry['scans'] = entry.get('scans', 0) + 1
     if active > entry.get('active', 0):

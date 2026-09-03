@@ -122,7 +122,7 @@ def test_live_data():
     start = react.get('reliable_start')
     check('reaktywacje mają granicę rzetelności', start == tg.REACT_RELIABLE_START.isoformat(), str(start))
     early = [v for ms, v in react.get('daily', [])
-             if datetime.fromtimestamp(ms / 1000).date() < tg.REACT_RELIABLE_START]
+             if tg._ms_day(ms) < tg.REACT_RELIABLE_START]
     check('odcinek sprzed granicy to luka', early and all(v is None for v in early),
           f'{len(early)} dni')
 
@@ -131,12 +131,82 @@ def test_live_data():
     check('brak wartości ujemnych', all(v >= 0 for v in values))
 
 
+def test_corrupted_history():
+    print("\n🛡️  Test 5: uszkodzony index_history.json nie kasuje historii")
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        (base / 'data').mkdir()
+        for day, active in ((date(2026, 8, 1), 500), (date(2026, 8, 2), 510)):
+            index_history.record(active, iso(day), base_dir=base)
+        path = base / 'data' / 'index_history.json'
+        path.write_text('{"days": {"2026-08-01": {"acti', encoding='utf-8')
+
+        index_history.record(520, iso(date(2026, 8, 3)), base_dir=base)
+        check('record() nie nadpisał uszkodzonego pliku',
+              path.read_text(encoding='utf-8').startswith('{"days": {"2026-08-01": {"acti'))
+
+        try:
+            index_history.save({'days': {}}, base_dir=base)
+            refused = False
+        except index_history.IndexHistoryError:
+            refused = True
+        check('save() odmawia zastąpienia historii pustką', refused)
+
+
+def test_unscanned_day_is_a_gap():
+    print("\n🕳️  Test 6: dzień bez skanu to luka także w przepływach")
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        (base / 'data').mkdir()
+        for day, active in ((16, 700), (17, 705), (19, 712), (20, 715)):   # 18.05 bez skanu
+            index_history.record(active, iso(date(2026, 5, day)), base_dir=base)
+        offers = [{'id': f'o{i}', 'first_seen': iso(date(2026, 5, 16)),
+                   'last_seen': iso(date(2026, 5, 17)), 'active': False,
+                   'deactivation_dates': [iso(date(2026, 5, 17))]} for i in range(4)]
+
+        series = tg.build_series(offers, base_dir=base)
+        check('Indeks ma lukę 18.05', series[2][1] is None)
+        out = tg.build_outflow(offers, series)
+        inflow = tg.build_inflow(offers, series)
+        check('odpływ ma tam lukę, nie zero', out['daily'][2][1] is None, str(out['daily']))
+        check('napływ ma tam lukę, nie zero', inflow['new']['daily'][2][1] is None)
+        check('dzień bez skanu poza mianownikiem rate', out['rate'] == 1.0,
+              f"rate={out['rate']} (4 zniknięcia / 4 zmierzone dni)")
+
+
+def test_index_source_label():
+    print("\n🏷️  Test 7: etykieta index_source zgodna z tym, co narysowano")
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        (base / 'data').mkdir()
+        index_history.record(100, iso(date(2026, 4, 1)), base_dir=base)   # przed RELIABLE_START
+        offers = [{'id': 'a', 'first_seen': iso(date(2026, 5, 16)),
+                   'last_seen': iso(date(2026, 5, 18)), 'active': True}]
+        series = tg.build_series(offers, base_dir=base)
+        check('seria z rekonstrukcji (pomiar poza zakresem)', [v for _, v in series] == [1, 1, 1])
+        check('etykieta mówi reconstructed', not tg.measured_series(base))
+
+
+def test_day_anchor_is_utc():
+    print("\n🌍 Test 8: kotwica dnia niezależna od strefy czasowej")
+    days = [date(2027, 3, 24) + timedelta(days=i) for i in range(5)]      # 28.03 = zmiana czasu
+    series = [[tg._day_ms(d), 800 + i] for i, d in enumerate(days)]
+    spacing = {series[i + 1][0] - series[i][0] for i in range(len(series) - 1)}
+    check('wszystkie punkty co równo 24 h', spacing == {tg.DAY_MS}, str(spacing))
+    check('delta 1D przez zmianę czasu = 1', tg.compute_deltas(series)['1D'] == 1)
+    check('_ms_day odwraca _day_ms', all(tg._ms_day(ms) == d for (ms, _), d in zip(series, days)))
+
+
 if __name__ == '__main__':
     print("🧪 TEST INDEKSU PODAŻY\n" + "=" * 60)
     test_intervals()
     test_index_history_store()
     test_series_from_measurement()
     test_live_data()
+    test_corrupted_history()
+    test_unscanned_day_is_a_gap()
+    test_index_source_label()
+    test_day_anchor_is_utc()
     print("\n" + "=" * 60)
     if FAILED:
         print(f"❌ Niezaliczone ({len(FAILED)}): " + ', '.join(FAILED))

@@ -21,7 +21,7 @@ odtworzona ze starszych rewizji scan_history.json z gita
 """
 
 import json
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from pathlib import Path
 
 import index_history
@@ -64,8 +64,20 @@ REACT_ARTIFACT_THRESHOLD = 100
 
 
 def _day_ms(d: date) -> int:
-    """Epoch (ms) dla południa danego dnia — punkt ląduje w środku dnia na osi."""
-    return int(datetime(d.year, d.month, d.day, 12, 0).timestamp() * 1000)
+    """Epoch (ms) dla południa UTC danego dnia — punkt ląduje w środku dnia na osi.
+
+    Kotwica jest JAWNIE w UTC, bo naiwne `datetime(...).timestamp()` bierze strefę
+    maszyny: przy generowaniu lokalnie w Polsce doba ze zmianą czasu ma 23 albo 25
+    godzin, a `compute_deltas` odejmuje sztywne 24 h — delta „1D" po wiosennej
+    zmianie wskazywała przedwczoraj zamiast wczoraj. GitHub Actions chodzi na UTC,
+    więc w produkcji wartości się nie zmieniają.
+    """
+    return int(datetime(d.year, d.month, d.day, 12, 0, tzinfo=timezone.utc).timestamp() * 1000)
+
+
+def _ms_day(ms: int) -> date:
+    """Odwrotność _day_ms — ta sama kotwica UTC."""
+    return datetime.fromtimestamp(ms / 1000, timezone.utc).date()
 
 
 def _d(iso_string: str) -> date:
@@ -159,6 +171,17 @@ def _alive(intervals, day):
     return any(s <= day <= e for s, e in intervals)
 
 
+def measured_series(base_dir=None):
+    """Zmierzone dni Indeksu w zakresie, który faktycznie rysujemy.
+
+    Jedno miejsce, w którym pytamy o pomiar — build_series i etykieta
+    `index_source` MUSZĄ pytać tak samo. Wcześniej etykieta pytała o pełny plik,
+    więc historia złożona wyłącznie z dni sprzed RELIABLE_START dawała wykres
+    z rekonstrukcji podpisany jako „measured".
+    """
+    return index_history.daily_series(start=RELIABLE_START, base_dir=base_dir)
+
+
 def build_series(offers, base_dir=None):
     """Dzienna seria [[ms, aktywne|None], ...] — MIERZONY stan bazy.
 
@@ -169,7 +192,7 @@ def build_series(offers, base_dir=None):
     Gdy pliku nie ma (świeży klon, repo-brat bez historii), spadamy na starą
     rekonstrukcję — z jej znanym zawyżeniem przeszłości.
     """
-    measured = index_history.daily_series(start=RELIABLE_START, base_dir=base_dir)
+    measured = measured_series(base_dir)
     if measured:
         return [[_day_ms(day), value] for day, value in measured]
     return build_series_reconstructed(offers)
@@ -197,11 +220,24 @@ def build_series_reconstructed(offers):
     return series
 
 
+def _unscanned_days(days, series):
+    """Dni, w których nie odbył się ANI JEDEN skan (Indeks ma tam None).
+
+    Przepływy muszą je traktować jak lukę, nie jak zero: w dniu bez skanu nikt nie
+    mógł zobaczyć ani zniknięcia oferty, ani nowej. Zero z takiego dnia wchodziło
+    do średniej 7-dniowej i do mianownika `rate`, więc awaria Actions zaniżałaby
+    odpływ i napływ jeszcze przez tydzień po sobie.
+    """
+    if not series:
+        return set()
+    return {day for day, (_, value) in zip(days, series) if value is None}
+
+
 def _axis(offers, series=None):
     """Wspólna oś dni dla wszystkich szeregów: dokładnie te dni, które są na
     Indeksie. Dzięki temu odpływ, napływ i pasma stoją w tych samych słupkach."""
     if series:
-        days = [datetime.fromtimestamp(ms / 1000).date() for ms, _ in series]
+        days = [_ms_day(ms) for ms, _ in series]
         return days, days[-1]
     spans, today = build_spans(offers)
     starts = [iv[0][0] for _, iv in spans if iv]
@@ -302,7 +338,7 @@ def build_outflow(offers, series=None):
                 dep[d] = dep.get(d, 0) + 1
 
     artifacts = {d for d, v in dep.items() if v > OUTFLOW_ARTIFACT_THRESHOLD}
-    return _flow_metric(dep, days, exclude=artifacts)
+    return _flow_metric(dep, days, exclude=artifacts | _unscanned_days(days, series))
 
 
 def build_inflow(offers, series=None):
@@ -348,8 +384,10 @@ def build_inflow(offers, series=None):
     # całkowitego (bo składnik reaktywacji tego dnia jest nierzetelny). Nowe
     # oferty (`new`) zostają nietknięte — ta seria trzyma się realiów (1879 wobec
     # 1894 zapisanych w historii skanów).
+    unscanned = _unscanned_days(days, series)
     unreliable = {d for d in days if d < REACT_RELIABLE_START}
     unreliable |= {d for d, v in react.items() if v > REACT_ARTIFACT_THRESHOLD}
+    unreliable |= unscanned
 
     react_metric = _flow_metric(react, days, exclude=unreliable)
     combined_metric = _flow_metric(combined, days, exclude=unreliable)
@@ -358,7 +396,7 @@ def build_inflow(offers, series=None):
         metric['reliable_start_ms'] = _day_ms(REACT_RELIABLE_START)
 
     return {
-        'new': _flow_metric(new, days),
+        'new': _flow_metric(new, days, exclude=unscanned),
         'react': react_metric,
         'new_react': combined_metric,
     }
@@ -580,8 +618,7 @@ def generate_trend_data(base_dir: Path = None) -> bool:
     if not measured:
         print("⚠️  Brak danych do Indeksu — pomijam trend_data.json")
         return False
-    index_source = ('measured' if index_history.daily_series(base_dir=base_dir)
-                    else 'reconstructed')
+    index_source = 'measured' if measured_series(base_dir) else 'reconstructed' 
 
     values = [val for _, val in measured]
     current = values[-1]
@@ -589,7 +626,7 @@ def generate_trend_data(base_dir: Path = None) -> bool:
     # MAX: pierwsze wystąpienie, MIN: ostatnie (spójnie z mockupem)
     max_ts = next(ms for ms, val in measured if val == mx)
     min_ts = next(ms for ms, val in reversed(measured) if val == mn)
-    last_day = datetime.fromtimestamp(measured[-1][0] / 1000).date()
+    last_day = _ms_day(measured[-1][0])
 
     out = {
         'generated_at': datetime.now().astimezone().isoformat(),
