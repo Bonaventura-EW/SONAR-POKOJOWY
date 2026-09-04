@@ -9,6 +9,13 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Filtr czasowy: etykiety mówią prawdę — „Dzisiaj" → „Ostatnie 24h" (2026-09-04)
+- **zgłoszenie Mateusza**: po wybraniu „Dzisiaj" mapa pokazywała markery, mimo że dziś nie było jeszcze żadnego skanu.
+- **diagnoza**: filtr liczy okno **przesuwne**, nie kalendarzowe — `cutoffDate = teraz − N*24h` (`docs/assets/script.js`, cztery bliźniacze miejsca: `filterMarkers`, `calculateFilteredStats`, liczniki zakresów cenowych i liczniki legendy). O 12:00 „Dzisiaj" znaczyło „od wczoraj 12:00", więc do okna wpadały wczorajsze skany. Kontrola na `docs/data.json` (ostatni skan `03.09 23:34`): okno 24 h → **38 ofert** (37 aktywnych — dokładnie tyle, ile pokazywała legenda: 21 `N` + 11 `↓` + 5 `↑`), okno od północy → **0**. Wszystkie 38 pochodziło ze skanów 03.09 o 12:45, 18:57 i 23:35.
+- **wybór Mateusza — wariant B (rename, bez zmiany matematyki)**: „Dzisiaj" → „Ostatnie 24h", „3 dni" → „Ostatnie 72h", pozostałe → „Ostatnie N dni"; nagłówek „Pokaż oferty z ostatnich:" → „Okno czasowe (od teraz wstecz):". Tooltip na `<select>` mówi wprost, że okno jest przesuwne i że oferta wchodzi do niego przez `first_seen` **albo** `price_changed_at`.
+- **czemu nie kalendarzowo**: świadomie zostawiony rozjazd — okno przesuwne nigdy nie pokaże pustej mapy tuż po północy i nie ucina świeżego wieczornego skanu. Cena: dzień bez skanu nie jest widoczny w filtrze (do tego jest Monitoring).
+- **kod**: zero zmian w logice; przy każdym z czterech `cutoffDate` jednolinijkowy komentarz, żeby nikt nie przywrócił „Dzisiaj" bez zmiany matematyki. `test_integration.py` zielony.
+
 ### Promowane: wyróżnienia przestały ginąć przy zmianie adresu (2026-09-03)
 - **zlecenie Mateusza**: „czy sprawdziłeś logikę tworzenia wszystkich wykresów?" — audyt Indeksu (patrz wpis wyżej) szedł ścieżką pierwszego wykresu; szósty dostał wtedy lżejszy przegląd. Teraz przeszedł tą samą metodą.
 - **znaleziona dziura**: zmiana adresu otwiera nową wersję oferty i resetuje `promoted_dates` — ale w przeciwieństwie do `refresh_dates` i `reactivation_dates` **nie trafiały one do `addr_snapshot`**, więc historia wyróżnień znikała bezpowrotnie, nie tylko z wierzchu rekordu. Sonda: **0** snapshotów zawiera `promoted_dates`, a **19 ofert** zmieniło adres od startu pomiaru wyróżnień (27.08) — każda mogła stracić swoje dni.
