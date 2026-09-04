@@ -307,15 +307,16 @@
                     
                     <!-- NOWY: Filtr czasowy -->
                     <div class="filter-group">
-                        <h3>📅 Pokaż oferty z ostatnich:</h3>
-                        <select id="time-filter" class="time-filter-select">
+                        <h3>📅 Okno czasowe (od teraz wstecz):</h3>
+                        <select id="time-filter" class="time-filter-select"
+                                title="Okno PRZESUWNE — liczone od bieżącej godziny wstecz, nie od północy. Oferta wchodzi do okna, gdy w nim pojawiła się po raz pierwszy albo zmieniła cenę.">
                             <option value="all">Wszystkie</option>
-                            <option value="1">Dzisiaj</option>
-                            <option value="3">3 dni</option>
-                            <option value="7">7 dni</option>
-                            <option value="30" selected>30 dni</option>
-                            <option value="90">90 dni</option>
-                            <option value="180">180 dni</option>
+                            <option value="1">Ostatnie 24h</option>
+                            <option value="3">Ostatnie 72h</option>
+                            <option value="7">Ostatnie 7 dni</option>
+                            <option value="30" selected>Ostatnie 30 dni</option>
+                            <option value="90">Ostatnie 90 dni</option>
+                            <option value="180">Ostatnie 180 dni</option>
                         </select>
                     </div>
                     

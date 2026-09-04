@@ -480,6 +480,7 @@ function calculateFilteredStats() {
     let cutoffDate = null;
     
     if (timeFilter !== 'all') {
+        // Okno PRZESUWNE: cutoff = teraz − N*24h, NIE od północy (stąd etykiety "Ostatnie 24h/72h/N dni").
         const daysAgo = parseInt(timeFilter);
         cutoffDate = new Date(now.getTime() - (daysAgo * 24 * 60 * 60 * 1000));
     }
@@ -1256,6 +1257,7 @@ function filterMarkers() {
     let cutoffDate = null;
     
     if (timeFilter !== 'all') {
+        // Okno PRZESUWNE: cutoff = teraz − N*24h, NIE od północy (stąd etykiety "Ostatnie 24h/72h/N dni").
         const daysAgo = parseInt(timeFilter);
         cutoffDate = new Date(now.getTime() - (daysAgo * 24 * 60 * 60 * 1000));
     }
@@ -2144,6 +2146,7 @@ function updatePriceRangeCounts() {
     const timeFilter = document.getElementById('time-filter')?.value || 'all';
     let cutoffDate = null;
     if (timeFilter !== 'all') {
+        // Okno PRZESUWNE: cutoff = teraz − N*24h, NIE od północy (stąd etykiety "Ostatnie 24h/72h/N dni").
         const daysAgo = parseInt(timeFilter);
         cutoffDate = new Date(Date.now() - (daysAgo * 24 * 60 * 60 * 1000));
     }
@@ -2242,6 +2245,7 @@ function updateBadgeCounts() {
     const timeFilter = document.getElementById('time-filter')?.value || 'all';
     let cutoffDate = null;
     if (timeFilter !== 'all') {
+        // Okno PRZESUWNE: cutoff = teraz − N*24h, NIE od północy (stąd etykiety "Ostatnie 24h/72h/N dni").
         const daysAgo = parseInt(timeFilter);
         cutoffDate = new Date(Date.now() - (daysAgo * 24 * 60 * 60 * 1000));
     }
