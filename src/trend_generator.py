@@ -517,11 +517,10 @@ def build_promoted(offers, series, scan_days=None, base_dir=None):
     """
     counts = {}
     for o in offers:
-        for pd in (o.get('promoted_dates') or []):
-            try:
-                d = date.fromisoformat(str(pd)[:10])
-            except (ValueError, TypeError):
-                continue
+        # set(): to metryka STANU („czy ta oferta była danego dnia wyróżniona"),
+        # więc oferta liczy się raz dziennie. Bez tego dzień zmiany adresu liczyłby
+        # ją dwa razy — raz ze snapshotu wersji, raz z wpisu po resecie.
+        for d in set(collect_dates(o, 'promoted_dates')):
             counts[d] = counts.get(d, 0) + 1
 
     if not counts:

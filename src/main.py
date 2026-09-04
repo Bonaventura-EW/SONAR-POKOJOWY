@@ -859,6 +859,11 @@ class SonarPokojowy:
                 'reactivation_count': existing.get('reactivation_count', 0),
                 'reactivation_dates': list(existing.get('reactivation_dates', [])),
                 'deactivation_dates': list(existing.get('deactivation_dates', [])),
+                # Wyróżnienia też idą do snapshotu — bez tego reset poniżej kasował je
+                # bezpowrotnie (nie trafiały nawet do versions[]), a wykres promowanych
+                # tracił wstecz dni każdej oferty, która zmieniła adres. (2026-09-03)
+                'promoted_count': existing.get('promoted_count', 0),
+                'promoted_dates': list(existing.get('promoted_dates', [])),
                 'last_price': existing.get('price', {}).get('current'),
             }
 
