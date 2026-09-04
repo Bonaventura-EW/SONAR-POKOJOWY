@@ -187,6 +187,28 @@ def test_index_source_label():
         check('etykieta mówi reconstructed', not tg.measured_series(base))
 
 
+def test_promoted_survives_address_change():
+    print("\n⭐ Test 9: wyróżnienia przeżywają zmianę adresu")
+    offer = {
+        'id': 'po-przeprowadzce', 'first_seen': iso(date(2026, 8, 20)),
+        'last_seen': iso(date(2026, 9, 3)), 'active': True,
+        # stan po resecie, który robi _update_existing_offer przy zmianie adresu
+        'promoted_dates': ['2026-09-01'],
+        'versions': [{'promoted_dates': ['2026-08-28', '2026-08-29', '2026-09-01']}],
+    }
+    days = sorted(str(d) for d in set(tg.collect_dates(offer, 'promoted_dates')))
+    check('dni sprzed przeprowadzki odzyskane',
+          days == ['2026-08-28', '2026-08-29', '2026-09-01'], str(days))
+    check('dzień obecny w obu miejscach liczy się raz', days.count('2026-09-01') == 1)
+
+    series = [[tg._day_ms(date(2026, 8, 28) + timedelta(days=i)), 800] for i in range(7)]
+    promoted = tg.build_promoted([offer], series, scan_days={date(2026, 8, 28) + timedelta(days=i)
+                                                            for i in range(7)})
+    counted = {tg._ms_day(ms): v for ms, v in promoted['daily']}
+    check('wykres liczy ofertę raz dziennie',
+          [counted.get(date(2026, 8, d)) for d in (28, 29, 30)] == [1, 1, 0], str(counted))
+
+
 def test_day_anchor_is_utc():
     print("\n🌍 Test 8: kotwica dnia niezależna od strefy czasowej")
     days = [date(2027, 3, 24) + timedelta(days=i) for i in range(5)]      # 28.03 = zmiana czasu
@@ -206,6 +228,7 @@ if __name__ == '__main__':
     test_corrupted_history()
     test_unscanned_day_is_a_gap()
     test_index_source_label()
+    test_promoted_survives_address_change()
     test_day_anchor_is_utc()
     print("\n" + "=" * 60)
     if FAILED:
