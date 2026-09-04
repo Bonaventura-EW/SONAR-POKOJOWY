@@ -9,6 +9,17 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: oferta zdjęta z OLX nie świeci już „AKTYWNA" (2026-09-04)
+- **zgłoszenie Mateusza**: karta „Mieszkanie 2 pokoje, Lublin Centrum Najem" (ID1bKFSC) miała badge **AKTYWNA**, mimo że ostatni pomiar był z 22.08, a dziś 04.09 — „tego ogłoszenia już nie powinno być".
+- **root cause (`src/favorites_tracker.py` → `fetch_api_snapshot`)**: OLX na zdjętą ofertę odpowiada **410 Gone**, a kod znał tylko `404` jako „usunięta". Każdy inny kod trafiał do gałęzi „błąd sieci" → `return None` → `continue` **bez zapisu snapshotu**. Wpis zamarzał na ostatnim pomiarze na zawsze.
+- **skala**: sonda po API dla wszystkich 27 ulubionych — korelacja 1:1. Wszystkie **13** wpisów z zamrożoną historią (najstarszy 23.07) zwracają 410, wszystkie 14 aktualnych zwraca 200/`active`. Ani jednego wyjątku.
+- **czemu tylko dwie karty świeciły AKTYWNA**: generator ratował status z `offers.json` (`active:false` → „Nieaktywna"), więc 11 zamrożonych pokoi wyglądało poprawnie mimo zepsutego trackera. Obie „Mieszkanie 2 pokoje" są **spoza bazy** (mieszkania, listing pokoi ich nie skanuje) — tam ratunku nie było i szedł surowy status ze snapshotu, czyli `active` sprzed 13 dni.
+- **fix A (tracker)**: `410` obok `404` = `{'status': 'removed'}`. `403`/`5xx` dalej nie zapisują snapshotu (WAF ≠ dowód na zniknięcie).
+- **fix B (tracker)**: zdjęta oferta dostaje **jeden** snapshot `removed` — kolejne przebiegi ją pomijają (bez tego licznik „Pomiary" rósłby 3×/dobę bez pomiaru). API odpytujemy dalej, więc chwilowe 410 samo by się odkręciło snapshotem `active`. Zdjęte oferty wypadają też z przejścia Playwrightem — `goto` na 410 i tak kończył się timeoutem ~30 s/ofertę (13 ofert = ~6 min każdego skanu).
+- **fix C (`src/favorites_generator.py`)**: snapshot `removed` niesie sam status, więc cena, „wystawiona" i „ważna do" brane są z ostatniego **realnego** pomiaru (`last_known()`) — karta nie gubi danych w momencie zniknięcia. Status: 410 z API **bije** `active` z bazy (twardszy dowód), reszta kolejności bez zmian.
+- **efekt po najbliższym skanie**: 13 kart dostanie badge „Usunięta z OLX" i zjedzie pod separator „nieaktywne" (2× `AKTYWNA → Usunięta`, 11× `Nieaktywna → Usunięta`). Wykresy wyświetleń, historia cen i ceny na kartach zostają nietknięte — sprawdzone symulacją na realnym `favorites_tracking.json` bez zapisu.
+- **testy**: nowy `test_favorites.py` (kody HTTP, brak dublowania snapshotów `removed`, pominięcie zdjętych w pomiarze wyświetleń, karta po zniknięciu). `test_integration.py` ✅.
+
 ### Filtr czasowy: etykiety mówią prawdę — „Dzisiaj" → „Ostatnie 24h" (2026-09-04)
 - **zgłoszenie Mateusza**: po wybraniu „Dzisiaj" mapa pokazywała markery, mimo że dziś nie było jeszcze żadnego skanu.
 - **diagnoza**: filtr liczy okno **przesuwne**, nie kalendarzowe — `cutoffDate = teraz − N*24h` (`docs/assets/script.js`, cztery bliźniacze miejsca: `filterMarkers`, `calculateFilteredStats`, liczniki zakresów cenowych i liczniki legendy). O 12:00 „Dzisiaj" znaczyło „od wczoraj 12:00", więc do okna wpadały wczorajsze skany. Kontrola na `docs/data.json` (ostatni skan `03.09 23:34`): okno 24 h → **38 ofert** (37 aktywnych — dokładnie tyle, ile pokazywała legenda: 21 `N` + 11 `↓` + 5 `↑`), okno od północy → **0**. Wszystkie 38 pochodziło ze skanów 03.09 o 12:45, 18:57 i 23:35.

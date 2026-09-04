@@ -82,6 +82,18 @@ def _build_favorite(short_id: str, entry: dict, base_offer: dict | None) -> dict
                                   'page': snap.get('page')})
 
     last = snapshots[-1] if snapshots else {}
+
+    def last_known(key):
+        """Ostatnia NIEPUSTA wartość pola w historii snapshotów.
+        Snapshot oferty zdjętej z OLX (410) niesie sam status — cena, data
+        wystawienia i ważności zostają z ostatniego realnego pomiaru,
+        żeby karta ich nie gubiła w momencie zniknięcia oferty."""
+        for snap in reversed(snapshots):
+            value = snap.get(key)
+            if value is not None and value != '':
+                return value
+        return None
+
     address = None
     coords = None
     profile_name = None
@@ -102,17 +114,22 @@ def _build_favorite(short_id: str, entry: dict, base_offer: dict | None) -> dict
     if offer_type and offer_type not in ('pokoj', 'pokoje'):
         page_absent_reason = _OFFER_TYPE_LABEL.get(offer_type, 'inna kategoria')
 
-    # Status: źródło prawdy to 'active' z offers.json (główny skan → _mark_inactive_offers
-    # z weryfikacją URL 410/404 + reaktywacją InStock). Status ze snapshotu trackera
-    # pochodzi z API OLX i potrafi pokazywać 'active' dla oferty już zniknionej z listingu
-    # (zgłoszenie Mateusza: ID1bomFK świeciło "AKTYWNA" mimo active:False w bazie).
+    # Status, w kolejności rozstrzygania:
+    # 1. snapshot 'removed' (410/404 z API OLX) — oferty fizycznie nie ma w serwisie,
+    #    to najtwardszy dowód, jaki mamy; bije bazę, która mogła nie zdążyć jej zdjąć.
+    # 2. 'active' z offers.json (główny skan → _mark_inactive_offers z weryfikacją URL
+    #    410/404 + reaktywacją InStock) — bo status 'active' ze snapshotu trackera potrafi
+    #    dotyczyć oferty już zniknionej z listingu (zgłoszenie Mateusza: ID1bomFK świeciło
+    #    "AKTYWNA" mimo active:False w bazie).
+    # 3. sam snapshot — dla ofert spoza bazy (np. mieszkania, których listing pokoi
+    #    nie skanuje: ID1bKFSC świeciło "AKTYWNA" 13 dni po zdjęciu z OLX).
     snapshot_status = last.get('status', 'unknown')
-    if base_offer is not None:
-        if base_offer.get('active'):
-            status = 'active'
-        else:
-            # 404 z trackera = na pewno usunięta z OLX; inaczej po prostu nieaktywna
-            status = 'removed' if snapshot_status == 'removed' else 'inactive'
+    if snapshot_status == 'removed':
+        # 410/404 z API OLX jest rozstrzygające — oferty nie ma w serwisie,
+        # nawet jeśli baza nie zdążyła jej jeszcze zdeaktywować.
+        status = 'removed'
+    elif base_offer is not None:
+        status = 'active' if base_offer.get('active') else 'inactive'
     else:
         status = snapshot_status
 
@@ -122,7 +139,7 @@ def _build_favorite(short_id: str, entry: dict, base_offer: dict | None) -> dict
         'title': entry.get('title', '') or (base_offer or {}).get('id', short_id),
         'added': entry.get('added', ''),
         'status': status,
-        'current_price': last.get('price'),
+        'current_price': last_known('price'),
         'price_history': price_history,
         'refresh_count': len(refresh_events),
         'refresh_events': refresh_events,
@@ -131,8 +148,8 @@ def _build_favorite(short_id: str, entry: dict, base_offer: dict | None) -> dict
         'current_page': next((s.get('page') for s in reversed(snapshots)
                               if s.get('page') is not None), None),
         'page_absent_reason': page_absent_reason,
-        'created': format_datetime(last.get('created', '')),
-        'valid_to': format_datetime(last.get('valid_to', '')),
+        'created': format_datetime(last_known('created') or ''),
+        'valid_to': format_datetime(last_known('valid_to') or ''),
         'last_checked': format_datetime(last.get('ts', '')),
         'address': address,
         'coords': coords,

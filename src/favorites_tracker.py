@@ -82,6 +82,12 @@ def load_listing_positions() -> dict:
     return data.get('positions', {})
 
 
+def last_snapshot_status(entry: dict) -> str:
+    """Status z ostatniego snapshotu wpisu (pusty string gdy brak pomiarów)."""
+    snapshots = entry.get('snapshots') or []
+    return snapshots[-1].get('status', '') if snapshots else ''
+
+
 def resolve_numeric_id(url: str) -> int | None:
     """Numeryczne ID oferty z window.__PRERENDERED_STATE__ strony OLX.
     Potrzebne raz — wynik zapisywany z powrotem do favorites.json."""
@@ -100,7 +106,7 @@ def resolve_numeric_id(url: str) -> int | None:
 
 def fetch_api_snapshot(numeric_id: int) -> dict | None:
     """Snapshot z OLX API v1 (anonimowe). None = błąd sieci (nie zapisuj),
-    {'status': 'removed'} = oferta usunięta z OLX (404)."""
+    {'status': 'removed'} = oferty nie ma już na OLX (410/404)."""
     try:
         resp = _session.get(API_URL.format(numeric_id=numeric_id),
                             headers=HEADERS, timeout=REQUEST_TIMEOUT)
@@ -108,7 +114,12 @@ def fetch_api_snapshot(numeric_id: int) -> dict | None:
         print(f"   ⚠️ Błąd API dla {numeric_id}: {e}")
         return None
 
-    if resp.status_code == 404:
+    # OLX na zdjętą ofertę odpowiada 410 Gone (404 zdarza się dla ID, którego
+    # nigdy nie było). Bez 410 na tej liście każda zdjęta oferta wpadała w gałąź
+    # "inny kod = błąd sieci" → brak snapshotu → wpis zamarzał na ostatnim
+    # stanie i świecił "AKTYWNA" w nieskończoność (zgłoszenie Mateusza,
+    # ID1bKFSC: ostatni pomiar 22.08, karta aktywna 04.09).
+    if resp.status_code in (404, 410):
         return {'status': 'removed'}
     if resp.status_code != 200:
         print(f"   ⚠️ API {numeric_id}: HTTP {resp.status_code}")
@@ -283,7 +294,16 @@ def track_favorites() -> bool:
     if favorites_changed:
         write_json_atomic(FAVORITES_FILE, {'favorites': favorites})
 
-    views_map = fetch_views([f for f in favorites if f.get('numeric_id')])
+    # Oferty zdjęte z OLX nie mają już strony — Playwright i tak wisiałby na
+    # nich ~30 s (goto na 410 → scroll → timeout czekania na licznik), a licznik
+    # wyświetleń dla nieistniejącej oferty nie istnieje. Pomijamy je w tym
+    # przejściu; status i tak weryfikuje tańsze API niżej.
+    removed_ids = {sid for sid, entry in tracking.items()
+                   if last_snapshot_status(entry) == 'removed'}
+    if removed_ids:
+        print(f"   ⏭️ Pomijam wyświetlenia dla {len(removed_ids)} zdjętych ofert.")
+    views_map = fetch_views([f for f in favorites if f.get('numeric_id')
+                             and f.get('short_id') not in removed_ids])
 
     for fav in favorites:
         short_id = fav.get('short_id', '')
@@ -305,6 +325,14 @@ def track_favorites() -> bool:
         })
         if snap.get('title'):
             entry['title'] = snap['title']
+
+        # Zdjęta oferta już się nie zmieni — jeden snapshot 'removed' wystarczy.
+        # Bez tego licznik "Pomiary" na karcie rósłby 3×/dobę bez żadnego pomiaru.
+        # Odpytujemy ją dalej (1 request), więc gdyby 410 okazało się chwilowe,
+        # kolejny snapshot 'active' sam odkręci status.
+        if snap.get('status') == 'removed' and last_snapshot_status(entry) == 'removed':
+            print(f"   ⏭️ {short_id}: zdjęta z OLX (bez zmian)")
+            continue
 
         page = listing_positions.get(short_id)
         entry['snapshots'].append({
