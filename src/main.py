@@ -28,6 +28,9 @@ class SonarPokojowy:
     # Hierarchia precyzji adresu — im wyżej, tym lepszy marker. Używane przy
     # rozstrzyganiu "świeży parsing vs adres z cache" w _process_offer.
     _PRECISION_RANK = {'exact': 2, 'street_only': 1, 'district': 0}
+    # Maks. odległość (km) między centroidem dzielnicy a ulicą, żeby uznać
+    # nowy adres za doprecyzowanie tej samej oferty — patrz _precision_upgrade.
+    _UPGRADE_MAX_KM = 3.0
 
     def __init__(self, data_file: str = "../data/offers.json"):
         self.data_file = Path(data_file)
@@ -44,6 +47,10 @@ class SonarPokojowy:
         # Raportowany w scan_history.json — nagły skok = zmiana w parserze przepisała
         # pół bazy i warto na to spojrzeć, zamiast odkryć to przypadkiem na mapie.
         self._addr_corrections_count = 0
+        # Doprecyzowania markera (street_only/dzielnica → adres z numerem).
+        # Liczone osobno od korekt parsera: tam zmienia się ODCZYT tego samego
+        # tekstu, tu zmienia się TEKST ogłoszenia (wynajmujący dopisał numer).
+        self._addr_upgrades_count = 0
         
         # Wczytaj istniejącą bazę
         self.database = self._load_database()
@@ -97,6 +104,13 @@ class SonarPokojowy:
                 # w tym samym ogłoszeniu) musi wymusić pobranie szczegółów i re-parsing
                 # adresu, inaczej marker zostaje pod starym adresem.
                 'title': offer.get('title'),
+                # Kiedy ostatnio CZYTALIŚMY szczegóły oferty (opis ze strony OLX).
+                # Inteligentne skanowanie pomija oferty bez zmiany ceny i tytułu, więc
+                # bez tego pola opis w bazie potrafi być sprzed tygodni — a wynajmujący
+                # dopisują adres długo po wystawieniu ogłoszenia. scraper.py rotacyjnie
+                # dociąga najstarsze z nich (_promote_stale_imprecise). Rekordy sprzed
+                # 07.09.2026 nie mają tego pola → fallback do first_seen.
+                'details_fetched_at': offer.get('details_fetched_at') or offer.get('first_seen'),
             }
             # Indeksuj po pełnym ID
             index[offer['id']] = offer_entry
@@ -604,6 +618,11 @@ class SonarPokojowy:
                 'source': price_source  # Dodane: JSON-LD / Parser / HTML fallback
             },
             'description': full_text,
+            # Znacznik: czy TEN opis pochodzi ze świeżo pobranej strony OLX, czy z bazy.
+            # Oferta pominięta przez inteligentne skanowanie dostaje opis z cache
+            # (scraper.py), więc nie wolno go zapisywać z powrotem — patrz
+            # _update_existing_offer.
+            'details_fetched_at': None if raw_offer.get('skipped') else _now_iso,
             'title': _title0,           # tytuł ogłoszenia (og:title) — do wyświetlania i historii
             'title_versions': ([{'title': _title0, 'first_seen': _now_iso, 'last_seen': None}]
                                if _title0 else []),
@@ -689,6 +708,27 @@ class SonarPokojowy:
         if not old or not new:
             return False  # brak materiału do porównania → nie zgaduj przeprowadzki
 
+        # ODETNIJ TYTUŁ Z POCZĄTKU obu tekstów. Pod 'description' trzymamy sklejkę
+        # TYTUŁ + ' ' + opis, a tytuł bywa edytowany osobno — po takiej edycji sklejka
+        # z bazy zaczynała się INNYM tytułem niż świeża i porównanie sufiksowe niżej
+        # widziało "przepisane ogłoszenie" przy nietkniętym opisie. Przy zmienionym
+        # tytule i tak wychodzimy wyżej przez _title_changed, więc tutaj tytuł jest
+        # tylko szumem. (2026-09-07: 125 z 505 ofert z nieprecyzyjnym markerem miało
+        # w bazie sklejkę ze starym tytułem — rotacyjne odświeżanie opisów trafiłoby
+        # w nie od razu i mogło zrzucić im historię cen jako fałszywą przeprowadzkę.)
+        def strip_title(text: str, titles) -> str:
+            for t in sorted({norm(x) for x in titles if x}, key=len, reverse=True):
+                if text.startswith(t):
+                    return text[len(t):].strip()
+            return text
+
+        _titles = [existing.get('title'), new_data.get('title')]
+        _titles += [v.get('title') for v in (existing.get('title_versions') or [])]
+        old = strip_title(old, _titles)
+        new = strip_title(new, _titles)
+        if not old or not new:
+            return False
+
         # PORÓWNANIE SUFIKSOWE, nie równościowe. Oferta pominięta dostaje opis z bazy
         # (scraper.py: offer['description'] = existing['description']), a _process_offer
         # zapisuje pod 'description' sklejkę TYTUŁ + ' ' + opis. Przetworzony opis jest
@@ -724,7 +764,73 @@ class SonarPokojowy:
         # Próg 0.75: realna zmiana ulicy ma niskie podobieństwo; sama fleksja
         # ('Bajkowa'/'Bajkowej' ≈ 0.80) NIE jest zmianą.
         return difflib.SequenceMatcher(None, o_st, n_st).ratio() < 0.75
-    
+
+    @staticmethod
+    def _coords_distance_km(a: Dict, b: Dict) -> Optional[float]:
+        """Odległość w km między dwoma punktami (haversine). None, gdy brak coords."""
+        import math
+        try:
+            lat1, lon1 = float(a['lat']), float(a['lon'])
+            lat2, lon2 = float(b['lat']), float(b['lon'])
+        except (TypeError, KeyError, ValueError):
+            return None
+        dphi = math.radians(lat2 - lat1)
+        dlam = math.radians(lon2 - lon1)
+        h = (math.sin(dphi / 2) ** 2
+             + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2))
+             * math.sin(dlam / 2) ** 2)
+        return 2 * 6371.0 * math.asin(min(1.0, math.sqrt(h)))
+
+    def _precision_upgrade(self, old_addr: Dict, new_addr: Dict) -> bool:
+        """Czy nowy adres to DOPRECYZOWANIE starego — ta sama oferta, dokładniejszy punkt?
+
+        Dwa przypadki z życia:
+          • 'Wołodyjowskiego' (bez numeru) → 'Pana Wołodyjowskiego 7': wynajmujący
+            dopisał numer do opisu (ID1bxU2z, zgłoszenie Mateusza 07.09.2026),
+          • dzielnica ('Sławinek') → konkretna ulica w tej samej okolicy.
+
+        Doprecyzowanie NIE jest przeprowadzką: wchodzi in-place, bez wpisu do
+        versions[] i bez resetu historii cen (to jest zarezerwowane dla realnej
+        zmiany adresu, patrz _addr_changed). Bez tej metody:
+          • street_only → numer w ogóle nie przechodził, bo _addr_changed odrzuca
+            porównanie numerów, gdy baza numeru nie ma, a 'Wołodyjowskiego' ⊆
+            'Pana Wołodyjowskiego' czyta jako "ten sam adres" → marker zostawał
+            kwadratem na środku ulicy do końca życia oferty,
+          • dzielnica → ulica przechodziło jako "zmiana adresu" i kasowało historię cen.
+
+        Marker nigdy nie schodzi w dół precyzji: warunek na rangę pilnuje, żeby
+        gorszy odczyt (sama ulica po edycji opisu) nie zjadł adresu z numerem.
+        """
+        import difflib
+        if not isinstance(old_addr, dict) or not isinstance(new_addr, dict):
+            return False
+        if not (new_addr.get('full') or '').strip():
+            return False
+        old_rank = self._PRECISION_RANK.get(old_addr.get('precision'), 0)
+        new_rank = self._PRECISION_RANK.get(new_addr.get('precision'), 0)
+        if new_rank <= old_rank:
+            return False
+
+        # street_only → exact: numer dopisany do TEJ SAMEJ ulicy.
+        # Inna ulica to nie doprecyzowanie — niech idzie normalną ścieżką
+        # (zmiana adresu / korekta parsera).
+        if old_rank >= self._PRECISION_RANK['street_only']:
+            o_st = (old_addr.get('street') or old_addr.get('full') or '').strip().lower()
+            n_st = (new_addr.get('street') or new_addr.get('full') or '').strip().lower()
+            if not o_st or not n_st:
+                return False
+            o_tok, n_tok = set(o_st.split()), set(n_st.split())
+            if o_tok <= n_tok or n_tok <= o_tok:
+                return True   # 'Wołodyjowskiego' ⊆ 'Pana Wołodyjowskiego'
+            return difflib.SequenceMatcher(None, o_st, n_st).ratio() >= 0.75
+
+        # dzielnica → ulica: musi być TA SAMA okolica. Centroid dzielnicy leży
+        # w jej środku, a dzielnice Lublina mają 1–3 km w poprzek — 3 km to zapas
+        # na ulicę przy krawędzi. Dalej = wynajmujący opisał inne mieszkanie.
+        dist = self._coords_distance_km(old_addr.get('coords') or {},
+                                        new_addr.get('coords') or {})
+        return dist is not None and dist <= self._UPGRADE_MAX_KM
+
     def _track_refresh(self, existing: Dict, new_refresh: str) -> bool:
         """Rejestruje odświeżenie (bump/pushup) oferty — max 1/dzień.
 
@@ -854,8 +960,13 @@ class SonarPokojowy:
         # Wchodzi in-place (bez versions[], bez plakietki historii na mapie),
         # ślad diagnostyczny ląduje w address_corrections[]. (2026-07-26)
         _text_changed = self._source_text_changed(existing, new_data)
-        addr_change = _addr_differs and _text_changed
-        addr_correction = _addr_differs and not _text_changed
+        # DOPRECYZOWANIE bije obie pozostałe klasyfikacje: dopisany numer albo
+        # ulica zamiast dzielnicy to ten sam lokal widziany dokładniej, więc nie
+        # może zrzucić historii cen do versions[] ani zapalić plakietki
+        # "zmiana adresu" na mapie. (2026-09-07)
+        addr_upgrade = self._precision_upgrade(existing.get('address', {}), _new_addr)
+        addr_change = _addr_differs and _text_changed and not addr_upgrade
+        addr_correction = _addr_differs and not _text_changed and not addr_upgrade
         addr_snapshot = None
         if addr_change:
             addr_snapshot = {
@@ -907,6 +1018,22 @@ class SonarPokojowy:
 
         # Aktualizuj last_seen
         existing['last_seen'] = now
+
+        # === ŚWIEŻY OPIS (tylko gdy naprawdę pobraliśmy stronę oferty) ===
+        # Do 07.09.2026 opis w bazie był zamrożony na wersji z PIERWSZEGO skanu —
+        # ta metoda nigdy go nie nadpisywała. Wynajmujący, który po tygodniach
+        # dopisał numer budynku (ID1bxU2z: "ul. P. Wołodyjowskiego" →
+        # "ul. Pana Wołodyjowskiego 7"), był dla nas niewidzialny nawet wtedy, gdy
+        # pobieraliśmy szczegóły przy zmianie ceny: parser dostawał świeży tekst,
+        # ale baza i tak trzymała stary.
+        # WARUNEK details_fetched_at: oferta POMINIĘTA przez inteligentne skanowanie
+        # dostaje opis z bazy (scraper.py), a _process_offer skleja go z tytułem —
+        # zapis takiego tekstu doklejałby tytuł przy każdym skanie w nieskończoność.
+        if new_data.get('details_fetched_at'):
+            existing['details_fetched_at'] = new_data['details_fetched_at']
+            _fresh_desc = (new_data.get('description') or '').strip()
+            if _fresh_desc:
+                existing['description'] = _fresh_desc
 
         # INTELIGENTNA AKTUALIZACJA CENY - priorytetyzuj źródła
         old_price = existing['price']['current']
@@ -1000,6 +1127,34 @@ class SonarPokojowy:
                 existing['address']['coords'] = new_addr['coords']
             if new_addr.get('precision'):
                 existing['address']['precision'] = new_addr['precision']
+
+        # === DOPRECYZOWANIE MARKERA (2026-09-07) ===
+        # Ta sama oferta, dokładniejszy punkt: dopisany numer do znanej ulicy albo
+        # ulica zamiast dzielnicy. Podmiana in-place — NIE ruszamy versions[],
+        # historii cen ani liczników, bo to nie przeprowadzka. Ślad diagnostyczny
+        # ląduje w address_corrections[] z reason='precision_upgrade'.
+        elif addr_upgrade:
+            _old = dict(existing.get('address', {}))
+            existing['address'] = {
+                'full': _new_addr_full,
+                'street': _new_addr.get('street'),
+                'number': _new_addr.get('number'),
+                'coords': _new_addr.get('coords') or _old.get('coords'),
+                'precision': _new_addr.get('precision', 'exact'),
+            }
+            corrections = existing.setdefault('address_corrections', [])
+            corrections.append({
+                'from': _old.get('full'),
+                'from_precision': _old.get('precision'),
+                'to': _new_addr_full,
+                'to_precision': _new_addr.get('precision'),
+                'reason': 'precision_upgrade',
+                'at': now,
+            })
+            del corrections[:-5]  # trzymaj tylko 5 ostatnich, rekord ma nie puchnąć
+            self._addr_upgrades_count += 1
+            print(f"      🎯 Doprecyzowano marker: '{_old.get('full')}' ({_old.get('precision')}) → "
+                  f"'{_new_addr_full}' ({_new_addr.get('precision')}) — bez wpisu do historii adresu")
 
         # === KOREKTA PARSERA (2026-07-26) ===
         # Ten sam tekst ogłoszenia, inny wynik parsera → poprawiliśmy odczyt, a nie
@@ -1976,8 +2131,12 @@ class SonarPokojowy:
             if self._addr_corrections_count > 0:
                 print(f"   🔧 Korekty adresu (re-parsing, bez zmiany tekstu): "
                       f"{self._addr_corrections_count}")
+            if self._addr_upgrades_count > 0:
+                print(f"   🎯 Doprecyzowane markery (dopisany numer / ulica zamiast dzielnicy): "
+                      f"{self._addr_upgrades_count}")
             self.scan_logger.log_phase('address_corrections', 0.0, {
-                'corrected': self._addr_corrections_count
+                'corrected': self._addr_corrections_count,
+                'upgraded': self._addr_upgrades_count
             })
             
             # 4. Weryfikacja nieaktywnych ofert
