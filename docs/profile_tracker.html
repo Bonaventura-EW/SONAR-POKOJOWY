@@ -741,7 +741,34 @@ function initMap() {
     }).addTo(map);
 }
 
-function makeLeafletIcon(color, active, highlighted, trend) {
+// Badge odświeżenia dla pinezek na mapie tej zakładki — ten sam symbol co na
+// mapie głównej (docs/assets/script.js → _drawRefreshBadge), tylko w SVG:
+// niebieskie kółko, dwie białe strzałki w obiegu. Łuki i groty liczone tą samą
+// geometrią, żeby oba widoki nie rozjechały się przy zmianie promienia.
+function refreshBadgeSvg(cx, cy, R) {
+    const r = R * 0.46, tip = R * 0.32, lw = R * 0.2;
+    const n = v => v.toFixed(2);
+    const arc = (a0, a1) => {
+        const p0x = cx + r * Math.cos(a0), p0y = cy + r * Math.sin(a0);
+        const p1x = cx + r * Math.cos(a1), p1y = cy + r * Math.sin(a1);
+        const large = (a1 - a0) > Math.PI ? 1 : 0;
+        // grot styczny do okręgu w punkcie końcowym (kierunek rosnącego kąta)
+        const tx = -Math.sin(a1), ty = Math.cos(a1);
+        const nx = Math.cos(a1), ny = Math.sin(a1);
+        return '<path d="M' + n(p0x) + ',' + n(p0y) + ' A' + n(r) + ',' + n(r)
+             + ' 0 ' + large + ' 1 ' + n(p1x) + ',' + n(p1y) + '" fill="none"'
+             + ' stroke="#fff" stroke-width="' + n(lw) + '" stroke-linecap="butt"/>'
+             + '<path d="M' + n(p1x + tx * tip) + ',' + n(p1y + ty * tip)
+             + ' L' + n(p1x - tx * tip * 0.15 + nx * tip * 0.9) + ',' + n(p1y - ty * tip * 0.15 + ny * tip * 0.9)
+             + ' L' + n(p1x - tx * tip * 0.15 - nx * tip * 0.9) + ',' + n(p1y - ty * tip * 0.15 - ny * tip * 0.9)
+             + ' Z" fill="#fff"/>';
+    };
+    return '<circle cx="' + n(cx) + '" cy="' + n(cy) + '" r="' + n(R) + '" fill="#1d63d8"'
+         + ' stroke="#fff" stroke-width="' + n(R * 0.22) + '"/>'
+         + arc(Math.PI * 0.18, Math.PI * 0.96) + arc(Math.PI * 1.18, Math.PI * 1.96);
+}
+
+function makeLeafletIcon(color, active, highlighted, trend, refreshed) {
     const stroke = highlighted ? '#f59e0b' : '#d97706';
     const sw = highlighted ? 4 : 2.5;
     const glow = highlighted ? 'filter:drop-shadow(0 0 5px #f59e0b)' : '';
@@ -759,6 +786,8 @@ function makeLeafletIcon(color, active, highlighted, trend) {
         badge = '<circle cx="20" cy="4" r="6.3" fill="' + bc + '" stroke="#fff" stroke-width="2"/>'
               + '<text x="20" y="4.6" text-anchor="middle" dominant-baseline="central" font-size="9.5" font-weight="800" fill="#fff">' + arr + '</text>';
     }
+    // Odświeżenie w LEWYM górnym rogu — prawy zajmuje zmiana ceny (jak na mapie głównej)
+    const refreshBadge = refreshed ? refreshBadgeSvg(4, 4, 6.3) : '';
     // viewBox z 2px marginesem, by badge w rogu nie był przycięty; ostrze kropli (12,32)
     // → piksel (14,34), więc iconAnchor bez zmian względem kształtu.
     return L.divIcon({
@@ -767,7 +796,7 @@ function makeLeafletIcon(color, active, highlighted, trend) {
             + '<path d="M12 0C5 0 0 5 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5 19 0 12 0Z"'
             + ' fill="' + color + '" stroke="' + stroke + '" stroke-width="' + sw + '"'
             + (active ? '' : ' opacity="0.35"') + '/>'
-            + inner + badge + '</svg>',
+            + inner + badge + refreshBadge + '</svg>',
         iconSize: [28, 34], iconAnchor: [14, 34], popupAnchor: [0, -36]
     });
 }
@@ -775,7 +804,7 @@ function makeLeafletIcon(color, active, highlighted, trend) {
 // Pinezka stosu — ten sam kształt co zwykła, ale w środku LICZBA ofert
 // zamiast białej kropki. Kolor bierzemy z najtańszej oferty pod adresem,
 // żeby skala cen na mapie dalej działała.
-function makeStackIcon(color, count, allInactive, highlighted) {
+function makeStackIcon(color, count, allInactive, highlighted, refreshed) {
     const stroke = highlighted ? '#f59e0b' : '#d97706';
     const sw = highlighted ? 4 : 2.5;
     const glow = highlighted ? 'filter:drop-shadow(0 0 5px #f59e0b)' : '';
@@ -788,6 +817,7 @@ function makeStackIcon(color, count, allInactive, highlighted) {
             + '<circle cx="12" cy="11" r="7.4" fill="white"' + op + '/>'
             + '<text x="12" y="11.4" text-anchor="middle" dominant-baseline="central"'
             + ' font-size="10" font-weight="800" fill="' + (allInactive ? '#94a3b8' : '#334155') + '">' + count + '</text>'
+            + (refreshed ? refreshBadgeSvg(4, 4, 6.3) : '')
             + '</svg>',
         iconSize: [28, 34], iconAnchor: [14, 34], popupAnchor: [0, -36]
     });
@@ -797,8 +827,8 @@ function makeStackIcon(color, count, allInactive, highlighted) {
 // pojedynczą ofertą albo stosem, a te mają różne ikony.
 function applyMarkerIcon(m, highlighted) {
     m.marker.setIcon(m.stack
-        ? makeStackIcon(m.color, m.count, m.allInactive, highlighted)
-        : makeLeafletIcon(m.color, m.active, highlighted, m.trend));
+        ? makeStackIcon(m.color, m.count, m.allInactive, highlighted, m.refreshed)
+        : makeLeafletIcon(m.color, m.active, highlighted, m.trend, m.refreshed));
 }
 
 // Tylko http(s) trafia do href — dane pochodzą z OLX-a, nie ufamy im w ciemno.
@@ -852,7 +882,9 @@ function renderMarkers(profileKey) {
         const o = group[0];
 
         const color = pc(o.price);
-        const marker = L.marker([o.lat, o.lon], { icon: makeLeafletIcon(color, o.active, false, o.price_trend) });
+        const refreshed = isRecentlyRefreshed(o);
+        const marker = L.marker([o.lat, o.lon],
+            { icon: makeLeafletIcon(color, o.active, false, o.price_trend, refreshed) });
 
         const typeLabel = o.offer_type === 'mieszkanie' ? '🏠 mieszkanie' : o.offer_type === 'pokoj' ? '🛏 pokój' : '';
         const histHtml = (o.price_history || []).slice(-4).map(h =>
@@ -865,6 +897,7 @@ function renderMarkers(profileKey) {
             + '<div style="font-weight:700;font-size:13px;margin-bottom:5px">' + (o.address || '—') + '</div>'
             + '<div style="font-size:14px;font-weight:800;color:' + color + ';margin-bottom:4px">' + o.price + ' zł</div>'
             + (o.refresh_count > 0 ? '<div style="font-size:10px;color:#d97706">🔄 odświeżeń: ' + o.refresh_count + '</div>' : '')
+            + (refreshed ? '<div style="font-size:10px;color:#1d63d8;font-weight:700">↻ odświeżona w ostatnich 24h</div>' : '')
             + (histHtml ? '<div style="margin-top:5px;padding-top:5px;border-top:1px solid #e2e8f0"><b style="font-size:10px;color:#94a3b8">HISTORIA</b>' + histHtml + '</div>' : '')
             + '<div style="margin-top:6px"><a href="' + o.url + '" target="_blank" style="color:#3b82f6;font-size:11px">Otwórz na OLX ↗</a></div>'
             + '</div>',
@@ -873,7 +906,7 @@ function renderMarkers(profileKey) {
 
         marker.on('click', () => hlOffer(o.id || o.url));
         marker.addTo(map);
-        leafletMarkers[o.id || o.url] = { marker, color, active: o.active, trend: o.price_trend };
+        leafletMarkers[o.id || o.url] = { marker, color, active: o.active, trend: o.price_trend, refreshed };
         bounds.push([o.lat, o.lon]);
 
         renderArchivalVersions(o, bounds);
@@ -931,16 +964,19 @@ function renderStackMarker(group, bounds) {
     const cheapest = prices.length ? Math.min.apply(null, prices) : 0;
     const allInactive = group.every(o => !o.active);
     const color = pc(cheapest);
+    // Pod jednym adresem bywa kilkanaście ofert — badge zapala się, gdy CHOĆ JEDNA
+    // została podbita w ostatnich 24h. Którą, mówi lista w popupie.
+    const refreshed = group.some(o => isRecentlyRefreshed(o));
 
     const marker = L.marker([first.lat, first.lon], {
-        icon: makeStackIcon(color, group.length, allInactive, false)
+        icon: makeStackIcon(color, group.length, allInactive, false, refreshed)
     });
     marker.bindPopup(buildStackPopup(first.address, group), { maxWidth: 300, minWidth: 250 });
     marker.addTo(map);
 
     // Każde ID z grupy wskazuje na TEN SAM marker — dzięki temu klik w wiersz
     // listy po prawej dalej trafia w pinezkę (hlOffer szuka po id oferty).
-    const entry = { marker, color, count: group.length, allInactive, stack: true };
+    const entry = { marker, color, count: group.length, allInactive, stack: true, refreshed };
     group.forEach(o => { leafletMarkers[o.id || o.url] = entry; });
     bounds.push([first.lat, first.lon]);
 }
@@ -962,10 +998,12 @@ function buildStackPopup(address, group) {
             : o.offer_type === 'pokoj' ? '<span class="badge badge-pokoj">🛏</span>' : '';
         const trend = o.price_trend === 'down' ? '<span class="stk-tr down">↓</span>'
                     : o.price_trend === 'up' ? '<span class="stk-tr up">↑</span>' : '';
+        const fresh = isRecentlyRefreshed(o)
+            ? '<span class="badge badge-refreshed" title="Podbita w ostatnich 24h">↻</span>' : '';
         return '<div class="stk-row' + (o.active ? '' : ' inact') + '" data-oid="' + escHtml(o.id || o.url) + '">'
             + '<span class="stk-price" style="color:' + (o.active ? pc(o.price) : '#94a3b8') + '">'
             + (o.price != null ? o.price + ' zł' : '—') + '</span>'
-            + badge + trend
+            + badge + trend + fresh
             + '<span class="stk-ttl">' + escHtml(o.title || '') + '</span>'
             + '<a class="stk-olx" href="' + escHtml(safeUrl(o.url)) + '" target="_blank" rel="noopener">OLX ↗</a>'
             + '</div>';
