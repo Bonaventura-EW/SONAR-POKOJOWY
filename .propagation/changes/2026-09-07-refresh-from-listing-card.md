@@ -34,6 +34,13 @@ dokładny znacznik (tego samego dnia), albo samą datę (nazajutrz). Reguła „
 doby nie nadpisujemy" pilnuje, żeby przybliżenie nie zjadło dokładnego pomiaru —
 jest na to test, bo to najłatwiejsza regresja do przeoczenia.
 
-**Efekt uboczny do sprawdzenia u siebie:** szeregi czasowe liczone z historii
-odświeżeń dostają skok, bo od teraz mierzą całą bazę, a nie jej wycinek. Stare
-punkty zostają wąskie — to nie jest zmiana rynku, tylko zasięgu pomiaru.
+**Efekt uboczny — sprawdź, zanim ogłosisz.** U nas zakładaliśmy, że szeregi czasowe
+liczone z historii odświeżeń podskoczą; po pierwszym skanie okazało się, że żaden
+wykres ich nie agreguje poza widokiem firmowym, który i tak czyta wyłącznie oferty
+firm. Wniosek przenośny: sprawdź, kto realnie czyta pole, zanim opiszesz skutek.
+
+**Za to realna pułapka jest inna:** przy pierwszym przebiegu każda oferta bez
+historii dostaje JEDNĄ datę — ostatnie znane zdarzenie — rozłożoną na kilkanaście
+wstecznych dni. To backfill, nie pomiar tamtych dni. Każdy wykres budowany z tego
+pola potrzebuje granicy rzetelności od pierwszego przebiegu z nowym źródłem, a
+licznik zdarzeń znaczy „co najmniej tyle", nie „tyle".
