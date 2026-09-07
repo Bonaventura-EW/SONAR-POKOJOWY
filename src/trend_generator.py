@@ -617,6 +617,17 @@ def load_szperacz_backfill(base_dir=None):
     if not daily:
         return None, None
 
+    # Średnia krocząca 7 dni — ich szereg ma kilkaset dni, więc trend widać dopiero
+    # po wygładzeniu (surowa linia dzienna skacze między 20 a 97). Okno liczone po
+    # KALENDARZU, nie po pozycjach w liście: snapshot pomija dni, których nie mają,
+    # więc okno pozycyjne po cichu rozciągnęłoby się na więcej niż tydzień.
+    window_ms = 6 * DAY_MS
+    avg = []
+    for ms_value, _ in daily:
+        window = [v for other_ms, v in daily
+                  if v is not None and ms_value - window_ms <= other_ms <= ms_value]
+        avg.append([ms_value, round(sum(window) / len(window), 1) if window else None])
+
     survivorship = snapshot.get('survivorship_until')
     meta = {
         'label': 'SZPERACZ (1 skan/dobę)',
@@ -636,6 +647,7 @@ def load_szperacz_backfill(base_dir=None):
                                                   + timedelta(days=1))
         except ValueError:
             pass
+    meta['avg'] = avg
     return daily, meta
 
 
@@ -707,6 +719,7 @@ def build_refreshes(offers, scan_days=None, base_dir=None):
     backfill, meta = load_szperacz_backfill(base_dir)
     if whole and backfill:
         whole['backfill'] = backfill
+        whole['backfill_avg'] = meta.pop('avg', None)
         whole['backfill_meta'] = meta
 
     return {'firm': firm, 'all': whole}

@@ -297,6 +297,13 @@ def test_szperacz_backfill():
 
         check('seria brata dołączona osobno', len(whole.get('backfill') or []) == 4,
               str(len(whole.get('backfill') or [])))
+        # Średnia krocząca liczona po KALENDARZU: 22.04 i 09.06 dzieli półtora miesiąca,
+        # więc drugi punkt nie może uśredniać się z pierwszym mimo sąsiedztwa w liście.
+        avg = {tg._ms_day(ms): v for ms, v in whole['backfill_avg']}
+        check('średnia brata policzona', len(avg) == 4, str(len(avg)))
+        check('okno 7 dni liczone po dniach, nie po pozycjach',
+              avg[date(2026, 6, 9)] == 30.0 and avg[date(2026, 6, 10)] == 37.0,
+              f"09.06={avg[date(2026, 6, 9)]}, 10.06={avg[date(2026, 6, 10)]}")
         # REGRESJA: ich pomiar nie może wsiąknąć w nasz szereg ani w nasze statystyki
         ours = {tg._ms_day(ms): v for ms, v in whole['daily']}
         check('nasz szereg nadal zaczyna się od granicy', min(ours) == tg.REFRESH_ALL_RELIABLE_START,

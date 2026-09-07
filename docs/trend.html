@@ -265,6 +265,9 @@
             stosunku SONAR/SZPERACZ wynosi <strong>1,05</strong> &mdash; mierzymy to samo z dokładnością do 5%,
             ale osobno. Odcinek do 09.06 jest zakreskowany: odtworzony z historii ofert, które SZPERACZ nadal
             trzyma w bazie, więc podbicia ofert skasowanych z jego bazy do niego nie wchodzą (survivorship).
+            Jasna bursztynowa to średnia krocząca 7 dni z ICH pomiaru &mdash; surowa linia dzienna skacze
+            między 20 a 97, więc trend widać dopiero po wygładzeniu. Nasza średnia dojdzie, gdy uzbieramy
+            więcej niż trzy dni.
             Reaktywacji stamtąd NIE bierzemy &mdash; tam stosunek to 2,55&times;, bo powrót oferty w ciągu doby
             jest niewidoczny przy jednym skanie: to inna wielkość, nie ta sama zmierzona inaczej.
         </div>
@@ -502,6 +505,10 @@
             // nie przedłużenie naszego: oni skanują 1×/dobę, my 3×. Rysujemy ją
             // osobną linią i podpisujemy źródłem; sklejenie dałoby uskok w dniu styku.
             const bf = metric.backfill && metric.backfill.length ? metric.backfill : null;
+            // `short` dotyczy TYLKO naszego szeregu — seria brata ma swoje setki dni,
+            // więc jej średnia krocząca rysuje się niezależnie od tego, ile mamy my.
+            const bfAvg = bf && metric.backfill_avg && metric.backfill_avg.length
+                ? metric.backfill_avg : null;
             const bfMeta = metric.backfill_meta || {};
             // Świeży szereg (kilka dni): średnia 7-dniowa niczego jeszcze nie mówi,
             // a linia przez jeden punkt rysuje się jako pionowa kreska do zera.
@@ -523,17 +530,21 @@
                         { name: dailyName, data: metric.daily },
                         { name: 'Średnia 7 dni', data: metric.avg }
                       ]
-                  ).concat(bf ? [{ name: bfMeta.label || 'Backfill', data: bf }] : []),
+                  ).concat(bf ? [{ name: bfMeta.label || 'Backfill', data: bf }] : [])
+                   .concat(bfAvg ? [{ name: (bfMeta.label || 'Backfill') + ' — średnia 7 dni', data: bfAvg }] : []),
                 // Kolory muszą iść para w parę z listą serii: przy krótkim szeregu
                 // odpada „Średnia 7 dni", więc jej kolor też — inaczej seria brata
                 // dostawała kolor średniej zamiast bursztynowego.
-                colors: (short ? colors.slice(0, 1) : colors).concat(bf ? ['#f5b942'] : []),
+                colors: (short ? colors.slice(0, 1) : colors)
+                    .concat(bf ? ['#f5b942'] : []).concat(bfAvg ? ['#f7d488'] : []),
                 stroke: short
-                    ? { width: bf ? [0, 2] : 0 }
-                    : { curve: ['straight', 'smooth'].concat(bf ? ['straight'] : []),
-                        width: [2, 3].concat(bf ? [2] : []) },
+                    ? { curve: ['straight'].concat(bf ? ['straight'] : []).concat(bfAvg ? ['smooth'] : []),
+                        width: [0].concat(bf ? [1.6] : []).concat(bfAvg ? [3] : []) }
+                    : { curve: ['straight', 'smooth'].concat(bf ? ['straight'] : []).concat(bfAvg ? ['smooth'] : []),
+                        width: [2, 3].concat(bf ? [1.6] : []).concat(bfAvg ? [3] : []) },
                 dataLabels: { enabled: false },
-                markers: { size: short ? (bf ? [6, 0] : 6) : 0, hover: { size: 6 } },
+                markers: { size: short ? [6].concat(bf ? [0] : []).concat(bfAvg ? [0] : []) : 0,
+                           hover: { size: 6 } },
                 grid: { borderColor: '#3a4255', strokeDashArray: 4, xaxis: { lines: { show: true } }, yaxis: { lines: { show: true } } },
                 xaxis: {
                     type: 'datetime', axisBorder: { show: false }, axisTicks: { color: '#3a4255' },
