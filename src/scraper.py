@@ -211,8 +211,13 @@ class OLXScraper:
         return bool(old) and bool(new) and old != new
 
     # ROTACYJNE ODŚWIEŻANIE OPISÓW — ile ofert na skan i od jakiego wieku odczytu.
-    # 40 × 3 skany dziennie ≈ pełny obieg ~500 nieprecyzyjnych ofert w ~4 dni,
-    # koszt ≈ 4 s (detal 0,3–1 s przy 10 wątkach) przy ~95 s całego skanu.
+    # Koszt ZMIERZONY na produkcji (07.09.2026): +47 s na skan przy budżecie 40,
+    # czyli ~1,2 s na ofertę — każdy wątek odczekuje swoje 2–4 s między requestami,
+    # więc 10 wątków nie skraca tego 10×. Cały skan: 95 → 150 s.
+    # Kolejka posuwa się o ~31 pozycji na skan (część awansowanych i tak jest
+    # pobierana z innego powodu), więc ~500 nieprecyzyjnych ofert to ~16 skanów
+    # ≈ 5 dni przy cronie 3×/dobę. Podnosząc budżet licz się z liniowym kosztem
+    # i z ryzykiem soft-blocku OLX-a.
     STALE_REFRESH_BUDGET = 40
     STALE_REFRESH_MIN_AGE_DAYS = 3
 

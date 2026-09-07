@@ -31,6 +31,8 @@ Każdy brat, który wersjonuje rekord po zmianie pola, powinien sprawdzić, co r
 gdy nowa wartość jest po prostu **precyzyjniejsza**.
 
 **Czego NIE kopiować:** budżet 40/przebieg i próg 3 dni są wyliczone z naszych
-liczb (505 nieprecyzyjnych rekordów, 3 przebiegi dziennie, ~4 s kosztu przy 95 s
-całego skanu, pełny obieg w ~4 dni). Promień 3 km bierze się z rozmiarów dzielnic
+liczb (505 nieprecyzyjnych rekordów, 3 przebiegi dziennie, pełny obieg w ~5 dni).
+Koszt zmierzony po wdrożeniu: **+47 s na przebieg przy budżecie 40** (~1,2 s na rekord,
+bo wątki odczekują swój delay między requestami) — mój szacunek przed wdrożeniem mylił
+się 12×, więc u siebie zmierz, nie szacuj. Promień 3 km bierze się z rozmiarów dzielnic
 Lublina. Progi trzeba przeliczyć u siebie, nie przepisać.
