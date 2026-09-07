@@ -50,6 +50,24 @@ REACT_RELIABLE_START = date(2026, 7, 1)
 # luka i nie wchodzi do średniej ani statystyk. Dziś nic nie tnie (rekord to 42).
 OUTFLOW_ARTIFACT_THRESHOLD = 100
 
+# Odświeżenia (bumpy). DWA szeregi o RÓŻNYCH początkach, bo pole `refresh_dates`
+# miało dwa źródła:
+#
+# 1. Oferty firmowe — `last_refresh_time` z API v1 przy skanie profili. Pierwsze
+#    zapisy są z 25.06.2026, ale to rozruch trackera: 7 z pierwszych 13 dni nie ma
+#    ANI JEDNEGO wpisu, a łącznie zebrały 27 zdarzeń przy późniejszej medianie
+#    21/dzień. Od 08.07 każdy kolejny dzień ma zapis — to pierwszy dzień, od
+#    którego zero na wykresie znaczy „nikt nie podbił", a nie „jeszcze nie
+#    patrzyliśmy".
+# 2. Cała baza — data z karty listingu (scraper.parse_listing_refresh), wdrożona
+#    07.09.2026. Wcześniejsze daty ofert prywatnych POCHODZĄ Z BACKFILLU: przy
+#    pierwszym skanie każda dostała jedną datę — swoje ostatnie znane podbicie —
+#    więc dni sprzed granicy pokazywałyby narastający garb, którego nie było
+#    (05.09: 55 zdarzeń, z czego 40 to backfill). Ta sama pułapka co przy
+#    `reactivation_dates`, patrz REACT_RELIABLE_START.
+REFRESH_FIRM_RELIABLE_START = date(2026, 7, 8)
+REFRESH_ALL_RELIABLE_START = date(2026, 9, 7)
+
 # Dzień z liczbą reaktywacji powyżej tego progu traktujemy jako artefakt
 # pipeline'u, nie realny sygnał rynkowy. Piki 432 (21.07) i 182 (12.06) to skutek
 # CZĘŚCIOWEGO SCRAPE'U (blokada OLX): poprzedni skan złapał ~299 zamiast ~840 ofert
@@ -570,6 +588,73 @@ def build_promoted(offers, series, scan_days=None, base_dir=None):
     return metric
 
 
+def build_refreshes(offers, scan_days=None, base_dir=None):
+    """Dzienna liczba ODŚWIEŻEŃ (podbić) ofert — dwa niezależne szeregi.
+
+    Zwraca {'firm': blok, 'all': blok} albo None. Każdy blok ma kształt jak
+    outflow (daily/avg/total/rate/max_day/...) plus `start`, `start_label`,
+    `days`, `current` i — dla serii firmowej — `reliable_start_ms`, z którego
+    front rysuje zakreskowany odcinek rozruchu trackera.
+
+    Dwa szeregi zamiast jednego, bo mają RÓŻNE początki rzetelnego pomiaru
+    (patrz REFRESH_FIRM_RELIABLE_START / REFRESH_ALL_RELIABLE_START). Sklejenie
+    ich w jedną linię dawałoby skok w dniu wdrożenia parsera karty, który
+    czytałby się jak zmiana rynku, a jest zmianą zasięgu pomiaru.
+
+    Odświeżenie liczy się raz na dobę na ofertę (`main._track_refresh`), a daty
+    czytamy przez `collect_dates`, czyli razem z `versions[]` — zmiana adresu
+    resetuje `refresh_dates` na wierzchu rekordu i bez tego historia by ginęła.
+    """
+    firm_counts, all_counts = {}, {}
+    for o in offers:
+        dates = set(collect_dates(o, 'refresh_dates'))
+        if not dates:
+            continue
+        is_firm = bool(o.get('profile_name'))
+        for d in dates:
+            all_counts[d] = all_counts.get(d, 0) + 1
+            if is_firm:
+                firm_counts[d] = firm_counts.get(d, 0) + 1
+
+    if not all_counts:
+        return None
+
+    _, today = build_spans(offers)
+    end = max(today, max(all_counts))
+
+    # Dzień liczy się jako zeskanowany tą samą metodą co przy promowanych —
+    # inaczej awaria Actions wyglądałaby jak doba bez żadnego podbicia.
+    recorded = {day for day, value in index_history.daily_series(base_dir=base_dir) if value}
+    scanned = recorded | set(scan_days or set()) | _scanned_days(offers)
+
+    def block(counts, start, reliable_start=None):
+        if start > end:
+            return None
+        days = _daily_range(start, end)
+        missing = {d for d in days if d not in (scanned | set(counts))}
+        metric = _flow_metric(counts, days, exclude=missing)
+        last_day = next((d for d in reversed(days) if d not in missing), None)
+        metric.update({
+            'start': start.isoformat(),
+            'start_label': start.strftime('%d.%m.%Y'),
+            'days': len(days),
+            'current': counts.get(last_day, 0) if last_day else None,
+        })
+        if reliable_start and start < reliable_start:
+            metric['reliable_start_ms'] = _day_ms(reliable_start)
+        return metric
+
+    # Firmy: szereg od pierwszego zapisu, z zakreskowanym rozruchem trackera.
+    firm = block(firm_counts, min(firm_counts), REFRESH_FIRM_RELIABLE_START) if firm_counts else None
+
+    # Cała baza: dni sprzed wdrożenia parsera karty NIE są pomiarem, więc szereg
+    # w ogóle się tam nie zaczyna. Zakreskowanie sugerowałoby, że dane są, tylko
+    # słabsze — a ich nie ma; jest backfill po jednej dacie na ofertę.
+    whole = block(all_counts, REFRESH_ALL_RELIABLE_START)
+
+    return {'firm': firm, 'all': whole}
+
+
 def _value_at_or_before(series, target_ms):
     """Ostatni ZMIERZONY odczyt nie później niż target_ms. Dni bez skanu (None)
     przeskakujemy — inaczej awaria Actions kasowałaby porównanie."""
@@ -650,6 +735,7 @@ def generate_trend_data(base_dir: Path = None) -> bool:
         'inflow': build_inflow(offers, series),
         'bands': build_bands(offers, series),
         'promoted': build_promoted(offers, series, load_scan_days(base_dir), base_dir),
+        'refreshes': build_refreshes(offers, load_scan_days(base_dir), base_dir),
     }
 
     write_json_atomic(output_file, out)
@@ -667,6 +753,13 @@ def generate_trend_data(base_dir: Path = None) -> bool:
               f"historia od {pr.get('start_label')}")
     else:
         print("   ⭐ promowane: brak danych (metryka zbiera się od pierwszego skanu po wdrożeniu)")
+    rf = out['refreshes'] or {}
+    for key, label in (('firm', 'firmy'), ('all', 'cała baza')):
+        blk = rf.get(key)
+        if blk:
+            print(f"   🔄 odświeżenia ({label}): teraz={blk.get('current')}, "
+                  f"śr={blk.get('rate')}/dzień, rekord={blk.get('max_day')} ({blk.get('max_label')}), "
+                  f"od {blk.get('start_label')}")
     return True
 
 
