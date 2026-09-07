@@ -255,6 +255,18 @@
             odświeżenia znało tylko 109 z 802 aktywnych ofert, a daty ofert prywatnych sprzed tego dnia pochodzą
             z jednorazowego backfillu (jedna data na ofertę) &mdash; rysowałyby narastający garb, którego nie było.
             Osobny wykres zamiast jednej linii z uskokiem: to dwa różne zasięgi pomiaru, nie zmiana rynku.
+            <br><br>
+            <strong>Bursztynowa linia (od 22.04) pochodzi z repo-brata SZPERACZ</strong>, który skanuje tę samą
+            kategorię OLX-a i zapisuje daty podbić od kwietnia &mdash; snapshot leży u nas
+            (<code>data/szperacz_refresh_backfill.json</code>, odświeżany ręcznie przez
+            <code>scripts/import_szperacz_refresh.py</code>), więc skan nie zależy od cudzego repo.
+            To <strong>drugi pomiar, nie przedłużenie naszego</strong>: oni skanują 1&times;/dobę, my 3&times;,
+            a na 49 wspólnych dniach (te same profile firmowe, po odjęciu ich sierpniowej awarii) mediana
+            stosunku SONAR/SZPERACZ wynosi <strong>1,05</strong> &mdash; mierzymy to samo z dokładnością do 5%,
+            ale osobno. Odcinek do 09.06 jest zakreskowany: odtworzony z historii ofert, które SZPERACZ nadal
+            trzyma w bazie, więc podbicia ofert skasowanych z jego bazy do niego nie wchodzą (survivorship).
+            Reaktywacji stamtąd NIE bierzemy &mdash; tam stosunek to 2,55&times;, bo powrót oferty w ciągu doby
+            jest niewidoczny przy jednym skanie: to inna wielkość, nie ta sama zmierzona inaczej.
         </div>
 
     </div>
@@ -483,7 +495,14 @@
 
         // --- wykresy napływu: nowe / nowe+reaktywacje / reaktywacje ---
         // Wspólny renderer w stylu wykresu odpływu (linia dzienna + smooth avg 7 dni).
-        function renderFlowChart(elId, metric, dailyName, colors, hatchLabel) {
+        function renderFlowChart(elId, metric, dailyName, colors, extra) {
+            extra = extra || {};
+            const hatchLabel = extra.hatchLabel;
+            // Seria z repo-brata (SZPERACZ) — DRUGI pomiar tego samego rynku,
+            // nie przedłużenie naszego: oni skanują 1×/dobę, my 3×. Rysujemy ją
+            // osobną linią i podpisujemy źródłem; sklejenie dałoby uskok w dniu styku.
+            const bf = metric.backfill && metric.backfill.length ? metric.backfill : null;
+            const bfMeta = metric.backfill_meta || {};
             // Świeży szereg (kilka dni): średnia 7-dniowa niczego jeszcze nie mówi,
             // a linia przez jeden punkt rysuje się jako pionowa kreska do zera.
             // Do 3 dni pokazujemy więc same punkty pomiaru.
@@ -498,16 +517,23 @@
                     zoom: { enabled: true }
                 },
                 theme: { mode: 'dark' },
-                series: short
+                series: (short
                     ? [{ name: dailyName, data: metric.daily }]
                     : [
                         { name: dailyName, data: metric.daily },
                         { name: 'Średnia 7 dni', data: metric.avg }
-                      ],
-                colors: colors,
-                stroke: short ? { width: 0 } : { curve: ['straight', 'smooth'], width: [2, 3] },
+                      ]
+                  ).concat(bf ? [{ name: bfMeta.label || 'Backfill', data: bf }] : []),
+                // Kolory muszą iść para w parę z listą serii: przy krótkim szeregu
+                // odpada „Średnia 7 dni", więc jej kolor też — inaczej seria brata
+                // dostawała kolor średniej zamiast bursztynowego.
+                colors: (short ? colors.slice(0, 1) : colors).concat(bf ? ['#f5b942'] : []),
+                stroke: short
+                    ? { width: bf ? [0, 2] : 0 }
+                    : { curve: ['straight', 'smooth'].concat(bf ? ['straight'] : []),
+                        width: [2, 3].concat(bf ? [2] : []) },
                 dataLabels: { enabled: false },
-                markers: { size: short ? 6 : 0, hover: { size: 6 } },
+                markers: { size: short ? (bf ? [6, 0] : 6) : 0, hover: { size: 6 } },
                 grid: { borderColor: '#3a4255', strokeDashArray: 4, xaxis: { lines: { show: true } }, yaxis: { lines: { show: true } } },
                 xaxis: {
                     type: 'datetime', axisBorder: { show: false }, axisTicks: { color: '#3a4255' },
@@ -538,6 +564,32 @@
                         }]
                     };
                 }
+            }
+            if (bf) {
+                const marks = [];
+                if (bfMeta.survivorship_end_ms) {
+                    marks.push({
+                        x: bf[0][0], x2: bfMeta.survivorship_end_ms,
+                        fillColor: '#3a4255', opacity: 0.16, borderColor: 'transparent',
+                        label: {
+                            text: 'survivorship — zaniżone', orientation: 'horizontal', position: 'top',
+                            textAnchor: 'start', offsetX: 6, offsetY: -2,
+                            style: { background: '#2f3950', color: '#c2c9d8', fontSize: '11px' }
+                        }
+                    });
+                }
+                if (metric.daily.length) {
+                    marks.push({
+                        x: metric.daily[0][0], strokeDashArray: 5, borderColor: '#4f9cff',
+                        label: {
+                            text: 'nasz pomiar od ' + (metric.start_label || ''),
+                            orientation: 'horizontal', position: 'top',
+                            textAnchor: 'end', offsetX: -6, offsetY: -2,
+                            style: { background: '#1d3a63', color: '#cfe2ff', fontSize: '11px' }
+                        }
+                    });
+                }
+                opts.annotations = { xaxis: marks };
             }
             document.getElementById(elId).innerHTML = '';
             new ApexCharts(document.querySelector('#' + elId), opts).render();
@@ -669,18 +721,21 @@
                 'rekord <b>' + rf.firm.max_day + '</b> (' + rf.firm.max_label + '), ' +
                 'łącznie <b>' + rf.firm.total + '</b> podbić od ' + rf.firm.start_label + '.';
             renderFlowChart('chart7', rf.firm, 'Podbicia firmowe danego dnia',
-                            ['#4f9cff', '#9cc6ff'], 'rozruch trackera');
+                            ['#4f9cff', '#9cc6ff'], { hatchLabel: 'rozruch trackera' });
         } else {
             document.getElementById('chart7').innerHTML = '<div class="loading">Brak danych o odświeżeniach.</div>';
         }
 
         if (rf.all && rf.all.daily && rf.all.daily.length) {
+            const bfm = rf.all.backfill_meta;
             document.getElementById('refAllLabel').innerHTML =
                 'Ostatnia doba: <b>' + rf.all.current + '</b> podbić' +
                 (rf.all.days > 1
                     ? ', średnio <b>' + String(rf.all.rate).replace('.', ',') + '/dzień</b>, rekord <b>'
                       + rf.all.max_day + '</b> (' + rf.all.max_label + ').'
-                    : '. Pomiar całej bazy rusza ' + rf.all.start_label + ' — szereg dopiero się buduje.');
+                    : '. Pomiar całej bazy rusza ' + rf.all.start_label + ' — szereg dopiero się buduje.') +
+                (bfm ? ' Bursztynowa linia to <b>' + bfm.total + '</b> podbić zmierzonych przez SZPERACZA od '
+                       + bfm.start_label + ' — drugi pomiar tego samego rynku.' : '');
             renderFlowChart('chart8', rf.all, 'Podbicia danego dnia', ['#4f9cff', '#9cc6ff']);
         } else {
             document.getElementById('chart8').innerHTML =
