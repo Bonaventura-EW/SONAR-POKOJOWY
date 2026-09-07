@@ -39,3 +39,24 @@ jobs:
           python test_monitoring.py
           python test_price_fix.py
           python test_address_parser_golden.py
+
+  # TYMCZASOWE (tylko gałąź claude/refresh-icon-listings-map-nng89y):
+  # jednorazowa sonda źródeł daty odświeżenia. Nie wchodzi do main —
+  # usuwana razem ze scripts/probe_refresh_sources.py po decyzji.
+  probe-refresh:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Probe refresh sources
+        run: python scripts/probe_refresh_sources.py
