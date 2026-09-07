@@ -276,6 +276,66 @@ def test_refresh_unscanned_day_is_a_gap():
           f"rate={firm['rate']} (2 podbicia / 4 zmierzone dni)")
 
 
+def test_szperacz_backfill():
+    print("\n🔗 Test 12: backfill ze SZPERACZA jest OSOBNĄ serią")
+    offers = [{'id': 'a', 'active': True,
+               'first_seen': iso(date(2026, 9, 7)), 'last_seen': iso(date(2026, 9, 7)),
+               'refresh_dates': ['2026-09-07']}]
+    snapshot = {
+        'source': {'repo': 'Bonaventura-EW/SZPERACZ', 'listing': 'https://www.olx.pl/x/'},
+        'survivorship_until': '2026-06-09',
+        'validation': {'days': 49, 'ratio_median': 1.05},
+        # 07.09 mają OBA projekty — sprawdzamy, który wchodzi do wspólnej średniej
+        'daily': {'2026-04-22': 12, '2026-06-09': 30, '2026-06-10': 44,
+                  '2026-09-06': 50, '2026-09-07': 53},
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        (base / 'data').mkdir()
+        (base / 'data' / 'szperacz_refresh_backfill.json').write_text(
+            json.dumps(snapshot), encoding='utf-8')
+        rf = tg.build_refreshes(offers, scan_days=set(), base_dir=base)
+        whole = rf['all']
+
+        check('seria brata dołączona osobno', len(whole.get('backfill') or []) == 5,
+              str(len(whole.get('backfill') or [])))
+
+        # Jedna średnia dla obu pomiarów — trend rynku jest jeden.
+        avg = {tg._ms_day(ms): v for ms, v in whole['combined_avg']}
+        check('wspólna średnia obejmuje oba pomiary', len(avg) == 5, str(len(avg)))
+        # Okno po KALENDARZU: 22.04 i 09.06 dzieli półtora miesiąca, więc drugi punkt
+        # nie może uśredniać się z pierwszym mimo sąsiedztwa w liście.
+        check('okno 7 dni liczone po dniach, nie po pozycjach',
+              avg[date(2026, 6, 9)] == 30.0 and avg[date(2026, 6, 10)] == 37.0,
+              f"09.06={avg[date(2026, 6, 9)]}, 10.06={avg[date(2026, 6, 10)]}")
+        # REGRESJA: w dniu, gdy oba mają pomiar, do średniej wchodzi NASZ (1),
+        # nie ich (53) — inaczej dzień styku liczyłby się dwa razy albo nie tym źródłem.
+        check('w dniu styku wygrywa nasz pomiar',
+              avg[date(2026, 9, 7)] == round((50 + 1) / 2, 1),
+              f"07.09={avg[date(2026, 9, 7)]} (oczekiwane {round((50 + 1) / 2, 1)})")
+        # REGRESJA: ich pomiar nie może wsiąknąć w nasz szereg ani w nasze statystyki
+        ours = {tg._ms_day(ms): v for ms, v in whole['daily']}
+        check('nasz szereg nadal zaczyna się od granicy', min(ours) == tg.REFRESH_ALL_RELIABLE_START,
+              str(min(ours)))
+        check('nasz szereg liczy tylko nasze zdarzenia', ours[date(2026, 9, 7)] == 1)
+        check('ich dane nie wchodzą do naszej sumy', whole['total'] == 1, str(whole['total']))
+
+        meta = whole['backfill_meta']
+        check('meta niesie źródło i etykietę',
+              meta['source'] == 'Bonaventura-EW/SZPERACZ' and 'SZPERACZ' in meta['label'], str(meta['label']))
+        check('meta niesie granicę survivorship do zakreskowania',
+              meta.get('survivorship_end_ms') == tg._day_ms(date(2026, 6, 10)),
+              str(meta.get('survivorship_end_ms')))
+        check('meta niesie wynik walidacji', (meta.get('validation') or {}).get('ratio_median') == 1.05)
+
+    # Bez snapshotu wykres ma po prostu naszą serię — nie wywala generatora
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        (base / 'data').mkdir()
+        whole = tg.build_refreshes(offers, scan_days=set(), base_dir=base)['all']
+        check('brak snapshotu = brak serii brata, bez błędu', 'backfill' not in whole)
+
+
 def test_day_anchor_is_utc():
     print("\n🌍 Test 8: kotwica dnia niezależna od strefy czasowej")
     days = [date(2027, 3, 24) + timedelta(days=i) for i in range(5)]      # 28.03 = zmiana czasu
@@ -298,6 +358,7 @@ if __name__ == '__main__':
     test_promoted_survives_address_change()
     test_refreshes_two_series()
     test_refresh_unscanned_day_is_a_gap()
+    test_szperacz_backfill()
     test_day_anchor_is_utc()
     print("\n" + "=" * 60)
     if FAILED:

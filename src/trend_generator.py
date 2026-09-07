@@ -588,6 +588,88 @@ def build_promoted(offers, series, scan_days=None, base_dir=None):
     return metric
 
 
+def load_szperacz_backfill(base_dir=None):
+    """Historia odświeżeń całego rynku z repo-brata SZPERACZ (snapshot w naszym repo).
+
+    Nasz szereg dla całej bazy rusza 07.09.2026; SZPERACZ skanuje tę samą
+    kategorię OLX-a od kwietnia. Snapshot robi `scripts/import_szperacz_refresh.py`
+    — świadomie NIE czytamy tu ich repo, żeby skan nie zależał od cudzego stanu.
+
+    To DRUGI pomiar, nie przedłużenie naszego: oni skanują 1×/dobę, my 3×/dobę
+    (na wspólnych dniach mediana stosunku 1,05). Front rysuje to jako osobną,
+    podpisaną linię — sklejenie w jedną dałoby uskok w dniu styku.
+
+    Zwraca (daily, meta) albo (None, None) gdy snapshotu nie ma.
+    """
+    base_dir = base_dir or Path(__file__).parent.parent
+    path = Path(base_dir) / 'data' / 'szperacz_refresh_backfill.json'
+    try:
+        snapshot = json.loads(path.read_text(encoding='utf-8'))
+    except (FileNotFoundError, ValueError, OSError):
+        return None, None
+
+    daily = []
+    for day_str, value in sorted((snapshot.get('daily') or {}).items()):
+        try:
+            daily.append([_day_ms(date.fromisoformat(day_str)), value])
+        except ValueError:
+            continue
+    if not daily:
+        return None, None
+
+    survivorship = snapshot.get('survivorship_until')
+    meta = {
+        'label': 'SZPERACZ (1 skan/dobę)',
+        'source': (snapshot.get('source') or {}).get('repo', ''),
+        'listing': (snapshot.get('source') or {}).get('listing', ''),
+        'imported_at': (snapshot.get('source') or {}).get('imported_at', ''),
+        'validation': snapshot.get('validation'),
+        'start_label': _ms_day(daily[0][0]).strftime('%d.%m.%Y'),
+        'total': sum(v for _, v in daily if v is not None),
+        'days': len(daily),
+    }
+    if survivorship:
+        try:
+            # Odcinek sprzed ich dziennego agregatu jest zaniżony (oferty skasowane
+            # z ich bazy nie wnoszą podbić) — front go zakreskowuje.
+            meta['survivorship_end_ms'] = _day_ms(date.fromisoformat(survivorship)
+                                                  + timedelta(days=1))
+        except ValueError:
+            pass
+    return daily, meta
+
+
+def combined_refresh_avg(ours, theirs):
+    """Średnia krocząca 7 dni licząca OBA pomiary jako jeden szereg dzienny.
+
+    Wykres „cała baza" pokazuje dwie linie surowe — naszą (od 07.09) i SZPERACZA
+    (od 22.04) — ale trend rynku jest jeden, więc wygładzenie też jest jedno i
+    przechodzi przez granicę bez przerwy.
+
+    Reguła styku: w dniu, w którym oba projekty mają pomiar, do średniej wchodzi
+    NASZ. Skanujemy 3×/dobę wobec ich 1×, więc łapiemy podbicia, które przy
+    rzadszym próbkowaniu zlewają się z poprzednim dniem (na wspólnych dniach
+    mediana stosunku to 1,05). Bez tej reguły dzień styku liczyłby się dwa razy.
+
+    Okno liczone po KALENDARZU, nie po pozycjach: żaden z szeregów nie musi być
+    gęsty (dzień bez skanu to u nas luka, a snapshot brata pomija dni, których
+    nie ma), więc okno pozycyjne po cichu objęłoby więcej niż tydzień.
+    """
+    merged = {ms: value for ms, value in (theirs or []) if value is not None}
+    merged.update({ms: value for ms, value in (ours or []) if value is not None})
+    if not merged:
+        return None
+
+    window_ms = 6 * DAY_MS
+    days = sorted(merged)
+    out = []
+    for ms_value in days:
+        window = [merged[other] for other in days
+                  if ms_value - window_ms <= other <= ms_value]
+        out.append([ms_value, round(sum(window) / len(window), 1)])
+    return out
+
+
 def build_refreshes(offers, scan_days=None, base_dir=None):
     """Dzienna liczba ODŚWIEŻEŃ (podbić) ofert — dwa niezależne szeregi.
 
@@ -651,6 +733,15 @@ def build_refreshes(offers, scan_days=None, base_dir=None):
     # w ogóle się tam nie zaczyna. Zakreskowanie sugerowałoby, że dane są, tylko
     # słabsze — a ich nie ma; jest backfill po jednej dacie na ofertę.
     whole = block(all_counts, REFRESH_ALL_RELIABLE_START)
+
+    # Historia rynku sprzed naszego pomiaru — z repo-brata, jako OSOBNA seria.
+    backfill, meta = load_szperacz_backfill(base_dir)
+    if whole and backfill:
+        whole['backfill'] = backfill
+        whole['backfill_meta'] = meta
+        # Jedna średnia dla obu pomiarów — trend rynku jest jeden, więc jego
+        # wygładzenie nie może się urywać w dniu, w którym zmieniliśmy źródło.
+        whole['combined_avg'] = combined_refresh_avg(whole.get('daily'), backfill)
 
     return {'firm': firm, 'all': whole}
 
