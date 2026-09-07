@@ -265,9 +265,11 @@
             stosunku SONAR/SZPERACZ wynosi <strong>1,05</strong> &mdash; mierzymy to samo z dokładnością do 5%,
             ale osobno. Odcinek do 09.06 jest zakreskowany: odtworzony z historii ofert, które SZPERACZ nadal
             trzyma w bazie, więc podbicia ofert skasowanych z jego bazy do niego nie wchodzą (survivorship).
-            Jasna bursztynowa to średnia krocząca 7 dni z ICH pomiaru &mdash; surowa linia dzienna skacze
-            między 20 a 97, więc trend widać dopiero po wygładzeniu. Nasza średnia dojdzie, gdy uzbieramy
-            więcej niż trzy dni.
+            Jasna linia to <strong>średnia krocząca 7 dni licząca OBA pomiary</strong> &mdash; trend rynku
+            jest jeden, więc jego wygładzenie przechodzi przez granicę źródeł bez przerwy (surowe linie dzienne
+            skaczą między 20 a 97). W dniu, w którym oba projekty mają pomiar, do średniej wchodzi
+            <strong>nasz</strong>: skanujemy 3&times;/dobę wobec ich 1&times;, więc łapiemy podbicia, które
+            przy rzadszym próbkowaniu zlewają się z poprzednim dniem.
             Reaktywacji stamtąd NIE bierzemy &mdash; tam stosunek to 2,55&times;, bo powrót oferty w ciągu doby
             jest niewidoczny przy jednym skanie: to inna wielkość, nie ta sama zmierzona inaczej.
         </div>
@@ -505,10 +507,11 @@
             // nie przedłużenie naszego: oni skanują 1×/dobę, my 3×. Rysujemy ją
             // osobną linią i podpisujemy źródłem; sklejenie dałoby uskok w dniu styku.
             const bf = metric.backfill && metric.backfill.length ? metric.backfill : null;
-            // `short` dotyczy TYLKO naszego szeregu — seria brata ma swoje setki dni,
-            // więc jej średnia krocząca rysuje się niezależnie od tego, ile mamy my.
-            const bfAvg = bf && metric.backfill_avg && metric.backfill_avg.length
-                ? metric.backfill_avg : null;
+            // Jedna średnia dla OBU pomiarów (generator: combined_refresh_avg) — trend
+            // rynku jest jeden, więc jego wygładzenie przechodzi przez granicę źródeł.
+            // `short` dotyczy tylko naszej surowej linii, nie tej średniej.
+            const bfAvg = bf && metric.combined_avg && metric.combined_avg.length
+                ? metric.combined_avg : null;
             const bfMeta = metric.backfill_meta || {};
             // Świeży szereg (kilka dni): średnia 7-dniowa niczego jeszcze nie mówi,
             // a linia przez jeden punkt rysuje się jako pionowa kreska do zera.
@@ -531,7 +534,7 @@
                         { name: 'Średnia 7 dni', data: metric.avg }
                       ]
                   ).concat(bf ? [{ name: bfMeta.label || 'Backfill', data: bf }] : [])
-                   .concat(bfAvg ? [{ name: (bfMeta.label || 'Backfill') + ' — średnia 7 dni', data: bfAvg }] : []),
+                   .concat(bfAvg ? [{ name: 'Średnia 7 dni (oba pomiary)', data: bfAvg }] : []),
                 // Kolory muszą iść para w parę z listą serii: przy krótkim szeregu
                 // odpada „Średnia 7 dni", więc jej kolor też — inaczej seria brata
                 // dostawała kolor średniej zamiast bursztynowego.

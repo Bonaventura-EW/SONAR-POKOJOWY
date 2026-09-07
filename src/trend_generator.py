@@ -617,17 +617,6 @@ def load_szperacz_backfill(base_dir=None):
     if not daily:
         return None, None
 
-    # Średnia krocząca 7 dni — ich szereg ma kilkaset dni, więc trend widać dopiero
-    # po wygładzeniu (surowa linia dzienna skacze między 20 a 97). Okno liczone po
-    # KALENDARZU, nie po pozycjach w liście: snapshot pomija dni, których nie mają,
-    # więc okno pozycyjne po cichu rozciągnęłoby się na więcej niż tydzień.
-    window_ms = 6 * DAY_MS
-    avg = []
-    for ms_value, _ in daily:
-        window = [v for other_ms, v in daily
-                  if v is not None and ms_value - window_ms <= other_ms <= ms_value]
-        avg.append([ms_value, round(sum(window) / len(window), 1) if window else None])
-
     survivorship = snapshot.get('survivorship_until')
     meta = {
         'label': 'SZPERACZ (1 skan/dobę)',
@@ -647,8 +636,38 @@ def load_szperacz_backfill(base_dir=None):
                                                   + timedelta(days=1))
         except ValueError:
             pass
-    meta['avg'] = avg
     return daily, meta
+
+
+def combined_refresh_avg(ours, theirs):
+    """Średnia krocząca 7 dni licząca OBA pomiary jako jeden szereg dzienny.
+
+    Wykres „cała baza" pokazuje dwie linie surowe — naszą (od 07.09) i SZPERACZA
+    (od 22.04) — ale trend rynku jest jeden, więc wygładzenie też jest jedno i
+    przechodzi przez granicę bez przerwy.
+
+    Reguła styku: w dniu, w którym oba projekty mają pomiar, do średniej wchodzi
+    NASZ. Skanujemy 3×/dobę wobec ich 1×, więc łapiemy podbicia, które przy
+    rzadszym próbkowaniu zlewają się z poprzednim dniem (na wspólnych dniach
+    mediana stosunku to 1,05). Bez tej reguły dzień styku liczyłby się dwa razy.
+
+    Okno liczone po KALENDARZU, nie po pozycjach: żaden z szeregów nie musi być
+    gęsty (dzień bez skanu to u nas luka, a snapshot brata pomija dni, których
+    nie ma), więc okno pozycyjne po cichu objęłoby więcej niż tydzień.
+    """
+    merged = {ms: value for ms, value in (theirs or []) if value is not None}
+    merged.update({ms: value for ms, value in (ours or []) if value is not None})
+    if not merged:
+        return None
+
+    window_ms = 6 * DAY_MS
+    days = sorted(merged)
+    out = []
+    for ms_value in days:
+        window = [merged[other] for other in days
+                  if ms_value - window_ms <= other <= ms_value]
+        out.append([ms_value, round(sum(window) / len(window), 1)])
+    return out
 
 
 def build_refreshes(offers, scan_days=None, base_dir=None):
@@ -719,8 +738,10 @@ def build_refreshes(offers, scan_days=None, base_dir=None):
     backfill, meta = load_szperacz_backfill(base_dir)
     if whole and backfill:
         whole['backfill'] = backfill
-        whole['backfill_avg'] = meta.pop('avg', None)
         whole['backfill_meta'] = meta
+        # Jedna średnia dla obu pomiarów — trend rynku jest jeden, więc jego
+        # wygładzenie nie może się urywać w dniu, w którym zmieniliśmy źródło.
+        whole['combined_avg'] = combined_refresh_avg(whole.get('daily'), backfill)
 
     return {'firm': firm, 'all': whole}
 

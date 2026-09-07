@@ -285,7 +285,9 @@ def test_szperacz_backfill():
         'source': {'repo': 'Bonaventura-EW/SZPERACZ', 'listing': 'https://www.olx.pl/x/'},
         'survivorship_until': '2026-06-09',
         'validation': {'days': 49, 'ratio_median': 1.05},
-        'daily': {'2026-04-22': 12, '2026-06-09': 30, '2026-06-10': 44, '2026-09-06': 50},
+        # 07.09 mają OBA projekty — sprawdzamy, który wchodzi do wspólnej średniej
+        'daily': {'2026-04-22': 12, '2026-06-09': 30, '2026-06-10': 44,
+                  '2026-09-06': 50, '2026-09-07': 53},
     }
     with tempfile.TemporaryDirectory() as tmp:
         base = Path(tmp)
@@ -295,15 +297,22 @@ def test_szperacz_backfill():
         rf = tg.build_refreshes(offers, scan_days=set(), base_dir=base)
         whole = rf['all']
 
-        check('seria brata dołączona osobno', len(whole.get('backfill') or []) == 4,
+        check('seria brata dołączona osobno', len(whole.get('backfill') or []) == 5,
               str(len(whole.get('backfill') or [])))
-        # Średnia krocząca liczona po KALENDARZU: 22.04 i 09.06 dzieli półtora miesiąca,
-        # więc drugi punkt nie może uśredniać się z pierwszym mimo sąsiedztwa w liście.
-        avg = {tg._ms_day(ms): v for ms, v in whole['backfill_avg']}
-        check('średnia brata policzona', len(avg) == 4, str(len(avg)))
+
+        # Jedna średnia dla obu pomiarów — trend rynku jest jeden.
+        avg = {tg._ms_day(ms): v for ms, v in whole['combined_avg']}
+        check('wspólna średnia obejmuje oba pomiary', len(avg) == 5, str(len(avg)))
+        # Okno po KALENDARZU: 22.04 i 09.06 dzieli półtora miesiąca, więc drugi punkt
+        # nie może uśredniać się z pierwszym mimo sąsiedztwa w liście.
         check('okno 7 dni liczone po dniach, nie po pozycjach',
               avg[date(2026, 6, 9)] == 30.0 and avg[date(2026, 6, 10)] == 37.0,
               f"09.06={avg[date(2026, 6, 9)]}, 10.06={avg[date(2026, 6, 10)]}")
+        # REGRESJA: w dniu, gdy oba mają pomiar, do średniej wchodzi NASZ (1),
+        # nie ich (53) — inaczej dzień styku liczyłby się dwa razy albo nie tym źródłem.
+        check('w dniu styku wygrywa nasz pomiar',
+              avg[date(2026, 9, 7)] == round((50 + 1) / 2, 1),
+              f"07.09={avg[date(2026, 9, 7)]} (oczekiwane {round((50 + 1) / 2, 1)})")
         # REGRESJA: ich pomiar nie może wsiąknąć w nasz szereg ani w nasze statystyki
         ours = {tg._ms_day(ms): v for ms, v in whole['daily']}
         check('nasz szereg nadal zaczyna się od granicy', min(ours) == tg.REFRESH_ALL_RELIABLE_START,
