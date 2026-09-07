@@ -209,6 +209,73 @@ def test_promoted_survives_address_change():
           [counted.get(date(2026, 8, d)) for d in (28, 29, 30)] == [1, 1, 0], str(counted))
 
 
+def test_refreshes_two_series():
+    print("\n🔄 Test 10: odświeżenia — dwa szeregi o różnych początkach")
+    # Szereg firmowy sięga sprzed granicy rozruchu trackera, żeby sprawdzić
+    # zakreskowanie; prywatna oferta ma datę sprzed wdrożenia parsera karty
+    # (backfill) i po nim (realny pomiar).
+    offers = [
+        {'id': 'firmowa', 'profile_name': 'Poqui', 'active': True,
+         'first_seen': iso(date(2026, 6, 25)), 'last_seen': iso(date(2026, 9, 7)),
+         'refresh_dates': ['2026-06-25', '2026-09-05', '2026-09-07']},
+        {'id': 'prywatna', 'active': True,
+         'first_seen': iso(date(2026, 8, 1)), 'last_seen': iso(date(2026, 9, 7)),
+         'refresh_dates': ['2026-09-05', '2026-09-07']},
+        # oferta po zmianie adresu: świeże daty na wierzchu, starsze w versions[]
+        {'id': 'po-przeprowadzce', 'profile_name': 'Artymiuk', 'active': True,
+         'first_seen': iso(date(2026, 8, 1)), 'last_seen': iso(date(2026, 9, 7)),
+         'refresh_dates': ['2026-09-07'],
+         'versions': [{'refresh_dates': ['2026-06-25']}]},
+    ]
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        (base / 'data').mkdir()
+        rf = tg.build_refreshes(offers, scan_days=set(), base_dir=base)
+
+    firm, whole = rf['firm'], rf['all']
+    check('szereg firmowy startuje od pierwszego zapisu',
+          firm['start'] == '2026-06-25', firm['start'])
+    check('szereg całej bazy startuje od wdrożenia parsera karty',
+          whole['start'] == tg.REFRESH_ALL_RELIABLE_START.isoformat(), whole['start'])
+    # REGRESJA: backfill ofert prywatnych nie może wejść na wykres całej bazy
+    before = [v for ms, v in whole['daily'] if tg._ms_day(ms) < tg.REFRESH_ALL_RELIABLE_START]
+    check('dni sprzed granicy w ogóle nie ma w szeregu całej bazy', before == [], str(before))
+
+    firm_by_day = {tg._ms_day(ms): v for ms, v in firm['daily']}
+    check('data z versions[] policzona (zmiana adresu nie gubi historii)',
+          firm_by_day[date(2026, 6, 25)] == 2, str(firm_by_day[date(2026, 6, 25)]))
+    check('oferta prywatna nie wchodzi do szeregu firmowego',
+          firm_by_day[date(2026, 9, 5)] == 1, str(firm_by_day[date(2026, 9, 5)]))
+
+    whole_by_day = {tg._ms_day(ms): v for ms, v in whole['daily']}
+    check('07.09 liczy wszystkie trzy oferty', whole_by_day[date(2026, 9, 7)] == 3,
+          str(whole_by_day[date(2026, 9, 7)]))
+    check('szereg firmowy niesie granicę rozruchu do zakreskowania',
+          firm.get('reliable_start_ms') == tg._day_ms(tg.REFRESH_FIRM_RELIABLE_START),
+          str(firm.get('reliable_start_ms')))
+    check('szereg całej bazy nie ma czego zakreskowywać',
+          'reliable_start_ms' not in whole)
+
+
+def test_refresh_unscanned_day_is_a_gap():
+    print("\n🕳️  Test 11: doba bez skanu nie jest zerem podbić")
+    offers = [{'id': 'firmowa', 'profile_name': 'Poqui', 'active': True,
+               'first_seen': iso(date(2026, 8, 20)), 'last_seen': iso(date(2026, 8, 21)),
+               'refresh_dates': ['2026-08-20', '2026-08-24']}]
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        (base / 'data').mkdir()
+        for day in (20, 21, 23):                       # 22.08 = awaria Actions, brak skanu
+            index_history.record(700, iso(date(2026, 8, day)), base_dir=base)
+        firm = tg.build_refreshes(offers, scan_days=set(), base_dir=base)['firm']
+
+    by_day = {tg._ms_day(ms): v for ms, v in firm['daily']}
+    check('dzień bez skanu to luka (None)', by_day[date(2026, 8, 22)] is None, str(by_day))
+    check('dzień zeskanowany bez podbić to zero', by_day[date(2026, 8, 21)] == 0, str(by_day))
+    check('luka nie wchodzi do mianownika rate', firm['rate'] == round(2 / 4, 1),
+          f"rate={firm['rate']} (2 podbicia / 4 zmierzone dni)")
+
+
 def test_day_anchor_is_utc():
     print("\n🌍 Test 8: kotwica dnia niezależna od strefy czasowej")
     days = [date(2027, 3, 24) + timedelta(days=i) for i in range(5)]      # 28.03 = zmiana czasu
@@ -229,6 +296,8 @@ if __name__ == '__main__':
     test_unscanned_day_is_a_gap()
     test_index_source_label()
     test_promoted_survives_address_change()
+    test_refreshes_two_series()
+    test_refresh_unscanned_day_is_a_gap()
     test_day_anchor_is_utc()
     print("\n" + "=" * 60)
     if FAILED:

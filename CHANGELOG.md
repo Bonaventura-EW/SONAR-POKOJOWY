@@ -9,6 +9,15 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Indeks: dwa wykresy odświeżeń — firmy i cała baza, każdy z własnym startem (2026-09-07)
+- **zlecenie Mateusza**: „dodaj wykres odświeżeń w czasie” na `trend.html`, po pokazaniu propozycji: „dwa osobne wykresy, dla firm i dla całości, i będą miały inne zakresy dat początkowych”.
+- **dlaczego dwa, a nie jeden**: `refresh_dates` ma dwa źródła o różnych początkach. Sklejone w jedną linię dałyby w dniu wdrożenia parsera karty uskok (07.09: 17 → 36), który czyta się jak skok rynku, a jest skokiem **zasięgu pomiaru**.
+- **wykres „oferty firmowe” (`#chart7`)**: od 25.06.2026, źródło `last_refresh_time` z API v1 przy skanie profili. Śr. 16,8/dzień, rekord 44 (04.08), łącznie 1258 podbić. Odcinek 25.06–07.07 zakreskowany jako **rozruch trackera**: 7 z pierwszych 13 dni nie ma ani jednego wpisu, a razem zebrały 27 zdarzeń przy późniejszej medianie 21/dzień — granica `REFRESH_FIRM_RELIABLE_START` to pierwszy dzień gęstego reżimu (od niego każda kolejna doba ma zapis).
+- **wykres „cała baza” (`#chart8`)**: od 07.09.2026 (`REFRESH_ALL_RELIABLE_START`), czyli od pierwszego skanu z parserem karty listingu. Dni sprzed granicy **w ogóle nie wchodzą do szeregu** — nie są zakreskowane, tylko wycięte: to nie słabszy pomiar, tylko backfill po jednej dacie na ofertę (05.09: 55 zdarzeń, z czego 40 z backfillu). Zakreskowanie sugerowałoby, że dane tam są.
+- **generator (`src/trend_generator.py`)**: `build_refreshes()` wzorcem `build_promoted` — `collect_dates` czyta daty razem z `versions[]` (zmiana adresu resetuje `refresh_dates` na wierzchu rekordu), dzień bez skanu to luka, nie zero, i nie wchodzi do mianownika `rate`. Blok `refreshes: {firm, all}` w `docs/trend_data.json`.
+- **front (`docs/trend.html`)**: dwie karty renderowane istniejącym `renderFlowChart` — doszedł parametr etykiety zakreskowania (dotąd zaszytej jako „brak zapisu reaktywacji”). Świeży szereg (≤3 dni) rysuje się jako **punkty bez linii**: średnia 7-dniowa z jednego dnia niczego nie mówi, a linia przez jeden punkt renderowała się jako pionowa kreska do zera. Poprawka dotyczy wszystkich wykresów przepływu, nie tylko nowych.
+- **testy**: `test_trend_index.py` +2 bloki (dwa szeregi z różnymi granicami, backfill nie wchodzi do serii całej bazy, data z `versions[]` policzona, doba bez skanu to luka i nie psuje `rate`). Plik **dopisany do `tests.yml`** — istniał, ale nigdy nie chodził w CI. Cały zestaw i golden (2255/2255) zielone.
+
 ### Odświeżenia dla całej bazy + oznaczenie „odświeżona w 24h" na pinezce (2026-09-07)
 - **zlecenie Mateusza**: „chcę żeby ogłoszenia które zostały odświeżone na mapie miały ikonę jak te co miały podwyżkę lub obniżkę" — niebieskie strzałki w obiegu, w rogu pinezki.
 - **diagnoza przed implementacją**: pole `refresh_dates` istniało, ale znało je **109 z 802 aktywnych ofert** (13%). `_track_refresh` wychodziło na `if not existing.get('profile_name')`, bo jedynym źródłem był `last_refresh_time` z API v1, odpytywane wyłącznie przy skanie profili firmowych. Badge na takich danych byłby informacją o firmach, nie o rynku.

@@ -224,6 +224,39 @@
             wyróżnienia to stan chwilowy na listingu, nie ślad w ofercie, więc nie da się ich odtworzyć wstecz.
             Dni bez skanu (awaria Actions, blokada OLX) rysują się jako luka i nie wchodzą do średniej.
         </div>
+
+        <div class="card" style="margin-top:22px">
+            <h2>🔄 Odświeżenia &ndash; oferty firmowe</h2>
+            <div class="sub" id="refFirmLabel">Dzienna liczba podbić w 10 śledzonych profilach</div>
+            <div id="chart7"><div class="loading">Ładowanie danych…</div></div>
+        </div>
+
+        <div class="foot">
+            <strong>Skąd dane:</strong> <code>refresh_dates</code> ofert z profili firmowych &mdash; dzień, w którym
+            scraper zobaczył nowszą datę podbicia (<code>last_refresh_time</code> z API v1, max 1 wpis/dobę na ofertę).
+            Podbicie wrzuca ogłoszenie z powrotem na górę listingu, więc to miara tego, jak agresywnie firma walczy
+            o widoczność. <strong>Zakreskowany odcinek to rozruch trackera</strong>: 7 z pierwszych 13 dni nie ma ani
+            jednego wpisu, a łącznie zebrały 27 zdarzeń przy późniejszej medianie 21/dzień &mdash; zero na wykresie
+            znaczyłoby tam „jeszcze nie patrzyliśmy", nie „nikt nie podbił". Dni bez skanu rysują się jako luka
+            i nie wchodzą do średniej.
+        </div>
+
+        <div class="card" style="margin-top:22px">
+            <h2>🔄 Odświeżenia &ndash; cała baza</h2>
+            <div class="sub" id="refAllLabel">Dzienna liczba podbić we wszystkich ogłoszeniach</div>
+            <div id="chart8"><div class="loading">Ładowanie danych…</div></div>
+        </div>
+
+        <div class="foot">
+            <strong>Skąd dane:</strong> ta sama miara co wyżej, ale dla <strong>wszystkich ogłoszeń</strong> &mdash;
+            także prywatnych. Datę podbicia czyta scraper z karty listingu (<code>data-testid="location-date"</code>:
+            „Odświeżono dzisiaj o 07:23" / „Odświeżono dnia 06 września 2026"), więc kosztuje zero dodatkowych
+            requestów. <strong>Historia zaczyna się 07.09.2026</strong>, w dniu wdrożenia tego parsera: wcześniej
+            odświeżenia znało tylko 109 z 802 aktywnych ofert, a daty ofert prywatnych sprzed tego dnia pochodzą
+            z jednorazowego backfillu (jedna data na ofertę) &mdash; rysowałyby narastający garb, którego nie było.
+            Osobny wykres zamiast jednej linii z uskokiem: to dwa różne zasięgi pomiaru, nie zmiana rynku.
+        </div>
+
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.49.1/dist/apexcharts.min.js"></script>
@@ -450,7 +483,11 @@
 
         // --- wykresy napływu: nowe / nowe+reaktywacje / reaktywacje ---
         // Wspólny renderer w stylu wykresu odpływu (linia dzienna + smooth avg 7 dni).
-        function renderFlowChart(elId, metric, dailyName, colors) {
+        function renderFlowChart(elId, metric, dailyName, colors, hatchLabel) {
+            // Świeży szereg (kilka dni): średnia 7-dniowa niczego jeszcze nie mówi,
+            // a linia przez jeden punkt rysuje się jako pionowa kreska do zera.
+            // Do 3 dni pokazujemy więc same punkty pomiaru.
+            const short = metric.daily.length <= 3;
             const opts = {
                 chart: {
                     type: 'line', height: 380, background: 'transparent',
@@ -461,14 +498,16 @@
                     zoom: { enabled: true }
                 },
                 theme: { mode: 'dark' },
-                series: [
-                    { name: dailyName, data: metric.daily },
-                    { name: 'Średnia 7 dni', data: metric.avg }
-                ],
+                series: short
+                    ? [{ name: dailyName, data: metric.daily }]
+                    : [
+                        { name: dailyName, data: metric.daily },
+                        { name: 'Średnia 7 dni', data: metric.avg }
+                      ],
                 colors: colors,
-                stroke: { curve: ['straight', 'smooth'], width: [2, 3] },
+                stroke: short ? { width: 0 } : { curve: ['straight', 'smooth'], width: [2, 3] },
                 dataLabels: { enabled: false },
-                markers: { size: 0, hover: { size: 5 } },
+                markers: { size: short ? 6 : 0, hover: { size: 6 } },
                 grid: { borderColor: '#3a4255', strokeDashArray: 4, xaxis: { lines: { show: true } }, yaxis: { lines: { show: true } } },
                 xaxis: {
                     type: 'datetime', axisBorder: { show: false }, axisTicks: { color: '#3a4255' },
@@ -492,7 +531,7 @@
                             fillColor: '#3a4255', opacity: 0.28,
                             borderColor: '#5a6478',
                             label: {
-                                text: 'brak zapisu reaktywacji', orientation: 'horizontal', position: 'top',
+                                text: hatchLabel || 'brak zapisu reaktywacji', orientation: 'horizontal', position: 'top',
                                 textAnchor: 'start', offsetX: 6, offsetY: -2,
                                 style: { background: '#2f3950', color: '#c2c9d8', fontSize: '11px' }
                             }
@@ -617,6 +656,35 @@
             document.getElementById('chart6').innerHTML =
                 '<div class="loading">Metryka rusza od pierwszego skanu po wdrożeniu detekcji wyróżnień — ' +
                 'wykres pojawi się, gdy uzbieramy pierwszy dzień danych.</div>';
+        }
+
+        // --- odświeżenia: DWA osobne wykresy o różnych początkach ---
+        // Firmy mierzymy od rozruchu trackera (API v1 profili), całą bazę dopiero
+        // od wdrożenia parsera karty listingu. Jedna wspólna linia miałaby w dniu
+        // wdrożenia uskok, który czytałby się jak skok rynku, a jest skokiem zasięgu.
+        const rf = d.refreshes || {};
+        if (rf.firm && rf.firm.daily && rf.firm.daily.length) {
+            document.getElementById('refFirmLabel').innerHTML =
+                'Średnio <b>' + String(rf.firm.rate).replace('.', ',') + '/dzień</b>, ' +
+                'rekord <b>' + rf.firm.max_day + '</b> (' + rf.firm.max_label + '), ' +
+                'łącznie <b>' + rf.firm.total + '</b> podbić od ' + rf.firm.start_label + '.';
+            renderFlowChart('chart7', rf.firm, 'Podbicia firmowe danego dnia',
+                            ['#4f9cff', '#9cc6ff'], 'rozruch trackera');
+        } else {
+            document.getElementById('chart7').innerHTML = '<div class="loading">Brak danych o odświeżeniach.</div>';
+        }
+
+        if (rf.all && rf.all.daily && rf.all.daily.length) {
+            document.getElementById('refAllLabel').innerHTML =
+                'Ostatnia doba: <b>' + rf.all.current + '</b> podbić' +
+                (rf.all.days > 1
+                    ? ', średnio <b>' + String(rf.all.rate).replace('.', ',') + '/dzień</b>, rekord <b>'
+                      + rf.all.max_day + '</b> (' + rf.all.max_label + ').'
+                    : '. Pomiar całej bazy rusza ' + rf.all.start_label + ' — szereg dopiero się buduje.');
+            renderFlowChart('chart8', rf.all, 'Podbicia danego dnia', ['#4f9cff', '#9cc6ff']);
+        } else {
+            document.getElementById('chart8').innerHTML =
+                '<div class="loading">Pomiar całej bazy rusza od pierwszego skanu z parserem karty listingu.</div>';
         }
     })();
     </script>
