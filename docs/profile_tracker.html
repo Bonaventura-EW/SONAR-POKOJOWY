@@ -446,6 +446,8 @@
 
         /* ── WERSJE ADRESU (zmiana adresu tego samego listingu OLX) ── */
         .badge-addr { background: rgba(168,85,247,0.12); color: #7c3aed; border: 1px solid rgba(168,85,247,0.3); }
+        /* Odświeżona w ostatnich 24h — ten sam niebieski co badge w lewym górnym rogu pinezki na mapie */
+        .badge-refreshed { background: #1d63d8; color: #fff; }
         .addr-new { color: #0f172a; font-weight: 700; }
         .addr-old { text-decoration: line-through; color: #94a3b8; font-weight: 500; }
         .addr-sub { font-size: 10px; color: #94a3b8; margin-top: 3px; font-weight: 400; }
@@ -1089,6 +1091,19 @@ function buildSparkline(history) {
 }
 
 // ── REFRESH BARS ─────────────────────────────────────────────────────
+// Okno „świeżo odświeżona" — 24h od ostatniego podbicia (bump) na OLX.
+// Ta sama reguła co na mapie głównej (docs/assets/script.js → isRecentlyRefreshed).
+const REFRESH_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function isRecentlyRefreshed(o) {
+    const raw = o && o.last_refresh_date;
+    if (!raw) return false;
+    const ts = new Date(raw).getTime();
+    if (isNaN(ts)) return false;
+    const age = Date.now() - ts;
+    return age >= 0 && age <= REFRESH_WINDOW_MS;
+}
+
 function buildRefreshBars(refreshDates, refreshCount, lastRefreshDate) {
     if (!refreshCount || refreshCount === 0) return '';
 
@@ -1244,6 +1259,13 @@ function buildRow(o) {
 
     const inactiveBadge = !o.active ? '<span class="badge badge-inactive">NIEAKTYWNE</span>' : '';
 
+    // Odświeżona (bump na OLX) w ostatnich 24h — to samo oznaczenie co na mapie.
+    // `last_refresh_date` z profile_generator jest surowym ISO, więc Date() je zjada.
+    const refreshBadge = isRecentlyRefreshed(o)
+        ? '<span class="badge badge-refreshed" title="Podbita na OLX: '
+          + escHtml(o.last_refresh_date) + '">↻ odświeżona</span>'
+        : '';
+
     const trendHtml = trend
         ? '<span style="font-size:10px;margin-left:2px;color:' + trendColor + '">' + trend + '</span>'
         : '';
@@ -1294,7 +1316,7 @@ function buildRow(o) {
         + titleChangeSub
         + (o.title ? '<div class="row-sub"><span class="ic">📝</span> ' + escHtml(o.title) + '</div>' : '')
         + '<div class="row-meta">'
-        + typeBadge + newBadge + reaktBadge + addrBadge + titleBadge + inactiveBadge
+        + typeBadge + newBadge + refreshBadge + reaktBadge + addrBadge + titleBadge + inactiveBadge
         + '<span class="meta-txt">📅 ' + (o.first_seen || '—') + (!o.active && o.last_seen ? ' → ' + o.last_seen : '') + '</span>'
         + '<span class="meta-days ' + daysClass + '">⏳ ' + (o.days_active || 0) + ' dni</span>'
         + '<a class="olx-link" href="' + o.url + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">OLX ↗</a>'

@@ -12,6 +12,8 @@ import time
 import random
 import re
 import json
+import pytz
+from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 from urllib.parse import urljoin, urlparse, parse_qs
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -23,6 +25,76 @@ from address_parser_data import LUBLIN_DISTRICTS
 # "miejscowości" (np. city="Szerokie"). Filtr profili musi je przepuszczać,
 # inaczej oferta znika ze scanu i jej cena nigdy się nie aktualizuje.
 LUBLIN_CITY_NAMES = {'lublin'} | {d.lower() for d in LUBLIN_DISTRICTS}
+
+# === DATA ODŚWIEŻENIA Z KARTY LISTINGU (2026-09-07) ===
+# Karta ogłoszenia niesie w `data-testid="location-date"` albo datę wystawienia
+# ("Lublin - 05 września 2026"), albo datę PODBICIA ("Odświeżono dnia 06
+# września 2026" / "Odświeżono dzisiaj o 07:23"). To JEDYNE źródło bumpów dla
+# ogłoszeń prywatnych — API v1 (`last_refresh_time`) odpytujemy wyłącznie przy
+# skanie profili firmowych, więc do 07.09.2026 odświeżenia znało tylko 109 z 802
+# aktywnych ofert. Strony listingu i tak pobieramy, więc to źródło kosztuje 0
+# dodatkowych requestów (sonda: 70 ze 100 kart niosło datę odświeżenia).
+PL_TZ = pytz.timezone('Europe/Warsaw')
+
+PL_MONTHS = {
+    'stycznia': 1, 'lutego': 2, 'marca': 3, 'kwietnia': 4, 'maja': 5, 'czerwca': 6,
+    'lipca': 7, 'sierpnia': 8, 'września': 9, 'października': 10,
+    'listopada': 11, 'grudnia': 12,
+}
+
+_CARD_REFRESH_TODAY = re.compile(r'odświeżono\s+(?:dzisiaj|dziś)\s+o\s+(\d{1,2}):(\d{2})', re.IGNORECASE)
+_CARD_REFRESH_YESTERDAY = re.compile(r'odświeżono\s+wczoraj\s+o\s+(\d{1,2}):(\d{2})', re.IGNORECASE)
+_CARD_REFRESH_DATE = re.compile(
+    r'odświeżono\s+dnia\s+(\d{1,2})\s+([^\W\d_]+)\s+(\d{4})', re.IGNORECASE)
+
+
+def parse_listing_refresh(text: str, now: datetime = None) -> str:
+    """Data podbicia z tekstu karty listingu → ISO (strefa Europe/Warsaw).
+
+    Zwraca '' dla kart BEZ odświeżenia (sama data wystawienia) — brak "Odświeżono"
+    znaczy, że oferty nikt nie podbijał, a nie że nie znamy daty.
+
+    Karta z poprzedniej doby podaje samą datę, bez godziny. Przyjmujemy wtedy
+    KONIEC tamtej doby (23:59), bo taki wpis widzimy dopiero, gdy bump wypadł
+    po ostatnim skanie dnia (skany: 8:00/15:00/21:00) — czyli realnie wieczorem.
+    Przyjęcie północy gasiłoby oznaczenie „odświeżona w ostatnich 24h" jeszcze
+    zanim minie doba od podbicia. Bump z godziną łapiemy dokładnie tego samego
+    dnia, a `_track_refresh` nie nadpisuje daty w obrębie doby, więc dokładny
+    znacznik nigdy nie zostanie zastąpiony tym przybliżeniem.
+    """
+    if not text:
+        return ''
+    now = now or datetime.now(PL_TZ)
+
+    m = _CARD_REFRESH_TODAY.search(text)
+    if m:
+        return _iso_at(now, int(m.group(1)), int(m.group(2)))
+
+    m = _CARD_REFRESH_YESTERDAY.search(text)
+    if m:
+        return _iso_at(now - timedelta(days=1), int(m.group(1)), int(m.group(2)))
+
+    m = _CARD_REFRESH_DATE.search(text)
+    if m:
+        month = PL_MONTHS.get(m.group(2).lower())
+        if not month:
+            return ''
+        try:
+            day_naive = datetime(int(m.group(3)), month, int(m.group(1)), 23, 59)
+        except ValueError:
+            return ''
+        return PL_TZ.localize(day_naive).isoformat()
+
+    return ''
+
+
+def _iso_at(day: datetime, hour: int, minute: int) -> str:
+    """ISO dla godziny HH:MM w dniu `day` (strefa PL)."""
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        return ''
+    naive = datetime(day.year, day.month, day.day, hour, minute)
+    return PL_TZ.localize(naive).isoformat()
+
 
 # === IMPERSONACJA TLS (2026-08-11) ===
 # WAF OLX (AWS CloudFront) tnie po TLS fingerprincie (JA3), nie po IP:
@@ -268,6 +340,26 @@ class OLXScraper:
             return False
         return bool(container.find(attrs={'data-testid': 'adCard-featured'}))
 
+    @staticmethod
+    def _extract_card_refresh(container) -> str:
+        """Data podbicia z karty listingu (`data-testid="location-date"`) → ISO.
+
+        Zwraca '' gdy karta nie mówi o odświeżeniu (sama data wystawienia).
+        Element bywa poza kontenerem z tytułem i ceną (OLX przemebluje layout),
+        więc jak go nie ma — szukamy jeszcze w dwóch rodzicach wyżej.
+        """
+        if container is None:
+            return ''
+        node = container
+        for _ in range(3):
+            if node is None:
+                break
+            el = node.find(attrs={'data-testid': 'location-date'})
+            if el:
+                return parse_listing_refresh(el.get_text(' ', strip=True))
+            node = node.find_parent()
+        return ''
+
     def _extract_offers_from_page(self, soup: BeautifulSoup) -> List[Dict]:
         """
         Wyciąga wszystkie oferty z pojedynczej strony.
@@ -346,7 +438,11 @@ class OLXScraper:
                     'title': title,
                     'description_snippet': "",
                     'price_raw': price_raw,
-                    'promoted': promoted
+                    'promoted': promoted,
+                    # Data podbicia z karty — jedyne źródło bumpów dla ogłoszeń
+                    # prywatnych. Dla ofert firmowych nadpisze ją dokładniejszy
+                    # `last_refresh_time` z API v1 (main.py, scalanie profili).
+                    'api_last_refresh': self._extract_card_refresh(container),
                 }
                 offers.append(offer)
                 by_url[clean_url] = offer

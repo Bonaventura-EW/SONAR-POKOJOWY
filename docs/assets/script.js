@@ -5,6 +5,20 @@
 // BEZ klastrowania (każda oferta to nadal osobny punkt).
 // Kształty (kropla / kwadrat), kolory cen, badge N / ↓↑ / × bez zmian.
 
+// Okno „świeżo odświeżona" — oferta podbita na OLX w ciągu ostatnich 24 godzin
+// dostaje niebieski znacznik w LEWYM górnym rogu pinezki. Okno przesuwne
+// (teraz − 24h), liczone przy każdym renderze mapy.
+const REFRESH_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+// Czy oferta była odświeżona (bump na OLX) w ostatnich 24h?
+// `last_refresh` to znacznik ostatniego podbicia w formacie PL z map_generator.
+function isRecentlyRefreshed(offer) {
+    const ts = parsePolishDate(offer && offer.last_refresh);
+    if (!ts) return false;
+    const age = Date.now() - ts.getTime();
+    return age >= 0 && age <= REFRESH_WINDOW_MS;
+}
+
 // Helper: parsowanie daty z formatu polskiego "DD.MM.YYYY HH:MM"
 function parsePolishDate(str) {
     if (!str) return null;
@@ -153,12 +167,56 @@ function _drawCornerBadge(ctx, cx, cy, o) {
     }
 }
 
+// Badge odświeżenia w LEWYM górnym rogu — niebieskie kółko z dwiema strzałkami
+// w obiegu (bump/podbicie na OLX w ostatnich 24h). Osobny róg, bo prawy zajmuje
+// badge zmiany ceny, a 2/3 odświeżanych ofert ma jednocześnie zmianę ceny —
+// przy jednym rogu podbicie byłoby niewidoczne właśnie tam, gdzie dzieje się
+// najwięcej.
+function _drawRefreshBadge(ctx, cx, cy, R) {
+    if (ctx.setLineDash) ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.fillStyle = '#1d63d8';
+    ctx.fill();
+    ctx.lineWidth = R * 0.22;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+
+    // Dwa łuki z grotami — symbol „w obiegu"
+    ctx.strokeStyle = '#ffffff';
+    ctx.fillStyle = '#ffffff';
+    ctx.lineWidth = R * 0.2;
+    ctx.lineCap = 'butt';
+    const r = R * 0.46, tip = R * 0.32;
+    _drawArcArrow(ctx, cx, cy, r, Math.PI * 0.18, Math.PI * 0.96, tip);
+    _drawArcArrow(ctx, cx, cy, r, Math.PI * 1.18, Math.PI * 1.96, tip);
+}
+
+// Łuk zakończony trójkątnym grotem stycznym do okręgu (kierunek: rosnący kąt).
+function _drawArcArrow(ctx, cx, cy, r, a0, a1, size) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, a0, a1);
+    ctx.stroke();
+    ctx.save();
+    ctx.translate(cx + r * Math.cos(a1), cy + r * Math.sin(a1));
+    ctx.rotate(a1 + Math.PI / 2);
+    ctx.beginPath();
+    ctx.moveTo(size, 0);
+    ctx.lineTo(-size * 0.15, -size * 0.9);
+    ctx.lineTo(-size * 0.15, size * 0.9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+}
+
 // KROPLA 40×50 — dokładny adres (precision: exact). Ostrze pinezki = współrzędne.
 const PinMarker = L.CircleMarker.extend({
     _updateBounds: function () {
         const p = this._point;
-        // od ostrza w górę (bąbel) + margines na badge w prawym-górnym rogu
-        this._pxBounds = new L.Bounds(p.add(L.point(-22, -60)), p.add(L.point(28, 4)));
+        // od ostrza w górę (bąbel) + margines na badge w OBU górnych rogach
+        // (prawy: cena/N, lewy: odświeżenie). Za wąskie bounds ucinają badge
+        // przy panoramowaniu — Leaflet pomija rysowanie kształtu poza nimi.
+        this._pxBounds = new L.Bounds(p.add(L.point(-30, -60)), p.add(L.point(28, 4)));
     },
     _updatePath: function () {
         const r = this._renderer;
@@ -179,6 +237,7 @@ const PinMarker = L.CircleMarker.extend({
         const o = this.options;
         _drawInnerGlyph(ctx, x, y - 32, o._inactiveShape ? 9 : 8, o._inactiveShape);
         _drawCornerBadge(ctx, x + 17, y - 47, o);
+        if (o.isRefreshed) _drawRefreshBadge(ctx, x - 17, y - 47, 9);
     },
     _containsPoint: function (p) {
         // klikalny obszar = bąbel pinezki (środek ≈ ostrze − 30px), ostry ogon nieklikalny
@@ -192,7 +251,8 @@ const PinMarker = L.CircleMarker.extend({
 const SquareMarker = L.CircleMarker.extend({
     _updateBounds: function () {
         const p = this._point;
-        this._pxBounds = new L.Bounds(p.add(L.point(-19, -22)), p.add(L.point(22, 19)));
+        // Lewy margines na badge odświeżenia (środek -14, promień 9 → -23).
+        this._pxBounds = new L.Bounds(p.add(L.point(-26, -22)), p.add(L.point(22, 19)));
     },
     _updatePath: function () {
         const r = this._renderer;
@@ -214,6 +274,7 @@ const SquareMarker = L.CircleMarker.extend({
             ctx.fillText('×', x, y + 1);
         }
         _drawCornerBadge(ctx, x + 14, y - 14, o);
+        if (o.isRefreshed) _drawRefreshBadge(ctx, x - 14, y - 14, 9);
     },
     _containsPoint: function (p) {
         const d = p.subtract(this._point);
@@ -698,6 +759,9 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
         // Sprawdź czy oferta jest nowa (z ostatniego skanu)
         const isNew = offer.is_new === true;
         
+        // Odświeżona (bump na OLX) w ostatnich 24h — badge w lewym górnym rogu
+        const isRefreshed = isRecentlyRefreshed(offer);
+
         // Sprawdź czy cena się zmieniła
         const hasPriceChange = offer.previous_price && offer.price_trend;
         const priceUp = offer.price_trend === 'up';
@@ -739,7 +803,8 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
             isNewFlag: isNew && !hasPriceChange,   // N tylko gdy brak badge zmiany ceny (jak na mapie głównej)
             hasPriceChange: hasPriceChange,
             priceDown: priceDown,
-            priceUp: priceUp
+            priceUp: priceUp,
+            isRefreshed: isRefreshed               // lewy górny róg, niezależny od pozostałych
         };
         let markerObj;
         if (isApprox) {
@@ -792,6 +857,7 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
             primaryTag: offer.tags ? offer.tags.primary : 'pokoj',  // B1: Tag główny
             // Flagi oznaczeń pinezek (do filtrowania legendy)
             isNew: isNew,
+            isRefreshed: isRefreshed,
             priceDown: hasPriceChange && priceDown,
             priceUp: hasPriceChange && priceUp,
             isFirmOffer: isFirmOffer,
@@ -961,6 +1027,15 @@ function createPopupContent(address, offers) {
             html += `<div class="offer-price ${isActive ? '' : 'inactive'}">💰 ${offer.price} zł</div>`;
         }
         
+        // Odświeżenie (bump na OLX) — świeże wyróżnione, starsze jako sucha data
+        if (offer.last_refresh) {
+            const fresh = isRecentlyRefreshed(offer);
+            const count = offer.refresh_count ? ` · łącznie ${offer.refresh_count}×` : '';
+            html += `<div style="font-size:0.9em;margin-top:4px;color:${fresh ? '#1d63d8' : '#666'};`
+                 + `${fresh ? 'font-weight:600;' : ''}">`
+                 + `🔄 Odświeżono: ${escapeHtml(offer.last_refresh)}${count}</div>`;
+        }
+
         // Historia cen (pełna)
         if (offer.price_history && offer.price_history.length > 1) {
             const history = offer.price_history.map(p => p + ' zł').join(' → ');
@@ -1250,6 +1325,7 @@ function filterMarkers() {
     const showPriceUp = document.getElementById('badge-filter-price-up')?.checked ?? true;
     const showNew = document.getElementById('badge-filter-new')?.checked ?? true;
     const showUnchanged = document.getElementById('badge-filter-unchanged')?.checked ?? true;
+    const showRefreshed = document.getElementById('badge-filter-refreshed')?.checked ?? true;
     
     // NOWY: Filtr czasowy
     const timeFilter = document.getElementById('time-filter').value;
@@ -1305,13 +1381,14 @@ function filterMarkers() {
         
         // Filtr oznaczeń pinezek (OR) - oferty bez badge'a filtrowane przez "Bez zmian"
         if (visible) {
-            const hasAnyBadge = item.isNew || item.priceDown || item.priceUp;
+            const hasAnyBadge = item.isNew || item.priceDown || item.priceUp || item.isRefreshed;
             if (hasAnyBadge) {
                 // Pokaż, jeśli CHOĆ JEDNO z oznaczeń pinezki jest zaznaczone w legendzie
                 const passes =
                     (item.isNew && showNew) ||
                     (item.priceDown && showPriceDown) ||
-                    (item.priceUp && showPriceUp);
+                    (item.priceUp && showPriceUp) ||
+                    (item.isRefreshed && showRefreshed);
                 if (!passes) visible = false;
             } else {
                 // Oferta bez żadnego badge'a - widoczna tylko gdy "Bez zmian" jest zaznaczone
@@ -1934,7 +2011,7 @@ function setupEventListeners() {
     });
     
     // Filtry oznaczeń pinezek (legenda)
-    ['badge-filter-price-down', 'badge-filter-price-up', 'badge-filter-new', 'badge-filter-unchanged']
+    ['badge-filter-price-down', 'badge-filter-price-up', 'badge-filter-new', 'badge-filter-refreshed', 'badge-filter-unchanged']
         .forEach(id => {
             const el = document.getElementById(id);
             if (el) el.addEventListener('change', filterMarkers);
@@ -2142,6 +2219,7 @@ function updatePriceRangeCounts() {
     const showPriceUp = document.getElementById('badge-filter-price-up')?.checked ?? true;
     const showNew = document.getElementById('badge-filter-new')?.checked ?? true;
     const showUnchanged = document.getElementById('badge-filter-unchanged')?.checked ?? true;
+    const showRefreshed = document.getElementById('badge-filter-refreshed')?.checked ?? true;
 
     const timeFilter = document.getElementById('time-filter')?.value || 'all';
     let cutoffDate = null;
@@ -2172,12 +2250,13 @@ function updatePriceRangeCounts() {
         if (tag === 'mieszkanie' && !showMieszkanie) return;
         
         // Filtr oznaczeń pinezek (OR) - oferty bez badge'a filtrowane przez "Bez zmian"
-        const hasAnyBadge = item.isNew || item.priceDown || item.priceUp;
+        const hasAnyBadge = item.isNew || item.priceDown || item.priceUp || item.isRefreshed;
         if (hasAnyBadge) {
             const passes =
                 (item.isNew && showNew) ||
                 (item.priceDown && showPriceDown) ||
-                (item.priceUp && showPriceUp);
+                (item.priceUp && showPriceUp) ||
+                (item.isRefreshed && showRefreshed);
             if (!passes) return;
         } else {
             if (!showUnchanged) return;
@@ -2258,7 +2337,7 @@ function updateBadgeCounts() {
 
     const searchTerm = (document.getElementById('search-input')?.value || '').toLowerCase();
 
-    const counts = { priceDown: 0, priceUp: 0, isNew: 0, unchanged: 0 };
+    const counts = { priceDown: 0, priceUp: 0, isNew: 0, refreshed: 0, unchanged: 0 };
 
     allMarkers.forEach(item => {
         // Filtr warstw (aktywne/nieaktywne/przybliżone/firmy) - wspólny helper
@@ -2305,9 +2384,12 @@ function updateBadgeCounts() {
         if (item.priceDown && priceChangeInRange) counts.priceDown++;
         if (item.priceUp && priceChangeInRange) counts.priceUp++;
         if (item.isNew && firstSeenInRange) counts.isNew++;
-        
-        // "Bez zmian" - oferta nie ma żadnego z trzech badge'y
-        const hasAnyBadge = item.isNew || item.priceDown || item.priceUp;
+        // Odświeżenia mają WŁASNE okno (24h od bumpu), więc nie filtrujemy ich
+        // dodatkowo oknem czasowym mapy — inaczej licznik kłamałby przy "Ostatnie 24h".
+        if (item.isRefreshed) counts.refreshed++;
+
+        // "Bez zmian" - oferta nie ma żadnego z czterech badge'y
+        const hasAnyBadge = item.isNew || item.priceDown || item.priceUp || item.isRefreshed;
         if (!hasAnyBadge) counts.unchanged++;
     });
     
@@ -2319,6 +2401,7 @@ function updateBadgeCounts() {
     setText('badge-count-price-down', counts.priceDown);
     setText('badge-count-price-up', counts.priceUp);
     setText('badge-count-new', counts.isNew);
+    setText('badge-count-refreshed', counts.refreshed);
     setText('badge-count-unchanged', counts.unchanged);
 }
 

@@ -616,7 +616,8 @@ class SonarPokojowy:
             'profile_name': raw_offer.get('profile_name'),  # None lub klucz profilu firmowego
             'offer_type': raw_offer.get('offer_type'),  # 'pokoj'/'mieszkanie'/'inne'
             'city': raw_offer.get('city', ''),  # miasto z API OLX
-            # Śledzenie odświeżeń (bump) i reaktywacji — tylko dla ofert firmowych
+            # Śledzenie odświeżeń (bump) i reaktywacji — dla WSZYSTKICH ofert
+            # (źródło: karta listingu, dla firmowych dokładniejsze API v1)
             'refresh_count': 0,          # ile razy odświeżono (max 1/dzień)
             'refresh_dates': [],         # lista dat odświeżeń ['YYYY-MM-DD', ...]
             'last_refresh_date': raw_offer.get('api_last_refresh', ''),
@@ -725,15 +726,24 @@ class SonarPokojowy:
         return difflib.SequenceMatcher(None, o_st, n_st).ratio() < 0.75
     
     def _track_refresh(self, existing: Dict, new_refresh: str) -> bool:
-        """Rejestruje odświeżenie (bump/pushup) oferty firmowej — max 1/dzień.
+        """Rejestruje odświeżenie (bump/pushup) oferty — max 1/dzień.
 
-        `new_refresh` = data ostatniego pushup/odświeżenia z API OLX
-        (api_last_refresh, format ISO). Działa dla dwóch wywołań:
-        pełnej aktualizacji (_update_existing_offer) oraz ofert pominiętych
-        przez inteligentne skanowanie (_mark_inactive_offers), więc bump bez
-        zmiany ceny też jest łapany. Zwraca True gdy dodano nową datę.
+        `new_refresh` = data ostatniego pushup/odświeżenia w formacie ISO. Dwa
+        źródła: `last_refresh_time` z API v1 (dokładny znacznik, tylko profile
+        firmowe) oraz tekst karty listingu (`scraper.parse_listing_refresh`),
+        który mają WSZYSTKIE oferty — także prywatne. Do 07.09.2026 metoda
+        wychodziła tu na `profile_name`, więc bumpy znało 109 z 802 aktywnych
+        ofert; teraz zna je cała baza.
+
+        Działa dla dwóch wywołań: pełnej aktualizacji (_update_existing_offer)
+        oraz ofert pominiętych przez inteligentne skanowanie
+        (_mark_inactive_offers), więc bump bez zmiany ceny też jest łapany.
+        W obrębie doby daty NIE nadpisujemy — pierwszy znacznik dnia wygrywa,
+        dzięki czemu dokładna godzina z API/karty nie zostanie zastąpiona
+        przybliżeniem 23:59 z karty oglądanej nazajutrz. Zwraca True gdy
+        dodano nową datę.
         """
-        if not new_refresh or not existing.get('profile_name'):
+        if not new_refresh:
             return False
         try:
             new_refresh_date = new_refresh[:10]  # 'YYYY-MM-DD'
@@ -1551,8 +1561,9 @@ class SonarPokojowy:
                         if r['url'].split('?')[0] == clean_url:
                             r['profile_key'] = p_offer['profile_key']
                             r['profile_name'] = p_offer['profile_name']
-                            # Regular scan (HTML) nie zna api_last_refresh — przenieś z API v1,
-                            # inaczej skipped oferty firmowe nie mają skąd wziąć daty bumpu
+                            # Regular scan zna datę podbicia tylko z karty listingu
+                            # (dobowa dokładność sprzed dziś). API v1 podaje dokładny
+                            # znacznik z godziną, więc dla ofert firmowych wygrywa.
                             if p_offer.get('api_last_refresh'):
                                 r['api_last_refresh'] = p_offer['api_last_refresh']
                             if p_offer.get('api_created') and not r.get('api_created'):
