@@ -1835,6 +1835,37 @@ function parseAnyDate(s) {
     if (m) return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)).getTime();
     return null;
 }
+
+// ── ZNACZNIKI CZASU ZDARZEŃ ─ start (blok czytany przez test_refresh_signals.py) ──
+// PUŁAPKA, która kosztowała nas cały sygnał 🔄: `refresh_dates` to DNI
+// ('YYYY-MM-DD'), a `reactivation_dates` w profile_data ma 'DD.MM.YYYY' —
+// jedno i drugie parsuje się na PÓŁNOC. Podbicie z dnia, w którym Mateusz był
+// na stronie, wypadało więc PRZED wizytą (00:00 < 08:18) i zakładka nie
+// dostawała plakietki, choć lista ofert pokazywała „↻ odświeżona" — bo ta
+// czyta `last_refresh_date` z godziną. Podbicie z dnia wizyty było przez to
+// niewidzialne NA ZAWSZE: data w liście nigdy nie dostanie godziny wstecz.
+// Dokładny znacznik OSTATNIEGO zdarzenia mamy w danych: `last_refresh_date`
+// (ISO, aktualizowany razem z ostatnim dniem w `refresh_dates`) oraz
+// `reactivation_dates_iso` (surowe ISO z generatora). Starsze dni zostają na
+// północy — i tak są całymi dniami przed wizytą, więc godzina nic nie zmienia.
+function refreshTimes(o) {
+    const dates = (o && o.refresh_dates) || [];
+    const raw = (o && o.last_refresh_date) || '';
+    const iso = raw ? new Date(raw).getTime() : NaN;
+    const day = raw.slice(0, 10);
+    // Uwaga: `last_refresh_date` bywa wypełniony przy ofercie z PUSTĄ listą dni
+    // (znacznik z pierwszego widzenia sprzed śledzenia bumpów) — nie wolno go
+    // dokładać jako zdarzenia, stąd mapowanie po `refresh_dates`, nie union.
+    return dates
+        .map(d => (d === day && !isNaN(iso)) ? iso : parseAnyDate(d))
+        .filter(Boolean);
+}
+function reactivationTimes(o) {
+    const iso = (o && o.reactivation_dates_iso) || [];
+    const src = iso.length ? iso : ((o && o.reactivation_dates) || []);
+    return src.map(parseAnyDate).filter(Boolean);
+}
+// ── ZNACZNIKI CZASU ZDARZEŃ ─ koniec ──
 function shortDate(ts) {
     const d = new Date(ts);
     return String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
@@ -1860,8 +1891,8 @@ function lastActivityTs(o) {
         parseAnyDate(o.address_changed_at),
         parseAnyDate(((o.price_history || []).at(-1) || {}).date)
     ];
-    (o.refresh_dates || []).forEach(d => ts.push(parseAnyDate(d)));
-    (o.reactivation_dates || []).forEach(d => ts.push(parseAnyDate(d)));
+    refreshTimes(o).forEach(t => ts.push(t));
+    reactivationTimes(o).forEach(t => ts.push(t));
     const known = ts.filter(Boolean);
     return known.length ? Math.max.apply(null, known) : 0;
 }
@@ -1899,13 +1930,12 @@ function computeSignals(prof, since) {
             });
         }
 
-        (o.reactivation_dates || []).forEach(d => {
-            const t = parseAnyDate(d);
-            if (t && t > since) S.powrot.push({ a: addr, m: shortDate(t), t: t });
+        reactivationTimes(o).forEach(t => {
+            if (t > since) S.powrot.push({ a: addr, m: shortDate(t), t: t });
         });
 
         // Podbicia liczymy w ZDARZENIACH, nie ofertach (refresh_dates to dni).
-        const refr = (o.refresh_dates || []).map(parseAnyDate).filter(t => t && t > since);
+        const refr = refreshTimes(o).filter(t => t > since);
         if (refr.length) {
             const lastR = Math.max.apply(null, refr);
             S.podbicia.push({
