@@ -209,10 +209,19 @@ def build_series(offers, base_dir=None):
 
     Gdy pliku nie ma (świeży klon, repo-brat bez historii), spadamy na starą
     rekonstrukcję — z jej znanym zawyżeniem przeszłości.
+
+    Doba w toku (mniej niż komplet zaplanowanych skanów, patrz
+    index_history.incomplete_days) idzie do serii jako `None` — nie zdążyła
+    jeszcze złapać dziennego szczytu, więc jej punkt leżałby poniżej sąsiadów i
+    rysował fałszywy zjazd na prawej krawędzi. `None` propaguje się dalej sam:
+    _unscanned_days wyłącza taki dzień z odpływu/napływu, compute_deltas pomija
+    go przy 1D, a bilans pasm czyta go jako lukę.
     """
     measured = measured_series(base_dir)
     if measured:
-        return [[_day_ms(day), value] for day, value in measured]
+        incomplete = index_history.incomplete_days(base_dir)
+        return [[_day_ms(day), None if day in incomplete else value]
+                for day, value in measured]
     return build_series_reconstructed(offers)
 
 

@@ -9,6 +9,14 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Indeks: doba w toku (niepełne skany) maskowana jako luka (2026-09-10)
+- **propagacja z repo-brata** SONAR-MIESZKANIOWY (issue #143, manifest `2026-09-04-trend-charts-audit`, commit `625229d`). U brata trwająca doba rysowała się jak zamknięta i dawała fałszywy „1D −78" mimo rosnącego rynku.
+- **problem u nas**: `index_history.daily_series()` zwracała wartość dnia niezależnie od tego, czy zakończyły się wszystkie 3 zaplanowane skany (9/15/21 CEST). Przy konwencji `active = maksimum z odczytów` doba, która ma za sobą 1 z 3 skanów, nie złapała jeszcze dziennego szczytu → jej punkt leży poniżej sąsiadów. Docstring zakładał, że „przesunięcie jest w każdym dniu takie samo" — dane temu przeczą (liczba skanów/dobę waha się 1–9), a niedomiar jest największy właśnie na dobie bieżącej.
+- **fix**: `index_history.EXPECTED_SCANS_PER_DAY = 3` + `incomplete_days()` — dni z pokryciem < pełnego kompletu. `trend_generator.build_series` maskuje je jako `None`; reszta propaguje się przez istniejącą maszynerię luk (`_unscanned_days` wyłącza dobę z odpływu/napływu/pasm, `compute_deltas` pomija ją przy 1D, front rysuje przerwę). **Dni `backfilled` pomijamy** — tam `scans` liczy rewizje gita, nie realne przebiegi.
+- **różnica wobec brata**: brat liczył Indeks z rekonstrukcji `last_seen`; my z MIERZONEGO `index_history.json`, więc maska działa u nas na `scans`/dobę (PLAN 3/dobę), nie na sztywnych godzinach skanu. Pozostałe trzy błędy z audytu brata **nie dotyczą nas**: bilans odpływ/napływ domknięty od 2026-09-03 (`deactivation_dates`), a `gap_h // 24` u nas nie istnieje (trzymamy pełne ISO dat, nie różnice godzin).
+- **efekt na dziś**: zerowy — ostatnia doba (09.09) ma komplet skanów, output `trend_data.json` bez zmian. Fix uśpiony do pierwszej niepełnej doby na krawędzi wykresu.
+- **testy**: `test_trend_index.py` +2 przypadki (6b: doba w toku = luka, 1D porównuje domknięte doby; 6c: backfilled z <3 skanami zostaje na wykresie). Cały zestaw zielony.
+
 ### Podbicie z dnia Twojej wizyty nie zapalało plakietki 🔄 na zakładce firmy (2026-09-08)
 - **zgłoszenie Mateusza**: „dzisiaj w profilu MAT był odświeżone pokoje a nie pojawiła się ikona przy nazwie że są odświeżenia".
 - **diagnoza — jedna data, dwa formaty**: sygnały „od Twojej ostatniej wizyty" liczyły podbicia z `refresh_dates`, czyli z listy DNI (`'2026-09-08'`). `parseAnyDate` daje z tego **północ**, a znacznik wizyty ze zrzutu to 08.09 **08:18** — więc `00:00 > 08:18` jest fałszem i trzy realne podbicia MAT-a z **08:21** nie istniały dla plakietki. Ta sama lista ofert pokazywała przy nich „↻ odświeżona", bo ten badge czyta `last_refresh_date`, czyli ISO **z godziną**. Stąd sprzeczność na jednym ekranie: badge tak, ikona na zakładce nie.
