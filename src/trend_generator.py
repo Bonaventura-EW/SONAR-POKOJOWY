@@ -394,7 +394,11 @@ def build_outflow(offers, series=None):
                 gone = [_d(o['last_seen'])]
             except (ValueError, TypeError):
                 gone = []
-        for d in gone:
+        # Dedup per (oferta, dzień): jedna oferta może wypaść z listingu dwa razy
+        # tego samego dnia (skan poranny i wieczorny, między nimi reaktywacja) —
+        # to szum skanowania, nie dwie oferty. Metryka liczy OFERTY, tak jak
+        # suwak "Zniknięcia" na mapie, gdzie jedna oferta to jeden marker.
+        for d in sorted(set(gone)):
             if d >= start:
                 dep[d] = dep.get(d, 0) + 1
 

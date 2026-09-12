@@ -141,6 +141,33 @@ function _drawInnerGlyph(ctx, cx, cy, r, inactive) {
     }
 }
 
+// Oferta dziś AKTYWNA, ale w trybie "Zniknięcia" pokazana dlatego, że wybranego
+// dnia wypadła z listingu i później wróciła. Rysujemy ją jak zniknięcie (krzyżyk ×)
+// + plakietka ↻, inaczej wyglądałaby jak zwykła aktywna oferta i nie dałoby się
+// odróżnić powodu, dla którego jest na mapie. Stan czytany przy KAŻDYM rysowaniu
+// kształtu (nie zamrożony w opcjach), bo tryb włącza się i wyłącza w locie.
+function _isReactivatedInGoneMode(o) {
+    return goneSliderState.enabled && !o._inactiveShape && o._hasGoneDays;
+}
+
+// Plakietka reaktywacji — zielone kółko ze strzałką w obiegu, PRAWY DOLNY róg
+// (prawy górny zajmuje cena, lewy górny odświeżenie).
+function _drawReactBadge(ctx, cx, cy, R) {
+    if (ctx.setLineDash) ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.fillStyle = '#0e8f63';
+    ctx.fill();
+    ctx.lineWidth = R * 0.24;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 ' + Math.round(R * 1.5) + 'px -apple-system, Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('\u21bb', cx, cy + 0.5);
+}
+
 // Badge w prawym-górnym rogu. Priorytet: zmiana ceny (↓/↑ w kółku) > nowa (N).
 // Odpowiednik "💲↓" / "N" z mapy głównej — na canvasie czytelniejszy jako kółko.
 function _drawCornerBadge(ctx, cx, cy, o) {
@@ -235,9 +262,12 @@ const PinMarker = L.CircleMarker.extend({
         ctx.closePath();
         r._fillStroke(ctx, this);                        // wypełnienie + obwódka wg options
         const o = this.options;
-        _drawInnerGlyph(ctx, x, y - 32, o._inactiveShape ? 9 : 8, o._inactiveShape);
+        const reactivated = _isReactivatedInGoneMode(o);
+        const cross = o._inactiveShape || reactivated;
+        _drawInnerGlyph(ctx, x, y - 32, cross ? 9 : 8, cross);
         _drawCornerBadge(ctx, x + 17, y - 47, o);
         if (o.isRefreshed) _drawRefreshBadge(ctx, x - 17, y - 47, 9);
+        if (reactivated) _drawReactBadge(ctx, x + 15, y - 16, 9);
     },
     _containsPoint: function (p) {
         // klikalny obszar = bąbel pinezki (środek ≈ ostrze − 30px), ostry ogon nieklikalny
@@ -251,8 +281,9 @@ const PinMarker = L.CircleMarker.extend({
 const SquareMarker = L.CircleMarker.extend({
     _updateBounds: function () {
         const p = this._point;
-        // Lewy margines na badge odświeżenia (środek -14, promień 9 → -23).
-        this._pxBounds = new L.Bounds(p.add(L.point(-26, -22)), p.add(L.point(22, 19)));
+        // Lewy margines na badge odświeżenia (środek -14, promień 9 → -23),
+        // prawy/dolny na plakietkę reaktywacji (środek +14, promień 9 → +23).
+        this._pxBounds = new L.Bounds(p.add(L.point(-26, -22)), p.add(L.point(27, 27)));
     },
     _updatePath: function () {
         const r = this._renderer;
@@ -265,7 +296,8 @@ const SquareMarker = L.CircleMarker.extend({
         r._fillStroke(ctx, this);                        // wypełnienie + przerywana obwódka (_dashArray)
         if (ctx.setLineDash) ctx.setLineDash([]);
         const o = this.options;
-        if (o._inactiveShape) {
+        const reactivated = _isReactivatedInGoneMode(o);
+        if (o._inactiveShape || reactivated) {
             ctx.font = '700 22px -apple-system, Segoe UI, sans-serif';
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(0,0,0,0.5)';
@@ -275,6 +307,7 @@ const SquareMarker = L.CircleMarker.extend({
         }
         _drawCornerBadge(ctx, x + 14, y - 14, o);
         if (o.isRefreshed) _drawRefreshBadge(ctx, x - 14, y - 14, 9);
+        if (reactivated) _drawReactBadge(ctx, x + 14, y + 14, 9);
     },
     _containsPoint: function (p) {
         const d = p.subtract(this._point);
@@ -308,11 +341,14 @@ let dateSliderState = {
     selectedIndex: -1    // indeks aktualnie wybranego dnia w days[]
 };
 
-// Filtr daty zniknięcia (last_seen nieaktywnych ofert)
+// Filtr daty zniknięcia (gone_days — dni wypadnięcia z listingu, patrz _gone_days
+// w src/map_generator.py). Obejmuje TAKŻE oferty dziś aktywne: reaktywacja nie
+// kasuje faktu, że danego dnia oferta z listingu zniknęła.
 let goneSliderState = {
     enabled: false,
-    days: [],            // posortowana tablica Date last_seen nieaktywnych
+    days: [],            // posortowana tablica Date (ciągła oś dni)
     countsPerDay: {},    // "YYYY-MM-DD" -> liczba ofert które zniknęły tego dnia
+    reactPerDay: {},     // "YYYY-MM-DD" -> ile z nich wróciło (jest dziś aktywna)
     selectedIndex: -1
 };
 
@@ -556,8 +592,8 @@ function calculateFilteredStats() {
     // Funkcja pomocnicza sprawdzająca czy oferta spełnia kryteria czasowe
     function passesTimeFilter(offer) {
         if (!cutoffDate) return true;
-        // Tryb "Zniknięcia": nieaktywne nie podlegają oknu N dni (patrz isTimeFilterExempt)
-        if (isTimeFilterExempt(offer.active)) return true;
+        // Tryb "Zniknięcia": okno N dni nie obowiązuje (patrz isTimeFilterExempt)
+        if (isTimeFilterExempt()) return true;
 
         // DOKŁADNIE ten sam warunek co w filterMarkers: first_seen LUB price_changed_at
         // w oknie. Wcześniej liczyło się tylko first_seen, więc oferta ze świeżą zmianą
@@ -800,6 +836,7 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
             bubblingMouseEvents: false,
             // dane do rysowania badge / krzyżyka na canvasie
             _inactiveShape: !isActive,
+            _hasGoneDays: (offer.gone_days || []).length > 0,   // patrz _isReactivatedInGoneMode
             isNewFlag: isNew && !hasPriceChange,   // N tylko gdy brak badge zmiany ceny (jak na mapie głównej)
             hasPriceChange: hasPriceChange,
             priceDown: priceDown,
@@ -1398,7 +1435,7 @@ function filterMarkers() {
         
         // Filtr czasowy - uwzględnia first_seen ORAZ price_changed_at
         // Oferta przechodzi gdy KTÓRAKOLWIEK z dat mieści się w zakresie
-        if (visible && cutoffDate && !isTimeFilterExempt(item.isActive)) {
+        if (visible && cutoffDate && !isTimeFilterExempt()) {
             const firstSeenOk = item.firstSeenDate && item.firstSeenDate >= cutoffDate;
             const priceChangedOk = item.priceChangedAtDate && item.priceChangedAtDate >= cutoffDate;
             if (!firstSeenOk && !priceChangedOk) {
@@ -1411,8 +1448,8 @@ function filterMarkers() {
             visible = false;
         }
 
-        // Filtr daty zniknięcia — dotyczy nieaktywnych ofert
-        if (visible && !item.isActive && goneSliderState.enabled) {
+        // Filtr daty zniknięcia — dotyczy WSZYSTKICH ofert (także reaktywowanych)
+        if (visible && goneSliderState.enabled) {
             if (!passesGoneSliderFilter(item.originalOffer || {})) {
                 visible = false;
             }
@@ -1771,24 +1808,25 @@ function passesDaySliderFilter(firstSeenDate) {
 // NIE dotyczy ofert nieaktywnych — oferta mogła zostać dodana pół roku temu, a zniknąć
 // wczoraj. Bez tego wyjątku wybrany dzień odpływu pokazywał tylko te zniknięcia, które
 // zdążyły się też POJAWIĆ w oknie N dni (27 zniknięć na wykresie → 2 markery na mapie).
-function isTimeFilterExempt(isActive) {
-    return goneSliderState.enabled && !isActive;
+function isTimeFilterExempt() {
+    return goneSliderState.enabled;
 }
 
-// Sprawdź czy oferta (nieaktywna) przeszła przez filtr daty zniknięcia
+// Dni zniknięcia oferty ("YYYY-MM-DD") — pole z data.json, patrz _gone_days
+// w src/map_generator.py. Pusta lista = oferta nigdy nie wypadła z listingu.
+function goneDaysOf(offer) {
+    return offer.gone_days || [];
+}
+
+// Sprawdź czy oferta zniknęła w dniu wybranym na suwaku.
+// Dotyczy WSZYSTKICH ofert, także dziś aktywnych (reaktywowanych) — inaczej
+// mapa gubiłaby te zniknięcia, które wykres odpływu liczy (10 z 31 dnia 10.09).
 function passesGoneSliderFilter(offer) {
     if (!goneSliderState.enabled) return true;
-    // Filtr dotyczy tylko nieaktywnych
-    if (offer.active) return true;
-    const lastSeenDate = parsePolishDate(offer.last_seen);
-    if (!lastSeenDate) return false;
     const idx = goneSliderState.selectedIndex;
     const days = goneSliderState.days;
     if (idx < 0 || idx >= days.length) return true;
-    const selected = days[idx];
-    return lastSeenDate.getFullYear() === selected.getFullYear() &&
-           lastSeenDate.getMonth() === selected.getMonth() &&
-           lastSeenDate.getDate() === selected.getDate();
+    return goneDaysOf(offer).includes(dayKey(days[idx]));
 }
 
 // Pierwszy wiarygodny dzień odpływu — MUSI być zgodny z RELIABLE_START
@@ -1802,15 +1840,16 @@ function initGoneSlider() {
     const slider = document.getElementById('date-gone-slider');
     if (!enableCb || !slider) return;
 
-    // Zbierz daty last_seen nieaktywnych ofert
+    // Zbierz dni zniknięć ze WSZYSTKICH ofert (aktywne też — reaktywacja nie
+    // kasuje zniknięcia). Jedna oferta może zniknąć wiele razy, każde liczymy
+    // osobno — dokładnie jak build_outflow w src/trend_generator.py.
     const countsPerDay = {};
+    const reactPerDay = {};
     allMarkers.forEach(item => {
-        if (item.isActive) return;
-        const offer = item.originalOffer || {};
-        const d = parsePolishDate(offer.last_seen);
-        if (!d) return;
-        const k = dayKey(d);
-        countsPerDay[k] = (countsPerDay[k] || 0) + 1;
+        goneDaysOf(item.originalOffer || {}).forEach(k => {
+            countsPerDay[k] = (countsPerDay[k] || 0) + 1;
+            if (item.isActive) reactPerDay[k] = (reactPerDay[k] || 0) + 1;
+        });
     });
 
     if (Object.keys(countsPerDay).length === 0) return;
@@ -1837,6 +1876,7 @@ function initGoneSlider() {
 
     goneSliderState.days = days;
     goneSliderState.countsPerDay = countsPerDay;
+    goneSliderState.reactPerDay = reactPerDay;
     goneSliderState.selectedIndex = days.length - 1;
 
     slider.min = 0;
@@ -1900,9 +1940,11 @@ function updateGoneSliderReadout() {
     const dateEl = document.getElementById('date-gone-current');
     const countEl = document.getElementById('date-gone-count');
     if (!dateEl || !countEl) return;
+    const reactOff = document.getElementById('date-gone-react');
     if (!goneSliderState.enabled || idx < 0 || idx >= days.length) {
         dateEl.textContent = '—';
         countEl.textContent = '— ofert';
+        if (reactOff) reactOff.hidden = true;
         return;
     }
     const day = days[idx];
@@ -1910,6 +1952,13 @@ function updateGoneSliderReadout() {
     dateEl.textContent = formatDayPL(day);
     dateEl.classList.add('active');
     countEl.textContent = `${count} ${pluralOffers(count)}`;
+    // Ile z nich wróciło na rynek — te markery mają krzyżyk × i plakietkę ↻
+    const reactEl = document.getElementById('date-gone-react');
+    if (reactEl) {
+        const back = goneSliderState.reactPerDay[dayKey(day)] || 0;
+        reactEl.hidden = back === 0;
+        reactEl.textContent = `↻ ${back} ${back === 1 ? 'wróciła' : 'wróciło'}`;
+    }
     buildGoneHistogram();
 }
 
@@ -1920,12 +1969,15 @@ function buildGoneHistogram() {
 }
 
 // ===== Warstwy w trybie "Zniknięcia" =====
-// Tryb pokazuje odpływ z JEDNEGO dnia, więc przestawia warstwy na obie strony:
-//  - WŁĄCZA nieaktywne — markery zniknięć są z definicji nieaktywne, bez tego pusta mapa,
-//  - WYŁĄCZA aktywne — inaczej kilkadziesiąt zniknięć tonie wśród ~570 aktywnych ofert.
+// Tryb pokazuje odpływ z JEDNEGO dnia, więc WŁĄCZA wszystkie warstwy — również
+// aktywne. Oferta, która zniknęła wybranego dnia i później wróciła, jest dziś
+// aktywna; przy wyłączonych warstwach aktywnych mapa by jej nie pokazała, choć
+// wykres odpływu ją liczy. Utonięcia zniknięć wśród ~570 aktywnych nie ma:
+// filtr gone_days przepuszcza WYŁĄCZNIE oferty, które zniknęły tego dnia.
 // Wyjście z trybu przywraca stan sprzed wejścia, żeby nie nadpisać wyboru użytkownika.
-const GONE_MODE_SHOW_IDS = ['layer-inactive', 'layer-inactive-approx', 'layer-firm-inactive'];
-const GONE_MODE_HIDE_IDS = ['layer-active', 'layer-active-approx', 'layer-firm'];
+const GONE_MODE_SHOW_IDS = ['layer-inactive', 'layer-inactive-approx', 'layer-firm-inactive',
+                            'layer-active', 'layer-active-approx', 'layer-firm'];
+const GONE_MODE_HIDE_IDS = [];
 let goneModeLayerBackup = null;
 
 function applyGoneModeLayers(on) {
@@ -1957,6 +2009,10 @@ function applyGoneModeLayers(on) {
     // toggleInactiveApproxLayer na końcu woła filterMarkers().
     toggleActiveApproxLayer();
     toggleInactiveApproxLayer();
+    // Krzyżyk i plakietka ↻ reaktywowanych zależą od trybu, a same warstwy mogły
+    // się nie zmienić — wymuś repaint canvasu, inaczej oznaczenie pojawia się
+    // dopiero przy pierwszym przesunięciu mapy.
+    if (canvasRenderer._redraw) canvasRenderer._redraw();
 }
 
 // ===== Przełącznik trybu filtra dat =====
@@ -2263,7 +2319,7 @@ function updatePriceRangeCounts() {
         }
         
         // Filtr czasowy (first_seen LUB price_changed_at)
-        if (cutoffDate && !isTimeFilterExempt(item.isActive)) {
+        if (cutoffDate && !isTimeFilterExempt()) {
             const firstSeenOk = item.firstSeenDate && item.firstSeenDate >= cutoffDate;
             const priceChangedOk = item.priceChangedAtDate && item.priceChangedAtDate >= cutoffDate;
             if (!firstSeenOk && !priceChangedOk) return;
@@ -2272,7 +2328,7 @@ function updatePriceRangeCounts() {
         // Filtr suwaka dni
         if (!passesDaySliderFilter(item.firstSeenDate)) return;
         // Filtr daty zniknięcia — żeby liczniki pokazywały to samo, co mapa w trybie "Zniknięcia"
-        if (!item.isActive && !passesGoneSliderFilter(item.originalOffer || {})) return;
+        if (!passesGoneSliderFilter(item.originalOffer || {})) return;
         
         // Precyzyjny filtr cen
         const price = item.offers[0].price;
@@ -2350,7 +2406,7 @@ function updateBadgeCounts() {
         if (tag === 'mieszkanie' && !showMieszkanie) return;
         
         // Filtr czasowy (first_seen LUB price_changed_at)
-        if (cutoffDate && !isTimeFilterExempt(item.isActive)) {
+        if (cutoffDate && !isTimeFilterExempt()) {
             const firstSeenOk = item.firstSeenDate && item.firstSeenDate >= cutoffDate;
             const priceChangedOk = item.priceChangedAtDate && item.priceChangedAtDate >= cutoffDate;
             if (!firstSeenOk && !priceChangedOk) return;
@@ -2359,7 +2415,7 @@ function updateBadgeCounts() {
         // Filtr suwaka dni
         if (!passesDaySliderFilter(item.firstSeenDate)) return;
         // Filtr daty zniknięcia — żeby liczniki pokazywały to samo, co mapa w trybie "Zniknięcia"
-        if (!item.isActive && !passesGoneSliderFilter(item.originalOffer || {})) return;
+        if (!passesGoneSliderFilter(item.originalOffer || {})) return;
         
         // Filtr zakresów cenowych
         if (selectedRanges.length > 0 && !selectedRanges.includes(item.priceRange)) return;

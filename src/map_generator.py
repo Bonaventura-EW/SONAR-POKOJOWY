@@ -162,6 +162,35 @@ def get_price_range(price):
     return 'range_3001_plus'  # Fallback (musi być ostatnim kluczem PRICE_RANGES)
 
 
+def _gone_days(offer):
+    """Dni, w których oferta WYPADŁA z listingu — format "YYYY-MM-DD".
+
+    Źródłem jest `deactivation_dates` (także te schowane w `versions[]` po
+    zmianie adresu), czyli KAŻDE zniknięcie, również to, po którym oferta
+    wróciła. Oferty sprzed wdrożenia tego pola (03.09.2026) zostawiły tylko
+    `last_seen` — ostatni dzień NA listingu — i tylko dla nich robimy fallback.
+
+    Konwencja MUSI być ta sama co `build_outflow` w trend_generator.py, inaczej
+    suwak "Zniknięcia" na mapie rozjeżdża się z wykresem odpływu: last_seen to
+    ostatni dzień życia oferty, a deaktywacja to dzień, w którym skan wykrył jej
+    brak — zwykle doba później.
+    """
+    days = []
+    sources = [offer] + list(offer.get('versions') or [])
+    for src in sources:
+        for raw in (src.get('deactivation_dates') or []):
+            try:
+                days.append(datetime.fromisoformat(str(raw)).date().isoformat())
+            except (ValueError, TypeError):
+                continue
+    if not days and not offer.get('active') and offer.get('last_seen'):
+        try:
+            days.append(datetime.fromisoformat(offer['last_seen']).date().isoformat())
+        except (ValueError, TypeError):
+            pass
+    return sorted(set(days))
+
+
 def format_scan_datetime(iso_string):
     """Format dla scan info (z sekundami): 'DD.MM.YYYY HH:MM:SS'"""
     return format_datetime(iso_string, '%d.%m.%Y %H:%M:%S')
@@ -388,6 +417,9 @@ def generate_map_data(input_file, output_file):
             'last_seen': format_datetime(offer.get('last_seen', '')),
             'days_active': offer.get('days_active', 0),  # Dni aktywności
             'active': offer.get('active', True),
+            # Dni zniknięcia z listingu (patrz _gone_days) — suwak "Zniknięcia"
+            # na mapie filtruje po TYM polu, nie po last_seen.
+            'gone_days': _gone_days(offer),
             'is_new': is_new,  # ✅ Obliczone na podstawie daty
             'title': offer_title,  # Tytuł ogłoszenia (None gdy nie do odzyskania)
             'description': clean_description,  # Pełny opis bez tytułu (frontend się sam obcina)
