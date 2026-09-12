@@ -180,6 +180,28 @@ EXCLUDED_WORDS = {
     # UWAGA: NIE dodawaj 'przytulna/przytulny' — ul. Przytulna to realna ulica Lublina!
     'szukasz', 'odstąpię', 'odstapie', 'podnajmę', 'podnajme', 'zarówno',
     'koszt', 'koszty',
+    # === FIX 2026-08-18 (audyt markerów, klasa D): słowa, które trafiły na mapę
+    # jako "ulica" albo jako wiodący śmieć w nazwie ulicy.
+    # 'tylko'  → ID1bFuLU: "POKÓJ CZECHÓW,tylko 2 lokatorów" dał adres "tylko 2"
+    #            i pinezkę na szpitalu przy Abramowickiej (7,4 km od ul. Żelazowej Woli).
+    # Reszta   → wiodące słowa nazw typu "balkonem POPIEŁUSZKI 33", "studentek
+    #            Narutowicza 64", "trzypokojowym Pagi 5" (ścinane przez trim
+    #            wiodącego śmiecia w extract_address).
+    'tylko',
+    'godzina', 'godziny', 'godzinach', 'godzinie',
+    'balkonem', 'balkonu',
+    'remoncie', 'remont', 'remontu',
+    'trzypokojowym', 'dwupokojowym', 'czteropokojowym', 'jednopokojowym',
+    'studentek', 'studentom',
+    'opis', 'opisie',
+    'oferuje', 'oferujemy', 'oferta',
+    'wszystkie', 'wszystkich',
+    'liniami', 'liniach',
+    'mieszaniu',
+    'spacerem',
+    'zadzwoń', 'zadzwon',
+    'wynajęcia', 'wynajecia',
+    'dziennej', 'dzienna',
 }
 
 

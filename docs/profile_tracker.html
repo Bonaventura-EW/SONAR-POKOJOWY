@@ -19,21 +19,6 @@
             overflow: hidden;
         }
 
-        /* ── TOPBAR ── */
-        .topbar {
-            background: #0f172a;
-            border-bottom: 1px solid #f59e0b;
-            padding: 8px 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-shrink: 0;
-        }
-        .topbar-title { color: #f59e0b; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-        .nav { display: flex; gap: 6px; }
-        .nav a { color: #94a3b8; font-size: 11px; background: rgba(255,255,255,0.08); padding: 4px 10px; border-radius: 5px; text-decoration: none; }
-        .nav a:hover { background: rgba(255,255,255,0.15); color: #e2e8f0; }
-        .nav a.active { background: rgba(245,158,11,0.2); color: #f59e0b; }
 
         /* ── TABS ── */
         .tabs {
@@ -88,6 +73,14 @@
         .sig-chg  { background: #7c3aed; color: #fff; }
         .sig-gone { background: #16a34a; color: #fff; }
         .sig[data-tip] { cursor: help; }
+        /* Znacznik zmiany ceny w legendzie mapy — kółko jak badge na pinezce */
+        .pin-sig {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 17px; height: 17px; border-radius: 50%;
+            color: #fff; font-size: 11px; font-weight: 800; line-height: 1;
+            border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.12);
+            flex-shrink: 0;
+        }
         @keyframes sigPulse {
             0%, 100% { opacity: 1; }
             55% { opacity: 0.55; }
@@ -201,6 +194,71 @@
         .stat .v { font-size: 13px; font-weight: 600; color: #1d4ed8; }
         .stat .v.dim { color: #64748b; }
         .stat .l { font-size: 10px; color: #3b82f6; text-transform: uppercase; }
+
+        /* Ruch profilu: odświeżenia (🔄) i reaktywacje (♻) w oknach 30/60/90 dni.
+           Bursztyn — ta sama rodzina co aktywna zakładka — oddziela metryki RUCHU
+           od niebieskich pigułek STANU (aktywne / archiwalne / ceny). */
+        .stat.win { background: #fffbeb; border-color: #fde68a; gap: 7px; }
+        .stat.win .w { font-size: 10px; font-weight: 700; color: #92400e; text-transform: uppercase; letter-spacing: .03em; }
+        .stat.win .m { display: flex; align-items: center; gap: 3px; }
+        .stat.win .m .i { font-size: 10px; opacity: .85; }
+        .stat.win .m .n { font-size: 13px; font-weight: 600; color: #b45309; font-variant-numeric: tabular-nums; }
+        .stat.win .sep { width: 1px; height: 13px; background: #fcd34d; }
+        /* Przycisk otwierający okno z historią ruchu profilu. */
+        .chart-btn {
+            display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+            font-family: inherit; font-size: 10px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .03em;
+            color: #92400e; background: #fef3c7; border: 1px solid #f59e0b;
+            border-radius: 6px; padding: 4px 10px;
+        }
+        .chart-btn:hover { background: #fde68a; }
+        .chart-btn:focus-visible { outline: 2px solid #b45309; outline-offset: 1px; }
+        .stat.win { cursor: pointer; font-family: inherit; }
+        .stat.win:hover { background: #fef3c7; }
+        .stat.win:focus-visible { outline: 2px solid #b45309; outline-offset: 1px; }
+
+        /* ── OKNO „RUCH PROFILU" ── */
+        .act-backdrop {
+            position: fixed; inset: 0; background: rgba(15,23,42,.45);
+            display: flex; align-items: center; justify-content: center; padding: 20px;
+            z-index: 3000;
+        }
+        .act-backdrop[hidden] { display: none; }
+        .act-modal {
+            background: #fff; border-radius: 10px; width: min(1000px, 96vw);
+            max-height: 92vh; display: flex; flex-direction: column; overflow: hidden;
+            box-shadow: 0 24px 60px -20px rgba(15,23,42,.55);
+        }
+        .act-head {
+            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+            padding: 11px 16px; border-bottom: 1px solid #e2e8f0; background: #fffdf7;
+        }
+        .act-title { font-size: 14px; font-weight: 700; color: #92400e; }
+        .act-title .sub { font-weight: 400; font-size: 11.5px; color: #b98b4a; margin-left: 8px; }
+        .act-range { display: flex; gap: 3px; margin-left: auto; }
+        .act-range button {
+            font-family: inherit; font-size: 11px; padding: 3px 9px; cursor: pointer;
+            background: #fff; color: #92400e; border: 1px solid #fde68a; border-radius: 5px;
+        }
+        .act-range button[aria-pressed="true"] { background: #f59e0b; border-color: #d97706; color: #fff; font-weight: 600; }
+        .act-range button:focus-visible { outline: 2px solid #b45309; outline-offset: 1px; }
+        .act-close {
+            border: 0; background: transparent; font-size: 17px; line-height: 1;
+            color: #b45309; cursor: pointer; padding: 2px 4px;
+        }
+        .act-close:focus-visible { outline: 2px solid #b45309; outline-offset: 1px; }
+        .act-body { padding: 12px 16px 6px; overflow: auto; }
+        .act-body svg { display: block; width: 100%; height: auto; }
+        .act-body .g-hit:hover rect { opacity: .75; }
+        .act-empty { padding: 26px 8px; text-align: center; color: #94a3b8; font-size: 13px; }
+        .act-foot {
+            display: flex; gap: 16px; flex-wrap: wrap; align-items: center;
+            padding: 8px 16px 12px; border-top: 1px solid #f1f5f9; font-size: 11px; color: #64748b;
+        }
+        .act-key { display: inline-flex; align-items: center; gap: 5px; }
+        .act-key i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+        .act-cover { margin-left: auto; color: #b45309; }
         .proflink { margin-left: auto; font-size: 10px; color: #3b82f6; text-decoration: none; }
         .proflink:hover { text-decoration: underline; }
 
@@ -222,6 +280,76 @@
             border-right: 1px solid #e2e8f0;
         }
         #map { width: 100%; height: 100%; }
+
+        /* ── SKOKI PO LIŚCIE (przyciski na prawej krawędzi mapy) ──
+           Pionowy napis NIE przez writing-mode: przeglądarka centruje wtedy
+           line-box, a nie litery (ascent > descent), przez co tekst siada
+           ~1,5 px od osi paska. Dlatego tło/ramka siedzą na pionowym
+           .jump-slot, a w środku leży POZIOMY przycisk obrócony o 90° —
+           tekst centruje zwykły flex, strzałka i licznik są odkręcone
+           z powrotem do pionu. Wyśrodkowanie z geometrii, nie z metryki fontu. */
+        .jump-nav {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 1000;          /* nad kafelkami i markerami Leafletu */
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 5px;
+        }
+        .jump-slot {
+            position: relative;
+            width: 22px;
+            height: 86px;
+            background: var(--jump-bg);
+            border: 1px solid var(--jump-bd);
+            border-right: none;
+            border-radius: 4px 0 0 4px;
+            box-shadow: -1px 1px 3px rgba(15,23,42,0.12);
+            transition: filter 0.14s;
+        }
+        .jump-slot:hover { filter: brightness(0.96); }
+        .jump-slot.up   { --jump-bg: #dcfce7; --jump-bd: #86efac; --jump-fg: #166534; }
+        .jump-slot.down { --jump-bg: #fee2e2; --jump-bd: #fca5a5; --jump-fg: #991b1b; }
+        .jump {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 84px;
+            height: 20px;
+            transform: translate(-50%, -50%) rotate(90deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            background: none;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 8px;
+            font-weight: 700;
+            line-height: 1;
+            letter-spacing: 0.03em;
+            color: var(--jump-fg);
+            white-space: nowrap;
+        }
+        .jump .ar { transform: rotate(-90deg); font-size: 9px; }
+        .jump .cnt {
+            transform: rotate(-90deg);
+            background: #fff;
+            border-radius: 3px;
+            padding: 1px 3px;
+            font-size: 8px;
+            font-variant-numeric: tabular-nums;
+            order: 2;
+        }
+        .jump .lb { order: 3; }
+        .jump-slot.down .jump { flex-direction: row-reverse; }
+        .jump:focus-visible { outline: 2px solid #0f172a; outline-offset: 3px; border-radius: 3px; }
+        @media (prefers-reduced-motion: reduce) { .jump-slot { transition: none; } }
 
         /* ── LISTA (prawa, scrolluje) ── */
         .list-col { overflow-y: auto; }
@@ -318,6 +446,8 @@
 
         /* ── WERSJE ADRESU (zmiana adresu tego samego listingu OLX) ── */
         .badge-addr { background: rgba(168,85,247,0.12); color: #7c3aed; border: 1px solid rgba(168,85,247,0.3); }
+        /* Odświeżona w ostatnich 24h — ten sam niebieski co badge w lewym górnym rogu pinezki na mapie */
+        .badge-refreshed { background: #1d63d8; color: #fff; }
         .addr-new { color: #0f172a; font-weight: 700; }
         .addr-old { text-decoration: line-through; color: #94a3b8; font-weight: 500; }
         .addr-sub { font-size: 10px; color: #94a3b8; margin-top: 3px; font-weight: 400; }
@@ -330,6 +460,19 @@
         .ver.current { border-color: #c7f0d6; background: #f6fef9; }
         .ver.clickable { cursor: pointer; transition: border-color .1s, box-shadow .1s; }
         .ver.clickable:hover { border-color: #a855f7; box-shadow: 0 1px 4px rgba(168,85,247,0.18); }
+        /* Błysk wersji po kliknięciu fioletowej pinezki na mapie */
+        .ver.ver-flash { animation: verFlash 1.8s ease-out; }
+        @keyframes verFlash {
+            0%   { border-color: #a855f7; box-shadow: 0 0 0 3px rgba(168,85,247,0.35); background: #faf5ff; }
+            60%  { border-color: #a855f7; box-shadow: 0 0 0 3px rgba(168,85,247,0.18); background: #faf5ff; }
+            100% { border-color: #e7ecf2; box-shadow: 0 0 0 0 rgba(168,85,247,0); }
+        }
+        .ver.current.ver-flash { animation: verFlashCurrent 1.8s ease-out; }
+        @keyframes verFlashCurrent {
+            0%   { border-color: #a855f7; box-shadow: 0 0 0 3px rgba(168,85,247,0.35); }
+            60%  { border-color: #a855f7; box-shadow: 0 0 0 3px rgba(168,85,247,0.18); }
+            100% { border-color: #c7f0d6; box-shadow: 0 0 0 0 rgba(168,85,247,0); }
+        }
         .ver::before { content: ''; position: absolute; left: 7px; top: 12px; width: 7px; height: 7px; border-radius: 50%; background: #cbd5e1; }
         .ver.current::before { background: #16a34a; }
         .ver-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -351,6 +494,35 @@
         .change { display: flex; align-items: center; gap: 6px; margin: 2px 0 5px 20px; font-size: 10px; color: #7c3aed; flex-wrap: wrap; }
         .change b { color: #0f172a; }
         .change .ico { color: #a855f7; }
+
+        /* ── POPUP STOSU (kilka ofert pod tym samym adresem) ──
+           Adres z >1 ofertą dostaje JEDNĄ pinezkę z liczbą; popup listuje
+           wszystkie oferty spod tego adresu, klik w wiersz podświetla kartę. */
+        .stk { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: -2px -4px; }
+        .stk-hd {
+            display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+            padding: 7px 10px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0;
+        }
+        .stk-hd b { font-size: 12.5px; color: #0f172a; }
+        .stk-hd span { font-size: 10px; color: #64748b; white-space: nowrap; }
+        .stk-sub { padding: 4px 10px; font-size: 10px; color: #64748b; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+        .stk-body { max-height: 208px; overflow-y: auto; }
+        .stk-body::-webkit-scrollbar { width: 5px; }
+        .stk-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .stk-row {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 10px; border-bottom: 0.5px solid #eef2f6; cursor: pointer;
+        }
+        .stk-row:hover { background: #f8fafc; }
+        .stk-row.sel { background: rgba(245,158,11,0.1); }
+        .stk-row .stk-price { font-size: 12.5px; font-weight: 800; font-variant-numeric: tabular-nums; min-width: 52px; }
+        .stk-row.inact .stk-price { color: #94a3b8; }
+        .stk-row .stk-tr { font-size: 10px; font-weight: 800; }
+        .stk-row .stk-tr.down { color: #28a745; }
+        .stk-row .stk-tr.up { color: #dc3545; }
+        .stk-row .stk-ttl { flex: 1; font-size: 10px; color: #475569; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        .stk-row .stk-olx { font-size: 9.5px; font-weight: 700; color: #3b82f6; text-decoration: none; white-space: nowrap; }
+        .stk-ft { padding: 5px 10px; font-size: 9.5px; color: #94a3b8; background: #f8fafc; border-top: 1px solid #e2e8f0; }
 
         /* Belka archiwalna */
         .archive-divider {
@@ -427,7 +599,7 @@
       <a href="monitoring.html">📊 Monitoring</a>
       <a href="market_analysis.html">🔍 Analiza Rynku</a>
       <a href="top5.html">🏆 Top 5</a>
-      <a href="ostatnie.html">🆕 Ostatnie</a>
+      <a href="ostatnie.html">🔄 Ruch</a>
       <a href="profile_tracker.html" class="active">🏢 Firmy</a>
       <a href="ulubione.html">⭐ Ulubione</a>
       <a href="skipped_debug.html">🐛 Pominięte</a>
@@ -473,6 +645,12 @@
             </div>
 
             <div class="lg-group">
+                <span class="lg-title">Na mapie</span>
+                <span class="lg"><span class="pin-sig" style="background:#28a745">↓</span> <em>pinezka — cena spadła</em></span>
+                <span class="lg"><span class="pin-sig" style="background:#dc3545">↑</span> <em>pinezka — cena wzrosła</em></span>
+            </div>
+
+            <div class="lg-group">
                 <span class="lg-title">W karcie</span>
                 <span class="lg">📅 <em>pierwszy raz widziane</em></span>
                 <span class="lg">⏳ <em>dni na rynku</em></span>
@@ -490,13 +668,48 @@
 
     <div class="statsbar" id="statsbar"></div>
     <div class="main">
-        <div class="map-col"><div id="map"></div></div>
+        <div class="map-col">
+            <div id="map"></div>
+            <div class="jump-nav" id="jump-nav" hidden>
+                <div class="jump-slot up">
+                    <button class="jump" type="button" data-jump="active"
+                            title="Skocz na początek aktywnych ogłoszeń">
+                        <span class="ar">↑</span><span class="cnt" id="jump-cnt-active">0</span><span class="lb">aktywne</span>
+                    </button>
+                </div>
+                <div class="jump-slot down" id="jump-slot-archived">
+                    <button class="jump" type="button" data-jump="archived"
+                            title="Skocz na początek ogłoszeń archiwalnych">
+                        <span class="ar">↓</span><span class="cnt" id="jump-cnt-archived">0</span><span class="lb">nieaktywne</span>
+                    </button>
+                </div>
+            </div>
+        </div>
         <div class="list-col" id="list-col">
             <div class="list-hdr">
                 <strong id="list-title">Ogłoszenia</strong>
                 <span id="list-count"></span>
             </div>
             <div id="list-body"></div>
+        </div>
+    </div>
+</div>
+
+<!-- OKNO „RUCH PROFILU" — historia odświeżeń i reaktywacji (otwiera przycisk w belce) -->
+<div class="act-backdrop" id="act-backdrop" hidden>
+    <div class="act-modal" role="dialog" aria-modal="true" aria-labelledby="act-title">
+        <div class="act-head">
+            <span class="act-title" id="act-title"></span>
+            <div class="act-range" id="act-range"></div>
+            <button class="act-close" id="act-close" type="button" aria-label="Zamknij">✕</button>
+        </div>
+        <div class="act-body" id="act-body"></div>
+        <div class="act-foot">
+            <span class="act-key"><i style="background:#f59e0b"></i> odświeżenia (podbicia na OLX)</span>
+            <span class="act-key"><i style="background:#7c3aed"></i> reaktywacje (powroty ofert)</span>
+            <span class="act-key"><i style="background:#16a34a"></i> zniknięcia (zdjęte z OLX na stałe)</span>
+            <span class="act-key"><i style="background:#0891b2"></i> zmiany adresu</span>
+            <span class="act-cover" id="act-cover"></span>
         </div>
     </div>
 </div>
@@ -528,7 +741,34 @@ function initMap() {
     }).addTo(map);
 }
 
-function makeLeafletIcon(color, active, highlighted) {
+// Badge odświeżenia dla pinezek na mapie tej zakładki — ten sam symbol co na
+// mapie głównej (docs/assets/script.js → _drawRefreshBadge), tylko w SVG:
+// niebieskie kółko, dwie białe strzałki w obiegu. Łuki i groty liczone tą samą
+// geometrią, żeby oba widoki nie rozjechały się przy zmianie promienia.
+function refreshBadgeSvg(cx, cy, R) {
+    const r = R * 0.46, tip = R * 0.32, lw = R * 0.2;
+    const n = v => v.toFixed(2);
+    const arc = (a0, a1) => {
+        const p0x = cx + r * Math.cos(a0), p0y = cy + r * Math.sin(a0);
+        const p1x = cx + r * Math.cos(a1), p1y = cy + r * Math.sin(a1);
+        const large = (a1 - a0) > Math.PI ? 1 : 0;
+        // grot styczny do okręgu w punkcie końcowym (kierunek rosnącego kąta)
+        const tx = -Math.sin(a1), ty = Math.cos(a1);
+        const nx = Math.cos(a1), ny = Math.sin(a1);
+        return '<path d="M' + n(p0x) + ',' + n(p0y) + ' A' + n(r) + ',' + n(r)
+             + ' 0 ' + large + ' 1 ' + n(p1x) + ',' + n(p1y) + '" fill="none"'
+             + ' stroke="#fff" stroke-width="' + n(lw) + '" stroke-linecap="butt"/>'
+             + '<path d="M' + n(p1x + tx * tip) + ',' + n(p1y + ty * tip)
+             + ' L' + n(p1x - tx * tip * 0.15 + nx * tip * 0.9) + ',' + n(p1y - ty * tip * 0.15 + ny * tip * 0.9)
+             + ' L' + n(p1x - tx * tip * 0.15 - nx * tip * 0.9) + ',' + n(p1y - ty * tip * 0.15 - ny * tip * 0.9)
+             + ' Z" fill="#fff"/>';
+    };
+    return '<circle cx="' + n(cx) + '" cy="' + n(cy) + '" r="' + n(R) + '" fill="#1d63d8"'
+         + ' stroke="#fff" stroke-width="' + n(R * 0.22) + '"/>'
+         + arc(Math.PI * 0.18, Math.PI * 0.96) + arc(Math.PI * 1.18, Math.PI * 1.96);
+}
+
+function makeLeafletIcon(color, active, highlighted, trend, refreshed) {
     const stroke = highlighted ? '#f59e0b' : '#d97706';
     const sw = highlighted ? 4 : 2.5;
     const glow = highlighted ? 'filter:drop-shadow(0 0 5px #f59e0b)' : '';
@@ -537,15 +777,63 @@ function makeLeafletIcon(color, active, highlighted) {
         : highlighted
         ? '<circle cx="12" cy="11" r="5" fill="white"/><text x="12" y="11" text-anchor="middle" dominant-baseline="central" font-size="9" font-weight="800" fill="' + color + '">★</text>'
         : '<circle cx="12" cy="11" r="5" fill="white" opacity="0.9"/>';
+    // Badge zmiany ceny (spójny z _drawCornerBadge mapy głównej): ↓ zielony spadek /
+    // ↑ czerwony wzrost. Tylko dla aktywnych — nieaktywne mają × w środku.
+    let badge = '';
+    if (active && (trend === 'down' || trend === 'up')) {
+        const bc = trend === 'down' ? '#28a745' : '#dc3545';
+        const arr = trend === 'down' ? '↓' : '↑';
+        badge = '<circle cx="20" cy="4" r="6.3" fill="' + bc + '" stroke="#fff" stroke-width="2"/>'
+              + '<text x="20" y="4.6" text-anchor="middle" dominant-baseline="central" font-size="9.5" font-weight="800" fill="#fff">' + arr + '</text>';
+    }
+    // Odświeżenie w LEWYM górnym rogu — prawy zajmuje zmiana ceny (jak na mapie głównej)
+    const refreshBadge = refreshed ? refreshBadgeSvg(4, 4, 6.3) : '';
+    // viewBox z 2px marginesem, by badge w rogu nie był przycięty; ostrze kropli (12,32)
+    // → piksel (14,34), więc iconAnchor bez zmian względem kształtu.
     return L.divIcon({
         className: '',
-        html: '<svg width="24" height="32" viewBox="0 0 24 32" style="' + glow + '">'
+        html: '<svg width="28" height="34" viewBox="-2 -2 28 34" style="overflow:visible;' + glow + '">'
             + '<path d="M12 0C5 0 0 5 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5 19 0 12 0Z"'
             + ' fill="' + color + '" stroke="' + stroke + '" stroke-width="' + sw + '"'
             + (active ? '' : ' opacity="0.35"') + '/>'
-            + inner + '</svg>',
-        iconSize: [24, 32], iconAnchor: [12, 32], popupAnchor: [0, -34]
+            + inner + badge + refreshBadge + '</svg>',
+        iconSize: [28, 34], iconAnchor: [14, 34], popupAnchor: [0, -36]
     });
+}
+
+// Pinezka stosu — ten sam kształt co zwykła, ale w środku LICZBA ofert
+// zamiast białej kropki. Kolor bierzemy z najtańszej oferty pod adresem,
+// żeby skala cen na mapie dalej działała.
+function makeStackIcon(color, count, allInactive, highlighted, refreshed) {
+    const stroke = highlighted ? '#f59e0b' : '#d97706';
+    const sw = highlighted ? 4 : 2.5;
+    const glow = highlighted ? 'filter:drop-shadow(0 0 5px #f59e0b)' : '';
+    const op = allInactive ? ' opacity="0.4"' : '';
+    return L.divIcon({
+        className: '',
+        html: '<svg width="28" height="34" viewBox="-2 -2 28 34" style="overflow:visible;' + glow + '">'
+            + '<path d="M12 0C5 0 0 5 0 12C0 21 12 32 12 32C12 32 24 21 24 12C24 5 19 0 12 0Z"'
+            + ' fill="' + color + '" stroke="' + stroke + '" stroke-width="' + sw + '"' + op + '/>'
+            + '<circle cx="12" cy="11" r="7.4" fill="white"' + op + '/>'
+            + '<text x="12" y="11.4" text-anchor="middle" dominant-baseline="central"'
+            + ' font-size="10" font-weight="800" fill="' + (allInactive ? '#94a3b8' : '#334155') + '">' + count + '</text>'
+            + (refreshed ? refreshBadgeSvg(4, 4, 6.3) : '')
+            + '</svg>',
+        iconSize: [28, 34], iconAnchor: [14, 34], popupAnchor: [0, -36]
+    });
+}
+
+// Jedno miejsce na przełączanie ikony — wpis w leafletMarkers może być
+// pojedynczą ofertą albo stosem, a te mają różne ikony.
+function applyMarkerIcon(m, highlighted) {
+    m.marker.setIcon(m.stack
+        ? makeStackIcon(m.color, m.count, m.allInactive, highlighted, m.refreshed)
+        : makeLeafletIcon(m.color, m.active, highlighted, m.trend, m.refreshed));
+}
+
+// Tylko http(s) trafia do href — dane pochodzą z OLX-a, nie ufamy im w ciemno.
+function safeUrl(u) {
+    return /^https?:\/\//i.test(u || '') ? u : '#';
 }
 
 // Ikona archiwalnego adresu (po zmianie adresu) — fioletowy pin, przerywany obrys, strzałka ↩
@@ -577,12 +865,26 @@ function renderMarkers(profileKey) {
     const bounds = [];
     const allOffers = [...prof.offers];
 
+    // Oferty pod tym samym adresem mają te same współrzędne i pinezki zasłaniają
+    // się nawzajem (rekord w bazie: 12 ofert w jednym punkcie). Grupujemy je i
+    // rysujemy JEDNĄ pinezkę z liczbą — lista ofert siedzi w popupie.
+    const groups = new Map();
     allOffers.forEach(o => {
         const inLublin = !o.city || o.city.toLowerCase() === 'lublin';
         if (!o.lat || !o.lon || !inLublin) return;
+        const key = o.lat.toFixed(6) + ',' + o.lon.toFixed(6);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(o);
+    });
+
+    groups.forEach(group => {
+        if (group.length > 1) { renderStackMarker(group, bounds); return; }
+        const o = group[0];
 
         const color = pc(o.price);
-        const marker = L.marker([o.lat, o.lon], { icon: makeLeafletIcon(color, o.active, false) });
+        const refreshed = isRecentlyRefreshed(o);
+        const marker = L.marker([o.lat, o.lon],
+            { icon: makeLeafletIcon(color, o.active, false, o.price_trend, refreshed) });
 
         const typeLabel = o.offer_type === 'mieszkanie' ? '🏠 mieszkanie' : o.offer_type === 'pokoj' ? '🛏 pokój' : '';
         const histHtml = (o.price_history || []).slice(-4).map(h =>
@@ -595,6 +897,7 @@ function renderMarkers(profileKey) {
             + '<div style="font-weight:700;font-size:13px;margin-bottom:5px">' + (o.address || '—') + '</div>'
             + '<div style="font-size:14px;font-weight:800;color:' + color + ';margin-bottom:4px">' + o.price + ' zł</div>'
             + (o.refresh_count > 0 ? '<div style="font-size:10px;color:#d97706">🔄 odświeżeń: ' + o.refresh_count + '</div>' : '')
+            + (refreshed ? '<div style="font-size:10px;color:#1d63d8;font-weight:700">↻ odświeżona w ostatnich 24h</div>' : '')
             + (histHtml ? '<div style="margin-top:5px;padding-top:5px;border-top:1px solid #e2e8f0"><b style="font-size:10px;color:#94a3b8">HISTORIA</b>' + histHtml + '</div>' : '')
             + '<div style="margin-top:6px"><a href="' + o.url + '" target="_blank" style="color:#3b82f6;font-size:11px">Otwórz na OLX ↗</a></div>'
             + '</div>',
@@ -603,11 +906,30 @@ function renderMarkers(profileKey) {
 
         marker.on('click', () => hlOffer(o.id || o.url));
         marker.addTo(map);
-        leafletMarkers[o.id || o.url] = { marker, color, active: o.active };
+        leafletMarkers[o.id || o.url] = { marker, color, active: o.active, trend: o.price_trend, refreshed };
         bounds.push([o.lat, o.lon]);
 
-        // Archiwalne pinezki POPRZEDNICH adresów (oferta zmieniła adres)
-        // address_versions[0] = bieżąca (już wyrenderowana wyżej); [1..] = poprzednie
+        renderArchivalVersions(o, bounds);
+    });
+
+    // Poprzednie adresy ofert ze stosów — pętla wyżej obsłużyła tylko adresy
+    // pojedyncze, a fioletowe pinezki należą się każdej ofercie ze zmianą adresu.
+    allOffers.forEach(o => {
+        const key = (o.lat && o.lon) ? o.lat.toFixed(6) + ',' + o.lon.toFixed(6) : null;
+        if (!key || (groups.get(key) || []).length < 2) return;
+        renderArchivalVersions(o, bounds);
+    });
+
+    // Zawsze wyśrodkuj na Lublinie
+    if (bounds.length > 0) {
+        try { map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 }); } catch(e) {}
+    }
+    map.setView([51.246, 22.565], 13);
+}
+
+// Fioletowe pinezki poprzednich adresów oferty (po zmianie adresu).
+// address_versions[0] = bieżąca (rysowana jako zwykła pinezka); [1..] = poprzednie.
+function renderArchivalVersions(o, bounds) {
         (o.address_versions || []).forEach((v, vIndex) => {
             if (vIndex === 0 || !v.lat || !v.lon) return;   // [0] = bieżąca (wyżej)
             const vColor = pc((v.price_history?.at(-1) || {}).price || 0);
@@ -622,18 +944,87 @@ function renderMarkers(profileKey) {
                 + '</div>',
                 { maxWidth: 240 }
             );
+            // Klik w fioletową pinezkę poprzedniego adresu → przewiń panel do karty
+            // tej oferty i podświetl konkretną wersję adresu (bez odjeżdżania mapy).
+            am.on('click', () => scrollToOfferCard(o.id || o.url, vIndex));
             am.addTo(map);
             archivalMarkers.push(am);
             archivalByKey[(o.id || o.url) + ':' + vIndex] = am;
             bounds.push([v.lat, v.lon]);
         });
-    });
+}
 
-    // Zawsze wyśrodkuj na Lublinie
-    if (bounds.length > 0) {
-        try { map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 }); } catch(e) {}
-    }
-    map.setView([51.246, 22.565], 13);
+// ── PINEZKA STOSU + POPUP Z LISTĄ ────────────────────────────────────
+// Kilka ofert pod jednym adresem = jedna pinezka z liczbą. Popup listuje je
+// płasko (cena, typ, trend, tytuł, OLX); klik w wiersz podświetla kartę na
+// liście po prawej przez hlOffer(), czyli tę samą drogę co klik w pinezkę.
+function renderStackMarker(group, bounds) {
+    const first = group[0];
+    const prices = group.map(o => o.price).filter(p => typeof p === 'number');
+    const cheapest = prices.length ? Math.min.apply(null, prices) : 0;
+    const allInactive = group.every(o => !o.active);
+    const color = pc(cheapest);
+    // Pod jednym adresem bywa kilkanaście ofert — badge zapala się, gdy CHOĆ JEDNA
+    // została podbita w ostatnich 24h. Którą, mówi lista w popupie.
+    const refreshed = group.some(o => isRecentlyRefreshed(o));
+
+    const marker = L.marker([first.lat, first.lon], {
+        icon: makeStackIcon(color, group.length, allInactive, false, refreshed)
+    });
+    marker.bindPopup(buildStackPopup(first.address, group), { maxWidth: 300, minWidth: 250 });
+    marker.addTo(map);
+
+    // Każde ID z grupy wskazuje na TEN SAM marker — dzięki temu klik w wiersz
+    // listy po prawej dalej trafia w pinezkę (hlOffer szuka po id oferty).
+    const entry = { marker, color, count: group.length, allInactive, stack: true, refreshed };
+    group.forEach(o => { leafletMarkers[o.id || o.url] = entry; });
+    bounds.push([first.lat, first.lon]);
+}
+
+// Aktywne od najtańszej, potem archiwalne od ostatnio widzianej.
+function sortStackOffers(group) {
+    const act = group.filter(o => o.active).sort((a, b) => (a.price || 0) - (b.price || 0));
+    const arc = group.filter(o => !o.active)
+                     .sort((a, b) => (parseAnyDate(b.last_seen) || 0) - (parseAnyDate(a.last_seen) || 0));
+    return act.concat(arc);
+}
+
+function buildStackPopup(address, group) {
+    const act = group.filter(o => o.active).length;
+    const rows = sortStackOffers(group).map(o => {
+        const badge = !o.active
+            ? '<span class="badge badge-inactive">NIEAKTYWNE</span>'
+            : o.offer_type === 'mieszkanie' ? '<span class="badge badge-mieszkanie">🏠</span>'
+            : o.offer_type === 'pokoj' ? '<span class="badge badge-pokoj">🛏</span>' : '';
+        const trend = o.price_trend === 'down' ? '<span class="stk-tr down">↓</span>'
+                    : o.price_trend === 'up' ? '<span class="stk-tr up">↑</span>' : '';
+        const fresh = isRecentlyRefreshed(o)
+            ? '<span class="badge badge-refreshed" title="Podbita w ostatnich 24h">↻</span>' : '';
+        return '<div class="stk-row' + (o.active ? '' : ' inact') + '" data-oid="' + escHtml(o.id || o.url) + '">'
+            + '<span class="stk-price" style="color:' + (o.active ? pc(o.price) : '#94a3b8') + '">'
+            + (o.price != null ? o.price + ' zł' : '—') + '</span>'
+            + badge + trend + fresh
+            + '<span class="stk-ttl">' + escHtml(o.title || '') + '</span>'
+            + '<a class="stk-olx" href="' + escHtml(safeUrl(o.url)) + '" target="_blank" rel="noopener">OLX ↗</a>'
+            + '</div>';
+    }).join('');
+
+    return '<div class="stk">'
+        + '<div class="stk-hd"><b>' + escHtml(address || '—') + '</b><span>' + group.length + ' ofert</span></div>'
+        + '<div class="stk-sub">' + act + ' aktywne · ' + (group.length - act) + ' archiwalne</div>'
+        + '<div class="stk-body">' + rows + '</div>'
+        + '<div class="stk-ft">klik w wiersz → karta oferty na liście</div>'
+        + '</div>';
+}
+
+// Klik w wiersz popupu stosu — delegacja, bo popupy Leafletu powstają dopiero
+// przy otwarciu. Odnośnik OLX obsługuje przeglądarka.
+function initStackPopups() {
+    document.addEventListener('click', ev => {
+        if (ev.target.closest('.stk-olx')) return;
+        const row = ev.target.closest('.stk-row');
+        if (row) hlOffer(row.dataset.oid);
+    });
 }
 
 // ── HIGHLIGHT ────────────────────────────────────────────────────────
@@ -641,26 +1032,61 @@ function hlOffer(id) {
     // Reset poprzedniego
     if (hlId && leafletMarkers[hlId]) {
         const old = leafletMarkers[hlId];
-        old.marker.setIcon(makeLeafletIcon(old.color, old.active, false));
+        applyMarkerIcon(old, false);
         old.marker.setZIndexOffset(0);
     }
     document.querySelectorAll('.row.hl').forEach(r => r.classList.remove('hl'));
+    document.querySelectorAll('.stk-row.sel').forEach(r => r.classList.remove('sel'));
 
     if (hlId === id) { hlId = null; return; }
     hlId = id;
 
     if (leafletMarkers[id]) {
         const m = leafletMarkers[id];
-        m.marker.setIcon(makeLeafletIcon(m.color, m.active, true));
+        applyMarkerIcon(m, true);
         m.marker.setZIndexOffset(1000);
-        m.marker.openPopup();
-        map.panTo(m.marker.getLatLng(), { animate: true });
+        // Otwarty popup stosu zostawiamy jak jest — inaczej przewinięta lista
+        // ofert skakałaby na górę przy każdym kliknięciu wiersza.
+        if (!m.marker.isPopupOpen()) {
+            m.marker.openPopup();
+            map.panTo(m.marker.getLatLng(), { animate: true });
+        }
+        document.querySelectorAll('.stk-row[data-oid="' + id + '"]').forEach(r => r.classList.add('sel'));
     }
 
     const row = document.querySelector('.row[data-id="' + id + '"]');
     if (row) {
         row.classList.add('hl');
         row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+// Klik w archiwalną (fioletową) pinezkę poprzedniego adresu: przewiń panel do
+// karty tej oferty i podświetl konkretną wersję adresu. NIE panujemy mapy (dymek
+// "POPRZEDNI ADRES" ma zostać otwarty na klikniętej pinezce).
+function scrollToOfferCard(offerId, vIndex) {
+    // Zresetuj poprzednie podświetlenie (bieżący marker + wiersz)
+    if (hlId && leafletMarkers[hlId]) {
+        const old = leafletMarkers[hlId];
+        applyMarkerIcon(old, false);
+        old.marker.setZIndexOffset(0);
+    }
+    document.querySelectorAll('.row.hl').forEach(r => r.classList.remove('hl'));
+    hlId = offerId;
+
+    const row = document.querySelector('.row[data-id="' + offerId + '"]');
+    if (!row) return;
+    row.classList.add('hl');
+
+    // Preferuj przewinięcie do konkretnej wersji adresu (fioletowa pinezka = ta wersja)
+    const ver = row.querySelector('.ver[data-ver-key="' + offerId + ':' + vIndex + '"]');
+    const target = ver || row;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (ver) {
+        ver.classList.remove('ver-flash');
+        void ver.offsetWidth;            // restart animacji przy powtórnym kliknięciu
+        ver.classList.add('ver-flash');
+        setTimeout(() => ver.classList.remove('ver-flash'), 1800);
     }
 }
 
@@ -703,6 +1129,19 @@ function buildSparkline(history) {
 }
 
 // ── REFRESH BARS ─────────────────────────────────────────────────────
+// Okno „świeżo odświeżona" — 24h od ostatniego podbicia (bump) na OLX.
+// Ta sama reguła co na mapie głównej (docs/assets/script.js → isRecentlyRefreshed).
+const REFRESH_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+function isRecentlyRefreshed(o) {
+    const raw = o && o.last_refresh_date;
+    if (!raw) return false;
+    const ts = new Date(raw).getTime();
+    if (isNaN(ts)) return false;
+    const age = Date.now() - ts;
+    return age >= 0 && age <= REFRESH_WINDOW_MS;
+}
+
 function buildRefreshBars(refreshDates, refreshCount, lastRefreshDate) {
     if (!refreshCount || refreshCount === 0) return '';
 
@@ -778,6 +1217,7 @@ function verCard(v, offerId, vIndex, o) {
         : (v.lat && v.lon ? "event.stopPropagation(); focusArchival('" + offerId + "', " + vIndex + ")" : '');
     const titleAttr = (!v.current && v.lat && v.lon) ? ' title="Pokaż na mapie poprzedni adres"' : '';
     return '<div class="ver' + (v.current ? ' current' : '') + (clickable ? ' clickable' : '') + '"'
+        + ' data-ver-key="' + offerId + ':' + vIndex + '"'
         + (onclick ? ' onclick="' + onclick + '"' : '') + titleAttr + '>'
         + '<div class="ver-top"><span class="ver-addr' + (v.current ? '' : ' old') + '">' + (v.address || '—') + '</span>' + status + '</div>'
         + '<div class="ver-range">' + range + '</div>'
@@ -857,6 +1297,13 @@ function buildRow(o) {
 
     const inactiveBadge = !o.active ? '<span class="badge badge-inactive">NIEAKTYWNE</span>' : '';
 
+    // Odświeżona (bump na OLX) w ostatnich 24h — to samo oznaczenie co na mapie.
+    // `last_refresh_date` z profile_generator jest surowym ISO, więc Date() je zjada.
+    const refreshBadge = isRecentlyRefreshed(o)
+        ? '<span class="badge badge-refreshed" title="Podbita na OLX: '
+          + escHtml(o.last_refresh_date) + '">↻ odświeżona</span>'
+        : '';
+
     const trendHtml = trend
         ? '<span style="font-size:10px;margin-left:2px;color:' + trendColor + '">' + trend + '</span>'
         : '';
@@ -907,7 +1354,7 @@ function buildRow(o) {
         + titleChangeSub
         + (o.title ? '<div class="row-sub"><span class="ic">📝</span> ' + escHtml(o.title) + '</div>' : '')
         + '<div class="row-meta">'
-        + typeBadge + newBadge + reaktBadge + addrBadge + titleBadge + inactiveBadge
+        + typeBadge + newBadge + refreshBadge + reaktBadge + addrBadge + titleBadge + inactiveBadge
         + '<span class="meta-txt">📅 ' + (o.first_seen || '—') + (!o.active && o.last_seen ? ' → ' + o.last_seen : '') + '</span>'
         + '<span class="meta-days ' + daysClass + '">⏳ ' + (o.days_active || 0) + ' dni</span>'
         + '<a class="olx-link" href="' + o.url + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">OLX ↗</a>'
@@ -936,8 +1383,306 @@ function buildTitleHistory(o) {
     return html + '</div>';
 }
 
+// ── OKNO „RUCH PROFILU": KIEDY DZIAŁY SIĘ ODŚWIEŻENIA I REAKTYWACJE ──
+// Ten sam zbiór zdarzeń co pigułki, tylko rozłożony na oś czasu. Zakres
+// domyślny: 3 miesiące; „wszystko" sięga pierwszego zdarzenia w danych profilu.
+const ACT_RANGES = [
+    { k: '30',  label: '30 dni' },
+    { k: '60',  label: '60 dni' },
+    { k: '90',  label: '3 miesiące' },
+    { k: 'all', label: 'wszystko' },
+];
+const ACT_C_REF = '#f59e0b', ACT_C_REF_INK = '#b45309', ACT_C_ACT = '#7c3aed';
+// Zniknięcia zielone — ten sam kolor co sygnał „−N zdjęte z OLX" przy zakładce.
+// Zmiany adresu morskie, żeby nie myliły się z fioletem powrotów.
+const ACT_C_GONE = '#16a34a', ACT_C_ADDR = '#0891b2';
+const ACT_C_GRID = '#e8eef6', ACT_C_AXIS = '#94a3b8';
+const ACT_MONTHS = ['sty','lut','mar','kwi','maj','cze','lip','sie','wrz','paź','lis','gru'];
+const DAY_MS = 86400000;
+
+let actRange = '90';
+let actOpener = null;   // element, do którego wraca focus po zamknięciu
+
+function midnightToday() { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
+function dayKey(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function shortDateY(ts) { return shortDate(ts) + '.' + new Date(ts).getFullYear(); }
+
+// Zdarzenia profilu zebrane per dzień (klucz YYYY-MM-DD w czasie lokalnym).
+//
+// Zniknięcia: oferta NIEAKTYWNA dziś, w dniu ostatniego widzenia na OLX — to
+// jedyna data zejścia, jaką mamy. Oferty, które zniknęły i wróciły, są dziś
+// aktywne, więc same wypadają z tej serii; jeśli po powrocie zeszły drugi raz,
+// liczy się to ostatnie, faktyczne zejście.
+// Zmiany adresu: każda wersja adresu poza najstarszą, w dniu jej pierwszego
+// widzenia (`address_versions` idzie od najnowszej, więc pomijamy ostatnią).
+function dailyActivity(offers) {
+    const refresh = {}, react = {}, gone = {}, addr = {};
+    let first = null;
+    const bump = (bag, t) => {
+        const k = dayKey(new Date(t));
+        bag[k] = (bag[k] || 0) + 1;
+        if (first === null || t < first) first = t;
+    };
+    (offers || []).forEach(o => {
+        (o.refresh_dates || []).forEach(d => { const t = parseAnyDate(d); if (t) bump(refresh, t); });
+        (o.reactivation_dates || []).forEach(d => { const t = parseAnyDate(d); if (t) bump(react, t); });
+        if (o.active === false) { const t = parseAnyDate(o.last_seen); if (t) bump(gone, t); }
+        const vs = o.address_versions || [];
+        for (let i = 0; i < vs.length - 1; i++) {
+            const t = parseAnyDate(vs[i].first_seen);
+            if (t) bump(addr, t);
+        }
+    });
+    return { refresh, react, gone, addr, first };
+}
+
+// Oś: pełna lista dni (także pustych) od początku zakresu do dziś.
+function actDays(data, range) {
+    const today = midnightToday();
+    let from;
+    if (range === 'all') from = data.first !== null ? new Date(data.first) : new Date(today - 30 * DAY_MS);
+    else from = new Date(today - (+range) * DAY_MS);
+    from.setHours(0, 0, 0, 0);
+    const days = [];
+    for (let t = from.getTime(); t <= today.getTime(); t += DAY_MS) {
+        const d = new Date(t), k = dayKey(d);
+        days.push({
+            d,
+            r: data.refresh[k] || 0, a: data.react[k] || 0,
+            g: data.gone[k] || 0,    m: data.addr[k] || 0,
+        });
+    }
+    return days;
+}
+
+// Podziałki z okrągłymi liczbami — krok 1/2/5/10/…, nie 6,25 · 12,5 · 18,75.
+function actScale(v) {
+    const raw = Math.max(v, 1) / 5;
+    const step = [1, 2, 5, 10, 20, 25, 50, 100].find(x => x >= raw) || Math.ceil(raw / 100) * 100;
+    return { step, max: Math.ceil(Math.max(v, 1) / step) * step };
+}
+
+function actTooltip(day) {
+    return shortDateY(day.d.getTime()) + ' — '
+        + day.r + ' ' + plural(day.r, 'odświeżenie', 'odświeżenia', 'odświeżeń')
+        + ', ' + day.a + ' ' + plural(day.a, 'reaktywacja', 'reaktywacje', 'reaktywacji')
+        + ', ' + day.g + ' ' + plural(day.g, 'zniknięcie', 'zniknięcia', 'zniknięć')
+        + ', ' + day.m + ' ' + plural(day.m, 'zmiana adresu', 'zmiany adresu', 'zmian adresu');
+}
+
+// Wykres: cztery panele pod sobą, wspólna oś dat — podbicia, powroty, zejścia
+// z OLX i przeprowadzki. Każdy panel ma własną skalę, bo proporcje bywają
+// skrajne: 25 podbić dziennie kontra pojedyncza zmiana adresu raz na miesiąc.
+const ACT_PANELS = [
+    { key: 'r', color: ACT_C_REF,  label: '🔄 odświeżenia' },
+    { key: 'a', color: ACT_C_ACT,  label: '♻ reaktywacje' },
+    { key: 'g', color: ACT_C_GONE, label: '✖ zniknięcia (bez tych, co wróciły)' },
+    { key: 'm', color: ACT_C_ADDR, label: '📍 zmiany adresu' },
+];
+function buildActivityChart(days) {
+    const W = 900, L = 36, R = 12, T = 18, GAP = 24, B = 26, PH = 78;
+    const H = T + ACT_PANELS.length * PH + (ACT_PANELS.length - 1) * GAP + B;
+    const iw = W - L - R;
+    const ph = PH;
+    const slot = iw / days.length;
+    const bw = Math.max(1.2, slot - 1);
+    const x = i => L + i * slot;
+
+    const defs = '<defs><pattern id="act-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">'
+        + '<rect width="6" height="6" fill="#f8fafc"/><line x1="0" y1="0" x2="0" y2="6" stroke="#e2e8f0" stroke-width="2"/></pattern></defs>';
+
+    // Obszar sprzed startu pomiaru odświeżeń — zakreskowany, żeby pustka nie
+    // wyglądała jak brak podbić.
+    let band = '';
+    if (REFRESH_TRACKED_FROM) {
+        const idx = days.findIndex(d => d.d.getTime() >= REFRESH_TRACKED_FROM);
+        if (idx > 0) {
+            const w = idx * slot;
+            band = '<rect x="' + L + '" y="' + T + '" width="' + w + '" height="' + ph + '" fill="url(#act-hatch)"/>'
+                + '<line x1="' + (L + w) + '" y1="' + T + '" x2="' + (L + w) + '" y2="' + (T + ph) + '" stroke="' + ACT_C_REF_INK + '" stroke-width="1" stroke-dasharray="3 2"/>'
+                + '<text x="' + (L + w + 5) + '" y="' + (T + 11) + '" font-size="9.5" fill="' + ACT_C_REF_INK + '">start pomiaru odświeżeń</text>';
+        }
+    }
+
+    function panel(top, key, color, label) {
+        const sc = actScale(Math.max(...days.map(d => d[key])));
+        let out = '<text x="' + L + '" y="' + (top - 5) + '" font-size="10" font-weight="600" fill="' + color + '">' + label + '</text>';
+        for (let v = 0; v <= sc.max; v += sc.step) {
+            const yy = top + ph - (v / sc.max) * ph;
+            out += '<line x1="' + L + '" y1="' + yy + '" x2="' + (W - R) + '" y2="' + yy + '" stroke="' + ACT_C_GRID + '"/>'
+                + '<text x="' + (L - 6) + '" y="' + (yy + 3.5) + '" text-anchor="end" font-size="9.5" fill="' + ACT_C_AXIS + '">' + v + '</text>';
+        }
+        out += days.map((d, i) => {
+            const v = d[key];
+            return '<g class="g-hit"><title>' + actTooltip(d) + '</title>'
+                + (v ? '<rect x="' + x(i) + '" y="' + (top + ph - (v / sc.max) * ph) + '" width="' + bw
+                     + '" height="' + ((v / sc.max) * ph) + '" fill="' + color + '" rx="1"/>' : '')
+                + '<rect x="' + x(i) + '" y="' + top + '" width="' + slot + '" height="' + ph + '" fill="transparent"/></g>';
+        }).join('');
+        // Panel bez ani jednego zdarzenia w zakresie mówi to wprost — inaczej
+        // czyta się jak wykres, który się nie doczytał.
+        if (!days.some(d => d[key])) {
+            out += '<text x="' + (L + iw / 2) + '" y="' + (top + ph / 2 + 3) + '" text-anchor="middle" '
+                + 'font-size="10.5" fill="#b6bfcd">brak w tym zakresie</text>';
+        }
+        return out + '<line x1="' + L + '" y1="' + (top + ph) + '" x2="' + (W - R) + '" y2="' + (top + ph) + '" stroke="' + ACT_C_AXIS + '"/>';
+    }
+
+    // Podpisy osi X: pierwszy dzień miesiąca + początek zakresu; przy długim
+    // zakresie co drugi, żeby daty się nie zlepiały.
+    let ticks = [];
+    days.forEach((day, i) => {
+        if (i === 0 || day.d.getDate() === 1) ticks.push({ i, label: shortDate(day.d.getTime()) + '.' + ACT_MONTHS[day.d.getMonth()] });
+    });
+    if (ticks.length > 8) ticks = ticks.filter((_, i) => i % 2 === 0);
+    const ticksSvg = ticks.map(t =>
+        '<text x="' + (x(t.i) + slot / 2) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="9.5" fill="' + ACT_C_AXIS + '">' + t.label + '</text>'
+    ).join('');
+
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" '
+        + 'aria-label="Odświeżenia, reaktywacje, zniknięcia i zmiany adresu dzień po dniu">'
+        + defs + band
+        + ACT_PANELS.map((pn, i) => panel(T + i * (ph + GAP), pn.key, pn.color, pn.label)).join('')
+        + ticksSvg + '</svg>';
+}
+
+function renderActivityModal() {
+    const prof = profileData.profiles[currentKey];
+    const data = dailyActivity(prof.offers);
+    const days = actDays(data, actRange);
+    const sum = k => days.reduce((a, d) => a + d[k], 0);
+
+    document.getElementById('act-title').innerHTML =
+        '📊 Ruch profilu ' + escHtml(prof.name)
+        + '<span class="sub">' + shortDate(days[0].d.getTime()) + ' – ' + shortDate(days[days.length - 1].d.getTime())
+        + ' · ' + ACT_PANELS.map(pn =>
+            '<b style="color:' + pn.color + '">' + pn.label.split(' ')[0] + ' ' + sum(pn.key) + '</b>'
+          ).join(' · ')
+        + '</span>';
+
+    document.getElementById('act-range').innerHTML = ACT_RANGES.map(r =>
+        '<button type="button" data-r="' + r.k + '" aria-pressed="' + (actRange === r.k) + '">' + r.label + '</button>'
+    ).join('');
+
+    document.getElementById('act-body').innerHTML = data.first === null
+        ? '<div class="act-empty">Ten profil nie ma jeszcze żadnych zarejestrowanych zdarzeń.</div>'
+        : buildActivityChart(days);
+
+    document.getElementById('act-cover').textContent = REFRESH_TRACKED_FROM
+        ? 'odświeżenia mierzone od ' + shortDateY(REFRESH_TRACKED_FROM) : '';
+}
+
+function openActivityModal(range, opener) {
+    if (!profileData || !profileData.profiles[currentKey]) return;
+    actRange = ACT_RANGES.some(r => r.k === String(range)) ? String(range) : '90';
+    actOpener = opener || null;
+    renderActivityModal();
+    document.getElementById('act-backdrop').hidden = false;
+    document.getElementById('act-close').focus();
+}
+
+function closeActivityModal() {
+    document.getElementById('act-backdrop').hidden = true;
+    if (actOpener && document.body.contains(actOpener)) actOpener.focus();
+    actOpener = null;
+}
+
+function initActivityModal() {
+    // Klik w pigułkę otwiera okno na jej zakresie; przycisk 📊 na domyślnych 3 miesiącach.
+    document.getElementById('statsbar').addEventListener('click', e => {
+        const b = e.target.closest('.chart-btn, .stat.win');
+        if (b) openActivityModal(b.dataset.win, b);
+    });
+    const back = document.getElementById('act-backdrop');
+    back.addEventListener('click', e => { if (e.target === back) closeActivityModal(); });
+    document.getElementById('act-close').addEventListener('click', closeActivityModal);
+    document.getElementById('act-range').addEventListener('click', e => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        actRange = b.dataset.r;
+        renderActivityModal();
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && !back.hidden) closeActivityModal();
+    });
+}
+
 // ── RENDER PROFILE ────────────────────────────────────────────────────
+// ── RUCH PROFILU: ODŚWIEŻENIA I REAKTYWACJE W OKNACH 30/60/90 DNI ─────
+// Liczymy ZDARZENIA, nie oferty: jedna oferta podbita 8 razy daje 8. Bierzemy
+// wszystkie oferty profilu, także archiwalne — reaktywacja z definicji dotyczy
+// oferty, która wcześniej zniknęła z OLX.
+const ACT_WINDOWS = [30, 60, 90];
+let REFRESH_TRACKED_FROM = null;   // najstarsza znana data odświeżenia w całym zbiorze
+
+function countActivity(offers) {
+    // Granica na północy, nie „teraz minus N×24h" — refresh_dates ma dokładność
+    // dnia, więc ruchoma granica ucinałaby zdarzenia z najstarszego dnia okna.
+    const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+    const wins = ACT_WINDOWS.map(days => ({
+        days, from: midnight.getTime() - days * 86400000, refresh: 0, react: 0
+    }));
+    (offers || []).forEach(o => {
+        (o.refresh_dates || []).forEach(d => {
+            const t = parseAnyDate(d);
+            if (t) wins.forEach(w => { if (t >= w.from) w.refresh++; });
+        });
+        (o.reactivation_dates || []).forEach(d => {
+            const t = parseAnyDate(d);
+            if (t) wins.forEach(w => { if (t >= w.from) w.react++; });
+        });
+    });
+    return wins;
+}
+
+// Najstarsze odświeżenie w danych = moment, od którego w ogóle je zbieramy.
+function earliestRefresh(data) {
+    let min = null;
+    Object.keys((data && data.profiles) || {}).forEach(k => {
+        ((data.profiles[k] || {}).offers || []).forEach(o => {
+            (o.refresh_dates || []).forEach(d => {
+                const t = parseAnyDate(d);
+                if (t && (min === null || t < min)) min = t;
+            });
+        });
+    });
+    return min;
+}
+
+// Dopóki historia odświeżeń jest krótsza niż okno, mówimy to wprost w dymku —
+// inaczej „90 dni ≈ 60 dni" wygląda jak zastój rynku, a nie brak pomiaru.
+function refreshCoverageNote(days) {
+    if (!REFRESH_TRACKED_FROM) return '';
+    const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+    if (REFRESH_TRACKED_FROM <= midnight.getTime() - days * 86400000) return '';
+    return ' (mierzone od ' + shortDate(REFRESH_TRACKED_FROM) + '.' + new Date(REFRESH_TRACKED_FROM).getFullYear() + ')';
+}
+
+function buildActivityPills(offers) {
+    // Profil bez ofert nie dostaje pigułek — trzy razy „0" to sam szum.
+    if (!offers || !offers.length) return '';
+    return countActivity(offers).map(w =>
+        '<button type="button" class="stat win" data-win="' + w.days + '" title="Ostatnie ' + w.days + ' dni: '
+            + w.refresh + ' ' + plural(w.refresh, 'odświeżenie', 'odświeżenia', 'odświeżeń')
+            + ' (podbicia na OLX)' + refreshCoverageNote(w.days) + ' · '
+            + w.react + ' ' + plural(w.react, 'reaktywacja', 'reaktywacje', 'reaktywacji')
+            + ' (powroty ofert)">'
+        + '<span class="w">' + w.days + ' dni</span>'
+        + '<span class="m"><span class="i">🔄</span><span class="n">' + w.refresh + '</span></span>'
+        + '<span class="sep"></span>'
+        + '<span class="m"><span class="i">♻</span><span class="n">' + w.react + '</span></span>'
+        + '</button>'
+    ).join('')
+    // Wejście do historii: kiedy te zdarzenia się działy, nie tylko ile ich było.
+    + '<button type="button" class="chart-btn" data-win="90">📊 wykres</button>';
+}
+
 function renderProfile(key) {
+    const actBack = document.getElementById('act-backdrop');
+    if (actBack && !actBack.hidden) closeActivityModal();
+
     currentKey = key;
     hlId = null;
 
@@ -990,6 +1735,7 @@ function renderProfile(key) {
         stats.map(([v,l,dim]) =>
             '<div class="stat"><span class="v' + (dim?' dim':'') + '">' + v + '</span><span class="l">' + l + '</span></div>'
         ).join('')
+        + buildActivityPills(prof.offers)
         + '<a class="proflink" href="' + prof.url + '" target="_blank" rel="noopener">' + prof.url.replace('https://','').replace(/\/$/,'') + ' ↗</a>';
 
     // List header
@@ -1015,8 +1761,43 @@ function renderProfile(key) {
     }
     document.getElementById('list-body').innerHTML = html;
 
+    // Przyciski skoku po liście (na krawędzi mapy)
+    updateJumpNav(active.length, archived.length);
+
     // Markers
     renderMarkers(key);
+}
+
+// ── SKOKI PO LIŚCIE ───────────────────────────────────────────────────
+// ↑ aktywne  → początek listy
+// ↓ nieaktywne → belka „╳ ogłoszenia archiwalne" tuż pod lipkim nagłówkiem.
+// Pozycję liczymy z getBoundingClientRect, bo .list-col nie jest offsetParentem
+// wierszy (nie ma position), więc offsetTop wskazywałby na <body>.
+function updateJumpNav(activeCount, archivedCount) {
+    const nav = document.getElementById('jump-nav');
+    nav.hidden = (activeCount + archivedCount) === 0;
+    document.getElementById('jump-cnt-active').textContent = activeCount;
+    document.getElementById('jump-cnt-archived').textContent = archivedCount;
+    document.getElementById('jump-slot-archived').hidden = archivedCount === 0;
+}
+
+function initJumpNav() {
+    const smooth = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    document.getElementById('jump-nav').addEventListener('click', e => {
+        const btn = e.target.closest('.jump');
+        if (!btn) return;
+        const listCol = document.getElementById('list-col');
+        if (btn.dataset.jump === 'active') {
+            listCol.scrollTo({ top: 0, behavior: smooth });
+            return;
+        }
+        const divider = listCol.querySelector('.archive-divider');
+        if (!divider) return;
+        const hdr = listCol.querySelector('.list-hdr');
+        const top = divider.getBoundingClientRect().top - listCol.getBoundingClientRect().top
+                  + listCol.scrollTop - (hdr ? hdr.offsetHeight : 0);
+        listCol.scrollTo({ top: top, behavior: smooth });
+    });
 }
 
 // ── SYGNAŁY ZMIAN OD OSTATNIEJ WIZYTY ─────────────────────────────────
@@ -1054,6 +1835,37 @@ function parseAnyDate(s) {
     if (m) return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)).getTime();
     return null;
 }
+
+// ── ZNACZNIKI CZASU ZDARZEŃ ─ start (blok czytany przez test_refresh_signals.py) ──
+// PUŁAPKA, która kosztowała nas cały sygnał 🔄: `refresh_dates` to DNI
+// ('YYYY-MM-DD'), a `reactivation_dates` w profile_data ma 'DD.MM.YYYY' —
+// jedno i drugie parsuje się na PÓŁNOC. Podbicie z dnia, w którym Mateusz był
+// na stronie, wypadało więc PRZED wizytą (00:00 < 08:18) i zakładka nie
+// dostawała plakietki, choć lista ofert pokazywała „↻ odświeżona" — bo ta
+// czyta `last_refresh_date` z godziną. Podbicie z dnia wizyty było przez to
+// niewidzialne NA ZAWSZE: data w liście nigdy nie dostanie godziny wstecz.
+// Dokładny znacznik OSTATNIEGO zdarzenia mamy w danych: `last_refresh_date`
+// (ISO, aktualizowany razem z ostatnim dniem w `refresh_dates`) oraz
+// `reactivation_dates_iso` (surowe ISO z generatora). Starsze dni zostają na
+// północy — i tak są całymi dniami przed wizytą, więc godzina nic nie zmienia.
+function refreshTimes(o) {
+    const dates = (o && o.refresh_dates) || [];
+    const raw = (o && o.last_refresh_date) || '';
+    const iso = raw ? new Date(raw).getTime() : NaN;
+    const day = raw.slice(0, 10);
+    // Uwaga: `last_refresh_date` bywa wypełniony przy ofercie z PUSTĄ listą dni
+    // (znacznik z pierwszego widzenia sprzed śledzenia bumpów) — nie wolno go
+    // dokładać jako zdarzenia, stąd mapowanie po `refresh_dates`, nie union.
+    return dates
+        .map(d => (d === day && !isNaN(iso)) ? iso : parseAnyDate(d))
+        .filter(Boolean);
+}
+function reactivationTimes(o) {
+    const iso = (o && o.reactivation_dates_iso) || [];
+    const src = iso.length ? iso : ((o && o.reactivation_dates) || []);
+    return src.map(parseAnyDate).filter(Boolean);
+}
+// ── ZNACZNIKI CZASU ZDARZEŃ ─ koniec ──
 function shortDate(ts) {
     const d = new Date(ts);
     return String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0');
@@ -1079,8 +1891,8 @@ function lastActivityTs(o) {
         parseAnyDate(o.address_changed_at),
         parseAnyDate(((o.price_history || []).at(-1) || {}).date)
     ];
-    (o.refresh_dates || []).forEach(d => ts.push(parseAnyDate(d)));
-    (o.reactivation_dates || []).forEach(d => ts.push(parseAnyDate(d)));
+    refreshTimes(o).forEach(t => ts.push(t));
+    reactivationTimes(o).forEach(t => ts.push(t));
     const known = ts.filter(Boolean);
     return known.length ? Math.max.apply(null, known) : 0;
 }
@@ -1118,13 +1930,12 @@ function computeSignals(prof, since) {
             });
         }
 
-        (o.reactivation_dates || []).forEach(d => {
-            const t = parseAnyDate(d);
-            if (t && t > since) S.powrot.push({ a: addr, m: shortDate(t), t: t });
+        reactivationTimes(o).forEach(t => {
+            if (t > since) S.powrot.push({ a: addr, m: shortDate(t), t: t });
         });
 
         // Podbicia liczymy w ZDARZENIACH, nie ofertach (refresh_dates to dni).
-        const refr = (o.refresh_dates || []).map(parseAnyDate).filter(t => t && t > since);
+        const refr = refreshTimes(o).filter(t => t > since);
         if (refr.length) {
             const lastR = Math.max.apply(null, refr);
             S.podbicia.push({
@@ -1348,6 +2159,7 @@ async function loadData() {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         profileData = await res.json();
         setPriceRanges(profileData.price_ranges);
+        REFRESH_TRACKED_FROM = earliestRefresh(profileData);
 
         document.getElementById('loading').style.display = 'none';
         const mc = document.getElementById('main-content');
@@ -1356,6 +2168,9 @@ async function loadData() {
         initMap();
         initLegend();
         initSigTip();
+        initJumpNav();
+        initStackPopups();
+        initActivityModal();
 
         // Sygnały liczymy PRZED oznaczeniem wizyty — inaczej wejście na stronę
         // wyzerowałoby to, co ma pokazać.

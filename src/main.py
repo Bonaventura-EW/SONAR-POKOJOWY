@@ -22,11 +22,15 @@ from geocoder import Geocoder
 from duplicate_detector import DuplicateDetector
 from scan_logger import ScanLogger
 from shared_utils import write_json_atomic, DATA_DIR
+import index_history
 
 class SonarPokojowy:
     # Hierarchia precyzji adresu — im wyżej, tym lepszy marker. Używane przy
     # rozstrzyganiu "świeży parsing vs adres z cache" w _process_offer.
     _PRECISION_RANK = {'exact': 2, 'street_only': 1, 'district': 0}
+    # Maks. odległość (km) między centroidem dzielnicy a ulicą, żeby uznać
+    # nowy adres za doprecyzowanie tej samej oferty — patrz _precision_upgrade.
+    _UPGRADE_MAX_KM = 3.0
 
     def __init__(self, data_file: str = "../data/offers.json"):
         self.data_file = Path(data_file)
@@ -43,6 +47,10 @@ class SonarPokojowy:
         # Raportowany w scan_history.json — nagły skok = zmiana w parserze przepisała
         # pół bazy i warto na to spojrzeć, zamiast odkryć to przypadkiem na mapie.
         self._addr_corrections_count = 0
+        # Doprecyzowania markera (street_only/dzielnica → adres z numerem).
+        # Liczone osobno od korekt parsera: tam zmienia się ODCZYT tego samego
+        # tekstu, tu zmienia się TEKST ogłoszenia (wynajmujący dopisał numer).
+        self._addr_upgrades_count = 0
         
         # Wczytaj istniejącą bazę
         self.database = self._load_database()
@@ -91,6 +99,18 @@ class SonarPokojowy:
                 # Pole jest stopniowo wycofywane.
                 'coordinates': offer.get('coordinates', {}),
                 'profile_name': offer.get('profile_name'),
+                # FIX 2026-08-18 (audyt markerów, klasa E): scraper porównuje tytuł
+                # z listingu z tym z bazy — przepisany tytuł (podmienione mieszkanie
+                # w tym samym ogłoszeniu) musi wymusić pobranie szczegółów i re-parsing
+                # adresu, inaczej marker zostaje pod starym adresem.
+                'title': offer.get('title'),
+                # Kiedy ostatnio CZYTALIŚMY szczegóły oferty (opis ze strony OLX).
+                # Inteligentne skanowanie pomija oferty bez zmiany ceny i tytułu, więc
+                # bez tego pola opis w bazie potrafi być sprzed tygodni — a wynajmujący
+                # dopisują adres długo po wystawieniu ogłoszenia. scraper.py rotacyjnie
+                # dociąga najstarsze z nich (_promote_stale_imprecise). Rekordy sprzed
+                # 07.09.2026 nie mają tego pola → fallback do first_seen.
+                'details_fetched_at': offer.get('details_fetched_at') or offer.get('first_seen'),
             }
             # Indeksuj po pełnym ID
             index[offer['id']] = offer_entry
@@ -598,6 +618,11 @@ class SonarPokojowy:
                 'source': price_source  # Dodane: JSON-LD / Parser / HTML fallback
             },
             'description': full_text,
+            # Znacznik: czy TEN opis pochodzi ze świeżo pobranej strony OLX, czy z bazy.
+            # Oferta pominięta przez inteligentne skanowanie dostaje opis z cache
+            # (scraper.py), więc nie wolno go zapisywać z powrotem — patrz
+            # _update_existing_offer.
+            'details_fetched_at': None if raw_offer.get('skipped') else _now_iso,
             'title': _title0,           # tytuł ogłoszenia (og:title) — do wyświetlania i historii
             'title_versions': ([{'title': _title0, 'first_seen': _now_iso, 'last_seen': None}]
                                if _title0 else []),
@@ -610,12 +635,27 @@ class SonarPokojowy:
             'profile_name': raw_offer.get('profile_name'),  # None lub klucz profilu firmowego
             'offer_type': raw_offer.get('offer_type'),  # 'pokoj'/'mieszkanie'/'inne'
             'city': raw_offer.get('city', ''),  # miasto z API OLX
-            # Śledzenie odświeżeń (bump) i reaktywacji — tylko dla ofert firmowych
+            # Śledzenie odświeżeń (bump) i reaktywacji — dla WSZYSTKICH ofert
+            # (źródło: karta listingu, dla firmowych dokładniejsze API v1)
             'refresh_count': 0,          # ile razy odświeżono (max 1/dzień)
             'refresh_dates': [],         # lista dat odświeżeń ['YYYY-MM-DD', ...]
             'last_refresh_date': raw_offer.get('api_last_refresh', ''),
             'reactivation_count': 0,     # ile razy reaktywowano po zniknięciu
             'reactivation_dates': [],    # daty reaktywacji ['YYYY-MM-DDT...', ...]
+            # Daty deaktywacji — dzień, w którym oferta ZNIKNĘŁA z listingu.
+            # Bez tego pola przedział życia oferty z reaktywacjami jest jednym
+            # ciągłym odcinkiem i przerwy w życiu (martwa → wróciła) znikają:
+            # trend_generator liczył taką ofertę jako żywą przez całą przerwę,
+            # a jej wcześniejsze zniknięcia nie wchodziły do odpływu. (2026-09-03)
+            'deactivation_dates': [],    # ['YYYY-MM-DDT...', ...]
+            # Płatne wyróżnienie na listingu OLX (scraper._is_promoted_href).
+            # `promoted` = stan z OSTATNIEGO skanu, `promoted_dates` = dni, w
+            # których ofertę widzieliśmy jako promowaną (max 1/dzień) — z tego
+            # trend_generator buduje dzienny szereg „ile ofert jest promowanych".
+            'promoted': bool(raw_offer.get('promoted')),
+            'promoted_dates': ([datetime.now(self.tz).strftime('%Y-%m-%d')]
+                               if raw_offer.get('promoted') else []),
+            'promoted_count': 1 if raw_offer.get('promoted') else 0,
         }
     
     def _find_existing_offer(self, offer_id: str) -> Dict:
@@ -668,6 +708,27 @@ class SonarPokojowy:
         if not old or not new:
             return False  # brak materiału do porównania → nie zgaduj przeprowadzki
 
+        # ODETNIJ TYTUŁ Z POCZĄTKU obu tekstów. Pod 'description' trzymamy sklejkę
+        # TYTUŁ + ' ' + opis, a tytuł bywa edytowany osobno — po takiej edycji sklejka
+        # z bazy zaczynała się INNYM tytułem niż świeża i porównanie sufiksowe niżej
+        # widziało "przepisane ogłoszenie" przy nietkniętym opisie. Przy zmienionym
+        # tytule i tak wychodzimy wyżej przez _title_changed, więc tutaj tytuł jest
+        # tylko szumem. (2026-09-07: 125 z 505 ofert z nieprecyzyjnym markerem miało
+        # w bazie sklejkę ze starym tytułem — rotacyjne odświeżanie opisów trafiłoby
+        # w nie od razu i mogło zrzucić im historię cen jako fałszywą przeprowadzkę.)
+        def strip_title(text: str, titles) -> str:
+            for t in sorted({norm(x) for x in titles if x}, key=len, reverse=True):
+                if text.startswith(t):
+                    return text[len(t):].strip()
+            return text
+
+        _titles = [existing.get('title'), new_data.get('title')]
+        _titles += [v.get('title') for v in (existing.get('title_versions') or [])]
+        old = strip_title(old, _titles)
+        new = strip_title(new, _titles)
+        if not old or not new:
+            return False
+
         # PORÓWNANIE SUFIKSOWE, nie równościowe. Oferta pominięta dostaje opis z bazy
         # (scraper.py: offer['description'] = existing['description']), a _process_offer
         # zapisuje pod 'description' sklejkę TYTUŁ + ' ' + opis. Przetworzony opis jest
@@ -703,17 +764,92 @@ class SonarPokojowy:
         # Próg 0.75: realna zmiana ulicy ma niskie podobieństwo; sama fleksja
         # ('Bajkowa'/'Bajkowej' ≈ 0.80) NIE jest zmianą.
         return difflib.SequenceMatcher(None, o_st, n_st).ratio() < 0.75
-    
-    def _track_refresh(self, existing: Dict, new_refresh: str) -> bool:
-        """Rejestruje odświeżenie (bump/pushup) oferty firmowej — max 1/dzień.
 
-        `new_refresh` = data ostatniego pushup/odświeżenia z API OLX
-        (api_last_refresh, format ISO). Działa dla dwóch wywołań:
-        pełnej aktualizacji (_update_existing_offer) oraz ofert pominiętych
-        przez inteligentne skanowanie (_mark_inactive_offers), więc bump bez
-        zmiany ceny też jest łapany. Zwraca True gdy dodano nową datę.
+    @staticmethod
+    def _coords_distance_km(a: Dict, b: Dict) -> Optional[float]:
+        """Odległość w km między dwoma punktami (haversine). None, gdy brak coords."""
+        import math
+        try:
+            lat1, lon1 = float(a['lat']), float(a['lon'])
+            lat2, lon2 = float(b['lat']), float(b['lon'])
+        except (TypeError, KeyError, ValueError):
+            return None
+        dphi = math.radians(lat2 - lat1)
+        dlam = math.radians(lon2 - lon1)
+        h = (math.sin(dphi / 2) ** 2
+             + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2))
+             * math.sin(dlam / 2) ** 2)
+        return 2 * 6371.0 * math.asin(min(1.0, math.sqrt(h)))
+
+    def _precision_upgrade(self, old_addr: Dict, new_addr: Dict) -> bool:
+        """Czy nowy adres to DOPRECYZOWANIE starego — ta sama oferta, dokładniejszy punkt?
+
+        Dwa przypadki z życia:
+          • 'Wołodyjowskiego' (bez numeru) → 'Pana Wołodyjowskiego 7': wynajmujący
+            dopisał numer do opisu (ID1bxU2z, zgłoszenie Mateusza 07.09.2026),
+          • dzielnica ('Sławinek') → konkretna ulica w tej samej okolicy.
+
+        Doprecyzowanie NIE jest przeprowadzką: wchodzi in-place, bez wpisu do
+        versions[] i bez resetu historii cen (to jest zarezerwowane dla realnej
+        zmiany adresu, patrz _addr_changed). Bez tej metody:
+          • street_only → numer w ogóle nie przechodził, bo _addr_changed odrzuca
+            porównanie numerów, gdy baza numeru nie ma, a 'Wołodyjowskiego' ⊆
+            'Pana Wołodyjowskiego' czyta jako "ten sam adres" → marker zostawał
+            kwadratem na środku ulicy do końca życia oferty,
+          • dzielnica → ulica przechodziło jako "zmiana adresu" i kasowało historię cen.
+
+        Marker nigdy nie schodzi w dół precyzji: warunek na rangę pilnuje, żeby
+        gorszy odczyt (sama ulica po edycji opisu) nie zjadł adresu z numerem.
         """
-        if not new_refresh or not existing.get('profile_name'):
+        import difflib
+        if not isinstance(old_addr, dict) or not isinstance(new_addr, dict):
+            return False
+        if not (new_addr.get('full') or '').strip():
+            return False
+        old_rank = self._PRECISION_RANK.get(old_addr.get('precision'), 0)
+        new_rank = self._PRECISION_RANK.get(new_addr.get('precision'), 0)
+        if new_rank <= old_rank:
+            return False
+
+        # street_only → exact: numer dopisany do TEJ SAMEJ ulicy.
+        # Inna ulica to nie doprecyzowanie — niech idzie normalną ścieżką
+        # (zmiana adresu / korekta parsera).
+        if old_rank >= self._PRECISION_RANK['street_only']:
+            o_st = (old_addr.get('street') or old_addr.get('full') or '').strip().lower()
+            n_st = (new_addr.get('street') or new_addr.get('full') or '').strip().lower()
+            if not o_st or not n_st:
+                return False
+            o_tok, n_tok = set(o_st.split()), set(n_st.split())
+            if o_tok <= n_tok or n_tok <= o_tok:
+                return True   # 'Wołodyjowskiego' ⊆ 'Pana Wołodyjowskiego'
+            return difflib.SequenceMatcher(None, o_st, n_st).ratio() >= 0.75
+
+        # dzielnica → ulica: musi być TA SAMA okolica. Centroid dzielnicy leży
+        # w jej środku, a dzielnice Lublina mają 1–3 km w poprzek — 3 km to zapas
+        # na ulicę przy krawędzi. Dalej = wynajmujący opisał inne mieszkanie.
+        dist = self._coords_distance_km(old_addr.get('coords') or {},
+                                        new_addr.get('coords') or {})
+        return dist is not None and dist <= self._UPGRADE_MAX_KM
+
+    def _track_refresh(self, existing: Dict, new_refresh: str) -> bool:
+        """Rejestruje odświeżenie (bump/pushup) oferty — max 1/dzień.
+
+        `new_refresh` = data ostatniego pushup/odświeżenia w formacie ISO. Dwa
+        źródła: `last_refresh_time` z API v1 (dokładny znacznik, tylko profile
+        firmowe) oraz tekst karty listingu (`scraper.parse_listing_refresh`),
+        który mają WSZYSTKIE oferty — także prywatne. Do 07.09.2026 metoda
+        wychodziła tu na `profile_name`, więc bumpy znało 109 z 802 aktywnych
+        ofert; teraz zna je cała baza.
+
+        Działa dla dwóch wywołań: pełnej aktualizacji (_update_existing_offer)
+        oraz ofert pominiętych przez inteligentne skanowanie
+        (_mark_inactive_offers), więc bump bez zmiany ceny też jest łapany.
+        W obrębie doby daty NIE nadpisujemy — pierwszy znacznik dnia wygrywa,
+        dzięki czemu dokładna godzina z API/karty nie zostanie zastąpiona
+        przybliżeniem 23:59 z karty oglądanej nazajutrz. Zwraca True gdy
+        dodano nową datę.
+        """
+        if not new_refresh:
             return False
         try:
             new_refresh_date = new_refresh[:10]  # 'YYYY-MM-DD'
@@ -733,6 +869,26 @@ class SonarPokojowy:
         except (ValueError, TypeError, AttributeError):
             pass
         return False
+
+    def _track_promoted(self, existing: Dict, promoted: bool) -> bool:
+        """Zapisuje płatne wyróżnienie oferty na listingu OLX — max 1 dzień/wpis.
+
+        `promoted` = flaga z bieżącego skanu (scraper czyta ją z parametru
+        atrybucji w href kafelka). Aktualizuje stan bieżący i dopisuje dzisiejszą
+        datę do `promoted_dates`, jeśli jeszcze jej tam nie ma. Skanujemy 3×
+        dziennie, więc dzień z choć jednym promowanym wystąpieniem liczy się raz.
+        Zwraca True, gdy dopisano nowy dzień.
+        """
+        existing['promoted'] = bool(promoted)
+        if not promoted:
+            return False
+        today = datetime.now(self.tz).strftime('%Y-%m-%d')
+        dates = existing.setdefault('promoted_dates', [])
+        if today in dates:
+            return False
+        dates.append(today)
+        existing['promoted_count'] = len(dates)
+        return True
 
     def _apply_price_change(self, offer: Dict, new_price: int, new_source: str,
                             update_reason: str):
@@ -804,8 +960,13 @@ class SonarPokojowy:
         # Wchodzi in-place (bez versions[], bez plakietki historii na mapie),
         # ślad diagnostyczny ląduje w address_corrections[]. (2026-07-26)
         _text_changed = self._source_text_changed(existing, new_data)
-        addr_change = _addr_differs and _text_changed
-        addr_correction = _addr_differs and not _text_changed
+        # DOPRECYZOWANIE bije obie pozostałe klasyfikacje: dopisany numer albo
+        # ulica zamiast dzielnicy to ten sam lokal widziany dokładniej, więc nie
+        # może zrzucić historii cen do versions[] ani zapalić plakietki
+        # "zmiana adresu" na mapie. (2026-09-07)
+        addr_upgrade = self._precision_upgrade(existing.get('address', {}), _new_addr)
+        addr_change = _addr_differs and _text_changed and not addr_upgrade
+        addr_correction = _addr_differs and not _text_changed and not addr_upgrade
         addr_snapshot = None
         if addr_change:
             addr_snapshot = {
@@ -818,6 +979,12 @@ class SonarPokojowy:
                 'refresh_dates': list(existing.get('refresh_dates', [])),
                 'reactivation_count': existing.get('reactivation_count', 0),
                 'reactivation_dates': list(existing.get('reactivation_dates', [])),
+                'deactivation_dates': list(existing.get('deactivation_dates', [])),
+                # Wyróżnienia też idą do snapshotu — bez tego reset poniżej kasował je
+                # bezpowrotnie (nie trafiały nawet do versions[]), a wykres promowanych
+                # tracił wstecz dni każdej oferty, która zmieniła adres. (2026-09-03)
+                'promoted_count': existing.get('promoted_count', 0),
+                'promoted_dates': list(existing.get('promoted_dates', [])),
                 'last_price': existing.get('price', {}).get('current'),
             }
 
@@ -851,6 +1018,22 @@ class SonarPokojowy:
 
         # Aktualizuj last_seen
         existing['last_seen'] = now
+
+        # === ŚWIEŻY OPIS (tylko gdy naprawdę pobraliśmy stronę oferty) ===
+        # Do 07.09.2026 opis w bazie był zamrożony na wersji z PIERWSZEGO skanu —
+        # ta metoda nigdy go nie nadpisywała. Wynajmujący, który po tygodniach
+        # dopisał numer budynku (ID1bxU2z: "ul. P. Wołodyjowskiego" →
+        # "ul. Pana Wołodyjowskiego 7"), był dla nas niewidzialny nawet wtedy, gdy
+        # pobieraliśmy szczegóły przy zmianie ceny: parser dostawał świeży tekst,
+        # ale baza i tak trzymała stary.
+        # WARUNEK details_fetched_at: oferta POMINIĘTA przez inteligentne skanowanie
+        # dostaje opis z bazy (scraper.py), a _process_offer skleja go z tytułem —
+        # zapis takiego tekstu doklejałby tytuł przy każdym skanie w nieskończoność.
+        if new_data.get('details_fetched_at'):
+            existing['details_fetched_at'] = new_data['details_fetched_at']
+            _fresh_desc = (new_data.get('description') or '').strip()
+            if _fresh_desc:
+                existing['description'] = _fresh_desc
 
         # INTELIGENTNA AKTUALIZACJA CENY - priorytetyzuj źródła
         old_price = existing['price']['current']
@@ -945,6 +1128,34 @@ class SonarPokojowy:
             if new_addr.get('precision'):
                 existing['address']['precision'] = new_addr['precision']
 
+        # === DOPRECYZOWANIE MARKERA (2026-09-07) ===
+        # Ta sama oferta, dokładniejszy punkt: dopisany numer do znanej ulicy albo
+        # ulica zamiast dzielnicy. Podmiana in-place — NIE ruszamy versions[],
+        # historii cen ani liczników, bo to nie przeprowadzka. Ślad diagnostyczny
+        # ląduje w address_corrections[] z reason='precision_upgrade'.
+        elif addr_upgrade:
+            _old = dict(existing.get('address', {}))
+            existing['address'] = {
+                'full': _new_addr_full,
+                'street': _new_addr.get('street'),
+                'number': _new_addr.get('number'),
+                'coords': _new_addr.get('coords') or _old.get('coords'),
+                'precision': _new_addr.get('precision', 'exact'),
+            }
+            corrections = existing.setdefault('address_corrections', [])
+            corrections.append({
+                'from': _old.get('full'),
+                'from_precision': _old.get('precision'),
+                'to': _new_addr_full,
+                'to_precision': _new_addr.get('precision'),
+                'reason': 'precision_upgrade',
+                'at': now,
+            })
+            del corrections[:-5]  # trzymaj tylko 5 ostatnich, rekord ma nie puchnąć
+            self._addr_upgrades_count += 1
+            print(f"      🎯 Doprecyzowano marker: '{_old.get('full')}' ({_old.get('precision')}) → "
+                  f"'{_new_addr_full}' ({_new_addr.get('precision')}) — bez wpisu do historii adresu")
+
         # === KOREKTA PARSERA (2026-07-26) ===
         # Ten sam tekst ogłoszenia, inny wynik parsera → poprawiliśmy odczyt, a nie
         # ktoś się przeprowadził. Podmiana in-place: NIE ruszamy versions[],
@@ -1002,6 +1213,9 @@ class SonarPokojowy:
         # klucz — nie 'api_last_refresh', którego przetworzona oferta nie ma.
         self._track_refresh(existing, new_data.get('last_refresh_date', ''))
 
+        # Śledź płatne wyróżnienie na listingu (dotyczy każdej oferty, nie tylko firmowej)
+        self._track_promoted(existing, new_data.get('promoted', False))
+
         # Śledź reaktywacje — inkrementuj licznik i dopisz datę przy każdej reaktywacji
         if was_inactive:
             existing['reactivation_count'] = existing.get('reactivation_count', 0) + 1
@@ -1042,7 +1256,11 @@ class SonarPokojowy:
             existing['last_refresh_date'] = ''
             existing['reactivation_count'] = 0
             existing['reactivation_dates'] = []
+            existing['deactivation_dates'] = []
             existing.pop('reactivated_at', None)
+            existing['promoted_dates'] = ([datetime.now(self.tz).strftime('%Y-%m-%d')]
+                                          if existing.get('promoted') else [])
+            existing['promoted_count'] = len(existing['promoted_dates'])
 
     def _update_days_active(self):
         """
@@ -1084,7 +1302,8 @@ class SonarPokojowy:
         return int(statistics.median(healthy))
 
     def _mark_inactive_offers(self, current_offer_ids: List[str], skipped_offer_ids: List[str] = None,
-                              skipped_refresh_map: Dict[str, str] = None):
+                              skipped_refresh_map: Dict[str, str] = None,
+                              promoted_ids: List[str] = None):
         """
         Oznacza ogłoszenia jako nieaktywne jeśli nie ma ich w bieżącym scanie.
         Reaktywuje oferty które pojawiły się ponownie (w skipped_ids).
@@ -1094,11 +1313,14 @@ class SonarPokojowy:
             skipped_offer_ids: Lista ID ofert które zostały pominięte przez inteligentne skanowanie
             skipped_refresh_map: id oferty pominiętej → api_last_refresh (do śledzenia bumpów
                                  bez zmiany ceny — oferta skipped nie przechodzi _update_existing_offer)
+            promoted_ids: ID ofert, które w TYM skanie były płatnie wyróżnione na listingu
+                          (ratunek dla ofert skipped, które nie przeszły _process_offer)
         """
         if skipped_offer_ids is None:
             skipped_offer_ids = []
         if skipped_refresh_map is None:
             skipped_refresh_map = {}
+        promoted_set = set(promoted_ids or [])
 
         # Wszystkie oferty które powinny być aktywne = przetworzone + pominięte
         all_active_ids = set(current_offer_ids + skipped_offer_ids)
@@ -1121,6 +1343,10 @@ class SonarPokojowy:
                    or any(addr_full.startswith(p) for p in BOGUS_PREFIXES))
         
         now = datetime.now(self.tz).isoformat()
+        # Znacznik TEGO przebiegu deaktywacji. _verify_inactive_offers cofa po nim
+        # wpis ofercie, która wcale nie zniknęła z rynku (firmówka spoza listingu
+        # z InStock leci inactive→active w tym samym skanie).
+        self._deactivation_stamp = now
         deactivated_count = 0
         deactivated_bogus_count = 0
         reactivated_from_skipped = 0
@@ -1133,6 +1359,7 @@ class SonarPokojowy:
                 and offer['id'] not in processed_set):
                 if offer.get('active', True):
                     offer['active'] = False
+                    offer.setdefault('deactivation_dates', []).append(now)
                     deactivated_bogus_count += 1
                 continue
             
@@ -1152,9 +1379,18 @@ class SonarPokojowy:
                     # Śledź odświeżenie (bump) — skipped nie wchodzi w _update_existing_offer,
                     # więc bez tego bump bez zmiany ceny nigdy nie trafia do licznika
                     self._track_refresh(offer, skipped_refresh_map.get(offer['id'], ''))
+                    # Wyróżnienie — jw., skipped omija _update_existing_offer
+                    self._track_promoted(offer, offer['id'] in promoted_set)
             elif offer['active']:
                 # Oferta nie jest w scanie - dezaktywuj
                 offer['active'] = False
+                # Dzień zniknięcia. Razem z reactivation_dates domyka przedziały
+                # życia oferty — bez tego przerwa „martwa → wróciła" jest
+                # niewidoczna i oferta liczy się jako żywa przez całą przerwę.
+                offer.setdefault('deactivation_dates', []).append(now)
+                # Nie ma jej na listingu → nie jest już promowana. Historia dni
+                # (promoted_dates) zostaje — z niej liczy się szereg czasowy.
+                offer['promoted'] = False
                 deactivated_count += 1
         
         if deactivated_count > 0:
@@ -1176,10 +1412,10 @@ class SonarPokojowy:
         Returns:
             Dict ze statystykami: {'verified': N, 'reactivated': N, 'confirmed_inactive': N, 'errors': N}
         """
-        import requests
         from bs4 import BeautifulSoup
         from concurrent.futures import ThreadPoolExecutor, as_completed
         import threading
+        from scraper import NETWORK_EXCEPTIONS
         
         stats = {
             'verified': 0,
@@ -1211,13 +1447,9 @@ class SonarPokojowy:
         
         print(f"   🔍 Weryfikuję {len(to_verify)} nieaktywnych ofert (z {len(inactive_offers)} łącznie) [10 wątków]...")
         
-        # Użyj sesji scrapera z odpowiednimi headerami (Session jest thread-safe dla GET)
-        session = requests.Session()
-        session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'pl-PL,pl;q=0.9,en;q=0.8'
-        })
+        # Sesja z impersonacją TLS Safari (WAF CloudFront tnie po JA3 —
+        # patrz scraper.py IMPERSONATE). Thread-safe dla GET.
+        session = OLXScraper.make_olx_session()
         
         now = datetime.now(self.tz).isoformat()
         # Per-thread rate limiter dla weryfikacji (delay 0.2-0.5s per wątek)
@@ -1307,7 +1539,7 @@ class SonarPokojowy:
                 # NIE reaktywujemy - oferta zostanie inactive aż wróci do listingu.
                 return (offer, 'confirmed_inactive', None)
                     
-            except requests.RequestException:
+            except NETWORK_EXCEPTIONS:
                 return (offer, 'error', None)
             except Exception as e:
                 # Nie-sieciowy wyjątek (np. zmiana HTML) — loguj, nie połykaj po cichu
@@ -1338,6 +1570,15 @@ class SonarPokojowy:
                             self, '_active_before_deactivation', set())
                         offer['active'] = True
                         offer['last_seen'] = reactivation_data['last_seen']
+                        if not was_inactive_before:
+                            # Oferta nie zniknęła z rynku — to _mark_inactive_offers
+                            # zdjęło ją minutę temu, bo nie było jej na listingu.
+                            # Zostawiony wpis udawałby zgon w przedziałach życia
+                            # i podbijał odpływ o zdarzenie, którego nie było.
+                            stamp = getattr(self, '_deactivation_stamp', None)
+                            dates = offer.get('deactivation_dates') or []
+                            if stamp and dates and dates[-1] == stamp:
+                                dates.pop()
                         if was_inactive_before:
                             offer['reactivated_at'] = reactivation_data['reactivated_at']
                             offer['reactivation_source'] = 'verification'
@@ -1475,8 +1716,9 @@ class SonarPokojowy:
                         if r['url'].split('?')[0] == clean_url:
                             r['profile_key'] = p_offer['profile_key']
                             r['profile_name'] = p_offer['profile_name']
-                            # Regular scan (HTML) nie zna api_last_refresh — przenieś z API v1,
-                            # inaczej skipped oferty firmowe nie mają skąd wziąć daty bumpu
+                            # Regular scan zna datę podbicia tylko z karty listingu
+                            # (dobowa dokładność sprzed dziś). API v1 podaje dokładny
+                            # znacznik z godziną, więc dla ofert firmowych wygrywa.
                             if p_offer.get('api_last_refresh'):
                                 r['api_last_refresh'] = p_offer['api_last_refresh']
                             if p_offer.get('api_created') and not r.get('api_created'):
@@ -1776,6 +2018,13 @@ class SonarPokojowy:
                 for offer in raw_offers
                 if offer.get('skipped', False) and offer.get('api_last_refresh')
             }
+            # ID ofert płatnie wyróżnionych na listingu w TYM skanie
+            promoted_ids = [
+                offer['url'].split('/')[-1].split('.')[0]
+                for offer in raw_offers
+                if offer.get('promoted')
+            ]
+            print(f"   ⭐ Promowane na listingu: {len(promoted_ids)} ofert")
 
             # ZABEZPIECZENIE: Ochrona przed masową dezaktywacją przy blokadzie OLX
             # (Cloudflare, rate limit, pusta odpowiedź, itp.)
@@ -1844,8 +2093,33 @@ class SonarPokojowy:
                     f"SCRAPE_PARTIAL: paginacja urwana na pustej stronie, scrape {scraped_count} ofert "
                     f"(mediana zdrowych skanów: {reference_scrape}). Prawdopodobny soft-block OLX."
                 )
+            elif pagination_truncated and active_in_db >= 10 and scraped_count < active_in_db * TRUNCATED_RATIO:
+                # ZAPORA BEZ MEDIANY (2026-08-11): po serii SCRAPE_BLOCKED mediana
+                # zdrowych skanów znika (_reference_scrape_size → None), więc dwie
+                # zapory wyżej są WYŁĄCZONE. Wtedy sam fakt urwanej paginacji przy
+                # scrape mniejszym niż baza aktywnych = nie ufaj, nie dezaktywuj.
+                # Bez tego scrape 385 (urwany na str. 3) zdeaktywował 773→336.
+                print(f"   ⚠️  OCHRONA: Paginacja urwana, scrape {scraped_count} < baza "
+                      f"{active_in_db} aktywnych (brak mediany — seria blokad). Pomijam dezaktywację.")
+                scrape_blocked = True
+                self.scan_logger.log_error(
+                    f"SCRAPE_PARTIAL: paginacja urwana, scrape {scraped_count} ofert < baza "
+                    f"{active_in_db} aktywnych, brak mediany odniesienia (seria blokad OLX)."
+                )
+            elif reference_scrape is None and active_in_db >= 10 and scraped_count < active_in_db * 0.6:
+                # Mediana niedostępna (seria blokad) I scrape < 60% aktywnej bazy —
+                # nawet bez urwanej paginacji nie ufamy tak dużemu spadkowi zaraz
+                # po blokadach. Realny rynek nie kurczy się o 40% między skanami.
+                print(f"   ⚠️  OCHRONA: Brak mediany (seria blokad), scrape {scraped_count} < 60% "
+                      f"bazy {active_in_db} aktywnych. Pomijam dezaktywację.")
+                scrape_blocked = True
+                self.scan_logger.log_error(
+                    f"SCRAPE_PARTIAL: scrape {scraped_count} ofert < 60% bazy {active_in_db} "
+                    f"aktywnych, brak mediany odniesienia (seria blokad OLX)."
+                )
             else:
-                self._mark_inactive_offers(current_offer_ids, skipped_ids, skipped_refresh_map)
+                self._mark_inactive_offers(current_offer_ids, skipped_ids, skipped_refresh_map,
+                                           promoted_ids=promoted_ids)
             
             # Aktualizuj days_active dla WSZYSTKICH ofert
             self._update_days_active()
@@ -1857,8 +2131,12 @@ class SonarPokojowy:
             if self._addr_corrections_count > 0:
                 print(f"   🔧 Korekty adresu (re-parsing, bez zmiany tekstu): "
                       f"{self._addr_corrections_count}")
+            if self._addr_upgrades_count > 0:
+                print(f"   🎯 Doprecyzowane markery (dopisany numer / ulica zamiast dzielnicy): "
+                      f"{self._addr_upgrades_count}")
             self.scan_logger.log_phase('address_corrections', 0.0, {
-                'corrected': self._addr_corrections_count
+                'corrected': self._addr_corrections_count,
+                'upgraded': self._addr_upgrades_count
             })
             
             # 4. Weryfikacja nieaktywnych ofert
@@ -1900,6 +2178,12 @@ class SonarPokojowy:
                 'verification': verification_stats
             })
             
+            # Dzienny stan bazy → data/index_history.json (źródło prawdy Indeksu).
+            # Zapisujemy TĘ SAMĄ liczbę, którą pokazuje monitoring; wartość dnia to
+            # maksimum z odczytów, więc skan częściowy nie obniży już zapisanego dnia.
+            scan_ts = (self.scan_logger.current_scan or {}).get('timestamp')
+            index_history.record(active, scan_ts)
+
             final_status = 'warning' if scrape_blocked else 'completed'
             self.scan_logger.end_scan(final_status, total_duration)
             

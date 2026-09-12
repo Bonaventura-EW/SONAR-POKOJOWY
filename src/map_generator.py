@@ -391,6 +391,11 @@ def generate_map_data(input_file, output_file):
             'is_new': is_new,  # ✅ Obliczone na podstawie daty
             'title': offer_title,  # Tytuł ogłoszenia (None gdy nie do odzyskania)
             'description': clean_description,  # Pełny opis bez tytułu (frontend się sam obcina)
+            # Odświeżenia (bump na OLX). `last_refresh` niesie znacznik ostatniego
+            # podbicia — front zapala z niego oznaczenie „odświeżona w ostatnich 24h".
+            'refresh_count': offer.get('refresh_count', 0),
+            'last_refresh': (format_datetime(offer.get('last_refresh_date', ''))
+                             if offer.get('last_refresh_date') else None),
             'reactivated': offer.get('reactivated_at') is not None,  # Czy była reaktywowana
             'reactivated_at': format_datetime(offer.get('reactivated_at', '')) if offer.get('reactivated_at') else None,
             # Precyzja adresu: 'exact' (z numerem) lub 'street_only' (środek ulicy)

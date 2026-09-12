@@ -274,6 +274,12 @@ def generate_profile_data(input_file: str, output_file: str):
                 format_datetime(d, fmt='%d.%m.%Y')
                 for d in offer.get('reactivation_dates', [])
             ],
+            # Te same daty w SUROWYM ISO (z godziną). Sygnały „od Twojej wizyty"
+            # na `profile_tracker.html` porównują znaczniki co do minuty, a
+            # 'DD.MM.YYYY' parsuje się na północ — reaktywacja z dnia wizyty
+            # wypadałaby przed nią i nigdy nie zapaliłaby plakietki ♻.
+            # Wyświetlanie (chipy z datami) dalej bierze pole wyżej.
+            'reactivation_dates_iso': list(offer.get('reactivation_dates', [])),
             # Wersje adresu (Faza 1): zmiany adresu tego samego listingu OLX
             'address_change_count': offer.get('address_change_count', 0),
             'address_changed_at': format_datetime(offer.get('address_changed_at', '')),

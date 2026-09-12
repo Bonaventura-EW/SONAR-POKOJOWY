@@ -4,14 +4,18 @@ Obsługuje paginację (wszystkie strony), opóźnienia anti-block
 WERSJA 2.0: Równoległe pobieranie szczegółów (ThreadPoolExecutor)
 """
 
+import os
 import requests
+from curl_cffi import requests as cffi_requests
 from bs4 import BeautifulSoup
 import time
 import random
 import re
 import json
+import pytz
+from datetime import datetime, timedelta
 from typing import List, Dict, Optional
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse, parse_qs
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 
@@ -22,17 +26,119 @@ from address_parser_data import LUBLIN_DISTRICTS
 # inaczej oferta znika ze scanu i jej cena nigdy się nie aktualizuje.
 LUBLIN_CITY_NAMES = {'lublin'} | {d.lower() for d in LUBLIN_DISTRICTS}
 
+# === DATA ODŚWIEŻENIA Z KARTY LISTINGU (2026-09-07) ===
+# Karta ogłoszenia niesie w `data-testid="location-date"` albo datę wystawienia
+# ("Lublin - 05 września 2026"), albo datę PODBICIA ("Odświeżono dnia 06
+# września 2026" / "Odświeżono dzisiaj o 07:23"). To JEDYNE źródło bumpów dla
+# ogłoszeń prywatnych — API v1 (`last_refresh_time`) odpytujemy wyłącznie przy
+# skanie profili firmowych, więc do 07.09.2026 odświeżenia znało tylko 109 z 802
+# aktywnych ofert. Strony listingu i tak pobieramy, więc to źródło kosztuje 0
+# dodatkowych requestów (sonda: 70 ze 100 kart niosło datę odświeżenia).
+PL_TZ = pytz.timezone('Europe/Warsaw')
+
+PL_MONTHS = {
+    'stycznia': 1, 'lutego': 2, 'marca': 3, 'kwietnia': 4, 'maja': 5, 'czerwca': 6,
+    'lipca': 7, 'sierpnia': 8, 'września': 9, 'października': 10,
+    'listopada': 11, 'grudnia': 12,
+}
+
+_CARD_REFRESH_TODAY = re.compile(r'odświeżono\s+(?:dzisiaj|dziś)\s+o\s+(\d{1,2}):(\d{2})', re.IGNORECASE)
+_CARD_REFRESH_YESTERDAY = re.compile(r'odświeżono\s+wczoraj\s+o\s+(\d{1,2}):(\d{2})', re.IGNORECASE)
+_CARD_REFRESH_DATE = re.compile(
+    r'odświeżono\s+dnia\s+(\d{1,2})\s+([^\W\d_]+)\s+(\d{4})', re.IGNORECASE)
+
+
+def parse_listing_refresh(text: str, now: datetime = None) -> str:
+    """Data podbicia z tekstu karty listingu → ISO (strefa Europe/Warsaw).
+
+    Zwraca '' dla kart BEZ odświeżenia (sama data wystawienia) — brak "Odświeżono"
+    znaczy, że oferty nikt nie podbijał, a nie że nie znamy daty.
+
+    Karta z poprzedniej doby podaje samą datę, bez godziny. Przyjmujemy wtedy
+    KONIEC tamtej doby (23:59), bo taki wpis widzimy dopiero, gdy bump wypadł
+    po ostatnim skanie dnia (skany: 8:00/15:00/21:00) — czyli realnie wieczorem.
+    Przyjęcie północy gasiłoby oznaczenie „odświeżona w ostatnich 24h" jeszcze
+    zanim minie doba od podbicia. Bump z godziną łapiemy dokładnie tego samego
+    dnia, a `_track_refresh` nie nadpisuje daty w obrębie doby, więc dokładny
+    znacznik nigdy nie zostanie zastąpiony tym przybliżeniem.
+    """
+    if not text:
+        return ''
+    now = now or datetime.now(PL_TZ)
+
+    m = _CARD_REFRESH_TODAY.search(text)
+    if m:
+        return _iso_at(now, int(m.group(1)), int(m.group(2)))
+
+    m = _CARD_REFRESH_YESTERDAY.search(text)
+    if m:
+        return _iso_at(now - timedelta(days=1), int(m.group(1)), int(m.group(2)))
+
+    m = _CARD_REFRESH_DATE.search(text)
+    if m:
+        month = PL_MONTHS.get(m.group(2).lower())
+        if not month:
+            return ''
+        try:
+            day_naive = datetime(int(m.group(3)), month, int(m.group(1)), 23, 59)
+        except ValueError:
+            return ''
+        return PL_TZ.localize(day_naive).isoformat()
+
+    return ''
+
+
+def _iso_at(day: datetime, hour: int, minute: int) -> str:
+    """ISO dla godziny HH:MM w dniu `day` (strefa PL)."""
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        return ''
+    naive = datetime(day.year, day.month, day.day, hour, minute)
+    return PL_TZ.localize(naive).isoformat()
+
+
+# === IMPERSONACJA TLS (2026-08-11) ===
+# WAF OLX (AWS CloudFront) tnie po TLS fingerprincie (JA3), nie po IP:
+# pythonowy requests → 403 "Request blocked", fingerprint Chrome
+# (curl_cffi chrome120/124/131 ORAZ prawdziwy headless Chromium) → connection
+# reset, safari17_0 → 200 z tego samego datacenter IP. Dlatego wszystkie
+# requesty do OLX idą przez curl_cffi z impersonacją Safari.
+# NIE zmieniaj na chrome* — empirycznie blokowane (2026-08-11).
+IMPERSONATE = 'safari17_0'
+
+# Wyjątki sieciowe: curl_cffi ma własną hierarchię (NIE dziedziczy po
+# requests.RequestException). Łap obie — część kodu (bs4/json helpers)
+# nadal może rzucić requests.RequestException.
+NETWORK_EXCEPTIONS = (requests.RequestException, cffi_requests.exceptions.RequestException)
+
 class OLXScraper:
     BASE_URL = "https://www.olx.pl/nieruchomosci/stancje-pokoje/lublin/"
     
+    # UA MUSI być spójny z impersonacją TLS (IMPERSONATE = safari17_0).
+    # Nagłówek Chrome + TLS Safari = niespójność, którą WAF może wyłapać.
     HEADERS = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'pl,en-US;q=0.7,en;q=0.3',
         'Connection': 'keep-alive',
         'Upgrade-Insecure-Requests': '1'
     }
-    
+
+    @staticmethod
+    def make_olx_session() -> 'cffi_requests.Session':
+        """
+        Jedno źródło prawdy dla sesji HTTP do OLX — curl_cffi z impersonacją
+        TLS Safari (patrz komentarz przy IMPERSONATE). Używane przez scraper,
+        weryfikację nieaktywnych (main.py) i favorites_tracker.
+
+        verify: w GitHub Actions ruch idzie bezpośrednio (default True);
+        CURL_CA_BUNDLE/REQUESTS_CA_BUNDLE pozwala podać własne CA
+        (np. środowiska za MITM-proxy).
+        """
+        ca = os.environ.get('CURL_CA_BUNDLE') or os.environ.get('REQUESTS_CA_BUNDLE')
+        session = cffi_requests.Session(impersonate=IMPERSONATE, verify=ca if ca else True)
+        session.headers.update(OLXScraper.HEADERS)
+        return session
+
     def __init__(self, delay_range: tuple = (2, 4), max_workers: int = 5, existing_offers: dict = None):
         """
         Args:
@@ -44,8 +150,7 @@ class OLXScraper:
         """
         self.delay_min, self.delay_max = delay_range
         self.max_workers = max_workers
-        self.session = requests.Session()
-        self.session.headers.update(self.HEADERS)
+        self.session = self.make_olx_session()
         
         # Per-thread rate limiter (KAŻDY WĄTEK MA SWÓJ LICZNIK)
         # Wcześniej globalny self._lock + self._last_request_time powodował, że
@@ -72,9 +177,112 @@ class OLXScraper:
         self.stats = {
             'skipped_same_price': 0,
             'fetched_new': 0,
-            'fetched_price_changed': 0
+            'fetched_price_changed': 0,
+            'fetched_stale_address': 0
         }
+
+        # Detekcja płatnych wyróżnień (patrz _is_promoted_href). Liczniki są
+        # narastające dla całego scrape'u — `attributed` = ile kafelków niosło
+        # w ogóle parametr `search_reason`. attributed == 0 przy niepustym
+        # listingu znaczy, że OLX zmienił format atrybucji i metryka
+        # promowanych po cichu spadłaby do zera.
+        self.promoted_stats = {'promoted': 0, 'attributed': 0, 'cards': 0}
     
+    @staticmethod
+    def _listing_title_changed(existing: dict, offer: dict) -> bool:
+        """Czy tytuł ogłoszenia zmienił się od ostatniego scanu?
+
+        FIX 2026-08-18 (audyt markerów, klasa E): przy niezmienionej cenie scraper
+        pomijał pobranie szczegółów, więc oferta z PRZEPISANYM tytułem (wynajmujący
+        podmienia mieszkanie w tym samym ogłoszeniu) dostawała nowy tytuł z listingu,
+        ale adres zostawał ze starego mieszkania — marker wisiał kilka km od prawdy
+        (ID1bybLl: tytuł "Wyżynna", marker "Krasińskiego"; ID1bv47Y: tytuł
+        "Leszyteckiego 5", marker "Jana Sawy").
+
+        Porównanie odporne na szum OLX: wielkość liter, wielokrotne spacje oraz
+        doklejone na końcu "Lublin" (og:title ze strony oferty ma miasto, tytuł
+        z listingu nie — bez tego KAŻDA oferta byłaby pobierana co scan).
+        """
+        def norm(t):
+            t = ' '.join((t or '').lower().split())
+            return re.sub(r'[\s,–-]*lublin$', '', t).strip()
+
+        old, new = norm(existing.get('title')), norm(offer.get('title'))
+        return bool(old) and bool(new) and old != new
+
+    # ROTACYJNE ODŚWIEŻANIE OPISÓW — ile ofert na skan i od jakiego wieku odczytu.
+    # Koszt ZMIERZONY na produkcji (07.09.2026): +47 s na skan przy budżecie 40,
+    # czyli ~1,2 s na ofertę — każdy wątek odczekuje swoje 2–4 s między requestami,
+    # więc 10 wątków nie skraca tego 10×. Cały skan: 95 → 150 s.
+    # Kolejka posuwa się o ~31 pozycji na skan (część awansowanych i tak jest
+    # pobierana z innego powodu), więc ~500 nieprecyzyjnych ofert to ~16 skanów
+    # ≈ 5 dni przy cronie 3×/dobę. Podnosząc budżet licz się z liniowym kosztem
+    # i z ryzykiem soft-blocku OLX-a.
+    STALE_REFRESH_BUDGET = 40
+    STALE_REFRESH_MIN_AGE_DAYS = 3
+
+    def _promote_stale_imprecise(self, offers_to_skip: List[Dict],
+                                 offers_to_fetch: List[Dict]) -> List[Dict]:
+        """Przenosi najstarsze oferty z NIEPRECYZYJNYM markerem ze 'skip' do 'fetch'.
+
+        Inteligentne skanowanie pomija ofertę, gdy cena i tytuł się nie zmieniły —
+        i tak było dobrze, dopóki nie okazało się, że wynajmujący dopisują adres
+        PO wystawieniu ogłoszenia (ID1bxU2z, zgłoszenie Mateusza 07.09.2026:
+        "w bloku przy ul. P. Wołodyjowskiego" → "przy ul. Pana Wołodyjowskiego 7";
+        ani cena, ani tytuł się nie ruszyły). Taka edycja była dla nas niewidzialna,
+        więc marker zostawał kwadratem na środku ulicy do końca życia oferty.
+
+        Bierzemy TYLKO oferty z markerem street_only/district — te z numerem nie mają
+        czego zyskać, a listing i tak wychwyci u nich zmianę ceny albo tytułu.
+        Kolejność: od najdawniej czytanych, limit STALE_REFRESH_BUDGET na skan.
+
+        Returns: nowa lista offers_to_skip (bez awansowanych ofert).
+        """
+        if not offers_to_skip:
+            return offers_to_skip
+
+        now = datetime.now(PL_TZ)
+        candidates = []
+        for idx, item in enumerate(offers_to_skip):
+            existing = item.get('existing') or {}
+            precision = (existing.get('address') or {}).get('precision')
+            if precision not in ('street_only', 'district'):
+                continue
+            raw_ts = existing.get('details_fetched_at')
+            try:
+                age_days = (now - datetime.fromisoformat(raw_ts)).total_seconds() / 86400
+            except (TypeError, ValueError):
+                # Brak/zepsuty znacznik (rekordy sprzed wprowadzenia pola) = najstarsze.
+                age_days = float('inf')
+            if age_days < self.STALE_REFRESH_MIN_AGE_DAYS:
+                continue
+            # idx w kluczu sortowania: stabilna kolejność przy remisie wieku
+            candidates.append((-age_days, idx, item))
+
+        if not candidates:
+            return offers_to_skip
+
+        candidates.sort(key=lambda c: (c[0], c[1]))
+        promoted_idx = set()
+        for _, idx, item in candidates[:self.STALE_REFRESH_BUDGET]:
+            promoted_idx.add(idx)
+            offer, existing = item['offer'], item['existing']
+            # SIATKA BEZPIECZEŃSTWA: adres z bazy jedzie z ofertą jako cache.
+            # Świeży parsing i tak wygrywa, gdy jest dokładniejszy (o to chodzi
+            # w całej rotacji), ale gdy wynajmujący USUNIE adres z opisu, oferta
+            # bez cache poleciałaby w 'no_address' i zniknęła z mapy jako
+            # nieaktywna — mimo że nadal wisi na listingu.
+            if existing.get('address'):
+                offer['cached_address'] = existing['address']
+            _coords = (existing.get('address') or {}).get('coords') or existing.get('coordinates')
+            if _coords:
+                offer['cached_coordinates'] = _coords
+            offers_to_fetch.append({'offer': offer, 'reason': 'stale_address'})
+
+        self.stats['fetched_stale_address'] = len(promoted_idx)
+        self.stats['skipped_same_price'] -= len(promoted_idx)
+        return [item for idx, item in enumerate(offers_to_skip) if idx not in promoted_idx]
+
     def _extract_price_number(self, price_raw: str) -> Optional[int]:
         """
         Wyciąga samą liczbę z tekstu ceny.
@@ -138,19 +346,32 @@ class OLXScraper:
         try:
             response = self.session.get(url, timeout=15)
             
-            # === WYKRYWANIE BLOKADY CLOUDFLARE / RATE LIMIT ===
-            # 403 + Cloudflare lub 429 = serwer nas hamuje
+            # === WYKRYWANIE BLOKADY CLOUDFLARE / CLOUDFRONT / RATE LIMIT ===
+            # 403/429/503 = serwer nas hamuje. OLX stoi za DWOMA warstwami:
+            #   - Cloudflare ("just a moment", cf-ray) — challenge/rate-limit
+            #   - AWS CloudFront ("Request blocked", Server: CloudFront) — WAF/blok IP
+            # Bez rozpoznania CloudFront _fetch_page traktował jego 403 jak zwykły
+            # błąd sieci (raise_for_status), więc scraper nie robił cooldownu ani
+            # auto-spowolnienia i nie logował poprawnie że został zablokowany.
             if response.status_code in (403, 429, 503):
                 content_lower = response.text[:2000].lower() if response.text else ''
-                is_cf = ('cloudflare' in content_lower or 'cf-ray' in str(response.headers).lower()
-                         or 'just a moment' in content_lower or 'attention required' in content_lower)
-                
-                if is_cf or response.status_code == 429:
+                headers_lower = str(response.headers).lower()
+                server_lower = response.headers.get('Server', '').lower()
+
+                is_cloudflare = ('cloudflare' in content_lower or 'cf-ray' in headers_lower
+                                 or 'just a moment' in content_lower or 'attention required' in content_lower)
+                is_cloudfront = ('cloudfront' in server_lower or 'cloudfront' in headers_lower
+                                 or 'request blocked' in content_lower
+                                 or 'the request could not be satisfied' in content_lower)
+                is_blocked = is_cloudflare or is_cloudfront
+
+                if is_blocked or response.status_code == 429:
+                    edge = 'CloudFront/WAF' if is_cloudfront else ('Cloudflare' if is_cloudflare else 'rate-limit')
                     with self._global_lock:
                         # Podwój globalny min_interval (auto-spowolnienie)
                         old_interval = self._global_min_interval
                         self._global_min_interval = min(old_interval * 2, 2.0)
-                        print(f"\n🛑 Wykryto blokadę ({response.status_code}) - spowalniam: "
+                        print(f"\n🛑 Wykryto blokadę {edge} ({response.status_code}) - spowalniam: "
                               f"{old_interval:.2f}s → {self._global_min_interval:.2f}s globalny interval")
                     # Cooldown 30s
                     time.sleep(30)
@@ -158,19 +379,70 @@ class OLXScraper:
             
             response.raise_for_status()
             return BeautifulSoup(response.text, 'lxml')
-        except requests.RequestException as e:
+        except NETWORK_EXCEPTIONS as e:
             print(f"❌ Błąd pobierania {url}: {e}")
             return None
     
+    @staticmethod
+    def _is_promoted_href(url: str) -> bool:
+        """Czy kafelek listingu to PŁATNIE PROMOWANE ogłoszenie?
+
+        OLX doszywa do href-a karty parametr atrybucji kliknięcia
+        `search_reason=search|promoted` (organiczne: `search|organic`).
+        To najpewniejszy sygnał wyróżnienia, jaki mamy w HTML listingu —
+        generuje go serwer OLX, nie zależy od klas CSS ani `data-testid`,
+        które OLX przemebluje co kilka miesięcy.
+        """
+        if '?' not in (url or ''):
+            return False
+        try:
+            reasons = parse_qs(urlparse(url).query).get('search_reason', [])
+        except ValueError:
+            return False
+        return any('promoted' in r.lower() for r in reasons)
+
+    @staticmethod
+    def _has_promoted_badge(container) -> bool:
+        """Zapasowy detektor wyróżnienia — plakietka na karcie ogłoszenia.
+
+        Używany TYLKO gdy href nie niesie `search_reason` (np. OLX zmieni
+        format atrybucji). Celowo wąski: sam `data-testid`, bez szukania
+        tekstu „Wyróżnione" w treści karty — tytuł ogłoszenia potrafi
+        zawierać takie słowo i robiłby fałszywe trafienia.
+        """
+        if container is None:
+            return False
+        return bool(container.find(attrs={'data-testid': 'adCard-featured'}))
+
+    @staticmethod
+    def _extract_card_refresh(container) -> str:
+        """Data podbicia z karty listingu (`data-testid="location-date"`) → ISO.
+
+        Zwraca '' gdy karta nie mówi o odświeżeniu (sama data wystawienia).
+        Element bywa poza kontenerem z tytułem i ceną (OLX przemebluje layout),
+        więc jak go nie ma — szukamy jeszcze w dwóch rodzicach wyżej.
+        """
+        if container is None:
+            return ''
+        node = container
+        for _ in range(3):
+            if node is None:
+                break
+            el = node.find(attrs={'data-testid': 'location-date'})
+            if el:
+                return parse_listing_refresh(el.get_text(' ', strip=True))
+            node = node.find_parent()
+        return ''
+
     def _extract_offers_from_page(self, soup: BeautifulSoup) -> List[Dict]:
         """
         Wyciąga wszystkie oferty z pojedynczej strony.
         
         Returns:
-            Lista Dict z kluczami: url, title, description_snippet, price_raw
+            Lista Dict z kluczami: url, title, description_snippet, price_raw, promoted
         """
         offers = []
-        seen_urls = set()  # Deduplikacja
+        by_url = {}  # clean_url → oferta (deduplikacja + podbicie flagi promowania)
         parse_failures = 0  # Wyjątki przy parsowaniu — sygnał zmiany struktury HTML OLX
 
         # Nowa strategia: znajdź wszystkie linki do /d/oferta/ i wyciągnij dane z kontekstu
@@ -185,10 +457,22 @@ class OLXScraper:
                 
                 # Deduplikacja - normalizuj URL (bez query params)
                 clean_url = url.split('?')[0]
-                if clean_url in seen_urls:
+
+                # Płatne wyróżnienie — z parametru atrybucji w href karty
+                promoted = self._is_promoted_href(url)
+                self.promoted_stats['cards'] += 1
+                if 'search_reason=' in url:
+                    self.promoted_stats['attributed'] += 1
+
+                if clean_url in by_url:
+                    # Ta sama oferta drugi raz na stronie (blok promowanych NAD
+                    # listingiem + wystąpienie organiczne). Jedno promowane
+                    # wystąpienie wystarczy, żeby uznać ofertę za wyróżnioną.
+                    if promoted and not by_url[clean_url]['promoted']:
+                        by_url[clean_url]['promoted'] = True
+                        self.promoted_stats['promoted'] += 1
                     continue
-                seen_urls.add(clean_url)
-                
+
                 # Znajdź kontener ogłoszenia - idź w górę maksymalnie 6 poziomów
                 container = None
                 title_tag = None
@@ -219,13 +503,26 @@ class OLXScraper:
                 if len(title) < 5:
                     continue
                 
-                offers.append({
+                # Fallback plakietki tylko gdy href nie niesie atrybucji
+                if not promoted and 'search_reason=' not in url:
+                    promoted = self._has_promoted_badge(container)
+
+                offer = {
                     'url': url,
                     'title': title,
                     'description_snippet': "",
-                    'price_raw': price_raw
-                })
-                
+                    'price_raw': price_raw,
+                    'promoted': promoted,
+                    # Data podbicia z karty — jedyne źródło bumpów dla ogłoszeń
+                    # prywatnych. Dla ofert firmowych nadpisze ją dokładniejszy
+                    # `last_refresh_time` z API v1 (main.py, scalanie profili).
+                    'api_last_refresh': self._extract_card_refresh(container),
+                }
+                offers.append(offer)
+                by_url[clean_url] = offer
+                if promoted:
+                    self.promoted_stats['promoted'] += 1
+
             except (AttributeError, TypeError, KeyError) as e:
                 parse_failures += 1
                 print(f"⚠️ Błąd parsowania ogłoszenia: {e}")
@@ -297,10 +594,24 @@ class OLXScraper:
         # FAZA 1: Pobierz wszystkie podstawowe oferty ze stron listingowych
         while current_url and page_num <= max_pages:
             print(f"📄 Strona {page_num}: {current_url}")
-            
-            soup = self._fetch_page(current_url)
+
+            # RETRY paginacji (2026-08-11): pojedynczy przejściowy reset/blok
+            # połączenia (curl_cffi bywa resetowany, _fetch_page robi cooldown
+            # i zwraca None) NIE może uciąć całego listingu. Bez retry jeden
+            # feler na stronie 3 dawał scrape 97/295 ofert zamiast ~900 →
+            # masowa fałszywa deaktywacja. Ponawiamy TĘ SAMĄ stronę do 4× z
+            # rosnącym backoffem; dopiero trwała porażka = urwana paginacja.
+            soup = None
+            for attempt in range(4):
+                soup = self._fetch_page(current_url)
+                if soup:
+                    break
+                if attempt < 3:
+                    backoff = 5 * (attempt + 1)  # 5s, 10s, 15s
+                    print(f"   ↻ Strona {page_num} nieudana (próba {attempt + 1}/4) — ponawiam za {backoff}s")
+                    time.sleep(backoff)
             if not soup:
-                print(f"⚠️ Nie udało się pobrać strony {page_num}")
+                print(f"⚠️ Nie udało się pobrać strony {page_num} po 4 próbach")
                 self.pagination_truncated = True
                 break
 
@@ -347,9 +658,11 @@ class OLXScraper:
                     existing = self.existing_offers[offer_id]
                     existing_price = existing.get('price')
                     
-                    # Porównaj ceny (tylko cyfry)
-                    if listing_price and existing_price and listing_price == existing_price:
-                        # Ta sama cena → pomiń pobieranie szczegółów
+                    # Porównaj ceny (tylko cyfry). Zmiana TYTUŁU też wymusza pobranie —
+                    # patrz _listing_title_changed (FIX 2026-08-18).
+                    if listing_price and existing_price and listing_price == existing_price \
+                            and not self._listing_title_changed(existing, offer):
+                        # Ta sama cena i ten sam tytuł → pomiń pobieranie szczegółów
                         offers_to_skip.append({
                             'offer': offer,
                             'existing': existing,
@@ -372,11 +685,17 @@ class OLXScraper:
                         'reason': 'new'
                     })
                     self.stats['fetched_new'] += 1
-            
+
+            # Rotacyjne odświeżenie opisów ofert z nieprecyzyjnym markerem — bez tego
+            # dopisany po czasie numer budynku nigdy do nas nie dociera.
+            offers_to_skip = self._promote_stale_imprecise(offers_to_skip, offers_to_fetch)
+
             print(f"\n📊 Inteligentne pobieranie:")
             print(f"   ⏭️  Pominięto (ta sama cena): {len(offers_to_skip)}")
             print(f"   🆕 Nowe oferty do pobrania: {self.stats['fetched_new']}")
             print(f"   💰 Zmieniona cena: {self.stats['fetched_price_changed']}")
+            print(f"   🎯 Odświeżenie opisu (nieprecyzyjny adres): "
+                  f"{self.stats['fetched_stale_address']}")
             
             # Uzupełnij oferty pominięte danymi z istniejącej bazy
             for item in offers_to_skip:
@@ -432,7 +751,7 @@ class OLXScraper:
                             
                             progress = (completed / total) * 100
                             print(f"\r   Postęp: [{completed}/{total}] {progress:.1f}%", end='', flush=True)
-                        except (requests.RequestException, AttributeError, TypeError) as e:
+                        except (*NETWORK_EXCEPTIONS, AttributeError, TypeError) as e:
                             print(f"\n   ⚠️ Błąd pobierania: {e}")
                 
                 elapsed = time.time() - start_time
@@ -442,6 +761,13 @@ class OLXScraper:
         
         print(f"\n✅ Scraping zakończony: {len(all_offers)} ofert z {page_num} stron")
         print(f"   📈 Zaoszczędzono {self.stats['skipped_same_price']} requestów!")
+
+        ps = self.promoted_stats
+        promoted_now = sum(1 for o in all_offers if o.get('promoted'))
+        print(f"   ⭐ Promowane (płatne wyróżnienie): {promoted_now} ofert")
+        if ps['cards'] and not ps['attributed']:
+            print("   🚨 UWAGA: żaden kafelek nie miał parametru search_reason "
+                  "— OLX zmienił atrybucję, detekcja promowanych może nie działać!")
         return all_offers
 
     # ------------------------------------------------------------------
@@ -515,7 +841,7 @@ class OLXScraper:
                     n = future_to_page[future]
                     try:
                         _absorb(future.result(), n)
-                    except (requests.RequestException, AttributeError, TypeError) as e:
+                    except (*NETWORK_EXCEPTIONS, AttributeError, TypeError) as e:
                         print(f"   ⚠️ Strona {n}: {e}")
 
         print(f"   ✅ {len(positions)} ofert zmapowanych z {last_page} stron")
@@ -619,7 +945,7 @@ class OLXScraper:
 
                 self._random_delay()
 
-            except (requests.RequestException, ValueError, KeyError) as e:
+            except (*NETWORK_EXCEPTIONS, ValueError, KeyError) as e:
                 print(f"   ⚠️ Błąd API strona {page_num}: {e}")
                 break
 
@@ -713,7 +1039,8 @@ class OLXScraper:
                         or (self.existing_offers.get(short_key) if short_key else None))
             if existing:
                 existing_price = existing.get('price')
-                if listing_price and existing_price and listing_price == existing_price:
+                if listing_price and existing_price and listing_price == existing_price \
+                        and not self._listing_title_changed(existing, offer):
                     offers_to_skip.append({'offer': offer, 'existing': existing})
                 else:
                     offers_to_fetch.append({'offer': offer})
@@ -766,7 +1093,7 @@ class OLXScraper:
                         if completed % 10 == 0 or completed == total_fetch:
                             print(f"\r   Postęp: [{completed}/{total_fetch}] "
                                   f"{completed/total_fetch*100:.0f}%", end='', flush=True)
-                    except (requests.RequestException, AttributeError, TypeError) as e:
+                    except (*NETWORK_EXCEPTIONS, AttributeError, TypeError) as e:
                         print(f"\n   ⚠️ Błąd: {e}")
 
             print(f"\n   ✅ Szczegóły profili pobrane")

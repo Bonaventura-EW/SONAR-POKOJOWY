@@ -220,6 +220,28 @@ body {
     background: #888780;
     border: 1.5px solid #5F5E5A;
 }
+/* Odświeżona w 24h — wypełnione kółko, 1:1 z badge'em w lewym górnym rogu pinezki */
+.badge-refresh {
+    width: 28px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.badge-refresh::before {
+    content: "\21BB";
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #1d63d8;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+}
 .badge-count {
     color: #aaa;
     font-size: 10px;

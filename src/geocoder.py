@@ -20,6 +20,14 @@ except ImportError:
 
 from shared_utils import write_json_atomic
 
+# Nazwy dzielnic Lublina — dla nich NIE forsujemy dopasowania do ulicy o tej samej
+# nazwie (marker dzielnicowy ma stać na centroidzie dzielnicy). FIX 2026-08-18.
+try:
+    from address_parser_data import LUBLIN_DISTRICTS as _LUBLIN_DISTRICTS
+except ImportError:  # pragma: no cover — geocoder bywa importowany samodzielnie
+    _LUBLIN_DISTRICTS = set()
+_DISTRICT_NAMES_LOWER = {str(d).strip().lower() for d in _LUBLIN_DISTRICTS}
+
 # Bounding box Lublina (~20x25 km z marginesem)
 # Pokrywa centrum + wszystkie dzielnice + przedmieścia
 LUBLIN_BBOX = {
@@ -269,21 +277,69 @@ class Geocoder:
                 meta['cache_hit'] = True
                 return cached_value, meta
         
+        # === FIX 2026-08-18 (audyt markerów): tryb zapytania ===
+        # Adres z numerem → akceptujemy TYLKO wynik z numerem domu (inaczej dostajemy
+        # punkt ulicy z etykietą "dokładny adres" — 11 takich markerów w audycie).
+        # Adres bez numeru → wolimy wynik będący ULICĄ, a nie osiedlem/parkiem/sklepem
+        # o tej samej nazwie (9 markerów: 'Chopina' → osiedle Chopina zamiast ulicy).
+        wants_house = self._has_house_number(address)
+        prefer_road = (
+            not wants_house
+            and not self._ESTATE_PREFIX.match(address)
+            and address.strip().lower() not in _DISTRICT_NAMES_LOWER
+        )
+        # Wyniki "gorszego sortu" znalezione po drodze — używamy ich dopiero, gdy
+        # żaden wariant nie da lepszego:
+        #  - street_level: adres z numerem trafił tylko w ulicę (→ number_fallback),
+        #  - weak: adres bez numeru trafił w osiedle/park/sklep zamiast w ulicę.
+        street_level_coords = None
+        weak_coords = None
+
+        def _lookup(query, max_retries=max_retries):
+            """Zwraca (coords, info) albo podnosi wyjątek sieciowy."""
+            return self._nominatim_lookup(query, max_retries=max_retries,
+                                          require_house=wants_house, prefer_road=prefer_road)
+
+        def _accept(coords, info):
+            """Wynik "mocny" → zwraca coords. Słaby → chowa go i zwraca None,
+            żeby dalsze warianty (mianownik, l. mnoga, ucięty numer mieszkania)
+            miały szansę trafić lepiej."""
+            nonlocal street_level_coords, weak_coords
+            if coords is None:
+                return None
+            if info.get('street_level'):
+                if street_level_coords is None:
+                    street_level_coords = coords
+                return None
+            if info.get('weak'):
+                if weak_coords is None:
+                    weak_coords = coords
+                return None
+            return coords
+
         # === KROK 1: Próba z oryginalnym adresem ===
         # Pomijamy Nominatim jeśli cache już dał None (jest tam właśnie z tego powodu).
         coords = None
         skip_full_lookup = (address in self.cache and self.cache[address] is None
                            and to_nominative(address) == address)
-        
+
         if not skip_full_lookup:
             try:
-                coords = self._try_nominatim(address, max_retries=max_retries)
+                coords, info = _lookup(address)
             except (GeocoderTimedOut, GeocoderServiceError) as e:
                 # Tymczasowy błąd (rate-limit, timeout, 5xx) - NIE zapisuj None do cache
                 print(f"      ⏸️  Tymczasowy błąd Nominatim dla '{address}': {type(e).__name__}")
                 meta['transient_error'] = True
                 return None, meta
-            
+
+            # Wynik słaby (punkt ulicy zamiast numeru albo osiedle zamiast ulicy)
+            # NIE trafia do cache pod tym kluczem — kolejny scan wziąłby go za
+            # dokładny adres. Chowamy go i próbujemy dalszych wariantów.
+            if coords is not None and (info['street_level'] or info['weak']):
+                print(f"      📍 '{address}': słaby wynik Nominatim "
+                      f"({'brak numeru' if info['street_level'] else 'nie ulica'}), szukam dalej")
+            coords = _accept(coords, info)
+
             if coords is not None:
                 self.cache[address] = coords
                 self._save_cache()
@@ -305,13 +361,15 @@ class Geocoder:
                 return coords, meta
             
             try:
-                coords = self._try_nominatim(nominative, max_retries=max_retries)
+                coords, info = _lookup(nominative)
             except (GeocoderTimedOut, GeocoderServiceError) as e:
                 # Tymczasowy błąd przy mianowniku - NIE zapisuj None do cache
                 print(f"      ⏸️  Tymczasowy błąd Nominatim dla mianownika '{nominative}': {type(e).__name__}")
                 meta['transient_error'] = True
                 return None, meta
-            
+
+            coords = _accept(coords, info)
+
             if coords is not None:
                 print(f"      ✅ Mianownik znaleziony: {nominative}")
                 # Cache pod OBA klucze
@@ -346,11 +404,13 @@ class Geocoder:
                 return coords, meta
             
             try:
-                coords = self._try_nominatim(variant, max_retries=max_retries)
+                coords, info = _lookup(variant)
             except (GeocoderTimedOut, GeocoderServiceError) as e:
                 print(f"      ⏸️  Tymczasowy błąd Nominatim dla '{variant}': {type(e).__name__}")
                 meta['transient_error'] = True
                 return None, meta
+
+            coords = _accept(coords, info)
 
             if coords is not None:
                 print(f"      ✅ Wariant znaleziony: {variant}")
@@ -388,11 +448,13 @@ class Geocoder:
                 continue  # Już wiemy że Nominatim go nie zna
             
             try:
-                coords = self._try_nominatim(variant, max_retries=max_retries)
+                coords, info = _lookup(variant)
             except (GeocoderTimedOut, GeocoderServiceError) as e:
                 print(f"      ⏸️  Tymczasowy błąd Nominatim dla '{variant}': {type(e).__name__}")
                 meta['transient_error'] = True
                 return None, meta
+
+            coords = _accept(coords, info)
 
             if coords is not None:
                 print(f"      ✅ Wariant l. poj. ż. znaleziony: {variant}")
@@ -404,7 +466,48 @@ class Geocoder:
                 # Cache None dla negatywnego wyniku — ale tylko pod kluczem wariantu
                 self.cache[variant] = None
                 self._save_cache()
-        
+
+        # === KROK 3.7 (FIX 2026-08-18, audyt markerów klasa C): numer mieszkania ===
+        # "Głęboka 29/4", "Niecała 15/80", "Skrzetuskiego 2/22" — Nominatim nie zna
+        # numeru z mieszkaniem i oddaje punkt ulicy (marker 160–540 m od budynku,
+        # z etykietą "dokładny adres"). Sam numer domu ZNA: "Głęboka 29" → budynek.
+        # Próbujemy po odcięciu części po "/" — najpierw oryginał, potem mianownik.
+        if wants_house:
+            apt_variants = []
+            for source in [address, nominative]:
+                stripped = self._strip_apartment(source)
+                if stripped and stripped not in apt_variants:
+                    apt_variants.append(stripped)
+
+            for variant in apt_variants:
+                if variant in self.cache and self.cache[variant] is not None:
+                    coords = self.cache[variant]
+                    print(f"      🏠 Numer bez mieszkania z cache: '{address}' → '{variant}'")
+                    self.cache[address] = coords
+                    self._save_cache()
+                    return coords, meta
+                if variant in self.cache and self.cache[variant] is None:
+                    continue
+
+                print(f"      🏠 Retry bez numeru mieszkania: '{address}' → '{variant}'")
+                try:
+                    coords, info = self._nominatim_lookup(variant, max_retries=max_retries,
+                                                          require_house=True, prefer_road=False)
+                except (GeocoderTimedOut, GeocoderServiceError) as e:
+                    print(f"      ⏸️  Tymczasowy błąd Nominatim dla '{variant}': {type(e).__name__}")
+                    meta['transient_error'] = True
+                    return None, meta
+
+                if coords is not None and not info['street_level']:
+                    print(f"      ✅ Trafiony numer domu: {variant}")
+                    self.cache[variant] = coords
+                    self.cache[address] = coords
+                    self._save_cache()
+                    return coords, meta
+                if coords is not None and street_level_coords is None:
+                    street_level_coords = coords
+
+
         # === KROK 4 (Fix 2026-05-14): fallback "sama ulica bez numeru" ===
         # Jeśli adres ma numer i wszystkie powyższe podejścia zawiodły, spróbuj samej ulicy.
         # Nominatim często nie ma konkretnego numeru w bazie (np. "Narutowicza 38" — None,
@@ -436,10 +539,15 @@ class Geocoder:
             if street_only in self.cache and self.cache[street_only] is None:
                 continue
             
-            # Spróbuj Nominatim z samą ulicą
+            # Spróbuj Nominatim z samą ulicą (wolimy trafienie w ULICĘ, nie w osiedle
+            # czy sklep o tej nazwie — FIX 2026-08-18)
             print(f"      🎯 Fallback 'sama ulica': '{address}' → próbuję '{street_only}'")
             try:
-                coords = self._try_nominatim(street_only, max_retries=max_retries)
+                coords, _info = self._nominatim_lookup(
+                    street_only, max_retries=max_retries,
+                    require_house=False,
+                    prefer_road=not self._ESTATE_PREFIX.match(street_only),
+                )
             except (GeocoderTimedOut, GeocoderServiceError) as e:
                 print(f"      ⏸️  Tymczasowy błąd Nominatim dla '{street_only}': {type(e).__name__}")
                 meta['transient_error'] = True
@@ -460,6 +568,23 @@ class Geocoder:
                 self.cache[street_only] = None
                 self._save_cache()
         
+        # FIX 2026-08-18: mamy punkt ULICY z któregoś wariantu, ale nie trafiliśmy
+        # w numer domu — oddajemy go z number_fallback=True, żeby caller obniżył
+        # precision do 'street_only' (kwadrat na mapie zamiast kropli "dokładny adres").
+        # Świadomie NIE cache'ujemy pod kluczem z numerem — patrz komentarz przy KROKU 4.
+        if street_level_coords is not None:
+            print(f"      📌 '{address}': brak numeru w bazie OSM → punkt ulicy (street_only)")
+            self._stats_number_fallback_hits += 1
+            meta['number_fallback'] = True
+            return street_level_coords, meta
+
+        # Żaden wariant nie trafił w ulicę — bierzemy najlepsze, co było
+        # (osiedle/park o tej nazwie). Zachowanie jak przed 2026-08-18.
+        if weak_coords is not None:
+            self.cache[address] = weak_coords
+            self._save_cache()
+            return weak_coords, meta
+
         # Wszystkie podejścia zawiodły (faktyczne None od Nominatim) - cache jako None
         self.cache[address] = None
         self._save_cache()
@@ -512,54 +637,124 @@ class Geocoder:
         
         return result
     
-    def _try_nominatim(self, address: str, max_retries: int = 3) -> Optional[Dict[str, float]]:
+    # === FIX 2026-08-18 (audyt markerów, klasy B i C) ===
+    # Numer domu na końcu adresu ("Wileńska 15", "Głęboka 29/4", "Kraśnicka 73a").
+    _HOUSE_NUMBER_TAIL = re.compile(r'\s\d+[a-zA-Z]?(?:/\d+[a-zA-Z]?)?$')
+    # Numer z mieszkaniem — Nominatim nie zna takich numerów i oddaje punkt ulicy.
+    _APARTMENT_PART = re.compile(r'(\s\d+[a-zA-Z]?)/\d+[a-zA-Z]?$')
+    # Nazwy osiedli: dla nich wynik typu 'locality' jest POPRAWNY (osiedle Widok,
+    # osiedle Chopina), więc nie forsujemy dopasowania do ulicy o tej samej nazwie.
+    _ESTATE_PREFIX = re.compile(r'^\s*(?:osiedle|osiedlu|os\.|os\s)', re.IGNORECASE)
+
+    @classmethod
+    def _has_house_number(cls, address: str) -> bool:
+        return bool(cls._HOUSE_NUMBER_TAIL.search((address or '').strip()))
+
+    @classmethod
+    def _strip_apartment(cls, address: str) -> Optional[str]:
+        """'Głęboka 29/4' → 'Głęboka 29'. None gdy nie ma części mieszkaniowej."""
+        stripped = cls._APARTMENT_PART.sub(r'\1', (address or '').strip())
+        return stripped if stripped != (address or '').strip() else None
+
+    @classmethod
+    def _requested_number(cls, address: str) -> Optional[str]:
+        """Numer domu z końca adresu, znormalizowany do porównania z OSM."""
+        m = cls._HOUSE_NUMBER_TAIL.search((address or '').strip())
+        return m.group(0).strip().lower().replace(' ', '') if m else None
+
+    def _nominatim_lookup(self, address: str, max_retries: int = 3,
+                          require_house: bool = False, prefer_road: bool = False):
         """
-        Pojedyncza próba zapytania do Nominatim (bez logiki retry mianownikiem).
-        Zwraca coords lub None.
-        
-        Raises:
-            GeocoderRateLimited / GeocoderServiceError (429): tymczasowy błąd serwera,
-                NIE zapisuj wyniku do cache - propagujemy żeby caller obsłużył.
+        Zapytanie do Nominatim ze świadomością TYPU wyniku.
+
+        Nominatim odpowiada na każde zapytanie "coś sensownego", nawet gdy nie zna
+        numeru domu ani ulicy — i to jest źródłem dwóch klas błędnych markerów
+        wykrytych w audycie 2026-08-18:
+          - "Wileńskiej 15" → 'Targ przy Wileńskiej' (landuse), a marker szedł na
+            mapę jako precision=exact,
+          - "Chopina" → 'Osiedle Chopina' (locality na Czechowie) zamiast
+            ul. Fryderyka Chopina w centrum (2,5 km błędu).
+
+        Args:
+            require_house: adres MA numer domu — akceptuj tylko wynik z numerem
+                (address.house_number). Wynik uliczny wraca jako 'street_level'.
+            prefer_road: adres BEZ numeru — spośród wyników wybierz ulicę
+                (class=highway), a nie osiedle/park/sklep o tej nazwie.
+
+        Returns:
+            (coords, info), gdzie info:
+              - 'house': bool — wynik ma numer domu
+              - 'street_level': bool — mamy koordynaty, ale bez żądanego numeru
+                (caller powinien obniżyć precision do street_only)
+              - 'road': bool — wynik to ulica (class=highway)
         """
-        # Pełny adres z miastem
+        info = {'house': False, 'street_level': False, 'road': False, 'weak': False}
+        results = self._nominatim_search(address, max_retries)
+        if not results:
+            return None, info
+
+        wanted_number = self._requested_number(address) if require_house else None
+        fallback = None  # pierwszy sensowny wynik, gdyby nie było lepszego
+        for raw, coords in results:
+            addr = raw.get('address') or {}
+            house = (addr.get('house_number') or '').strip().lower().replace(' ', '')
+            is_road = raw.get('class') == 'highway' or raw.get('addresstype') == 'road'
+            # Numer musi się ZGADZAĆ. Nominatim na "Krańcowej 106" potrafi oddać
+            # aptekę pod numerem 103 — z numerem domu, ale nie tym żądanym (219 m błędu).
+            is_house = bool(house) and (wanted_number is None or house == wanted_number)
+
+            if require_house and is_house:
+                return coords, {'house': True, 'street_level': False, 'road': is_road, 'weak': False}
+            if prefer_road and is_road and not require_house:
+                return coords, {'house': False, 'street_level': False, 'road': True, 'weak': False}
+            if fallback is None:
+                fallback = (coords, is_house, is_road)
+
+        if fallback is None:
+            return None, info
+        coords, is_house, is_road = fallback
+        return coords, {
+            'house': is_house,
+            'street_level': bool(require_house and not is_house),
+            # 'weak': chcieliśmy ULICĘ, a dostaliśmy osiedle/park/sklep o tej nazwie.
+            # Caller zapamiętuje taki wynik, ale najpierw próbuje innych wariantów
+            # ('Konopnickiej' → osiedle, ale mianownik 'Konopnicka' → prawdziwa ulica).
+            'weak': bool(prefer_road and not is_road),
+            'road': is_road,
+        }
+
+    def _nominatim_search(self, address: str, max_retries: int = 3):
+        """Surowe wyniki z Nominatim (do 5), przefiltrowane po bbox Lublina.
+        Zwraca listę (raw_dict, coords). Wyjątki jak w _try_nominatim."""
         full_address = f"{address}, Lublin, Poland"
-        
+
         for attempt in range(max_retries):
             try:
-                location = self.geolocator.geocode(
+                locations = self.geolocator.geocode(
                     full_address,
                     timeout=10,
-                    language='pl'
+                    language='pl',
+                    addressdetails=True,
+                    exactly_one=False,
+                    limit=5,
                 )
-                
-                if location:
-                    coords = {
-                        'lat': location.latitude,
-                        'lon': location.longitude
-                    }
-                    
-                    # WALIDACJA: Sprawdź czy adres jest w Lublinie
+                out = []
+                for loc in (locations or []):
+                    coords = {'lat': loc.latitude, 'lon': loc.longitude}
                     if not self.is_in_lublin(coords):
-                        print(f"      ⚠️ Odrzucono {address} - poza Lublinem (lat={coords['lat']:.4f}, lon={coords['lon']:.4f})")
-                        return None
-                    
-                    return coords
-                else:
-                    # Nie znaleziono - prawdziwy negatywny wynik
-                    return None
-                    
+                        continue
+                    out.append((loc.raw, coords))
+                if locations and not out:
+                    print(f"      ⚠️ Odrzucono {address} - wszystkie wyniki poza Lublinem")
+                return out
+
             except GeocoderTimedOut:
                 if attempt < max_retries - 1:
-                    time.sleep(2 ** attempt)  # Exponential backoff
+                    time.sleep(2 ** attempt)
                     continue
-                else:
-                    # Timeout - traktuj jak tymczasowy błąd, NIE zapisuj None do cache
-                    raise
-                    
+                raise
+
             except GeocoderServiceError as e:
-                # FIX 2026-05-13: rozróżnij rate-limit (429) od innych błędów serwera
-                # Rate-limit jest TYMCZASOWY - nie zapisuj wyniku do cache.
-                # Innych błędów serwera też nie cachuj - mogą minąć przy następnym scanie.
                 err_str = str(e).lower()
                 is_rate_limit = (
                     '429' in err_str
@@ -569,12 +764,22 @@ class Geocoder:
                 )
                 if is_rate_limit:
                     print(f"      ⏸️  Rate limit Nominatim dla '{address}' - nie cachuję None")
-                    raise  # Propaguj, caller obsłuży
-                # Inne błędy serwera też propaguj - lepiej None than cache-poisoning
                 raise
-        
-        return None
-    
+        return []
+
+    def _try_nominatim(self, address: str, max_retries: int = 3) -> Optional[Dict[str, float]]:
+        """
+        Pojedyncza próba zapytania do Nominatim (bez logiki retry mianownikiem).
+        Zwraca coords lub None. Cienka nakładka na _nominatim_lookup — dla wywołań,
+        którym typ wyniku (ulica / budynek z numerem) jest obojętny.
+
+        Raises:
+            GeocoderRateLimited / GeocoderServiceError (429): tymczasowy błąd serwera,
+                NIE zapisuj wyniku do cache - propagujemy żeby caller obsłużył.
+        """
+        coords, _info = self._nominatim_lookup(address, max_retries=max_retries)
+        return coords
+
     def batch_geocode(self, addresses: list, delay: float = 1.0) -> Dict[str, Optional[Dict]]:
         """
         Geokoduje wiele adresów z opóźnieniem (Nominatim wymaga max 1 req/s).
