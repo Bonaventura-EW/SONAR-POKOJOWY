@@ -308,10 +308,12 @@ let dateSliderState = {
     selectedIndex: -1    // indeks aktualnie wybranego dnia w days[]
 };
 
-// Filtr daty zniknięcia (last_seen nieaktywnych ofert)
+// Filtr daty zniknięcia (gone_days — dni wypadnięcia z listingu, patrz _gone_days
+// w src/map_generator.py). Obejmuje TAKŻE oferty dziś aktywne: reaktywacja nie
+// kasuje faktu, że danego dnia oferta z listingu zniknęła.
 let goneSliderState = {
     enabled: false,
-    days: [],            // posortowana tablica Date last_seen nieaktywnych
+    days: [],            // posortowana tablica Date (ciągła oś dni)
     countsPerDay: {},    // "YYYY-MM-DD" -> liczba ofert które zniknęły tego dnia
     selectedIndex: -1
 };
@@ -556,8 +558,8 @@ function calculateFilteredStats() {
     // Funkcja pomocnicza sprawdzająca czy oferta spełnia kryteria czasowe
     function passesTimeFilter(offer) {
         if (!cutoffDate) return true;
-        // Tryb "Zniknięcia": nieaktywne nie podlegają oknu N dni (patrz isTimeFilterExempt)
-        if (isTimeFilterExempt(offer.active)) return true;
+        // Tryb "Zniknięcia": okno N dni nie obowiązuje (patrz isTimeFilterExempt)
+        if (isTimeFilterExempt()) return true;
 
         // DOKŁADNIE ten sam warunek co w filterMarkers: first_seen LUB price_changed_at
         // w oknie. Wcześniej liczyło się tylko first_seen, więc oferta ze świeżą zmianą
@@ -1398,7 +1400,7 @@ function filterMarkers() {
         
         // Filtr czasowy - uwzględnia first_seen ORAZ price_changed_at
         // Oferta przechodzi gdy KTÓRAKOLWIEK z dat mieści się w zakresie
-        if (visible && cutoffDate && !isTimeFilterExempt(item.isActive)) {
+        if (visible && cutoffDate && !isTimeFilterExempt()) {
             const firstSeenOk = item.firstSeenDate && item.firstSeenDate >= cutoffDate;
             const priceChangedOk = item.priceChangedAtDate && item.priceChangedAtDate >= cutoffDate;
             if (!firstSeenOk && !priceChangedOk) {
@@ -1411,8 +1413,8 @@ function filterMarkers() {
             visible = false;
         }
 
-        // Filtr daty zniknięcia — dotyczy nieaktywnych ofert
-        if (visible && !item.isActive && goneSliderState.enabled) {
+        // Filtr daty zniknięcia — dotyczy WSZYSTKICH ofert (także reaktywowanych)
+        if (visible && goneSliderState.enabled) {
             if (!passesGoneSliderFilter(item.originalOffer || {})) {
                 visible = false;
             }
@@ -1771,24 +1773,25 @@ function passesDaySliderFilter(firstSeenDate) {
 // NIE dotyczy ofert nieaktywnych — oferta mogła zostać dodana pół roku temu, a zniknąć
 // wczoraj. Bez tego wyjątku wybrany dzień odpływu pokazywał tylko te zniknięcia, które
 // zdążyły się też POJAWIĆ w oknie N dni (27 zniknięć na wykresie → 2 markery na mapie).
-function isTimeFilterExempt(isActive) {
-    return goneSliderState.enabled && !isActive;
+function isTimeFilterExempt() {
+    return goneSliderState.enabled;
 }
 
-// Sprawdź czy oferta (nieaktywna) przeszła przez filtr daty zniknięcia
+// Dni zniknięcia oferty ("YYYY-MM-DD") — pole z data.json, patrz _gone_days
+// w src/map_generator.py. Pusta lista = oferta nigdy nie wypadła z listingu.
+function goneDaysOf(offer) {
+    return offer.gone_days || [];
+}
+
+// Sprawdź czy oferta zniknęła w dniu wybranym na suwaku.
+// Dotyczy WSZYSTKICH ofert, także dziś aktywnych (reaktywowanych) — inaczej
+// mapa gubiłaby te zniknięcia, które wykres odpływu liczy (10 z 31 dnia 10.09).
 function passesGoneSliderFilter(offer) {
     if (!goneSliderState.enabled) return true;
-    // Filtr dotyczy tylko nieaktywnych
-    if (offer.active) return true;
-    const lastSeenDate = parsePolishDate(offer.last_seen);
-    if (!lastSeenDate) return false;
     const idx = goneSliderState.selectedIndex;
     const days = goneSliderState.days;
     if (idx < 0 || idx >= days.length) return true;
-    const selected = days[idx];
-    return lastSeenDate.getFullYear() === selected.getFullYear() &&
-           lastSeenDate.getMonth() === selected.getMonth() &&
-           lastSeenDate.getDate() === selected.getDate();
+    return goneDaysOf(offer).includes(dayKey(days[idx]));
 }
 
 // Pierwszy wiarygodny dzień odpływu — MUSI być zgodny z RELIABLE_START
@@ -1802,15 +1805,14 @@ function initGoneSlider() {
     const slider = document.getElementById('date-gone-slider');
     if (!enableCb || !slider) return;
 
-    // Zbierz daty last_seen nieaktywnych ofert
+    // Zbierz dni zniknięć ze WSZYSTKICH ofert (aktywne też — reaktywacja nie
+    // kasuje zniknięcia). Jedna oferta może zniknąć wiele razy, każde liczymy
+    // osobno — dokładnie jak build_outflow w src/trend_generator.py.
     const countsPerDay = {};
     allMarkers.forEach(item => {
-        if (item.isActive) return;
-        const offer = item.originalOffer || {};
-        const d = parsePolishDate(offer.last_seen);
-        if (!d) return;
-        const k = dayKey(d);
-        countsPerDay[k] = (countsPerDay[k] || 0) + 1;
+        goneDaysOf(item.originalOffer || {}).forEach(k => {
+            countsPerDay[k] = (countsPerDay[k] || 0) + 1;
+        });
     });
 
     if (Object.keys(countsPerDay).length === 0) return;
@@ -1920,12 +1922,15 @@ function buildGoneHistogram() {
 }
 
 // ===== Warstwy w trybie "Zniknięcia" =====
-// Tryb pokazuje odpływ z JEDNEGO dnia, więc przestawia warstwy na obie strony:
-//  - WŁĄCZA nieaktywne — markery zniknięć są z definicji nieaktywne, bez tego pusta mapa,
-//  - WYŁĄCZA aktywne — inaczej kilkadziesiąt zniknięć tonie wśród ~570 aktywnych ofert.
+// Tryb pokazuje odpływ z JEDNEGO dnia, więc WŁĄCZA wszystkie warstwy — również
+// aktywne. Oferta, która zniknęła wybranego dnia i później wróciła, jest dziś
+// aktywna; przy wyłączonych warstwach aktywnych mapa by jej nie pokazała, choć
+// wykres odpływu ją liczy. Utonięcia zniknięć wśród ~570 aktywnych nie ma:
+// filtr gone_days przepuszcza WYŁĄCZNIE oferty, które zniknęły tego dnia.
 // Wyjście z trybu przywraca stan sprzed wejścia, żeby nie nadpisać wyboru użytkownika.
-const GONE_MODE_SHOW_IDS = ['layer-inactive', 'layer-inactive-approx', 'layer-firm-inactive'];
-const GONE_MODE_HIDE_IDS = ['layer-active', 'layer-active-approx', 'layer-firm'];
+const GONE_MODE_SHOW_IDS = ['layer-inactive', 'layer-inactive-approx', 'layer-firm-inactive',
+                            'layer-active', 'layer-active-approx', 'layer-firm'];
+const GONE_MODE_HIDE_IDS = [];
 let goneModeLayerBackup = null;
 
 function applyGoneModeLayers(on) {
@@ -2263,7 +2268,7 @@ function updatePriceRangeCounts() {
         }
         
         // Filtr czasowy (first_seen LUB price_changed_at)
-        if (cutoffDate && !isTimeFilterExempt(item.isActive)) {
+        if (cutoffDate && !isTimeFilterExempt()) {
             const firstSeenOk = item.firstSeenDate && item.firstSeenDate >= cutoffDate;
             const priceChangedOk = item.priceChangedAtDate && item.priceChangedAtDate >= cutoffDate;
             if (!firstSeenOk && !priceChangedOk) return;
@@ -2272,7 +2277,7 @@ function updatePriceRangeCounts() {
         // Filtr suwaka dni
         if (!passesDaySliderFilter(item.firstSeenDate)) return;
         // Filtr daty zniknięcia — żeby liczniki pokazywały to samo, co mapa w trybie "Zniknięcia"
-        if (!item.isActive && !passesGoneSliderFilter(item.originalOffer || {})) return;
+        if (!passesGoneSliderFilter(item.originalOffer || {})) return;
         
         // Precyzyjny filtr cen
         const price = item.offers[0].price;
@@ -2350,7 +2355,7 @@ function updateBadgeCounts() {
         if (tag === 'mieszkanie' && !showMieszkanie) return;
         
         // Filtr czasowy (first_seen LUB price_changed_at)
-        if (cutoffDate && !isTimeFilterExempt(item.isActive)) {
+        if (cutoffDate && !isTimeFilterExempt()) {
             const firstSeenOk = item.firstSeenDate && item.firstSeenDate >= cutoffDate;
             const priceChangedOk = item.priceChangedAtDate && item.priceChangedAtDate >= cutoffDate;
             if (!firstSeenOk && !priceChangedOk) return;
@@ -2359,7 +2364,7 @@ function updateBadgeCounts() {
         // Filtr suwaka dni
         if (!passesDaySliderFilter(item.firstSeenDate)) return;
         // Filtr daty zniknięcia — żeby liczniki pokazywały to samo, co mapa w trybie "Zniknięcia"
-        if (!item.isActive && !passesGoneSliderFilter(item.originalOffer || {})) return;
+        if (!passesGoneSliderFilter(item.originalOffer || {})) return;
         
         // Filtr zakresów cenowych
         if (selectedRanges.length > 0 && !selectedRanges.includes(item.priceRange)) return;
