@@ -209,11 +209,54 @@ def build_series(offers, base_dir=None):
 
     Gdy pliku nie ma (świeży klon, repo-brat bez historii), spadamy na starą
     rekonstrukcję — z jej znanym zawyżeniem przeszłości.
+
+    Doba w toku (mniej niż komplet zaplanowanych skanów, patrz
+    index_history.incomplete_days) idzie do serii jako `None` — nie zdążyła
+    jeszcze złapać dziennego szczytu, więc jej punkt leżałby poniżej sąsiadów i
+    rysował fałszywy zjazd na prawej krawędzi. `None` propaguje się dalej sam:
+    _unscanned_days wyłącza taki dzień z odpływu/napływu, compute_deltas pomija
+    go przy 1D, a bilans pasm czyta go jako lukę.
+
+    Maskujemy WYŁĄCZNIE dobę na prawej krawędzi — tę, która jeszcze trwa. Dzień
+    z niepełnym pokryciem w ŚRODKU historii (padł jeden przebieg crona) zostaje
+    na wykresie ze swoją zmierzoną wartością: jest już zamknięty, nigdy nie
+    dobije do kompletu, a zamaskowany wypadłby z Indeksu, odpływu, napływu i
+    pasm na zawsze. Mała niedokładność w jednym słupku jest tańsza niż trwała
+    dziura. Gdy dojdzie nowy skan, wczorajsza maska sama się zdejmuje.
     """
     measured = measured_series(base_dir)
     if measured:
-        return [[_day_ms(day), value] for day, value in measured]
+        incomplete = index_history.incomplete_days(base_dir)
+        edge = measured[-1][0]
+        return [[_day_ms(day), None if (day == edge and day in incomplete) else value]
+                for day, value in measured]
     return build_series_reconstructed(offers)
+
+
+def partial_day(base_dir=None):
+    """Doba w toku, czyli ta, którą build_series zamaskował na prawej krawędzi —
+    albo None, gdy ostatni zapisany dzień ma komplet skanów.
+
+    Front rysuje ją LINIĄ PRZERYWANĄ dociągniętą od ostatniej domkniętej doby:
+    wartość jest prawdziwa, ale to dolne oszacowanie (dzień jeszcze rośnie), więc
+    nie wchodzi ani do serii, ani do delt, ani do przepływów. Zwracamy też
+    `scans`/`expected`, żeby dało się napisać wprost „1 z 3 skanów" zamiast
+    kazać czytającemu zgadywać, dlaczego kreska jest przerywana.
+    """
+    measured = measured_series(base_dir)
+    if not measured:
+        return None
+    day, value = measured[-1]
+    if value is None or day not in index_history.incomplete_days(base_dir):
+        return None
+    entry = index_history.load(base_dir)['days'].get(day.isoformat()) or {}
+    return {
+        'ms': _day_ms(day),
+        'value': value,
+        'scans': entry.get('scans') or 0,
+        'expected': index_history.EXPECTED_SCANS_PER_DAY,
+        'label': day.strftime('%d.%m.%Y'),
+    }
 
 
 def build_series_reconstructed(offers):
@@ -568,7 +611,13 @@ def build_promoted(offers, series, scan_days=None, base_dir=None):
         else:
             share.append([ms, round(100 * counts.get(d, 0) / active, 1)])
 
-    last_day = next((d for d in reversed(days) if d not in missing), None)
+    # „Teraz" musi opisywać tę samą dobę, którą pokazuje Indeks: dzień zamaskowany
+    # jako doba w toku (build_series) nie ma w serii wartości `active`, więc liczony
+    # z niego udział w rynku wychodził `None` i panel promowanych gubił „% rynku"
+    # na cały dzień, podczas gdy liczba wyróżnień pochodziła już z doby w toku.
+    last_day = next((d for d in reversed(days)
+                     if d not in missing
+                     and (not active_by_ms or _day_ms(d) in active_by_ms)), None)
     current = counts.get(last_day, 0) if last_day else None
     current_share = None
     if last_day:
@@ -821,6 +870,9 @@ def generate_trend_data(base_dir: Path = None) -> bool:
         'points': len(series),
         'measured_points': len(measured),
         'deltas': compute_deltas(series),
+        # Doba w toku: wartość jest, ale poza serią — front dorysowuje ją kreską,
+        # a `current`, `deltas` i przepływy zostają liczone z dób domkniętych.
+        'partial': partial_day(base_dir),
         'series': series,
         'outflow': build_outflow(offers, series),
         'inflow': build_inflow(offers, series),
@@ -831,9 +883,14 @@ def generate_trend_data(base_dir: Path = None) -> bool:
 
     write_json_atomic(output_file, out)
     of = out['outflow'] or {}
-    gaps = len(series) - len(measured)
+    # Doba w toku jest w serii jako None, ale to nie jest „dzień bez skanu" —
+    # liczymy ją osobno, żeby log nie mylił awarii Actions z dniem, który trwa.
+    gaps = len(series) - len(measured) - (1 if out['partial'] else 0)
+    part = out['partial']
+    part_txt = (f", doba w toku: {part['label']}={part['value']} "
+                f"({part['scans']} z {part['expected']} skanów, rysowana kreską)") if part else ""
     print(f"✅ trend_data.json: {len(series)} dni od {RELIABLE_START} "
-          f"({index_source}, luk bez skanu: {gaps}), "
+          f"({index_source}, luk bez skanu: {gaps}{part_txt}), "
           f"teraz={current}, max={mx}, min={mn}; "
           f"odpływ: łącznie={of.get('total')}, śr={of.get('rate')}/dzień, "
           f"rekord={of.get('max_day')} ({of.get('max_label')})")

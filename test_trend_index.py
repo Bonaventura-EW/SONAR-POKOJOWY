@@ -34,6 +34,14 @@ def iso(d, hour=12):
     return datetime(d.year, d.month, d.day, hour).isoformat()
 
 
+def record_day(base, d, active, scans=index_history.EXPECTED_SCANS_PER_DAY):
+    """Zapisuje dobę z PEŁNYM pokryciem skanami (domyślnie 3/3), żeby weszła do
+    serii Indeksu. Pojedynczy record() to doba w toku — maska pokrycia ją ukrywa,
+    więc test, który chce zmierzony dzień na wykresie, musi domknąć komplet."""
+    for i in range(scans):
+        index_history.record(active, iso(d, 8 + i), base_dir=base)
+
+
 def test_intervals():
     print("\n📆 Test 1: przedziały życia rozpoznają przerwę")
     offers = [{
@@ -92,7 +100,7 @@ def test_series_from_measurement():
         offers = [{'id': f'o{i}', 'first_seen': iso(date(2026, 5, 16)),
                    'last_seen': iso(date(2026, 5, 18)), 'active': True} for i in range(2)]
         for day, active in ((date(2026, 5, 16), 111), (date(2026, 5, 17), 222)):
-            index_history.record(active, iso(day), base_dir=base)
+            record_day(base, day, active)
 
         series = tg.build_series(offers, base_dir=base)
         check('bierze zapisane wartości', [v for _, v in series] == [111, 222], str(series))
@@ -159,7 +167,7 @@ def test_unscanned_day_is_a_gap():
         base = Path(tmp)
         (base / 'data').mkdir()
         for day, active in ((16, 700), (17, 705), (19, 712), (20, 715)):   # 18.05 bez skanu
-            index_history.record(active, iso(date(2026, 5, day)), base_dir=base)
+            record_day(base, date(2026, 5, day), active)
         offers = [{'id': f'o{i}', 'first_seen': iso(date(2026, 5, 16)),
                    'last_seen': iso(date(2026, 5, 17)), 'active': False,
                    'deactivation_dates': [iso(date(2026, 5, 17))]} for i in range(4)]
@@ -172,6 +180,93 @@ def test_unscanned_day_is_a_gap():
         check('napływ ma tam lukę, nie zero', inflow['new']['daily'][2][1] is None)
         check('dzień bez skanu poza mianownikiem rate', out['rate'] == 1.0,
               f"rate={out['rate']} (4 zniknięcia / 4 zmierzone dni)")
+
+
+def test_incomplete_day_is_masked():
+    print("\n🌗 Test 6b: doba w toku (niepełne skany) to luka, nie fałszywy zjazd")
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        (base / 'data').mkdir()
+        record_day(base, date(2026, 5, 16), 800)                              # 3/3 — domknięta
+        record_day(base, date(2026, 5, 17), 810)                              # 3/3 — domknięta
+        index_history.record(790, iso(date(2026, 5, 18), 9), base_dir=base)   # 1/3 — doba w toku
+
+        offers = [{'id': 'a', 'first_seen': iso(date(2026, 5, 16)),
+                   'last_seen': iso(date(2026, 5, 18)), 'active': True,
+                   'promoted_dates': ['2026-05-17', '2026-05-18']}]
+        series = tg.build_series(offers, base_dir=base)
+        vals = [v for _, v in series]
+        check('doba w toku zamaskowana jako luka', vals == [800, 810, None], str(vals))
+
+        deltas = tg.compute_deltas(series)
+        check('1D porównuje dwie domknięte doby, nie tę w toku (810−800)',
+              deltas['1D'] == 10, str(deltas))
+        measured = [v for _, v in series if v is not None]
+        check('ostatni zmierzony punkt to domknięta doba', measured[-1] == 810, str(measured))
+
+        part = tg.partial_day(base)
+        check('partial_day opisuje dobę w toku dla kreski na froncie',
+              part and part['value'] == 790 and part['scans'] == 1
+              and part['expected'] == 3 and part['label'] == '18.05.2026', str(part))
+        check('partial_day wskazuje ten sam dzień, który seria ma jako None',
+              part['ms'] == series[-1][0], str(part))
+
+        # REGRESJA: „teraz" w panelu promowanych musi opisywać TĘ SAMĄ dobę co Indeks.
+        # Gdy last_day brało dobę w toku, jej `active` było już zamaskowane i udział
+        # w rynku wychodził None — panel gubił „% rynku" na cały dzień.
+        promoted = tg.build_promoted(offers, series, base_dir=base)
+        check('promowane liczone z domkniętej doby, nie z tej w toku',
+              promoted['current'] == 1, str(promoted['current']))
+        check('udział w rynku nie gubi się przy dobie w toku (1/810)',
+              promoted['current_share'] == 0.1, str(promoted['current_share']))
+
+
+def test_past_incomplete_day_stays():
+    print("\n🧱 Test 6d: niepełna doba w ŚRODKU historii zostaje na wykresie")
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        (base / 'data').mkdir()
+        record_day(base, date(2026, 5, 16), 800)                               # 3/3
+        index_history.record(805, iso(date(2026, 5, 17), 9), base_dir=base)    # 2/3 — padł cron
+        index_history.record(806, iso(date(2026, 5, 17), 15), base_dir=base)
+        record_day(base, date(2026, 5, 18), 812)                               # 3/3
+
+        offers = [{'id': 'a', 'first_seen': iso(date(2026, 5, 16)),
+                   'last_seen': iso(date(2026, 5, 18)), 'active': True}]
+        series = tg.build_series(offers, base_dir=base)
+        # Dzień zamknięty nigdy nie dobije do kompletu — zamaskowany wypadłby z
+        # Indeksu, odpływu, napływu i pasm NA ZAWSZE. Maska dotyczy tylko krawędzi.
+        check('zamknięta doba z 2/3 skanów zostaje w serii',
+              [v for _, v in series] == [800, 806, 812], str(series))
+        check('domknięta ostatnia doba = brak kreski', tg.partial_day(base) is None,
+              str(tg.partial_day(base)))
+        check('incomplete_days nadal ją widzi (to zbiór o pokryciu, nie o masce)',
+              date(2026, 5, 17) in index_history.incomplete_days(base),
+              str(index_history.incomplete_days(base)))
+        check('nie wchodzi do dni bez skanu (odpływ/napływ ją liczą)',
+              tg._unscanned_days([d for d, _ in index_history.daily_series(base_dir=base)],
+                                 series) == set(), 'brak luk')
+
+
+def test_backfilled_incomplete_day_not_masked():
+    print("\n📜 Test 6c: backfilled dzień z <3 skanami NIE jest maskowany")
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        (base / 'data').mkdir()
+        # `scans` u dni odtworzonych z gita liczy znalezione rewizje, nie realne
+        # przebiegi — nie jest sygnałem pokrycia, więc nie wolno po nim maskować.
+        index_history.save({'days': {
+            '2026-05-16': {'active': 700, 'scans': 3, 'backfilled': True},
+            '2026-05-17': {'active': 705, 'scans': 2, 'backfilled': True},
+        }}, base_dir=base)
+        offers = [{'id': 'a', 'first_seen': iso(date(2026, 5, 16)),
+                   'last_seen': iso(date(2026, 5, 17)), 'active': True}]
+        series = tg.build_series(offers, base_dir=base)
+        check('backfilled dzień z 2 skanami zostaje na wykresie',
+              [v for _, v in series] == [700, 705], str(series))
+        check('incomplete_days pomija dni backfilled',
+              index_history.incomplete_days(base) == set(),
+              str(index_history.incomplete_days(base)))
 
 
 def test_index_source_label():
@@ -354,6 +449,9 @@ if __name__ == '__main__':
     test_live_data()
     test_corrupted_history()
     test_unscanned_day_is_a_gap()
+    test_incomplete_day_is_masked()
+    test_past_incomplete_day_stays()
+    test_backfilled_incomplete_day_not_masked()
     test_index_source_label()
     test_promoted_survives_address_change()
     test_refreshes_two_series()
