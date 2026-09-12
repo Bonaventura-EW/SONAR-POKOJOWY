@@ -153,6 +153,9 @@
         .zm-col.gone .zm-card:before { background: #dc2626; }
         .zm-col.new  .zm-card:before { background: #16a34a; }
         .zm-col.gone .zm-card { opacity: 0.85; }
+        /* Efemeryda: oferta urodzona i zdjeta w tym samym oknie — widoczna tez w kolumnie "Nowe" */
+        .zm-col.new .zm-card.dead { opacity: 0.85; }
+        .zm-col.new .zm-card.dead:before { background: linear-gradient(#16a34a 50%, #dc2626 50%); }
 
         .zm-price-badge {
             min-width: 76px;
@@ -186,6 +189,7 @@
         .b-new { background: #16a34a; color: #fff; }
         .b-firm { background: #ede9fe; color: #5b21b6; }
         .b-react { background: #fef9c3; color: #854d0e; }
+        .b-dead { background: #fee2e2; color: #b91c1c; }
         .trend-up { color: #dc2626; font-weight: 700; }
         .trend-down { color: #16a34a; font-weight: 700; }
 
@@ -303,9 +307,9 @@
 
             <div id="zm-content" style="display:none">
                 <div class="zm-kpis">
-                    <div class="zm-kpi"><h3>Nowych ofert</h3><div class="v v-new" id="k-new">—</div><div class="s">w wybranym oknie</div></div>
+                    <div class="zm-kpi"><h3>Nowych ofert</h3><div class="v v-new" id="k-new">—</div><div class="s" id="k-new-sub">w wybranym oknie</div></div>
                     <div class="zm-kpi"><h3>Zniknęło z rynku</h3><div class="v v-gone" id="k-gone">—</div><div class="s">w wybranym oknie</div></div>
-                    <div class="zm-kpi"><h3>Bilans netto</h3><div class="v" id="k-net">—</div><div class="s">nowe − zniknięte</div></div>
+                    <div class="zm-kpi"><h3>Bilans netto</h3><div class="v" id="k-net">—</div><div class="s">zmiana liczby ofert na rynku</div></div>
                     <div class="zm-kpi"><h3>Śr. cena — nowe</h3><div class="v" id="k-avg-new" style="font-size:19px">—</div><div class="s">w nowych ofertach</div></div>
                     <div class="zm-kpi"><h3>Śr. czas życia</h3><div class="v" id="k-life" style="font-size:19px">—</div><div class="s">zniknięte oferty</div></div>
                 </div>
@@ -313,7 +317,7 @@
                 <div class="zm-cols">
                     <section class="zm-col new">
                         <div class="zm-col-head">🟢 Nowe oferty <span class="cnt" id="cnt-new">0</span></div>
-                        <div class="zm-col-sub">Oferty, które pojawiły się w bazie po raz pierwszy.</div>
+                        <div class="zm-col-sub">Oferty, które pojawiły się w bazie po raz pierwszy — także te, które zdążyły już zniknąć.</div>
                         <div class="zm-list" id="list-new"></div>
                     </section>
                     <section class="zm-col gone">
@@ -406,30 +410,39 @@ function trendTxt(o) {
 }
 
 // Karta oferty (kind: 'new' | 'gone')
+// W kolumnie "Nowe" oferta moze byc juz nieaktywna (urodzona i zdjeta w tym samym oknie) — karta "dead".
 function card(o, kind) {
     const colorObj = getPriceColor(o.price);
     const priceText = o.price ? o.price + ' zł' : '—';
     const tag = getTag(o);
-    const newBadge = (kind === 'new' && o.is_new) ? '<span class="badge b-new">NOWA</span>' : '';
+    const dead = kind === 'new' && !o.active;
+    const newBadge = (kind === 'new' && o.is_new && o.active) ? '<span class="badge b-new">NOWA</span>' : '';
+    const deadBadge = dead ? '<span class="badge b-dead">już zniknęła</span>' : '';
     const firmBadge = o.is_firm_offer ? '<span class="badge b-firm">firma</span>' : '';
     const reactBadge = o.reactivated ? '<span class="badge b-react">reaktywowana</span>' : '';
-    const when = kind === 'new'
-        ? `🆕 dodano <b>${escapeHtml(relDate(o.first_seen))}</b>`
-        : `⏸ zniknęła <b>${escapeHtml(relDate(o.last_seen))}</b>${o.days_active != null ? ` · była <b>${o.days_active} dni</b>` : ''}`;
+    const life = o.days_active != null ? ` · żyła <b>${o.days_active} dni</b>` : '';
+    let when;
+    if (dead) {
+        when = `🆕 dodano <b>${escapeHtml(relDate(o.first_seen))}</b> · ⏸ zniknęła <b>${escapeHtml(relDate(o.last_seen))}</b>${life}`;
+    } else if (kind === 'new') {
+        when = `🆕 dodano <b>${escapeHtml(relDate(o.first_seen))}</b>`;
+    } else {
+        when = `⏸ zniknęła <b>${escapeHtml(relDate(o.last_seen))}</b>${o.days_active != null ? ` · była <b>${o.days_active} dni</b>` : ''}`;
+    }
     const hasGps = o._lat && o._lon;
     const pin = hasGps
-        ? `<button class="zm-btn pin" onclick="goToMap(${o._lat}, ${o._lon}, ${kind === 'gone' ? 'true' : 'false'})" title="Pokaż na mapie">📍 Mapa</button>`
+        ? `<button class="zm-btn pin" onclick="goToMap(${o._lat}, ${o._lon}, ${o.active ? 'false' : 'true'})" title="Pokaż na mapie">📍 Mapa</button>`
         : `<span class="zm-btn pin off" title="Brak współrzędnych GPS">📍 bez GPS</span>`;
     const olx = (o.url && /^https?:\/\//i.test(o.url))
         ? `<a class="zm-btn olx" href="${escapeHtml(o.url)}" target="_blank" rel="noopener">🔗 OLX</a>`
         : '';
-    return `<article class="zm-card">
+    return `<article class="zm-card${dead ? ' dead' : ''}">
         <div class="zm-price-badge" style="background:${colorObj.bg};color:${colorObj.text}">${priceText}</div>
         <div class="zm-body">
             <div class="zm-address" title="${escapeHtml(o._address)}">${escapeHtml(o._address)}</div>
             <div class="zm-badges">
                 <span class="offer-tag ${tag.cls}">${tag.label}</span>
-                ${newBadge}${firmBadge}${reactBadge}
+                ${newBadge}${deadBadge}${firmBadge}${reactBadge}
             </div>
             <div class="zm-price-line" style="font-size:12px;color:#64748b">${trendTxt(o)}</div>
             <div class="zm-foot">
@@ -472,8 +485,13 @@ function render() {
     const sortKey = document.getElementById('sort').value;
     const base = OFFERS.filter(passesCommon);
 
-    let neu  = base.filter(o => o.active && inWindow(o.first_seen, win));
+    // "Nowe" = wszystko, co urodzilo sie w oknie — takze oferty juz zdjete.
+    // Bez tego oferta urodzona i zdjeta w tym samym oknie liczyla sie tylko po stronie ubytkow,
+    // wiec bilans nie mial szans wyjsc na plus. Teraz zachodzi:
+    //   nowe(okno) - znikniete(okno) == aktywne dzis - aktywne na starcie okna
+    let neu  = base.filter(o => inWindow(o.first_seen, win));
     let gone = base.filter(o => !o.active && inWindow(o.last_seen, win));
+    const ephemeral = neu.filter(o => !o.active && inWindow(o.last_seen, win)).length;
 
     const sf = sortFn(sortKey);
     if (sf) { neu.sort(sf); gone.sort(sf); }
@@ -494,6 +512,9 @@ function render() {
 
     // KPI
     document.getElementById('k-new').textContent = neu.length;
+    document.getElementById('k-new-sub').innerHTML = ephemeral
+        ? `w tym <em style="font-style:normal;color:#64748b;font-weight:600">${ephemeral} już zniknęło</em>`
+        : 'w wybranym oknie';
     document.getElementById('k-gone').textContent = gone.length;
     const net = neu.length - gone.length;
     const ke = document.getElementById('k-net');
