@@ -141,6 +141,33 @@ function _drawInnerGlyph(ctx, cx, cy, r, inactive) {
     }
 }
 
+// Oferta dziś AKTYWNA, ale w trybie "Zniknięcia" pokazana dlatego, że wybranego
+// dnia wypadła z listingu i później wróciła. Rysujemy ją jak zniknięcie (krzyżyk ×)
+// + plakietka ↻, inaczej wyglądałaby jak zwykła aktywna oferta i nie dałoby się
+// odróżnić powodu, dla którego jest na mapie. Stan czytany przy KAŻDYM rysowaniu
+// kształtu (nie zamrożony w opcjach), bo tryb włącza się i wyłącza w locie.
+function _isReactivatedInGoneMode(o) {
+    return goneSliderState.enabled && !o._inactiveShape && o._hasGoneDays;
+}
+
+// Plakietka reaktywacji — zielone kółko ze strzałką w obiegu, PRAWY DOLNY róg
+// (prawy górny zajmuje cena, lewy górny odświeżenie).
+function _drawReactBadge(ctx, cx, cy, R) {
+    if (ctx.setLineDash) ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.fillStyle = '#0e8f63';
+    ctx.fill();
+    ctx.lineWidth = R * 0.24;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 ' + Math.round(R * 1.5) + 'px -apple-system, Segoe UI, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('\u21bb', cx, cy + 0.5);
+}
+
 // Badge w prawym-górnym rogu. Priorytet: zmiana ceny (↓/↑ w kółku) > nowa (N).
 // Odpowiednik "💲↓" / "N" z mapy głównej — na canvasie czytelniejszy jako kółko.
 function _drawCornerBadge(ctx, cx, cy, o) {
@@ -235,9 +262,12 @@ const PinMarker = L.CircleMarker.extend({
         ctx.closePath();
         r._fillStroke(ctx, this);                        // wypełnienie + obwódka wg options
         const o = this.options;
-        _drawInnerGlyph(ctx, x, y - 32, o._inactiveShape ? 9 : 8, o._inactiveShape);
+        const reactivated = _isReactivatedInGoneMode(o);
+        const cross = o._inactiveShape || reactivated;
+        _drawInnerGlyph(ctx, x, y - 32, cross ? 9 : 8, cross);
         _drawCornerBadge(ctx, x + 17, y - 47, o);
         if (o.isRefreshed) _drawRefreshBadge(ctx, x - 17, y - 47, 9);
+        if (reactivated) _drawReactBadge(ctx, x + 15, y - 16, 9);
     },
     _containsPoint: function (p) {
         // klikalny obszar = bąbel pinezki (środek ≈ ostrze − 30px), ostry ogon nieklikalny
@@ -251,8 +281,9 @@ const PinMarker = L.CircleMarker.extend({
 const SquareMarker = L.CircleMarker.extend({
     _updateBounds: function () {
         const p = this._point;
-        // Lewy margines na badge odświeżenia (środek -14, promień 9 → -23).
-        this._pxBounds = new L.Bounds(p.add(L.point(-26, -22)), p.add(L.point(22, 19)));
+        // Lewy margines na badge odświeżenia (środek -14, promień 9 → -23),
+        // prawy/dolny na plakietkę reaktywacji (środek +14, promień 9 → +23).
+        this._pxBounds = new L.Bounds(p.add(L.point(-26, -22)), p.add(L.point(27, 27)));
     },
     _updatePath: function () {
         const r = this._renderer;
@@ -265,7 +296,8 @@ const SquareMarker = L.CircleMarker.extend({
         r._fillStroke(ctx, this);                        // wypełnienie + przerywana obwódka (_dashArray)
         if (ctx.setLineDash) ctx.setLineDash([]);
         const o = this.options;
-        if (o._inactiveShape) {
+        const reactivated = _isReactivatedInGoneMode(o);
+        if (o._inactiveShape || reactivated) {
             ctx.font = '700 22px -apple-system, Segoe UI, sans-serif';
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(0,0,0,0.5)';
@@ -275,6 +307,7 @@ const SquareMarker = L.CircleMarker.extend({
         }
         _drawCornerBadge(ctx, x + 14, y - 14, o);
         if (o.isRefreshed) _drawRefreshBadge(ctx, x - 14, y - 14, 9);
+        if (reactivated) _drawReactBadge(ctx, x + 14, y + 14, 9);
     },
     _containsPoint: function (p) {
         const d = p.subtract(this._point);
@@ -315,6 +348,7 @@ let goneSliderState = {
     enabled: false,
     days: [],            // posortowana tablica Date (ciągła oś dni)
     countsPerDay: {},    // "YYYY-MM-DD" -> liczba ofert które zniknęły tego dnia
+    reactPerDay: {},     // "YYYY-MM-DD" -> ile z nich wróciło (jest dziś aktywna)
     selectedIndex: -1
 };
 
@@ -802,6 +836,7 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
             bubblingMouseEvents: false,
             // dane do rysowania badge / krzyżyka na canvasie
             _inactiveShape: !isActive,
+            _hasGoneDays: (offer.gone_days || []).length > 0,   // patrz _isReactivatedInGoneMode
             isNewFlag: isNew && !hasPriceChange,   // N tylko gdy brak badge zmiany ceny (jak na mapie głównej)
             hasPriceChange: hasPriceChange,
             priceDown: priceDown,
@@ -1809,9 +1844,11 @@ function initGoneSlider() {
     // kasuje zniknięcia). Jedna oferta może zniknąć wiele razy, każde liczymy
     // osobno — dokładnie jak build_outflow w src/trend_generator.py.
     const countsPerDay = {};
+    const reactPerDay = {};
     allMarkers.forEach(item => {
         goneDaysOf(item.originalOffer || {}).forEach(k => {
             countsPerDay[k] = (countsPerDay[k] || 0) + 1;
+            if (item.isActive) reactPerDay[k] = (reactPerDay[k] || 0) + 1;
         });
     });
 
@@ -1839,6 +1876,7 @@ function initGoneSlider() {
 
     goneSliderState.days = days;
     goneSliderState.countsPerDay = countsPerDay;
+    goneSliderState.reactPerDay = reactPerDay;
     goneSliderState.selectedIndex = days.length - 1;
 
     slider.min = 0;
@@ -1902,9 +1940,11 @@ function updateGoneSliderReadout() {
     const dateEl = document.getElementById('date-gone-current');
     const countEl = document.getElementById('date-gone-count');
     if (!dateEl || !countEl) return;
+    const reactOff = document.getElementById('date-gone-react');
     if (!goneSliderState.enabled || idx < 0 || idx >= days.length) {
         dateEl.textContent = '—';
         countEl.textContent = '— ofert';
+        if (reactOff) reactOff.hidden = true;
         return;
     }
     const day = days[idx];
@@ -1912,6 +1952,13 @@ function updateGoneSliderReadout() {
     dateEl.textContent = formatDayPL(day);
     dateEl.classList.add('active');
     countEl.textContent = `${count} ${pluralOffers(count)}`;
+    // Ile z nich wróciło na rynek — te markery mają krzyżyk × i plakietkę ↻
+    const reactEl = document.getElementById('date-gone-react');
+    if (reactEl) {
+        const back = goneSliderState.reactPerDay[dayKey(day)] || 0;
+        reactEl.hidden = back === 0;
+        reactEl.textContent = `↻ ${back} ${back === 1 ? 'wróciła' : 'wróciło'}`;
+    }
     buildGoneHistogram();
 }
 
@@ -1962,6 +2009,10 @@ function applyGoneModeLayers(on) {
     // toggleInactiveApproxLayer na końcu woła filterMarkers().
     toggleActiveApproxLayer();
     toggleInactiveApproxLayer();
+    // Krzyżyk i plakietka ↻ reaktywowanych zależą od trybu, a same warstwy mogły
+    // się nie zmienić — wymuś repaint canvasu, inaczej oznaczenie pojawia się
+    // dopiero przy pierwszym przesunięciu mapy.
+    if (canvasRenderer._redraw) canvasRenderer._redraw();
 }
 
 // ===== Przełącznik trybu filtra dat =====

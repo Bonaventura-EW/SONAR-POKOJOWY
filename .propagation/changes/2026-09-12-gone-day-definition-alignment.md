@@ -26,6 +26,9 @@ Odrzucone alternatywy:
   i reaktywacje; `deactivation_dates` jest źródłem prawdy, `last_seen` pochodną,
 - zostawienie rozjazdu z przypisem w UI — użytkownik i tak porównuje liczby.
 
-Efekt uboczny do rozważenia u siebie: reaktywowane oferty (aktywne dziś, zniknęły
-wybranego dnia) rysują się teraz na mapie jak zwykłe aktywne. Jeśli mają być
-odróżnialne, potrzebne osobne oznaczenie — u nas świadomie nie dodane.
+Reaktywowane oferty (aktywne dziś, zniknęły wybranego dnia) bez oznaczenia wyglądają
+jak zwykłe aktywne, więc dostały własne: krzyżyk "nieaktywna" jak reszta zniknięć plus
+plakietkę z symbolem powrotu w wolnym rogu markera, oraz licznik "ile wróciło" przy
+liczbie zniknięć dnia. Oznaczenie zależy od trybu, nie od rekordu, więc musi być
+czytane przy każdym rysowaniu kształtu (nie zapisane w opcjach markera przy tworzeniu)
+i wymaga wymuszonego repaintu przy wejściu w tryb.
