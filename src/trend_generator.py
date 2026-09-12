@@ -216,11 +216,19 @@ def build_series(offers, base_dir=None):
     rysował fałszywy zjazd na prawej krawędzi. `None` propaguje się dalej sam:
     _unscanned_days wyłącza taki dzień z odpływu/napływu, compute_deltas pomija
     go przy 1D, a bilans pasm czyta go jako lukę.
+
+    Maskujemy WYŁĄCZNIE dobę na prawej krawędzi — tę, która jeszcze trwa. Dzień
+    z niepełnym pokryciem w ŚRODKU historii (padł jeden przebieg crona) zostaje
+    na wykresie ze swoją zmierzoną wartością: jest już zamknięty, nigdy nie
+    dobije do kompletu, a zamaskowany wypadłby z Indeksu, odpływu, napływu i
+    pasm na zawsze. Mała niedokładność w jednym słupku jest tańsza niż trwała
+    dziura. Gdy dojdzie nowy skan, wczorajsza maska sama się zdejmuje.
     """
     measured = measured_series(base_dir)
     if measured:
         incomplete = index_history.incomplete_days(base_dir)
-        return [[_day_ms(day), None if day in incomplete else value]
+        edge = measured[-1][0]
+        return [[_day_ms(day), None if (day == edge and day in incomplete) else value]
                 for day, value in measured]
     return build_series_reconstructed(offers)
 
@@ -577,7 +585,13 @@ def build_promoted(offers, series, scan_days=None, base_dir=None):
         else:
             share.append([ms, round(100 * counts.get(d, 0) / active, 1)])
 
-    last_day = next((d for d in reversed(days) if d not in missing), None)
+    # „Teraz" musi opisywać tę samą dobę, którą pokazuje Indeks: dzień zamaskowany
+    # jako doba w toku (build_series) nie ma w serii wartości `active`, więc liczony
+    # z niego udział w rynku wychodził `None` i panel promowanych gubił „% rynku"
+    # na cały dzień, podczas gdy liczba wyróżnień pochodziła już z doby w toku.
+    last_day = next((d for d in reversed(days)
+                     if d not in missing
+                     and (not active_by_ms or _day_ms(d) in active_by_ms)), None)
     current = counts.get(last_day, 0) if last_day else None
     current_share = None
     if last_day:

@@ -37,8 +37,8 @@ takie samo: rośnie tym bardziej, im mniej z zaplanowanych skanów doba zdąży�
 zebrać — i jest największe na dobie BIEŻĄCEJ (po samym porannym skanie ma 1 z 3).
 Taki niedokończony dzień leżałby poniżej sąsiadów i rysował fałszywy zjazd na
 prawej krawędzi wykresu. Dlatego `incomplete_days()` wskazuje doby z niepełnym
-pokryciem skanami (patrz EXPECTED_SCANS_PER_DAY), a trend_generator maskuje je
-jako lukę — do serii wchodzą tylko doby domknięte pełnym kompletem skanów.
+pokryciem skanami (patrz EXPECTED_SCANS_PER_DAY), a trend_generator maskuje jako
+lukę tę z nich, która leży na prawej krawędzi wykresu — czyli dobę w toku.
 
 Dzień bez ani jednego skanu (awaria Actions) NIE MA tu wpisu i `daily_series()`
 zwraca dla niego `None` — front rysuje lukę zamiast zmyślonego zera.
@@ -185,6 +185,10 @@ def incomplete_days(base_dir=None, expected: int = EXPECTED_SCANS_PER_DAY) -> se
     przebiegów. To głównie doba BIEŻĄCA (po porannym skanie 1 z 3), którą
     trend_generator maskuje jako lukę, żeby nie rysować fałszywego zjazdu na
     prawej krawędzi wykresu.
+
+    Zbiór mówi o POKRYCIU, nie o tym, co ukryć: trend_generator maskuje z niego
+    tylko dobę na krawędzi wykresu, bo dzień niepełny w środku historii jest już
+    zamknięty i zamaskowany zniknąłby z metryk na zawsze (patrz build_series).
 
     Dni `backfilled` (odtworzone z rewizji gita) POMIJAMY: tam `scans` liczy
     znalezione rewizje `scan_history.json`, a nie realne przebiegi, więc nie jest

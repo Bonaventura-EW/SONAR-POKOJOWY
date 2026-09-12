@@ -192,7 +192,8 @@ def test_incomplete_day_is_masked():
         index_history.record(790, iso(date(2026, 5, 18), 9), base_dir=base)   # 1/3 — doba w toku
 
         offers = [{'id': 'a', 'first_seen': iso(date(2026, 5, 16)),
-                   'last_seen': iso(date(2026, 5, 18)), 'active': True}]
+                   'last_seen': iso(date(2026, 5, 18)), 'active': True,
+                   'promoted_dates': ['2026-05-17', '2026-05-18']}]
         series = tg.build_series(offers, base_dir=base)
         vals = [v for _, v in series]
         check('doba w toku zamaskowana jako luka', vals == [800, 810, None], str(vals))
@@ -202,6 +203,40 @@ def test_incomplete_day_is_masked():
               deltas['1D'] == 10, str(deltas))
         measured = [v for _, v in series if v is not None]
         check('ostatni zmierzony punkt to domknięta doba', measured[-1] == 810, str(measured))
+
+        # REGRESJA: „teraz" w panelu promowanych musi opisywać TĘ SAMĄ dobę co Indeks.
+        # Gdy last_day brało dobę w toku, jej `active` było już zamaskowane i udział
+        # w rynku wychodził None — panel gubił „% rynku" na cały dzień.
+        promoted = tg.build_promoted(offers, series, base_dir=base)
+        check('promowane liczone z domkniętej doby, nie z tej w toku',
+              promoted['current'] == 1, str(promoted['current']))
+        check('udział w rynku nie gubi się przy dobie w toku (1/810)',
+              promoted['current_share'] == 0.1, str(promoted['current_share']))
+
+
+def test_past_incomplete_day_stays():
+    print("\n🧱 Test 6d: niepełna doba w ŚRODKU historii zostaje na wykresie")
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        (base / 'data').mkdir()
+        record_day(base, date(2026, 5, 16), 800)                               # 3/3
+        index_history.record(805, iso(date(2026, 5, 17), 9), base_dir=base)    # 2/3 — padł cron
+        index_history.record(806, iso(date(2026, 5, 17), 15), base_dir=base)
+        record_day(base, date(2026, 5, 18), 812)                               # 3/3
+
+        offers = [{'id': 'a', 'first_seen': iso(date(2026, 5, 16)),
+                   'last_seen': iso(date(2026, 5, 18)), 'active': True}]
+        series = tg.build_series(offers, base_dir=base)
+        # Dzień zamknięty nigdy nie dobije do kompletu — zamaskowany wypadłby z
+        # Indeksu, odpływu, napływu i pasm NA ZAWSZE. Maska dotyczy tylko krawędzi.
+        check('zamknięta doba z 2/3 skanów zostaje w serii',
+              [v for _, v in series] == [800, 806, 812], str(series))
+        check('incomplete_days nadal ją widzi (to zbiór o pokryciu, nie o masce)',
+              date(2026, 5, 17) in index_history.incomplete_days(base),
+              str(index_history.incomplete_days(base)))
+        check('nie wchodzi do dni bez skanu (odpływ/napływ ją liczą)',
+              tg._unscanned_days([d for d, _ in index_history.daily_series(base_dir=base)],
+                                 series) == set(), 'brak luk')
 
 
 def test_backfilled_incomplete_day_not_masked():
@@ -406,6 +441,7 @@ if __name__ == '__main__':
     test_corrupted_history()
     test_unscanned_day_is_a_gap()
     test_incomplete_day_is_masked()
+    test_past_incomplete_day_stays()
     test_backfilled_incomplete_day_not_masked()
     test_index_source_label()
     test_promoted_survives_address_change()
