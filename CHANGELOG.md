@@ -9,6 +9,14 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### „Bilans netto" na Ruchu rynku nie mógł wyjść na plus (2026-09-12)
+- **problem**: KPI „Bilans netto" na `docs/ostatnie.html` było ujemne w KAŻDYM oknie, niezależnie od tego, co robił rynek. To nie był odczyt rynku, tylko asymetria filtra: `neu` brało tylko oferty **żywe** z `first_seen` w oknie, a `gone` **wszystkie** martwe z `last_seen` w oknie. Oferta urodzona i zdjęta w tym samym oknie („efemeryda") wchodziła wyłącznie na minus, a przy „cały czas" wzór degenerował się do `aktywne − nieaktywne` = 836 − 1925 = −1089.
+- **fix**: „Nowe" = wszystko, co urodziło się w oknie, także oferty już zdjęte. Bilans przestał być własną metryką i jest dosłownie **zmianą wielkości rynku**: `nowe(okno) − zniknięte(okno) == aktywne dziś − aktywne na starcie okna`.
+- **efemerydy** dostały własny typ karty w kolumnie „Nowe": wyszarzona, pasek boczny zielono-czerwony, plakietka „już zniknęła", stopka `🆕 dodano … · ⏸ zniknęła … · żyła N dni`. Guzik „📍 Mapa" otwiera je na warstwie nieaktywnych (`goToMap` patrzy na `o.active`, nie na kolumnę). Podpisy KPI: „w tym N już zniknęło" i „zmiana liczby ofert na rynku".
+- **liczbowo** (dane ze skanu 12.09.2026): okno 14 dni −79 → **−24** (55 efemeryd), 30 dni −263 → **−81** (182), 90 dni −895 → **+265** (1160), cały czas −1089 → **+836** (1925) = dokładnie liczba ofert żywych na rynku. Okno „dzisiaj" bez zmian (−14) — w jednym dniu efemeryd nie ma.
+- **weryfikacja**: tożsamość `bilans == aktywne dziś − aktywne na starcie okna` zachodzi **co do jednej oferty we wszystkich 7 oknach** (1/3/7/14/30/90/cały czas), przy prawej stronie liczonej niezależnie z `docs/data.json`.
+- **uwaga**: reaktywacje zostają nieliczone po obu stronach (oferta, która wróciła, nie jest ani „nowa", ani „zniknięta") — ta sama konwencja co w `src/trend_generator.py`. Zmiana dotyka wyłącznie `docs/ostatnie.html`, backend i dane nietknięte.
+
 ### Podbicie z dnia Twojej wizyty nie zapalało plakietki 🔄 na zakładce firmy (2026-09-08)
 - **zgłoszenie Mateusza**: „dzisiaj w profilu MAT był odświeżone pokoje a nie pojawiła się ikona przy nazwie że są odświeżenia".
 - **diagnoza — jedna data, dwa formaty**: sygnały „od Twojej ostatniej wizyty" liczyły podbicia z `refresh_dates`, czyli z listy DNI (`'2026-09-08'`). `parseAnyDate` daje z tego **północ**, a znacznik wizyty ze zrzutu to 08.09 **08:18** — więc `00:00 > 08:18` jest fałszem i trzy realne podbicia MAT-a z **08:21** nie istniały dla plakietki. Ta sama lista ofert pokazywała przy nich „↻ odświeżona", bo ten badge czyta `last_refresh_date`, czyli ISO **z godziną**. Stąd sprzeczność na jednym ekranie: badge tak, ikona na zakładce nie.
