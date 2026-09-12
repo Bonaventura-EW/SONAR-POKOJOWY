@@ -10,7 +10,7 @@ how: Generator mapy wystawia per-ofertę listę dni zniknięcia (gone_days) zbie
 surface: src/map_generator.py, src/trend_generator.py, docs/assets/script.js
 generality: family
 propagate: yes
-commit: PENDING
+commit: e6a6d18
 ---
 
 # Kontekst
