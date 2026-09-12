@@ -233,6 +233,32 @@ def build_series(offers, base_dir=None):
     return build_series_reconstructed(offers)
 
 
+def partial_day(base_dir=None):
+    """Doba w toku, czyli ta, którą build_series zamaskował na prawej krawędzi —
+    albo None, gdy ostatni zapisany dzień ma komplet skanów.
+
+    Front rysuje ją LINIĄ PRZERYWANĄ dociągniętą od ostatniej domkniętej doby:
+    wartość jest prawdziwa, ale to dolne oszacowanie (dzień jeszcze rośnie), więc
+    nie wchodzi ani do serii, ani do delt, ani do przepływów. Zwracamy też
+    `scans`/`expected`, żeby dało się napisać wprost „1 z 3 skanów" zamiast
+    kazać czytającemu zgadywać, dlaczego kreska jest przerywana.
+    """
+    measured = measured_series(base_dir)
+    if not measured:
+        return None
+    day, value = measured[-1]
+    if value is None or day not in index_history.incomplete_days(base_dir):
+        return None
+    entry = index_history.load(base_dir)['days'].get(day.isoformat()) or {}
+    return {
+        'ms': _day_ms(day),
+        'value': value,
+        'scans': entry.get('scans') or 0,
+        'expected': index_history.EXPECTED_SCANS_PER_DAY,
+        'label': day.strftime('%d.%m.%Y'),
+    }
+
+
 def build_series_reconstructed(offers):
     """AWARYJNE źródło Indeksu: rekonstrukcja wsteczna z offers.json.
 
@@ -844,6 +870,9 @@ def generate_trend_data(base_dir: Path = None) -> bool:
         'points': len(series),
         'measured_points': len(measured),
         'deltas': compute_deltas(series),
+        # Doba w toku: wartość jest, ale poza serią — front dorysowuje ją kreską,
+        # a `current`, `deltas` i przepływy zostają liczone z dób domkniętych.
+        'partial': partial_day(base_dir),
         'series': series,
         'outflow': build_outflow(offers, series),
         'inflow': build_inflow(offers, series),
@@ -854,9 +883,14 @@ def generate_trend_data(base_dir: Path = None) -> bool:
 
     write_json_atomic(output_file, out)
     of = out['outflow'] or {}
-    gaps = len(series) - len(measured)
+    # Doba w toku jest w serii jako None, ale to nie jest „dzień bez skanu" —
+    # liczymy ją osobno, żeby log nie mylił awarii Actions z dniem, który trwa.
+    gaps = len(series) - len(measured) - (1 if out['partial'] else 0)
+    part = out['partial']
+    part_txt = (f", doba w toku: {part['label']}={part['value']} "
+                f"({part['scans']} z {part['expected']} skanów, rysowana kreską)") if part else ""
     print(f"✅ trend_data.json: {len(series)} dni od {RELIABLE_START} "
-          f"({index_source}, luk bez skanu: {gaps}), "
+          f"({index_source}, luk bez skanu: {gaps}{part_txt}), "
           f"teraz={current}, max={mx}, min={mn}; "
           f"odpływ: łącznie={of.get('total')}, śr={of.get('rate')}/dzień, "
           f"rekord={of.get('max_day')} ({of.get('max_label')})")

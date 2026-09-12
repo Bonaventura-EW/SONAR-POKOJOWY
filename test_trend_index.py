@@ -204,6 +204,13 @@ def test_incomplete_day_is_masked():
         measured = [v for _, v in series if v is not None]
         check('ostatni zmierzony punkt to domknięta doba', measured[-1] == 810, str(measured))
 
+        part = tg.partial_day(base)
+        check('partial_day opisuje dobę w toku dla kreski na froncie',
+              part and part['value'] == 790 and part['scans'] == 1
+              and part['expected'] == 3 and part['label'] == '18.05.2026', str(part))
+        check('partial_day wskazuje ten sam dzień, który seria ma jako None',
+              part['ms'] == series[-1][0], str(part))
+
         # REGRESJA: „teraz" w panelu promowanych musi opisywać TĘ SAMĄ dobę co Indeks.
         # Gdy last_day brało dobę w toku, jej `active` było już zamaskowane i udział
         # w rynku wychodził None — panel gubił „% rynku" na cały dzień.
@@ -231,6 +238,8 @@ def test_past_incomplete_day_stays():
         # Indeksu, odpływu, napływu i pasm NA ZAWSZE. Maska dotyczy tylko krawędzi.
         check('zamknięta doba z 2/3 skanów zostaje w serii',
               [v for _, v in series] == [800, 806, 812], str(series))
+        check('domknięta ostatnia doba = brak kreski', tg.partial_day(base) is None,
+              str(tg.partial_day(base)))
         check('incomplete_days nadal ją widzi (to zbiór o pokryciu, nie o masce)',
               date(2026, 5, 17) in index_history.incomplete_days(base),
               str(index_history.incomplete_days(base)))
