@@ -32,8 +32,13 @@ już zapisanej wartości.
 Cena tej konwencji: to szereg DZIENNYCH SZCZYTÓW, nie stanu na daną godzinę.
 Dzień jeszcze trwający rośnie do wieczora (mediana przyrostu od pierwszego skanu
 do maksimum: +5 ofert), a licznik na mapie — stan po OSTATNIM skanie — bywa o
-kilka ofert niższy od punktu na wykresie. Przesunięcie jest w każdym dniu takie
-samo, więc kształt i kierunek trendu są nietknięte.
+kilka ofert niższy od punktu na wykresie. To przesunięcie NIE jest w każdym dniu
+takie samo: rośnie tym bardziej, im mniej z zaplanowanych skanów doba zdążyła
+zebrać — i jest największe na dobie BIEŻĄCEJ (po samym porannym skanie ma 1 z 3).
+Taki niedokończony dzień leżałby poniżej sąsiadów i rysował fałszywy zjazd na
+prawej krawędzi wykresu. Dlatego `incomplete_days()` wskazuje doby z niepełnym
+pokryciem skanami (patrz EXPECTED_SCANS_PER_DAY), a trend_generator maskuje jako
+lukę tę z nich, która leży na prawej krawędzi wykresu — czyli dobę w toku.
 
 Dzień bez ani jednego skanu (awaria Actions) NIE MA tu wpisu i `daily_series()`
 zwraca dla niego `None` — front rysuje lukę zamiast zmyślonego zera.
@@ -54,6 +59,14 @@ INDEX_HISTORY_FILE = DATA_DIR / 'index_history.json'
 NOTE = ("Dzienny stan bazy: ile ofert ma active=true po skanie. Zrodlo prawdy dla "
         "Indeksu podazy (trend.html). active = maksimum z odczytow danego dnia "
         "(skan czesciowy nie moze zanizyc historii). Nie edytowac recznie.")
+
+# Ile skanów dziennie planuje cron (9:00 / 15:00 / 21:00 CEST). Dzień z mniejszą
+# liczbą ZAKOŃCZONYCH przebiegów to doba w toku: przy konwencji "active = maksimum
+# z odczytów" nie zdążyła jeszcze złapać swojego dziennego szczytu, więc jej punkt
+# leży poniżej dni sąsiednich. Liczymy względem PLANU (3/dobę), nie względem
+# sztywnych godzin — inteligentne pomijanie i błędy sieci przesuwają realny czas
+# skanu, ale ich liczba pozostaje miarą pokrycia doby.
+EXPECTED_SCANS_PER_DAY = 3
 
 
 class IndexHistoryError(RuntimeError):
@@ -164,4 +177,32 @@ def daily_series(start: date = None, base_dir=None):
     while day <= last:
         out.append((day, parsed.get(day)))
         day += timedelta(days=1)
+    return out
+
+
+def incomplete_days(base_dir=None, expected: int = EXPECTED_SCANS_PER_DAY) -> set:
+    """Dni z NIEPEŁNYM pokryciem skanami — mniej niż `expected` zakończonych
+    przebiegów. To głównie doba BIEŻĄCA (po porannym skanie 1 z 3), którą
+    trend_generator maskuje jako lukę, żeby nie rysować fałszywego zjazdu na
+    prawej krawędzi wykresu.
+
+    Zbiór mówi o POKRYCIU, nie o tym, co ukryć: trend_generator maskuje z niego
+    tylko dobę na krawędzi wykresu, bo dzień niepełny w środku historii jest już
+    zamknięty i zamaskowany zniknąłby z metryk na zawsze (patrz build_series).
+
+    Dni `backfilled` (odtworzone z rewizji gita) POMIJAMY: tam `scans` liczy
+    znalezione rewizje `scan_history.json`, a nie realne przebiegi, więc nie jest
+    sygnałem pokrycia — maskowanie po nim robiłoby fałszywe luki w historii.
+    """
+    days = load(base_dir)['days']
+    out = set()
+    for key, entry in days.items():
+        if entry.get('backfilled'):
+            continue
+        if (entry.get('scans') or 0) >= expected:
+            continue
+        try:
+            out.add(date.fromisoformat(key))
+        except (ValueError, TypeError):
+            continue
     return out

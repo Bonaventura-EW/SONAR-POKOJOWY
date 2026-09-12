@@ -31,6 +31,15 @@
         }
         .deltas b { color: #e8ecf3; font-weight: 700; margin-right: 4px; }
         .pos { color: #37c26b; } .neg { color: #e8624c; } .na { color: #8b93a7; }
+        /* Doba w toku: wartość jest prawdziwa, ale dzień jeszcze rośnie — plakietka
+           mówi wprost, ile skanów za nami, a przypis przy deltach, do czego liczone
+           jest porównanie (zawsze do ostatniej DOMKNIĘTEJ doby). */
+        .wip {
+            display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px;
+            background: #3a4255; color: #c7cede; font-size: 12.5px; font-weight: 600;
+            vertical-align: 1px; white-space: nowrap;
+        }
+        .deltas .cmp { color: #8b93a7; }
 
         #chart { margin-top: 4px; min-height: 520px; }
 
@@ -47,6 +56,7 @@
         .idxLegend .ci { display: flex; align-items: center; gap: 7px; color: #a9b2c4; font-size: 13px; }
         .idxLegend .ci.muted { color: #8b93a7; } .idxLegend .ci b { color: #e8ecf3; }
         .idxLegend .dot { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+        .idxLegend .dash { width: 24px; border-top: 2px dashed #8b93a7; display: inline-block; }
 
         .foot {
             color: #8b93a7; font-size: 12.5px; margin-top: 16px; line-height: 1.65;
@@ -292,8 +302,23 @@
 
         const RAW = d.series || [];
         document.getElementById('title').textContent = d.title || 'Lublin – pokoje: wynajem';
-        document.getElementById('lastLabel').textContent = d.last_label || '—';
-        document.getElementById('curVal').textContent = d.current != null ? d.current : '—';
+
+        // Doba w toku (trend_generator.partial_day): ma za sobą część zaplanowanych skanów,
+        // więc jej wartość to DOLNE oszacowanie — dzień jeszcze rośnie. Do serii, delt ani
+        // przepływów nie wchodzi; rysujemy ją osobną, przerywaną linią dociągniętą od
+        // ostatniej domkniętej doby, żeby dzisiejszy stan był widoczny, ale nie udawał pomiaru.
+        const PART = d.partial || null;
+        const lastClosed = RAW.filter(function (p) { return p[1] != null; }).slice(-1)[0] || null;
+        const PART_LINE = (PART && lastClosed) ? [[lastClosed[0], lastClosed[1]], [PART.ms, PART.value]] : [];
+
+        if (PART) {
+            document.getElementById('lastLabel').innerHTML = PART.label +
+                '<span class="wip">doba w toku &middot; ' + PART.scans + ' z ' + PART.expected + ' skanów</span>';
+            document.getElementById('curVal').textContent = PART.value;
+        } else {
+            document.getElementById('lastLabel').textContent = d.last_label || '—';
+            document.getElementById('curVal').textContent = d.current != null ? d.current : '—';
+        }
 
         // --- deltas (1D / 1M / 6M / 1Y) ---
         const order = ['1D', '1M', '6M', '1Y'];
@@ -306,7 +331,10 @@
             const cls = v > 0 ? 'pos' : (v < 0 ? 'neg' : 'na');
             const sign = v > 0 ? '+' : '';
             return '<span><b>' + lab + ':</b><span class="' + cls + '">' + sign + v + '</span></span>';
-        }).join('');
+        }).join('') + (PART
+            ? '<span class="cmp">porównania do ' + (d.last_label || '—') + ' &mdash; ostatniej domkniętej doby ('
+              + d.current + ')</span>'
+            : '');
 
         if (!RAW.length) {
             document.getElementById('chart').innerHTML = '<div class="loading">Brak danych w serii.</div>';
@@ -357,9 +385,17 @@
                 zoom: { enabled: true }
             },
             theme: { mode: 'dark' },
-            series: [{ name: 'Aktywne oferty', data: RAW }],
-            colors: ['#6c7bf2'],
-            stroke: { curve: 'straight', width: 2 },
+            series: PART
+                ? [{ name: 'Aktywne oferty', type: 'area', data: RAW },
+                   { name: 'Doba w toku', type: 'line', data: PART_LINE }]
+                : [{ name: 'Aktywne oferty', type: 'area', data: RAW }],
+            colors: PART ? ['#6c7bf2', '#8b93a7'] : ['#6c7bf2'],
+            stroke: PART
+                ? { curve: 'straight', width: [2, 3], dashArray: [0, 5] }
+                : { curve: 'straight', width: 2 },
+            // Legendę Apexa chowamy — kreskę opisuje chip w #idxLegend, spójnie
+            // z trybem „Rozbij", który też tam trzyma swoje opisy.
+            legend: { show: false },
             fill: {
                 type: 'gradient', gradient: {
                     shadeIntensity: 1, opacityFrom: 0.55, opacityTo: 0.03, stops: [0, 90, 100],
@@ -370,7 +406,12 @@
                 }
             },
             dataLabels: { enabled: false },
-            grid: { borderColor: '#3a4255', strokeDashArray: 4, xaxis: { lines: { show: true } }, yaxis: { lines: { show: true } } },
+            grid: {
+                borderColor: '#3a4255', strokeDashArray: 4,
+                xaxis: { lines: { show: true } }, yaxis: { lines: { show: true } },
+                // Bez tego marker doby w toku (ostatni punkt) jest przycięty ramką wykresu.
+                padding: { right: 16 }
+            },
             xaxis: {
                 type: 'datetime', axisBorder: { show: false }, axisTicks: { color: '#3a4255' },
                 labels: {
@@ -381,20 +422,47 @@
             yaxis: {
                 // Bez widełek Apex dobiera „ładną" skalę schodzącą poniżej zera
                 // (przy MIN 277 rysował oś do −100) — ujemna liczba ofert nie znaczy nic.
-                min: Math.max(0, Math.floor((mn - Math.max(20, range * 0.08)) / 50) * 50),
-                max: Math.ceil((mx + Math.max(20, range * 0.08)) / 50) * 50,
+                // Doba w toku bywa poza [MIN, MAX] dób domkniętych — bez tego kreska
+                // wychodziłaby poza obszar rysowania.
+                min: Math.max(0, Math.floor((Math.min(mn, PART ? PART.value : mn) - Math.max(20, range * 0.08)) / 50) * 50),
+                max: Math.ceil((Math.max(mx, PART ? PART.value : mx) + Math.max(20, range * 0.08)) / 50) * 50,
                 labels: { style: { colors: '#8b93a7' }, formatter: function (v) { return Math.round(v); } }, tickAmount: 5
             },
-            tooltip: { theme: 'dark', x: { format: 'dd.MM.yyyy' }, y: { formatter: function (v) { return v + ' ' + unit; } } },
+            // enabledOnSeries: kreska ma własny podpis na punkcie, a w tooltipie
+            // dublowałaby wartość ostatniej domkniętej doby (dzieli z nią punkt startowy).
+            tooltip: {
+                theme: 'dark', x: { format: 'dd.MM.yyyy' },
+                enabledOnSeries: [0],
+                y: { formatter: function (v) { return v + ' ' + unit; } }
+            },
             annotations: {
                 // 'front' — inaczej wypełnienie pola zamalowuje etykietę MIN
                 // (leży nisko, dokładnie w obszarze serii). MAX jest nad polem, więc było widać.
                 position: 'front',
                 yaxis: yAnnotations,
+                // Poziomy odcinek doby w toku to przy 120 dniach ~15 px i ginie pod
+                // markerami — czytelność niesie pionowa kreska w miejscu dzisiejszego dnia.
+                xaxis: PART ? [{
+                    x: PART.ms, strokeDashArray: 5, borderColor: '#8b93a7',
+                    label: {
+                        text: 'w toku · ' + PART.scans + '/' + PART.expected,
+                        orientation: 'horizontal', position: 'bottom', textAnchor: 'end', offsetX: -6,
+                        borderColor: '#8b93a7',
+                        style: { background: '#3a4255', color: '#c7cede', fontSize: '11.5px', fontWeight: 600 }
+                    }
+                }] : [],
                 points: [
                     { x: d.max_ts, y: mx, marker: { size: 5, fillColor: '#e8624c', strokeColor: '#fff', strokeWidth: 1 } },
                     { x: d.min_ts, y: mn, marker: { size: 5, fillColor: '#37c26b', strokeColor: '#fff', strokeWidth: 1 } }
-                ]
+                ].concat(PART ? [{
+                    x: PART.ms, y: PART.value,
+                    marker: { size: 5, fillColor: '#2a3140', strokeColor: '#8b93a7', strokeWidth: 2 },
+                    label: {
+                        text: PART.value + ' · doba w toku',
+                        borderColor: '#8b93a7', offsetY: -6, textAnchor: 'end', offsetX: -8,
+                        style: { background: '#3a4255', color: '#c7cede', fontSize: '11.5px', fontWeight: 600 }
+                    }
+                }] : [])
             }
         };
 
@@ -435,11 +503,22 @@
             document.getElementById('idxSplit').classList.toggle('on', idxMode === 1);
             const leg = document.getElementById('idxLegend');
             if (idxMode === 1 && bands) {
-                const n = bands.new[bands.new.length - 1][1], r = bands.react[bands.react.length - 1][1], t = n + r;
+                // Ostatni punkt pasm bywa LUKĄ (doba w toku, dzień bez skanu) — wtedy
+                // n i r są null i podpis pokazywał „null + null = 0 aktywnych".
+                // Bierzemy ostatni dzień, w którym oba pasma mają wartość.
+                let li = bands.new.length - 1;
+                while (li >= 0 && (bands.new[li][1] == null || bands.react[li][1] == null)) li--;
+                if (li < 0) { leg.innerHTML = ''; return; }
+                const n = bands.new[li][1], r = bands.react[li][1], t = n + r;
                 const pct = t ? Math.round(100 * r / t) : 0;
                 leg.innerHTML = idxChip('#37c26b', 'Nowe (świeże) &mdash; dół') + idxChip('#e8830f', 'Reaktywacje (recykling) &mdash; góra')
                     + '<span class="ci muted">' + n + ' + ' + r + ' = ' + t + ' aktywnych &middot; <b>' + pct + '%</b> recykling'
                     + ' &middot; podział szacunkowy, recykling zaniżony</span>';
+            } else if (PART) {
+                leg.innerHTML = '<span class="ci"><span class="dash"></span>Doba w toku &mdash; <b>'
+                    + PART.label + '</b>, ' + PART.scans + ' z ' + PART.expected + ' skanów</span>'
+                    + '<span class="ci muted">wartość rośnie do wieczora, więc nie wchodzi do delt,'
+                    + ' odpływu ani napływu</span>';
             } else {
                 leg.innerHTML = '';
             }
@@ -480,7 +559,12 @@
                 stroke: { curve: ['straight', 'smooth'], width: [2, 3] },
                 dataLabels: { enabled: false },
                 markers: { size: 0, hover: { size: 5 } },
-                grid: { borderColor: '#3a4255', strokeDashArray: 4, xaxis: { lines: { show: true } }, yaxis: { lines: { show: true } } },
+                grid: {
+                borderColor: '#3a4255', strokeDashArray: 4,
+                xaxis: { lines: { show: true } }, yaxis: { lines: { show: true } },
+                // Bez tego marker doby w toku (ostatni punkt) jest przycięty ramką wykresu.
+                padding: { right: 16 }
+            },
                 xaxis: {
                     type: 'datetime', axisBorder: { show: false }, axisTicks: { color: '#3a4255' },
                     labels: {
@@ -548,7 +632,12 @@
                 dataLabels: { enabled: false },
                 markers: { size: short ? [6].concat(bf ? [0] : []).concat(bfAvg ? [0] : []) : 0,
                            hover: { size: 6 } },
-                grid: { borderColor: '#3a4255', strokeDashArray: 4, xaxis: { lines: { show: true } }, yaxis: { lines: { show: true } } },
+                grid: {
+                borderColor: '#3a4255', strokeDashArray: 4,
+                xaxis: { lines: { show: true } }, yaxis: { lines: { show: true } },
+                // Bez tego marker doby w toku (ostatni punkt) jest przycięty ramką wykresu.
+                padding: { right: 16 }
+            },
                 xaxis: {
                     type: 'datetime', axisBorder: { show: false }, axisTicks: { color: '#3a4255' },
                     labels: {
@@ -682,7 +771,12 @@
                 stroke: { curve: ['straight', 'smooth', 'smooth'], width: [2, 3, 2], dashArray: [0, 0, 5] },
                 dataLabels: { enabled: false },
                 markers: { size: 0, hover: { size: 5 } },
-                grid: { borderColor: '#3a4255', strokeDashArray: 4, xaxis: { lines: { show: true } }, yaxis: { lines: { show: true } } },
+                grid: {
+                borderColor: '#3a4255', strokeDashArray: 4,
+                xaxis: { lines: { show: true } }, yaxis: { lines: { show: true } },
+                // Bez tego marker doby w toku (ostatni punkt) jest przycięty ramką wykresu.
+                padding: { right: 16 }
+            },
                 xaxis: {
                     type: 'datetime', axisBorder: { show: false }, axisTicks: { color: '#3a4255' },
                     labels: {
