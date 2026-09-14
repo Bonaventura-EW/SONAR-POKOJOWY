@@ -9,6 +9,13 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Wykres „Przyrost dzienny" (ulubione) nie ucieka w minus przy resecie licznika OLX (2026-09-14)
+- **zgłoszenie Mateusza**: zrzut ekranu oferty na LSM — słupek dnia resetu licznika wyświetleń pokazywał **−1307**, bo OLX zresetował licznik oferty z ~1400 do ~90 w ciągu jednego dnia, a wykres spłaszczał się do nieczytelności.
+- **diagnoza**: `docs/ulubione.html` liczy przyrost dnia jako `ostatni pomiar dnia − ostatni pomiar dnia poprzedniego`. Wyświetlenia z definicji nie maleją — spadek oznacza reset licznika po stronie OLX-a, nie realny ubytek, a kod tego nie rozróżniał.
+- **fix**: `rawDiff < 0` → dzień oznaczony jako `reset`, słupek pokazuje `0` zamiast surowej różnicy, dostaje osobny (pomarańczowy) kolor i tooltip „licznik odświeżeń zresetowany" zamiast liczby. Kolejne dni liczą się normalnie od nowej (niskiej) wartości.
+- **zakres**: wyłącznie front (`docs/ulubione.html`, blok `dailyBars` + wykres `daily-chart-*`). Dane i backend nietknięte.
+- **zaakceptowane przez Mateusza**: before/after artifact, odpowiedź „jest ok, merguj".
+
 ### Suwak „Zniknięcia" na mapie zgodny z wykresem odpływu (2026-09-12)
 - **problem** (zgłoszenie: „dlaczego oferty które zniknęły nie pokrywają się"): wykres odpływu na `trend.html` pokazywał dla 10.09.2026 **31 ofert**, a mapa w trybie „Zniknięcia" dla tego samego dnia **23**. Dwie różne definicje dnia zniknięcia: wykres czytał `deactivation_dates` (dzień, w którym SKAN wykrył brak oferty), mapa `last_seen` (ostatni dzień NA listingu). Oferta widziana ostatni raz 09.09 23:31 i zdjęta skanem 10.09 12:42 lądowała na wykresie w 10.09, a na mapie w 09.09 — systematyczne przesunięcie o dobę.
 - **rozbiór 10.09**: 13 ofert wspólnych, 8 tylko na wykresie (`last_seen` = 09.09), 10 tylko na wykresie bo **dziś znów aktywne** (mapa filtrowała po zniknięciu wyłącznie warstwy nieaktywne), 10 tylko na mapie (`last_seen` = 10.09, ale deaktywacja wykryta dopiero 11.09).
