@@ -542,14 +542,20 @@ function renderFavorites(data) {
         // Przyrosty dzienne do wykresu słupkowego: przyrost dnia = ostatni pomiar dnia − ostatni pomiar
         // dnia poprzedniego. Pierwszy dzień nie ma poprzednika — liczony od pierwszego pomiaru
         // (częściowy, jaśniejszy słupek).
+        // Wyświetlenia z definicji nie maleją — spadek oznacza, że OLX zresetował licznik
+        // oferty (obserwowane w praktyce), nie realny ubytek. Taki dzień pokazujemy jako 0
+        // zamiast surowej (głęboko ujemnej) różnicy, żeby jeden reset nie spłaszczał reszty słupków.
         const dailyBars = [];
         if (dayKeys.length >= 2) {
             for (let i = 0; i < dayKeys.length; i++) {
                 const prev = i === 0 ? vh[0].views : dayLast.get(dayKeys[i - 1]);
+                const rawDiff = dayLast.get(dayKeys[i]) - prev;
+                const reset = rawDiff < 0;
                 dailyBars.push({
                     label: dayKeys[i].slice(8, 10) + '.' + dayKeys[i].slice(5, 7),
-                    diff: dayLast.get(dayKeys[i]) - prev,
+                    diff: reset ? 0 : rawDiff,
                     partial: i === 0,
+                    reset,
                 });
             }
         }
@@ -680,7 +686,8 @@ function renderFavorites(data) {
                     labels: dailyBars.map(d => d.label),
                     datasets: [{
                         data: dailyBars.map(d => d.diff),
-                        backgroundColor: dailyBars.map(d => d.partial ? 'rgba(102, 126, 234, 0.3)' : 'rgba(102, 126, 234, 0.75)'),
+                        backgroundColor: dailyBars.map(d => d.reset ? 'rgba(245, 158, 11, 0.75)'
+                            : d.partial ? 'rgba(102, 126, 234, 0.3)' : 'rgba(102, 126, 234, 0.75)'),
                         borderColor: CHART_COLOR,
                         borderWidth: 1,
                         borderRadius: 4,
@@ -695,8 +702,10 @@ function renderFavorites(data) {
                         tooltip: {
                             displayColors: false,
                             callbacks: {
-                                label: ctx => `${ctx.parsed.y > 0 ? '+' : ''}${ctx.parsed.y} wyświetleń`
-                                    + (dailyBars[ctx.dataIndex].partial ? ' (dzień częściowy — od pierwszego pomiaru)' : ''),
+                                label: ctx => dailyBars[ctx.dataIndex].reset
+                                    ? '0 wyświetleń (licznik odświeżeń zresetowany)'
+                                    : `${ctx.parsed.y > 0 ? '+' : ''}${ctx.parsed.y} wyświetleń`
+                                        + (dailyBars[ctx.dataIndex].partial ? ' (dzień częściowy — od pierwszego pomiaru)' : ''),
                             }
                         }
                     },
