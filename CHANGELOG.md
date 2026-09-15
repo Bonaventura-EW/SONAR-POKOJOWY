@@ -9,6 +9,13 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Saldo zmian cen: rozbicie w tooltipie + naprawiony zablokowany najazd myszą (2026-09-15)
+- **zgłoszenie Mateusza**: „trochę nie rozumiem opisu ostatniego wykresu — powinna być informacja, że np. 10 podwyżek i 12 obniżek, więc ostatecznie bilans na −2".
+- **opis**: przypis i podtytuł karty zaczynają się teraz od konkretnego przykładu (12 obniżek + 10 podwyżek = −2, punkt dwie kreski pod linią równowagi) zamiast od definicji metryki.
+- **tooltip pokazuje działanie, nie wynik**: po najechaniu widać rozbicie dnia — ile obniżek, ile podwyżek, kreska, saldo, a pod spodem średnia 7 dni. Bez tego wartość wypadkowa była zagadką („skąd −2?").
+- **bug przy okazji (był na produkcji od #159)**: na tym wykresie tooltip **nie pokazywał się w ogóle**. Adnotacja linii zera rysuje się nad wykresem i łapie kursor, a jej tło (`rect`) Apex wstawia w punkcie (0,0) SVG — grupa adnotacji rozciągała się przez całą stronę i przechwytywała każdy najazd. `pointer-events: none` na wszystkich grupach adnotacji (żadna nie jest klikalna) odblokowało tooltipy; przy okazji to samo dotyczyło MAX/MIN i „dzisiaj" na Indeksie.
+- **oś salda**: Apex dzielił zakres na cztery równe części i wypisywał kratki +1 / −7 / −16. Krok jest teraz zaokrąglany do wielokrotności 5, a widełki do kroku (−30…+10 co 10), więc **zero zawsze wypada na kratce** i linia równowagi ma gdzie usiąść.
+
 ### Indeks: wykres salda zmian cen (podwyżki minus obniżki) (2026-09-15)
 - **zgłoszenie Mateusza**: „jak mamy te podwyżki i obniżki to zrób jeszcze wspólny wykres z jedną linią".
 - **metryka**: `build_price_changes` liczy trzeci szereg `net` = podwyżki − obniżki danego dnia, z tych samych zdarzeń co dwa wykresy wyżej. Jedna linia + średnia krocząca 7 dni, oś przez zero z podpisaną linią „równowagi".
