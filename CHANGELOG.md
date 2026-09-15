@@ -9,6 +9,15 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Indeks: punkt „dzisiaj" = stan po ostatnim skanie + wykresy obniżek i podwyżek cen (2026-09-15)
+- **zgłoszenie Mateusza**: zrzut Indeksu z zakreśloną prawą krawędzią — „tutaj niech pokazuje się aktualna ilość ogłoszeń dzisiaj"; do tego nowy wykres obniżek i podwyżek cen danego dnia, „liczy się sam fakt obniżki lub podwyżki".
+- **punkt dzisiaj**: kreska doby w toku była podpisana `841 · doba w toku` — najwyższym odczytem doby (konwencja Indeksu), podczas gdy licznik na mapie pokazuje stan po OSTATNIM skanie. Dwa miejsca odpowiadały różnie na to samo pytanie. `partial_day()` wystawia teraz obok `value` (max doby) także `now` (`active=true` po ostatnim skanie) i `now_label` (godzina skanu); front rysuje `now` i podpisuje **„dzisiaj: N ofert"**, legenda dopisuje „stan po ostatnim skanie (12:35) — ten sam licznik co na mapie", a przy rozjeździe obu liczb pokazuje też maksimum doby. Konwencja serii nietknięta: do Indeksu, delt i przepływów doba w toku nadal nie wchodzi, a po domknięciu dnia wejdzie jego maksimum.
+- **nowe wykresy** (dwie karty na dole `trend.html`): dzienna liczba obniżek i podwyżek + średnia krocząca 7 dni, w stylu odpływu/napływu. Źródło: `price.history_full` ORAZ `versions[].price_history` — każdy szereg czytany osobno, bo sklejenie dorobiłoby fałszywe zdarzenie na styku wersji (zmiana adresu zeruje bieżącą historię).
+- **konwencja zliczania (wybór Mateusza)**: liczymy ZDARZENIA, nie oferty — dwie obniżki jednej oferty w jednym dniu to dwa punkty. Świadoma różnica wobec odpływu, gdzie dedup po (oferta, dzień) jest konieczny, bo tam metryka opisuje oferty znikające z rynku (jedna oferta = jeden marker na mapie).
+- **osobne karty zamiast dwóch linii**: podwyżek jest 2,4× mniej niż obniżek (299 vs 715), na wspólnej osi leżałyby płasko przy zerze.
+- **liczby (16.05–15.09.2026)**: 715 obniżek (śr. 5,9/dzień, rekord 27 — 27.08), 299 podwyżek (śr. 2,5/dzień, rekord 14 — 01.09). Dzień bez skanu to luka, nie zero (ta sama maszyneria co odpływ/napływ). Historia zaniżona wstecz przez survivorship: zmiana ceny oferty skasowanej później z bazy nie zostawia śladu — napisane w przypisie.
+- **testy**: `test_trend_index.py` +2 przypadki (6e: `now` vs `value` przy dwóch odczytach doby; 9: dwie obniżki w jednym dniu = 2, historia z `versions[]` liczona, cena bez zmiany to nie zdarzenie, dzień bez skanu = luka poza mianownikiem). `test_integration.py` zielony.
+
 ### Wykres „Przyrost dzienny" (ulubione) nie ucieka w minus przy resecie licznika OLX (2026-09-14)
 - **zgłoszenie Mateusza**: zrzut ekranu oferty na LSM — słupek dnia resetu licznika wyświetleń pokazywał **−1307**, bo OLX zresetował licznik oferty z ~1400 do ~90 w ciągu jednego dnia, a wykres spłaszczał się do nieczytelności.
 - **diagnoza**: `docs/ulubione.html` liczy przyrost dnia jako `ostatni pomiar dnia − ostatni pomiar dnia poprzedniego`. Wyświetlenia z definicji nie maleją — spadek oznacza reset licznika po stronie OLX-a, nie realny ubytek, a kod tego nie rozróżniał.
