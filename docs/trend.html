@@ -71,6 +71,24 @@
         .apexcharts-tooltip { background: #1b2230 !important; border: 1px solid #3a4357 !important; color: #e8ecf3 !important; }
         .apexcharts-tooltip-title { background: #222a3a !important; border-bottom: 1px solid #3a4357 !important; }
         .apexcharts-menu { background: #222a3a !important; border: 1px solid #3a4357 !important; }
+
+        /* Adnotacje (MAX/MIN, „dzisiaj", linia równowagi) rysują się NAD wykresem
+           i łapią najazd myszą — pozioma linia zera na saldzie zasłaniała w ten
+           sposób cały pas wykresu i tooltip nie pokazywał się wcale. Nie są
+           klikalne, więc nie mają po co przechwytywać kursora. */
+        .apexcharts-yaxis-annotations, .apexcharts-xaxis-annotations,
+        .apexcharts-point-annotations { pointer-events: none; }
+
+        /* Tooltip salda: rozbicie na składniki, żeby wartość wypadkowa nie była zagadką. */
+        .ttNet { padding: 9px 12px 10px; font-size: 12.5px; min-width: 156px; }
+        .ttNet .ttD { color: #8b93a7; font-size: 11.5px; margin-bottom: 6px; }
+        .ttNet .ttR { display: flex; align-items: center; gap: 7px; line-height: 1.75; }
+        .ttNet .ttR b { margin-left: auto; font-variant-numeric: tabular-nums; }
+        .ttNet .ttDot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+        .ttNet .ttDot.dn { background: #e8624c; } .ttNet .ttDot.up { background: #37c26b; }
+        .ttNet .ttSum { border-top: 1px solid #3a4357; margin-top: 5px; padding-top: 5px; font-weight: 700; }
+        .ttNet .ttAvg { color: #8b93a7; font-size: 11.5px; margin-top: 5px; }
+        .ttNet .ttGap { color: #8b93a7; }
         .apexcharts-menu-item:hover { background: #2f3950 !important; }
     </style>
 </head>
@@ -205,18 +223,23 @@
 
         <div class="card" style="margin-top:22px">
             <h2>⚖️ Saldo zmian cen &ndash; podwyżki minus obniżki</h2>
-            <div class="sub" id="netLabel">Dzienne saldo + średnia 7-dniowa</div>
+            <div class="sub" id="netLabel">Dzienne saldo (np. 12 obniżek i 10 podwyżek = &minus;2) + średnia 7-dniowa</div>
             <div id="chart11"><div class="loading">Ładowanie danych…</div></div>
         </div>
 
         <div class="foot">
-            <strong>Skąd dane:</strong> te same zdarzenia co na dwóch wykresach wyżej, zwinięte w jedną liczbę:
-            <strong>podwyżki danego dnia minus obniżki</strong>. Punkt pod linią „równowagi" znaczy, że tego dnia
-            więcej ogłoszeń staniało niż podrożało &mdash; i tak jest w niemal każdym dniu historii, więc wykres
-            czyta się nie przez znak, tylko przez <em>głębokość</em>: jak mocno przewaga obniżek rosła albo topniała.
-            Jasna linia to średnia krocząca z 7 dni. Uwaga na interpretację: to saldo LICZBY ogłoszeń, nie pieniędzy
-            &mdash; jedna podwyżka o 300 zł waży tu tyle samo, co jedna obniżka o 50 zł. Kwoty są na
-            <a href="top5.html">Top 5</a>.
+            <strong>Jak to czytać:</strong> jedna liczba na dzień, złożona z dwóch wykresów wyżej &mdash;
+            <strong>podwyżki minus obniżki</strong>. Przykład: jeśli danego dnia <strong>12 ogłoszeń potaniało</strong>
+            i <strong>10 podrożało</strong>, saldo tego dnia wynosi <strong>&minus;2</strong> &mdash; punkt leży dwie
+            kreski <em>pod</em> linią równowagi. Gdyby podwyżek było więcej niż obniżek, punkt wyszedłby <em>nad</em>
+            linię. Najedź na wykres, a tooltip pokaże rozbicie: ile obniżek, ile podwyżek i ile z tego wychodzi.
+            <br><br>
+            <strong>Skąd dane:</strong> te same zdarzenia co przy obniżkach i podwyżkach (historia cen ofert),
+            ta sama konwencja &mdash; liczą się zdarzenia, nie oferty, a dzień bez skanu jest luką. Saldo wychodzi
+            na minus w niemal każdym dniu historii, więc wykres czyta się nie przez znak, tylko przez
+            <em>głębokość</em>: jak mocno przewaga obniżek rosła albo topniała. Jasna linia to średnia krocząca
+            z 7 dni. Uwaga na interpretację: to saldo LICZBY ogłoszeń, nie pieniędzy &mdash; jedna podwyżka
+            o 300 zł waży tu tyle samo, co jedna obniżka o 50 zł. Kwoty są na <a href="top5.html">Top 5</a>.
         </div>
 
         <div class="card" style="margin-top:22px">
@@ -733,8 +756,36 @@
                 'najgorszy dzień <b>' + plus(net.min_day) + '</b> (' + net.min_label + '), ' +
                 'najlepszy <b>' + plus(net.max_day) + '</b> (' + net.max_label + '). ' +
                 'Łącznie <b>' + plus(net.total) + '</b> od początku pomiaru.';
-            renderFlowChart('chart11', net, 'Saldo dnia', ['#6c7bf2', '#a6b0f5'],
-                            { unit: 'ogłoszeń netto', negative: true });
+            // Tooltip pokazuje działanie, nie wynik: „12 obniżek, 10 podwyżek → −2".
+            const dropsAt = {}, risesAt = {};
+            (pc.drops.daily || []).forEach(function (p) { dropsAt[p[0]] = p[1]; });
+            (pc.rises.daily || []).forEach(function (p) { risesAt[p[0]] = p[1]; });
+
+            renderFlowChart('chart11', net, 'Saldo dnia', ['#6c7bf2', '#a6b0f5'], {
+                unit: 'ogłoszeń netto', negative: true,
+                tooltipCustom: function (ctx) {
+                    const point = net.daily[ctx.dataPointIndex];
+                    if (!point) return '';
+                    const ms = point[0], v = point[1];
+                    const day = new Date(ms);
+                    const date = ('0' + day.getDate()).slice(-2) + '.'
+                               + ('0' + (day.getMonth() + 1)).slice(-2) + '.' + day.getFullYear();
+                    if (v == null) {
+                        return '<div class="ttNet"><div class="ttD">' + date + '</div>'
+                             + '<div class="ttGap">brak skanu &mdash; dzień nie jest mierzony</div></div>';
+                    }
+                    const dn = dropsAt[ms] || 0, up = risesAt[ms] || 0;
+                    const avgPoint = (net.avg || [])[ctx.dataPointIndex];
+                    const avg = avgPoint && avgPoint[1] != null ? plus(avgPoint[1]) : null;
+                    return '<div class="ttNet">'
+                        + '<div class="ttD">' + date + '</div>'
+                        + '<div class="ttR"><span class="ttDot dn"></span>obniżki<b>' + dn + '</b></div>'
+                        + '<div class="ttR"><span class="ttDot up"></span>podwyżki<b>' + up + '</b></div>'
+                        + '<div class="ttR ttSum">saldo<b>' + plus(v) + '</b></div>'
+                        + (avg ? '<div class="ttAvg">średnia 7 dni: ' + avg + '</div>' : '')
+                        + '</div>';
+                }
+            });
         } else {
             document.getElementById('chart11').innerHTML =
                 '<div class="loading">Brak danych o zmianach cen.</div>';
@@ -752,6 +803,20 @@
                 if (!extra.negative) return String(v);
                 return v > 0 ? ('+' + v) : String(v).replace('-', '−');
             };
+            // Widełki osi dla szeregu schodzącego pod zero. Krok zaokrąglony do
+            // wielokrotności 5, a widełki do kroku — inaczej Apex dzieli zakres na
+            // cztery równe części i wypisuje kratki w stylu +1 / −7 / −16.
+            // Zero zawsze wypada na kratce, więc linia równowagi ma gdzie usiąść.
+            const span = extra.negative ? (function () {
+                const vals = metric.daily.map(function (p) { return p[1]; })
+                                         .filter(function (v) { return v != null; })
+                                         .concat(0);
+                const lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+                const step = Math.max(5, Math.ceil((hi - lo) / 4 / 5) * 5);
+                const min = Math.floor((lo - 1) / step) * step;
+                const max = Math.ceil((hi + 1) / step) * step;
+                return { min: min, max: max, ticks: (max - min) / step };
+            })() : null;
             // Seria z repo-brata (SZPERACZ) — DRUGI pomiar tego samego rynku,
             // nie przedłużenie naszego: oni skanują 1×/dobę, my 3×. Rysujemy ją
             // osobną linią i podpisujemy źródłem; sklejenie dałoby uskok w dniu styku.
@@ -810,14 +875,19 @@
                         datetimeFormatter: { year: 'yyyy', month: "MMM 'yy", day: 'dd MMM', hour: 'HH:mm' }
                     }
                 },
-                // Saldo schodzi pod zero, więc tam oś dobiera Apex; przepływy trzymamy
-                // od zera, żeby dzień bez zdarzeń nie wyglądał na ubytek.
-                yaxis: { min: extra.negative ? undefined : 0, tickAmount: 4,
+                // Saldo schodzi pod zero, więc dostaje własne widełki policzone z danych
+                // (Apex zostawiony sam sobie potrafi rozjechać skalę i adnotacje);
+                // przepływy trzymamy od zera, żeby dzień bez zdarzeń nie wyglądał na ubytek.
+                yaxis: { min: span ? span.min : 0, max: span ? span.max : undefined,
+                         tickAmount: span ? span.ticks : 4,
                          labels: { style: { colors: '#8b93a7' },
                                    formatter: function (v) { return sign(Math.round(v)); } } },
                 legend: { labels: { colors: '#8b93a7' }, markers: { radius: 12 }, itemMargin: { horizontal: 10 } },
                 tooltip: { theme: 'dark', shared: true, x: { format: 'dd.MM.yyyy' }, y: { formatter: function (v) { return v == null ? '—' : (sign(v) + ' ' + unitLabel); } } }
             };
+            // Saldo bez rozbicia jest zagadką („skąd −2?"), więc tam tooltip pokazuje
+            // obie składowe i działanie, zamiast samej wartości wypadkowej.
+            if (extra.tooltipCustom) { opts.tooltip.custom = extra.tooltipCustom; }
             // Linia zera: bez niej nie widać, po której stronie jest dany dzień.
             if (extra.negative) {
                 opts.annotations = { yaxis: [{
