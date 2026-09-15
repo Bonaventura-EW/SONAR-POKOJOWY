@@ -503,6 +503,14 @@ def test_price_changes():
         check('luka poza mianownikiem średniej', pc['drops']['rate'] == 1.0,
               f"rate={pc['drops']['rate']} (3 obniżki / 3 zmierzone dni)")
 
+        # Saldo: jedna linia z obu szeregów. 17.05 = 1 podwyżka − 2 obniżki.
+        net = dict((ms, v) for ms, v in pc['net']['daily'])
+        check('saldo dnia = podwyżki − obniżki', net[d17] == -1, str(net))
+        check('saldo dziedziczy luki', net[d18] is None, str(net))
+        check('saldo łącznie = 1 − 3', pc['net']['total'] == -2, str(pc['net']['total']))
+        check('dno szeregu z dniem', pc['net']['min_day'] == -1 and pc['net']['min_label'] == '19.05',
+              f"min={pc['net']['min_day']} ({pc['net']['min_label']})")
+
 
 def test_day_anchor_is_utc():
     print("\n🌍 Test 8: kotwica dnia niezależna od strefy czasowej")
