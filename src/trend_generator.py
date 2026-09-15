@@ -370,8 +370,10 @@ def _flow_metric(counts, days, exclude=None):
     total = sum(v for _, v in clean)
     ndays = len(clean)
     mx = max((v for _, v in clean), default=0)
-    # dzień rekordu: ostatnie (najświeższe) wystąpienie maksimum
+    mn = min((v for _, v in clean), default=0)
+    # dzień rekordu: ostatnie (najświeższe) wystąpienie skrajnej wartości
     max_day_date = next((d for d, v in reversed(clean) if v == mx), None)
+    min_day_date = next((d for d, v in reversed(clean) if v == mn), None)
 
     return {
         'daily': daily,
@@ -381,6 +383,11 @@ def _flow_metric(counts, days, exclude=None):
         'max_day': mx,
         'max_ts': _day_ms(max_day_date) if max_day_date else None,
         'max_label': max_day_date.strftime('%d.%m') if max_day_date else '',
+        # Dno szeregu ma sens tam, gdzie wartości bywają ujemne (saldo zmian cen);
+        # przy zwykłym przepływie to po prostu najspokojniejszy dzień.
+        'min_day': mn,
+        'min_ts': _day_ms(min_day_date) if min_day_date else None,
+        'min_label': min_day_date.strftime('%d.%m') if min_day_date else '',
     }
 
 
@@ -543,10 +550,16 @@ def build_price_changes(offers, series=None):
             bucket = drops if delta < 0 else rises
             bucket[day] = bucket.get(day, 0) + 1
 
+    # Saldo dnia: podwyżki MINUS obniżki. Jedna linia, która odpowiada na pytanie
+    # „w którą stronę szedł rynek", zamiast zestawiania dwóch poziomów na oko.
+    # Ujemna prawie zawsze — dlatego osobny wykres, a nie trzecia seria na tamtych.
+    net = {d: rises.get(d, 0) - drops.get(d, 0) for d in set(drops) | set(rises)}
+
     unscanned = _unscanned_days(days, series)
     return {
         'drops': _flow_metric(drops, days, exclude=unscanned),
         'rises': _flow_metric(rises, days, exclude=unscanned),
+        'net': _flow_metric(net, days, exclude=unscanned),
     }
 
 
@@ -992,11 +1005,14 @@ def generate_trend_data(base_dir: Path = None) -> bool:
         print("   ⭐ promowane: brak danych (metryka zbiera się od pierwszego skanu po wdrożeniu)")
     pc = out['price_changes'] or {}
     if pc:
-        dr, ri = pc['drops'], pc['rises']
+        dr, ri, ne = pc['drops'], pc['rises'], pc['net']
         print(f"   💸 zmiany cen: obniżki {dr['total']} (śr {dr['rate']}/dzień, "
               f"rekord {dr['max_day']} {dr['max_label']}), "
               f"podwyżki {ri['total']} (śr {ri['rate']}/dzień, "
-              f"rekord {ri['max_day']} {ri['max_label']})")
+              f"rekord {ri['max_day']} {ri['max_label']}), "
+              f"saldo {ne['total']:+d} (śr {ne['rate']:+}/dzień, "
+              f"najlepszy {ne['max_day']:+d} {ne['max_label']}, "
+              f"najgorszy {ne['min_day']:+d} {ne['min_label']})")
     rf = out['refreshes'] or {}
     for key, label in (('firm', 'firmy'), ('all', 'cała baza')):
         blk = rf.get(key)

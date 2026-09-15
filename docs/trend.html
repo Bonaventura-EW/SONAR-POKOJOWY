@@ -204,6 +204,22 @@
         </div>
 
         <div class="card" style="margin-top:22px">
+            <h2>⚖️ Saldo zmian cen &ndash; podwyżki minus obniżki</h2>
+            <div class="sub" id="netLabel">Dzienne saldo + średnia 7-dniowa</div>
+            <div id="chart11"><div class="loading">Ładowanie danych…</div></div>
+        </div>
+
+        <div class="foot">
+            <strong>Skąd dane:</strong> te same zdarzenia co na dwóch wykresach wyżej, zwinięte w jedną liczbę:
+            <strong>podwyżki danego dnia minus obniżki</strong>. Punkt pod linią „równowagi" znaczy, że tego dnia
+            więcej ogłoszeń staniało niż podrożało &mdash; i tak jest w niemal każdym dniu historii, więc wykres
+            czyta się nie przez znak, tylko przez <em>głębokość</em>: jak mocno przewaga obniżek rosła albo topniała.
+            Jasna linia to średnia krocząca z 7 dni. Uwaga na interpretację: to saldo LICZBY ogłoszeń, nie pieniędzy
+            &mdash; jedna podwyżka o 300 zł waży tu tyle samo, co jedna obniżka o 50 zł. Kwoty są na
+            <a href="top5.html">Top 5</a>.
+        </div>
+
+        <div class="card" style="margin-top:22px">
             <h2>🆕 Nowe oferty &ndash; ile pojawia się na rynku</h2>
             <div class="sub" id="newLabel">Dzienny napływ nowych ofert (bez reaktywacji) + średnia 7-dniowa</div>
             <div id="chart3"><div class="loading">Ładowanie danych…</div></div>
@@ -706,12 +722,36 @@
             }
         });
 
+        // Saldo: jedna linia z obu szeregów (podwyżki − obniżki), oś przez zero.
+        const net = pc.net;
+        if (net && net.daily && net.daily.length) {
+            const plus = function (v) {
+                return (v > 0 ? '+' : '') + String(v).replace('.', ',').replace('-', '−');
+            };
+            document.getElementById('netLabel').innerHTML =
+                'Średnio <b>' + plus(net.rate) + ' ogłoszeń/dzień</b>, ' +
+                'najgorszy dzień <b>' + plus(net.min_day) + '</b> (' + net.min_label + '), ' +
+                'najlepszy <b>' + plus(net.max_day) + '</b> (' + net.max_label + '). ' +
+                'Łącznie <b>' + plus(net.total) + '</b> od początku pomiaru.';
+            renderFlowChart('chart11', net, 'Saldo dnia', ['#6c7bf2', '#a6b0f5'],
+                            { unit: 'ogłoszeń netto', negative: true });
+        } else {
+            document.getElementById('chart11').innerHTML =
+                '<div class="loading">Brak danych o zmianach cen.</div>';
+        }
+
         // --- wykresy napływu: nowe / nowe+reaktywacje / reaktywacje ---
         // Wspólny renderer w stylu wykresu odpływu (linia dzienna + smooth avg 7 dni).
         function renderFlowChart(elId, metric, dailyName, colors, extra) {
             extra = extra || {};
             const hatchLabel = extra.hatchLabel;
             const unitLabel = extra.unit || 'ofert';
+            // Saldo bez znaku czyta się jak zwykła liczba zdarzeń — „+5" i „−20"
+            // od razu mówią, w którą stronę poszedł dzień.
+            const sign = function (v) {
+                if (!extra.negative) return String(v);
+                return v > 0 ? ('+' + v) : String(v).replace('-', '−');
+            };
             // Seria z repo-brata (SZPERACZ) — DRUGI pomiar tego samego rynku,
             // nie przedłużenie naszego: oni skanują 1×/dobę, my 3×. Rysujemy ją
             // osobną linią i podpisujemy źródłem; sklejenie dałoby uskok w dniu styku.
@@ -770,10 +810,23 @@
                         datetimeFormatter: { year: 'yyyy', month: "MMM 'yy", day: 'dd MMM', hour: 'HH:mm' }
                     }
                 },
-                yaxis: { min: 0, tickAmount: 4, labels: { style: { colors: '#8b93a7' }, formatter: function (v) { return Math.round(v); } } },
+                // Saldo schodzi pod zero, więc tam oś dobiera Apex; przepływy trzymamy
+                // od zera, żeby dzień bez zdarzeń nie wyglądał na ubytek.
+                yaxis: { min: extra.negative ? undefined : 0, tickAmount: 4,
+                         labels: { style: { colors: '#8b93a7' },
+                                   formatter: function (v) { return sign(Math.round(v)); } } },
                 legend: { labels: { colors: '#8b93a7' }, markers: { radius: 12 }, itemMargin: { horizontal: 10 } },
-                tooltip: { theme: 'dark', shared: true, x: { format: 'dd.MM.yyyy' }, y: { formatter: function (v) { return v == null ? '—' : (v + ' ' + unitLabel); } } }
+                tooltip: { theme: 'dark', shared: true, x: { format: 'dd.MM.yyyy' }, y: { formatter: function (v) { return v == null ? '—' : (sign(v) + ' ' + unitLabel); } } }
             };
+            // Linia zera: bez niej nie widać, po której stronie jest dany dzień.
+            if (extra.negative) {
+                opts.annotations = { yaxis: [{
+                    y: 0, borderColor: '#8b93a7', strokeDashArray: 0,
+                    label: { text: 'równowaga', position: 'left', offsetX: 74, offsetY: -3,
+                             borderColor: '#8b93a7',
+                             style: { background: '#3a4255', color: '#c7cede', fontSize: '11px' } }
+                }] };
+            }
             // Odcinek sprzed startu rzetelnego pomiaru reaktywacji: zakreskowany, podpisany.
             // Pusty lewy brzeg czytałby się jak „nic nie wracało", a to brak danych, nie brak zdarzeń.
             if (metric.reliable_start_ms && metric.daily.length) {

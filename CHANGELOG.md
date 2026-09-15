@@ -9,6 +9,15 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Indeks: wykres salda zmian cen (podwyżki minus obniżki) (2026-09-15)
+- **zgłoszenie Mateusza**: „jak mamy te podwyżki i obniżki to zrób jeszcze wspólny wykres z jedną linią".
+- **metryka**: `build_price_changes` liczy trzeci szereg `net` = podwyżki − obniżki danego dnia, z tych samych zdarzeń co dwa wykresy wyżej. Jedna linia + średnia krocząca 7 dni, oś przez zero z podpisaną linią „równowagi".
+- **dlaczego osobna karta, nie trzecia seria**: saldo jest ujemne w niemal każdym dniu historii (łącznie −426 przy 728 obniżkach i 302 podwyżkach), więc czyta się je nie przez znak, tylko przez głębokość — na wspólnej osi z poziomami obniżek/podwyżek ginęłoby.
+- **liczby (16.05–15.09.2026)**: średnio −3,5 ogłoszeń/dzień, najgorszy dzień −20 (13.09), najlepszy +5 (01.09).
+- **`_flow_metric` dostaje `min_day`/`min_ts`/`min_label`** — dno szeregu. Przy przepływach to najspokojniejszy dzień, przy saldzie realna informacja (najgłębsza przewaga obniżek).
+- **uwaga interpretacyjna w przypisie**: to saldo LICZBY ogłoszeń, nie pieniędzy — jedna podwyżka o 300 zł waży tyle samo, co jedna obniżka o 50 zł. Kwoty zostają na `top5.html`.
+- **testy**: `test_trend_index.py` — saldo = podwyżki − obniżki, dziedziczy luki dni bez skanu, suma i dno szeregu z etykietą dnia.
+
 ### Indeks: liczba ofert zawsze widoczna na wykresie + klikalne chipy pasm (2026-09-15)
 - **zgłoszenie Mateusza**: zrzut trybu „Rozbij" — „nie ma informacji o ilości ogłoszeń tutaj"; do tego „zniknęła funkcjonalność, że można było wyłączyć Nowe (świeże) / Reaktywacje (recykling)".
 - **brak liczby na wykresie**: etykieta „dzisiaj: N ofert" pojawiała się wyłącznie przy dobie w toku, a etykieta „teraz" na linii poziomej jest **celowo pomijana**, gdy dzisiejsza wartość leży w granicach 7% zakresu od MAX/MIN (`curNearEdge` — żeby nie dublować linii MAX). Gdy więc rynek jest blisko rekordu (841 wobec MAX 844) i doba jest domknięta, na wykresie nie było ANI JEDNEJ liczby o dzisiejszym stanie. Tryb „Rozbij" nie miał jej nigdy: `stackedOptions` czyściło całe `annotations`.
