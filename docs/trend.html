@@ -55,6 +55,10 @@
         .idxLegend:empty { margin: 0; }
         .idxLegend .ci { display: flex; align-items: center; gap: 7px; color: #a9b2c4; font-size: 13px; }
         .idxLegend .ci.muted { color: #8b93a7; } .idxLegend .ci b { color: #e8ecf3; }
+        .idxLegend .ci.tog { cursor: pointer; user-select: none; }
+        .idxLegend .ci.tog:hover { color: #e8ecf3; }
+        .idxLegend .ci.tog:focus-visible { outline: 2px solid #6c7bf2; outline-offset: 3px; border-radius: 4px; }
+        .idxLegend .ci.off { opacity: .45; text-decoration: line-through; }
         .idxLegend .dot { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
         .idxLegend .dash { width: 24px; border-top: 2px dashed #8b93a7; display: inline-block; }
 
@@ -357,6 +361,28 @@
             document.getElementById('curVal').textContent = d.current != null ? d.current : '—';
         }
 
+        // Punkt „dzisiaj" — ZAWSZE podpisany liczbą ofert, w obu trybach wykresu.
+        // Wcześniej liczba pokazywała się tylko przy dobie w toku, a w dniu domkniętym
+        // etykieta „teraz" wypadała, gdy dzisiejsza wartość leżała blisko MAX-a
+        // (curNearEdge — celowo, żeby nie dublować linii MAX). Efekt: wykres bywał
+        // całymi dniami bez ani jednej liczby o dzisiejszym stanie rynku.
+        function todayPoint(x, y) {
+            if (x == null) { x = PART ? PART.ms : (lastClosed ? lastClosed[0] : null); }
+            if (y == null) { y = PART ? PART_VAL : (lastClosed ? lastClosed[1] : null); }
+            if (x == null || y == null) return [];
+            return [{
+                x: x, y: y,
+                marker: PART
+                    ? { size: 5, fillColor: '#2a3140', strokeColor: '#8b93a7', strokeWidth: 2 }
+                    : { size: 5, fillColor: '#6c7bf2', strokeColor: '#fff', strokeWidth: 1 },
+                label: {
+                    text: 'dzisiaj: ' + y + ' ofert',
+                    borderColor: '#8b93a7', offsetY: -6, textAnchor: 'end', offsetX: -8,
+                    style: { background: '#3a4255', color: '#c7cede', fontSize: '11.5px', fontWeight: 600 }
+                }
+            }];
+        }
+
         // --- deltas (1D / 1M / 6M / 1Y) ---
         const order = ['1D', '1M', '6M', '1Y'];
         const deltas = d.deltas || {};
@@ -491,15 +517,7 @@
                 points: [
                     { x: d.max_ts, y: mx, marker: { size: 5, fillColor: '#e8624c', strokeColor: '#fff', strokeWidth: 1 } },
                     { x: d.min_ts, y: mn, marker: { size: 5, fillColor: '#37c26b', strokeColor: '#fff', strokeWidth: 1 } }
-                ].concat(PART ? [{
-                    x: PART.ms, y: PART_VAL,
-                    marker: { size: 5, fillColor: '#2a3140', strokeColor: '#8b93a7', strokeWidth: 2 },
-                    label: {
-                        text: 'dzisiaj: ' + PART_VAL + ' ofert',
-                        borderColor: '#8b93a7', offsetY: -6, textAnchor: 'end', offsetX: -8,
-                        style: { background: '#3a4255', color: '#c7cede', fontSize: '11.5px', fontWeight: 600 }
-                    }
-                }] : [])
+                ].concat(todayPoint())
             }
         };
 
@@ -510,22 +528,42 @@
         const bands = d.bands || null;
         let idxChart = null, idxMode = 0;
 
-        function idxChip(color, label) {
-            return '<span class="ci"><span class="dot" style="background:' + color + '"></span>' + label + '</span>';
+        // Chip legendy. Z `series` staje się przełącznikiem pasma: legendę Apexa
+        // chowamy (opisy trzymamy tutaj), więc bez tego w trybie „Rozbij" nie dało
+        // się już wyłączyć żadnego pasma — klikanie w legendę zniknęło razem z nią.
+        function idxChip(color, label, series) {
+            const attrs = series
+                ? ' class="ci tog" role="button" tabindex="0" data-series="' + series + '"'
+                : ' class="ci"';
+            return '<span' + attrs + '><span class="dot" style="background:' + color + '"></span>' + label + '</span>';
+        }
+
+        // Ostatni dzień, w którym OBA pasma mają wartość — ostatni punkt bywa luką
+        // (doba w toku, dzień bez skanu) i podpis pokazywał „null + null = 0 aktywnych".
+        function lastBandDay() {
+            let i = bands.new.length - 1;
+            while (i >= 0 && (bands.new[i][1] == null || bands.react[i][1] == null)) i--;
+            return i;
         }
 
         function stackedOptions() {
-            const zip = arr => arr;  // bands.new/react już są [[ms,v],...]
+            const li = lastBandDay();
             return Object.assign({}, options, {
                 chart: Object.assign({}, options.chart, { stacked: true, animations: { enabled: true, speed: 450 } }),
                 series: [
-                    { name: 'Nowe (świeże)', data: zip(bands.new) },
-                    { name: 'Reaktywacje (recykling)', data: zip(bands.react) }
+                    { name: 'Nowe (świeże)', data: bands.new },
+                    { name: 'Reaktywacje (recykling)', data: bands.react }
                 ],
                 colors: ['#37c26b', '#e8830f'],
                 stroke: { curve: 'straight', width: 1.5 },
                 fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.75, opacityTo: 0.35, stops: [0, 100] } },
-                annotations: {},
+                // Etykieta „dzisiaj" siada na SZCZYCIE stosu (suma pasm) — MAX/MIN
+                // opisują linię Indeksu, więc w tym trybie ich nie rysujemy.
+                annotations: li < 0 ? {} : {
+                    position: 'front',
+                    points: todayPoint(bands.new[li][0], bands.new[li][1] + bands.react[li][1])
+                        .map(function (pt) { return Object.assign(pt, { id: 'today' }); })
+                },
                 tooltip: { theme: 'dark', shared: true, x: { format: 'dd.MM.yyyy' }, y: { formatter: function (v) { return v == null ? '—' : (v + ' ' + unit); } } }
             });
         }
@@ -540,17 +578,41 @@
             document.getElementById('idxSplit').classList.toggle('on', idxMode === 1);
             const leg = document.getElementById('idxLegend');
             if (idxMode === 1 && bands) {
-                // Ostatni punkt pasm bywa LUKĄ (doba w toku, dzień bez skanu) — wtedy
-                // n i r są null i podpis pokazywał „null + null = 0 aktywnych".
-                // Bierzemy ostatni dzień, w którym oba pasma mają wartość.
-                let li = bands.new.length - 1;
-                while (li >= 0 && (bands.new[li][1] == null || bands.react[li][1] == null)) li--;
+                const li = lastBandDay();
                 if (li < 0) { leg.innerHTML = ''; return; }
                 const n = bands.new[li][1], r = bands.react[li][1], t = n + r;
                 const pct = t ? Math.round(100 * r / t) : 0;
-                leg.innerHTML = idxChip('#37c26b', 'Nowe (świeże) &mdash; dół') + idxChip('#e8830f', 'Reaktywacje (recykling) &mdash; góra')
+                leg.innerHTML =
+                    idxChip('#37c26b', 'Nowe (świeże) &mdash; dół', 'Nowe (świeże)')
+                    + idxChip('#e8830f', 'Reaktywacje (recykling) &mdash; góra', 'Reaktywacje (recykling)')
                     + '<span class="ci muted">' + n + ' + ' + r + ' = ' + t + ' aktywnych &middot; <b>' + pct + '%</b> recykling'
-                    + ' &middot; podział szacunkowy, recykling zaniżony</span>';
+                    + ' &middot; podział szacunkowy, recykling zaniżony &middot; kliknij pasmo, żeby je wyłączyć</span>';
+                // Etykieta „dzisiaj" opisuje SZCZYT tego, co widać — po wyłączeniu
+                // pasma wisiałaby w pustce nad wykresem z liczbą całego rynku.
+                function refreshTodayLabel() {
+                    const visible = Array.prototype.filter.call(
+                        leg.querySelectorAll('.ci.tog'),
+                        function (c) { return !c.classList.contains('off'); }
+                    ).map(function (c) { return c.dataset.series; });
+                    const sum = (visible.indexOf('Nowe (świeże)') > -1 ? n : 0)
+                              + (visible.indexOf('Reaktywacje (recykling)') > -1 ? r : 0);
+                    idxChart.removeAnnotation('today');
+                    if (sum > 0) {
+                        idxChart.addPointAnnotation(
+                            Object.assign(todayPoint(bands.new[li][0], sum)[0], { id: 'today' }), false);
+                    }
+                }
+                leg.querySelectorAll('.ci.tog').forEach(function (chip) {
+                    function toggle() {
+                        idxChart.toggleSeries(chip.dataset.series);
+                        chip.classList.toggle('off');
+                        refreshTodayLabel();
+                    }
+                    chip.addEventListener('click', toggle);
+                    chip.addEventListener('keydown', function (e) {
+                        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+                    });
+                });
             } else if (PART) {
                 leg.innerHTML = '<span class="ci"><span class="dash"></span>Doba w toku &mdash; <b>'
                     + PART.label + '</b>, ' + PART.scans + ' z ' + PART.expected + ' skanów</span>'
