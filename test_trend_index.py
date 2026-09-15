@@ -431,6 +431,79 @@ def test_szperacz_backfill():
         check('brak snapshotu = brak serii brata, bez błędu', 'backfill' not in whole)
 
 
+def test_partial_day_shows_state_after_last_scan():
+    print("\n🕑 Test 6e: doba w toku niesie stan po OSTATNIM skanie, nie tylko max dnia")
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        (base / 'data').mkdir()
+        record_day(base, date(2026, 5, 16), 800)
+        index_history.record(810, iso(date(2026, 5, 17), 9), base_dir=base)    # szczyt doby
+        index_history.record(806, iso(date(2026, 5, 17), 15), base_dir=base)   # cztery wypadły
+
+        offers = [{'id': f'o{i}', 'active': i < 806} for i in range(810)]
+        part = tg.partial_day(base, offers, '2026-05-17T15:04:00+02:00')
+        # `value` zostaje maksimum doby (konwencja Indeksu), ale front rysuje `now`
+        # — ten sam licznik, co na mapie. Gdyby pokazywał max, te dwa miejsca
+        # odpowiadałyby różnie na pytanie „ile jest ogłoszeń dzisiaj".
+        check('max doby nadal w `value`', part['value'] == 810, str(part))
+        check('`now` = liczba aktywnych po ostatnim skanie', part['now'] == 806, str(part))
+        check('`now_label` to godzina ostatniego skanu', part['now_label'] == '15:04', str(part))
+        check('bez ofert `now` się nie pojawia', 'now' not in tg.partial_day(base))
+
+
+def test_price_changes():
+    print("\n💸 Test 9: obniżki i podwyżki cen liczone jako ZDARZENIA")
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        (base / 'data').mkdir()
+        for day, active in ((16, 700), (17, 705), (19, 712)):    # 18.05 bez skanu
+            record_day(base, date(2026, 5, day), active)
+
+        offers = [{
+            'id': 'dwie-obnizki-w-jeden-dzien',
+            'first_seen': iso(date(2026, 5, 16)), 'last_seen': iso(date(2026, 5, 19)),
+            'active': True,
+            'price': {'history_full': [
+                {'price': 1000, 'date': iso(date(2026, 5, 16), 9)},
+                {'price': 950, 'date': iso(date(2026, 5, 17), 9)},
+                {'price': 900, 'date': iso(date(2026, 5, 17), 20)},
+                {'price': 900, 'date': iso(date(2026, 5, 19), 9)},   # bez zmiany
+            ]},
+        }, {
+            'id': 'podwyzka-i-stara-wersja',
+            'first_seen': iso(date(2026, 5, 16)), 'last_seen': iso(date(2026, 5, 19)),
+            'active': True,
+            'price': {'history_full': [
+                {'price': 800, 'date': iso(date(2026, 5, 16), 9)},
+                {'price': 850, 'date': iso(date(2026, 5, 17), 9)},
+            ]},
+            'versions': [{'price_history': [
+                {'price': 700, 'date': iso(date(2026, 5, 16), 9)},
+                {'price': 650, 'date': iso(date(2026, 5, 19), 9)},
+            ]}],
+        }]
+
+        series = tg.build_series(offers, base_dir=base)
+        pc = tg.build_price_changes(offers, series)
+        drops = dict((ms, v) for ms, v in pc['drops']['daily'])
+        rises = dict((ms, v) for ms, v in pc['rises']['daily'])
+        d17, d18, d19 = (tg._day_ms(date(2026, 5, d)) for d in (17, 18, 19))
+
+        # Świadoma różnica wobec odpływu: tam dedup po (oferta, dzień), bo metryka
+        # opisuje oferty; tu liczymy ruch cen, więc dwie obniżki jednej oferty
+        # tego samego dnia to dwa zdarzenia.
+        check('dwie obniżki jednej oferty w jednym dniu = 2', drops[d17] == 2, str(drops))
+        check('podwyżka tego samego dnia liczona osobno', rises[d17] == 1, str(rises))
+        check('historia starej wersji (versions[]) też wchodzi', drops[d19] == 1, str(drops))
+        check('cena bez zmiany nie jest zdarzeniem',
+              pc['drops']['total'] == 3 and pc['rises']['total'] == 1,
+              f"obniżki={pc['drops']['total']}, podwyżki={pc['rises']['total']}")
+        check('dzień bez skanu to luka, nie zero', drops[d18] is None and rises[d18] is None,
+              str(drops))
+        check('luka poza mianownikiem średniej', pc['drops']['rate'] == 1.0,
+              f"rate={pc['drops']['rate']} (3 obniżki / 3 zmierzone dni)")
+
+
 def test_day_anchor_is_utc():
     print("\n🌍 Test 8: kotwica dnia niezależna od strefy czasowej")
     days = [date(2027, 3, 24) + timedelta(days=i) for i in range(5)]      # 28.03 = zmiana czasu
@@ -452,6 +525,8 @@ if __name__ == '__main__':
     test_incomplete_day_is_masked()
     test_past_incomplete_day_stays()
     test_backfilled_incomplete_day_not_masked()
+    test_partial_day_shows_state_after_last_scan()
+    test_price_changes()
     test_index_source_label()
     test_promoted_survives_address_change()
     test_refreshes_two_series()

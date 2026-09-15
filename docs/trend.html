@@ -137,9 +137,10 @@
             <strong>Skąd dane:</strong> zapisany stan bazy po każdym skanie — ile ofert ma <code>active: true</code>
             (<code>data/index_history.json</code>) &mdash; mierzone, nie odtwarzane.
             Wartość dnia to <strong>najwyższy z dziennych odczytów</strong> (skanujemy 3&times; dziennie): dzięki temu skan
-            częściowy przy blokadzie OLX nie rysuje się jak załamanie rynku. Konsekwencja: dzień jeszcze trwający może
-            urosnąć do wieczora, a licznik na mapie &mdash; pokazujący stan po <em>ostatnim</em> skanie &mdash; bywa o kilka
-            ofert niższy od punktu na wykresie. Dzień bez ani jednego skanu zostaje luką: na Indeksie i na wszystkich
+            częściowy przy blokadzie OLX nie rysuje się jak załamanie rynku. Dzień jeszcze trwający
+            (kreska na prawej krawędzi) pokazuje za to stan po <em>ostatnim</em> skanie &mdash; ten sam licznik, co na mapie;
+            dzienne maksimum wejdzie do serii dopiero po domknięciu doby, więc oba miejsca odpowiadają tak samo na
+            pytanie „ile jest ogłoszeń dzisiaj". Dzień bez ani jednego skanu zostaje luką: na Indeksie i na wszystkich
             wykresach przepływów, żeby awaria Actions nie udawała dnia bez ruchu. Historia 16.05&ndash;02.09.2026 odtworzona ze
             starszych rewizji <code>scan_history.json</code> z gita. To analog indeksu podaży z betonometr.pl.
             <strong>Do 03.09.2026 wykres liczył to inaczej</strong> &mdash; rekonstrukcją wsteczną z <code>offers.json</code>
@@ -284,6 +285,36 @@
             jest niewidoczny przy jednym skanie: to inna wielkość, nie ta sama zmierzona inaczej.
         </div>
 
+        <div class="card" style="margin-top:22px">
+            <h2>📉 Obniżki cen &ndash; ile ogłoszeń potaniało danego dnia</h2>
+            <div class="sub" id="dropLabel">Dzienna liczba obniżek + średnia 7-dniowa</div>
+            <div id="chart9"><div class="loading">Ładowanie danych…</div></div>
+        </div>
+
+        <div class="foot">
+            <strong>Skąd dane:</strong> historia cen każdej oferty (<code>price.history_full</code>, a dla ofert po zmianie
+            adresu także <code>versions[].price_history</code>) &mdash; scraper dopisuje wpis za każdym razem, gdy cena
+            z JSON-LD różni się od poprzedniej. Liczymy <strong>zdarzenia, nie oferty</strong>: ogłoszenie, które jednego
+            dnia zeszło z ceną dwa razy, daje dwa punkty, a przez cały swój żywot może wracać na wykres wielokrotnie.
+            Liczy się sam fakt obniżki &mdash; o ile złotych, pokazuje <a href="top5.html">Top 5</a>.
+            <strong>Historia jest zaniżona wstecz</strong>: zmiana ceny oferty skasowanej później z bazy (czyszczenia
+            błędnych rekordów) nie zostawia śladu. Dzień bez ani jednego skanu rysuje się jako luka, nie zero &mdash;
+            awaria Actions to nie dzień bez ruchu cen.
+        </div>
+
+        <div class="card" style="margin-top:22px">
+            <h2>📈 Podwyżki cen &ndash; ile ogłoszeń podrożało danego dnia</h2>
+            <div class="sub" id="riseLabel">Dzienna liczba podwyżek + średnia 7-dniowa</div>
+            <div id="chart10"><div class="loading">Ładowanie danych…</div></div>
+        </div>
+
+        <div class="foot">
+            <strong>Skąd dane:</strong> to samo źródło i ta sama konwencja co przy obniżkach, tylko w drugą stronę.
+            Osobny wykres, a nie druga linia na jednym: podwyżek jest kilkukrotnie mniej niż obniżek, więc wspólna
+            skala spłaszczałaby je przy zerze. Porównanie poziomów robi się przez zestawienie obu kart &mdash;
+            każda ma własną oś dopasowaną do swojego rzędu wielkości.
+        </div>
+
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.49.1/dist/apexcharts.min.js"></script>
@@ -308,13 +339,19 @@
         // przepływów nie wchodzi; rysujemy ją osobną, przerywaną linią dociągniętą od
         // ostatniej domkniętej doby, żeby dzisiejszy stan był widoczny, ale nie udawał pomiaru.
         const PART = d.partial || null;
+        // Na kreskę idzie stan po OSTATNIM SKANIE (`now`) — ten sam licznik, co na
+        // mapie. `value` (najwyższy odczyt doby) to konwencja Indeksu dla dnia
+        // DOMKNIĘTEGO; póki dzień trwa, pytanie „ile jest ogłoszeń dzisiaj" musi
+        // mieć na całym serwisie jedną odpowiedź. Różnią się, gdy między skanami
+        // oferty wypadły z listingu.
+        const PART_VAL = PART ? (PART.now != null ? PART.now : PART.value) : null;
         const lastClosed = RAW.filter(function (p) { return p[1] != null; }).slice(-1)[0] || null;
-        const PART_LINE = (PART && lastClosed) ? [[lastClosed[0], lastClosed[1]], [PART.ms, PART.value]] : [];
+        const PART_LINE = (PART && lastClosed) ? [[lastClosed[0], lastClosed[1]], [PART.ms, PART_VAL]] : [];
 
         if (PART) {
             document.getElementById('lastLabel').innerHTML = PART.label +
                 '<span class="wip">doba w toku &middot; ' + PART.scans + ' z ' + PART.expected + ' skanów</span>';
-            document.getElementById('curVal').textContent = PART.value;
+            document.getElementById('curVal').textContent = PART_VAL;
         } else {
             document.getElementById('lastLabel').textContent = d.last_label || '—';
             document.getElementById('curVal').textContent = d.current != null ? d.current : '—';
@@ -424,8 +461,8 @@
                 // (przy MIN 277 rysował oś do −100) — ujemna liczba ofert nie znaczy nic.
                 // Doba w toku bywa poza [MIN, MAX] dób domkniętych — bez tego kreska
                 // wychodziłaby poza obszar rysowania.
-                min: Math.max(0, Math.floor((Math.min(mn, PART ? PART.value : mn) - Math.max(20, range * 0.08)) / 50) * 50),
-                max: Math.ceil((Math.max(mx, PART ? PART.value : mx) + Math.max(20, range * 0.08)) / 50) * 50,
+                min: Math.max(0, Math.floor((Math.min(mn, PART ? PART_VAL : mn) - Math.max(20, range * 0.08)) / 50) * 50),
+                max: Math.ceil((Math.max(mx, PART ? PART_VAL : mx) + Math.max(20, range * 0.08)) / 50) * 50,
                 labels: { style: { colors: '#8b93a7' }, formatter: function (v) { return Math.round(v); } }, tickAmount: 5
             },
             // enabledOnSeries: kreska ma własny podpis na punkcie, a w tooltipie
@@ -455,10 +492,10 @@
                     { x: d.max_ts, y: mx, marker: { size: 5, fillColor: '#e8624c', strokeColor: '#fff', strokeWidth: 1 } },
                     { x: d.min_ts, y: mn, marker: { size: 5, fillColor: '#37c26b', strokeColor: '#fff', strokeWidth: 1 } }
                 ].concat(PART ? [{
-                    x: PART.ms, y: PART.value,
+                    x: PART.ms, y: PART_VAL,
                     marker: { size: 5, fillColor: '#2a3140', strokeColor: '#8b93a7', strokeWidth: 2 },
                     label: {
-                        text: PART.value + ' · doba w toku',
+                        text: 'dzisiaj: ' + PART_VAL + ' ofert',
                         borderColor: '#8b93a7', offsetY: -6, textAnchor: 'end', offsetX: -8,
                         style: { background: '#3a4255', color: '#c7cede', fontSize: '11.5px', fontWeight: 600 }
                     }
@@ -517,8 +554,12 @@
             } else if (PART) {
                 leg.innerHTML = '<span class="ci"><span class="dash"></span>Doba w toku &mdash; <b>'
                     + PART.label + '</b>, ' + PART.scans + ' z ' + PART.expected + ' skanów</span>'
-                    + '<span class="ci muted">wartość rośnie do wieczora, więc nie wchodzi do delt,'
-                    + ' odpływu ani napływu</span>';
+                    + '<span class="ci muted">na kreśce stan po ostatnim skanie'
+                    + (PART.now_label ? ' (' + PART.now_label + ')' : '')
+                    + ' &mdash; ten sam licznik co na mapie'
+                    + (PART.now != null && PART.value !== PART.now
+                        ? '; najwyższy odczyt doby to ' + PART.value : '')
+                    + '. Do delt, odpływu ani napływu doba w toku nie wchodzi</span>';
             } else {
                 leg.innerHTML = '';
             }
@@ -587,6 +628,7 @@
         function renderFlowChart(elId, metric, dailyName, colors, extra) {
             extra = extra || {};
             const hatchLabel = extra.hatchLabel;
+            const unitLabel = extra.unit || 'ofert';
             // Seria z repo-brata (SZPERACZ) — DRUGI pomiar tego samego rynku,
             // nie przedłużenie naszego: oni skanują 1×/dobę, my 3×. Rysujemy ją
             // osobną linią i podpisujemy źródłem; sklejenie dałoby uskok w dniu styku.
@@ -647,7 +689,7 @@
                 },
                 yaxis: { min: 0, tickAmount: 4, labels: { style: { colors: '#8b93a7' }, formatter: function (v) { return Math.round(v); } } },
                 legend: { labels: { colors: '#8b93a7' }, markers: { radius: 12 }, itemMargin: { horizontal: 10 } },
-                tooltip: { theme: 'dark', shared: true, x: { format: 'dd.MM.yyyy' }, y: { formatter: function (v) { return v == null ? '—' : (v + ' ofert'); } } }
+                tooltip: { theme: 'dark', shared: true, x: { format: 'dd.MM.yyyy' }, y: { formatter: function (v) { return v == null ? '—' : (v + ' ' + unitLabel); } } }
             };
             // Odcinek sprzed startu rzetelnego pomiaru reaktywacji: zakreskowany, podpisany.
             // Pusty lewy brzeg czytałby się jak „nic nie wracało", a to brak danych, nie brak zdarzeń.
@@ -849,6 +891,26 @@
             document.getElementById('chart8').innerHTML =
                 '<div class="loading">Pomiar całej bazy rusza od pierwszego skanu z parserem karty listingu.</div>';
         }
+
+        // --- zmiany cen: obniżki i podwyżki, dwa osobne wykresy ---
+        // Osobno, bo podwyżek jest ~2,5× mniej niż obniżek: na wspólnej osi
+        // leżałyby płasko przy zerze i nie dałoby się odczytać ich własnego trendu.
+        const pc = d.price_changes || {};
+        [['chart9', 'dropLabel', pc.drops, 'Obniżek danego dnia', ['#e8624c', '#f0a35e'], 'obniżek'],
+         ['chart10', 'riseLabel', pc.rises, 'Podwyżek danego dnia', ['#37c26b', '#82d3a3'], 'podwyżek']
+        ].forEach(function (cfg) {
+            const elId = cfg[0], labelId = cfg[1], metric = cfg[2], word = cfg[5];
+            if (metric && metric.daily && metric.daily.length) {
+                document.getElementById(labelId).innerHTML =
+                    'Średnio <b>' + String(metric.rate).replace('.', ',') + ' ' + word + '/dzień</b>, ' +
+                    'rekord <b>' + metric.max_day + '</b> (' + metric.max_label + '), ' +
+                    'łącznie <b>' + metric.total + '</b> ' + word + '. Jasna linia = trend 7 dni.';
+                renderFlowChart(elId, metric, cfg[3], cfg[4], { unit: word });
+            } else {
+                document.getElementById(elId).innerHTML =
+                    '<div class="loading">Brak danych o zmianach cen.</div>';
+            }
+        });
     })();
     </script>
 </body>

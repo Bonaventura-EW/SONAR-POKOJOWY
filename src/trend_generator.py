@@ -233,7 +233,7 @@ def build_series(offers, base_dir=None):
     return build_series_reconstructed(offers)
 
 
-def partial_day(base_dir=None):
+def partial_day(base_dir=None, offers=None, last_scan=None):
     """Doba w toku, czyli ta, którą build_series zamaskował na prawej krawędzi —
     albo None, gdy ostatni zapisany dzień ma komplet skanów.
 
@@ -242,6 +242,14 @@ def partial_day(base_dir=None):
     nie wchodzi ani do serii, ani do delt, ani do przepływów. Zwracamy też
     `scans`/`expected`, żeby dało się napisać wprost „1 z 3 skanów" zamiast
     kazać czytającemu zgadywać, dlaczego kreska jest przerywana.
+
+    DWIE liczby, bo opisują różne rzeczy:
+    - `value` — najwyższy odczyt doby (konwencja Indeksu, to ona wejdzie do serii
+      po domknięciu dnia),
+    - `now`   — ile ofert ma `active=true` PO OSTATNIM SKANIE, czyli ten sam
+      licznik, co na mapie. To jego rysuje front na końcu kreski: pytanie
+      „ile jest ogłoszeń dzisiaj" ma jedną odpowiedź na całym serwisie.
+      Różnią się, gdy między skanami oferty zniknęły z listingu.
     """
     measured = measured_series(base_dir)
     if not measured:
@@ -250,13 +258,21 @@ def partial_day(base_dir=None):
     if value is None or day not in index_history.incomplete_days(base_dir):
         return None
     entry = index_history.load(base_dir)['days'].get(day.isoformat()) or {}
-    return {
+    out = {
         'ms': _day_ms(day),
         'value': value,
         'scans': entry.get('scans') or 0,
         'expected': index_history.EXPECTED_SCANS_PER_DAY,
         'label': day.strftime('%d.%m.%Y'),
     }
+    if offers is not None:
+        out['now'] = sum(1 for o in offers if o.get('active'))
+    if last_scan:
+        try:
+            out['now_label'] = datetime.fromisoformat(last_scan).strftime('%H:%M')
+        except (ValueError, TypeError):
+            pass
+    return out
 
 
 def build_series_reconstructed(offers):
@@ -464,6 +480,73 @@ def build_inflow(offers, series=None):
         'new': _flow_metric(new, days, exclude=unscanned),
         'react': react_metric,
         'new_react': combined_metric,
+    }
+
+
+def _price_events(offer):
+    """Zmiany ceny oferty jako [(dzień, delta_zł), ...] — jedna para sąsiednich
+    wpisów historii to jedno zdarzenie.
+
+    Czytamy DWA rozłączne źródła: `price.history_full` bieżącej wersji oraz
+    `versions[].price_history` wersji sprzed zmiany adresu (zmiana adresu otwiera
+    nową wersję i zeruje bieżącą historię — ta sama pułapka co w collect_dates).
+    Każdy szereg liczymy osobno: sklejenie dorobiłoby fałszywe zdarzenie na styku
+    wersji, bo ostatnia cena starej i pierwsza nowej to ten sam pomiar.
+    """
+    events = []
+    histories = [(offer.get('price') or {}).get('history_full') or []]
+    for version in (offer.get('versions') or []):
+        histories.append(version.get('price_history') or [])
+
+    for history in histories:
+        entries = []
+        for raw in history:
+            if not isinstance(raw, dict) or raw.get('price') is None or not raw.get('date'):
+                continue
+            try:
+                entries.append((_d(str(raw['date'])), int(raw['price'])))
+            except (ValueError, TypeError):
+                continue
+        entries.sort(key=lambda e: e[0])
+        for (_, prev), (day, price) in zip(entries, entries[1:]):
+            if price != prev:
+                events.append((day, price - prev))
+    return events
+
+
+def build_price_changes(offers, series=None):
+    """Dzienna liczba OBNIŻEK i PODWYŻEK cen + średnia krocząca 7 dni.
+
+    Metryka liczy ZDARZENIA, nie oferty: ogłoszenie, które jednego dnia zeszło
+    z ceną dwa razy, daje dwa punkty, a to samo ogłoszenie może wracać na wykres
+    przez cały swój żywot. Świadoma różnica wobec odpływu, gdzie dedup po
+    (oferta, dzień) jest konieczny, bo tam metryka opisuje oferty znikające
+    z rynku — jedna oferta to jeden marker na mapie. Tu opisujemy ruch cen.
+
+    Ta sama oś dni co Indeks, więc dzień bez ani jednego skanu jest luką, nie
+    zerem — inaczej awaria Actions udawałaby dzień, w którym nikt nie zmienił
+    ceny, i zaniżała średnią krocząca przez tydzień po sobie.
+
+    Historia jest z natury ZANIŻONA wstecz: cena zmieniona przez ofertę, która
+    została później skasowana z bazy (czyszczenia bogusów), nie zostawia śladu.
+    """
+    days, _ = _axis(offers, series)
+    if not days:
+        return None
+    start = days[0]
+
+    drops, rises = {}, {}
+    for offer in offers:
+        for day, delta in _price_events(offer):
+            if day < start:
+                continue
+            bucket = drops if delta < 0 else rises
+            bucket[day] = bucket.get(day, 0) + 1
+
+    unscanned = _unscanned_days(days, series)
+    return {
+        'drops': _flow_metric(drops, days, exclude=unscanned),
+        'rises': _flow_metric(rises, days, exclude=unscanned),
     }
 
 
@@ -876,10 +959,11 @@ def generate_trend_data(base_dir: Path = None) -> bool:
         'deltas': compute_deltas(series),
         # Doba w toku: wartość jest, ale poza serią — front dorysowuje ją kreską,
         # a `current`, `deltas` i przepływy zostają liczone z dób domkniętych.
-        'partial': partial_day(base_dir),
+        'partial': partial_day(base_dir, offers, data.get('last_scan')),
         'series': series,
         'outflow': build_outflow(offers, series),
         'inflow': build_inflow(offers, series),
+        'price_changes': build_price_changes(offers, series),
         'bands': build_bands(offers, series),
         'promoted': build_promoted(offers, series, load_scan_days(base_dir), base_dir),
         'refreshes': build_refreshes(offers, load_scan_days(base_dir), base_dir),
@@ -891,8 +975,9 @@ def generate_trend_data(base_dir: Path = None) -> bool:
     # liczymy ją osobno, żeby log nie mylił awarii Actions z dniem, który trwa.
     gaps = len(series) - len(measured) - (1 if out['partial'] else 0)
     part = out['partial']
-    part_txt = (f", doba w toku: {part['label']}={part['value']} "
-                f"({part['scans']} z {part['expected']} skanów, rysowana kreską)") if part else ""
+    part_txt = (f", doba w toku: {part['label']}={part.get('now', part['value'])} "
+                f"po ostatnim skanie (max dnia {part['value']}, "
+                f"{part['scans']} z {part['expected']} skanów, rysowana kreską)") if part else ""
     print(f"✅ trend_data.json: {len(series)} dni od {RELIABLE_START} "
           f"({index_source}, luk bez skanu: {gaps}{part_txt}), "
           f"teraz={current}, max={mx}, min={mn}; "
@@ -905,6 +990,13 @@ def generate_trend_data(base_dir: Path = None) -> bool:
               f"historia od {pr.get('start_label')}")
     else:
         print("   ⭐ promowane: brak danych (metryka zbiera się od pierwszego skanu po wdrożeniu)")
+    pc = out['price_changes'] or {}
+    if pc:
+        dr, ri = pc['drops'], pc['rises']
+        print(f"   💸 zmiany cen: obniżki {dr['total']} (śr {dr['rate']}/dzień, "
+              f"rekord {dr['max_day']} {dr['max_label']}), "
+              f"podwyżki {ri['total']} (śr {ri['rate']}/dzień, "
+              f"rekord {ri['max_day']} {ri['max_label']})")
     rf = out['refreshes'] or {}
     for key, label in (('firm', 'firmy'), ('all', 'cała baza')):
         blk = rf.get(key)
