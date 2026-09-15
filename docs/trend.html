@@ -170,6 +170,36 @@
         </div>
 
         <div class="card" style="margin-top:22px">
+            <h2>📉 Obniżki cen &ndash; ile ogłoszeń potaniało danego dnia</h2>
+            <div class="sub" id="dropLabel">Dzienna liczba obniżek + średnia 7-dniowa</div>
+            <div id="chart9"><div class="loading">Ładowanie danych…</div></div>
+        </div>
+
+        <div class="foot">
+            <strong>Skąd dane:</strong> historia cen każdej oferty (<code>price.history_full</code>, a dla ofert po zmianie
+            adresu także <code>versions[].price_history</code>) &mdash; scraper dopisuje wpis za każdym razem, gdy cena
+            z JSON-LD różni się od poprzedniej. Liczymy <strong>zdarzenia, nie oferty</strong>: ogłoszenie, które jednego
+            dnia zeszło z ceną dwa razy, daje dwa punkty, a przez cały swój żywot może wracać na wykres wielokrotnie.
+            Liczy się sam fakt obniżki &mdash; o ile złotych, pokazuje <a href="top5.html">Top 5</a>.
+            <strong>Historia jest zaniżona wstecz</strong>: zmiana ceny oferty skasowanej później z bazy (czyszczenia
+            błędnych rekordów) nie zostawia śladu. Dzień bez ani jednego skanu rysuje się jako luka, nie zero &mdash;
+            awaria Actions to nie dzień bez ruchu cen.
+        </div>
+
+        <div class="card" style="margin-top:22px">
+            <h2>📈 Podwyżki cen &ndash; ile ogłoszeń podrożało danego dnia</h2>
+            <div class="sub" id="riseLabel">Dzienna liczba podwyżek + średnia 7-dniowa</div>
+            <div id="chart10"><div class="loading">Ładowanie danych…</div></div>
+        </div>
+
+        <div class="foot">
+            <strong>Skąd dane:</strong> to samo źródło i ta sama konwencja co przy obniżkach, tylko w drugą stronę.
+            Osobny wykres, a nie druga linia na jednym: podwyżek jest kilkukrotnie mniej niż obniżek, więc wspólna
+            skala spłaszczałaby je przy zerze. Porównanie poziomów robi się przez zestawienie obu kart &mdash;
+            każda ma własną oś dopasowaną do swojego rzędu wielkości.
+        </div>
+
+        <div class="card" style="margin-top:22px">
             <h2>🆕 Nowe oferty &ndash; ile pojawia się na rynku</h2>
             <div class="sub" id="newLabel">Dzienny napływ nowych ofert (bez reaktywacji) + średnia 7-dniowa</div>
             <div id="chart3"><div class="loading">Ładowanie danych…</div></div>
@@ -283,36 +313,6 @@
             przy rzadszym próbkowaniu zlewają się z poprzednim dniem.
             Reaktywacji stamtąd NIE bierzemy &mdash; tam stosunek to 2,55&times;, bo powrót oferty w ciągu doby
             jest niewidoczny przy jednym skanie: to inna wielkość, nie ta sama zmierzona inaczej.
-        </div>
-
-        <div class="card" style="margin-top:22px">
-            <h2>📉 Obniżki cen &ndash; ile ogłoszeń potaniało danego dnia</h2>
-            <div class="sub" id="dropLabel">Dzienna liczba obniżek + średnia 7-dniowa</div>
-            <div id="chart9"><div class="loading">Ładowanie danych…</div></div>
-        </div>
-
-        <div class="foot">
-            <strong>Skąd dane:</strong> historia cen każdej oferty (<code>price.history_full</code>, a dla ofert po zmianie
-            adresu także <code>versions[].price_history</code>) &mdash; scraper dopisuje wpis za każdym razem, gdy cena
-            z JSON-LD różni się od poprzedniej. Liczymy <strong>zdarzenia, nie oferty</strong>: ogłoszenie, które jednego
-            dnia zeszło z ceną dwa razy, daje dwa punkty, a przez cały swój żywot może wracać na wykres wielokrotnie.
-            Liczy się sam fakt obniżki &mdash; o ile złotych, pokazuje <a href="top5.html">Top 5</a>.
-            <strong>Historia jest zaniżona wstecz</strong>: zmiana ceny oferty skasowanej później z bazy (czyszczenia
-            błędnych rekordów) nie zostawia śladu. Dzień bez ani jednego skanu rysuje się jako luka, nie zero &mdash;
-            awaria Actions to nie dzień bez ruchu cen.
-        </div>
-
-        <div class="card" style="margin-top:22px">
-            <h2>📈 Podwyżki cen &ndash; ile ogłoszeń podrożało danego dnia</h2>
-            <div class="sub" id="riseLabel">Dzienna liczba podwyżek + średnia 7-dniowa</div>
-            <div id="chart10"><div class="loading">Ładowanie danych…</div></div>
-        </div>
-
-        <div class="foot">
-            <strong>Skąd dane:</strong> to samo źródło i ta sama konwencja co przy obniżkach, tylko w drugą stronę.
-            Osobny wykres, a nie druga linia na jednym: podwyżek jest kilkukrotnie mniej niż obniżek, więc wspólna
-            skala spłaszczałaby je przy zerze. Porównanie poziomów robi się przez zestawienie obu kart &mdash;
-            każda ma własną oś dopasowaną do swojego rzędu wielkości.
         </div>
 
     </div>
@@ -623,6 +623,27 @@
             document.getElementById('chart2').innerHTML = '<div class="loading">Brak danych o odpływie.</div>';
         }
 
+        // --- zmiany cen: obniżki i podwyżki, dwa osobne wykresy ---
+        // Osobno, bo podwyżek jest ~2,4× mniej niż obniżek: na wspólnej osi
+        // leżałyby płasko przy zerze i nie dałoby się odczytać ich własnego trendu.
+        // renderFlowChart jest deklaracją funkcji (hoisting), więc może stać niżej.
+        const pc = d.price_changes || {};
+        [['chart9', 'dropLabel', pc.drops, 'Obniżek danego dnia', ['#e8624c', '#f0a35e'], 'obniżek'],
+         ['chart10', 'riseLabel', pc.rises, 'Podwyżek danego dnia', ['#37c26b', '#82d3a3'], 'podwyżek']
+        ].forEach(function (cfg) {
+            const elId = cfg[0], labelId = cfg[1], metric = cfg[2], word = cfg[5];
+            if (metric && metric.daily && metric.daily.length) {
+                document.getElementById(labelId).innerHTML =
+                    'Średnio <b>' + String(metric.rate).replace('.', ',') + ' ' + word + '/dzień</b>, ' +
+                    'rekord <b>' + metric.max_day + '</b> (' + metric.max_label + '), ' +
+                    'łącznie <b>' + metric.total + '</b> ' + word + '. Jasna linia = trend 7 dni.';
+                renderFlowChart(elId, metric, cfg[3], cfg[4], { unit: word });
+            } else {
+                document.getElementById(elId).innerHTML =
+                    '<div class="loading">Brak danych o zmianach cen.</div>';
+            }
+        });
+
         // --- wykresy napływu: nowe / nowe+reaktywacje / reaktywacje ---
         // Wspólny renderer w stylu wykresu odpływu (linia dzienna + smooth avg 7 dni).
         function renderFlowChart(elId, metric, dailyName, colors, extra) {
@@ -892,25 +913,6 @@
                 '<div class="loading">Pomiar całej bazy rusza od pierwszego skanu z parserem karty listingu.</div>';
         }
 
-        // --- zmiany cen: obniżki i podwyżki, dwa osobne wykresy ---
-        // Osobno, bo podwyżek jest ~2,5× mniej niż obniżek: na wspólnej osi
-        // leżałyby płasko przy zerze i nie dałoby się odczytać ich własnego trendu.
-        const pc = d.price_changes || {};
-        [['chart9', 'dropLabel', pc.drops, 'Obniżek danego dnia', ['#e8624c', '#f0a35e'], 'obniżek'],
-         ['chart10', 'riseLabel', pc.rises, 'Podwyżek danego dnia', ['#37c26b', '#82d3a3'], 'podwyżek']
-        ].forEach(function (cfg) {
-            const elId = cfg[0], labelId = cfg[1], metric = cfg[2], word = cfg[5];
-            if (metric && metric.daily && metric.daily.length) {
-                document.getElementById(labelId).innerHTML =
-                    'Średnio <b>' + String(metric.rate).replace('.', ',') + ' ' + word + '/dzień</b>, ' +
-                    'rekord <b>' + metric.max_day + '</b> (' + metric.max_label + '), ' +
-                    'łącznie <b>' + metric.total + '</b> ' + word + '. Jasna linia = trend 7 dni.';
-                renderFlowChart(elId, metric, cfg[3], cfg[4], { unit: word });
-            } else {
-                document.getElementById(elId).innerHTML =
-                    '<div class="loading">Brak danych o zmianach cen.</div>';
-            }
-        });
     })();
     </script>
 </body>
