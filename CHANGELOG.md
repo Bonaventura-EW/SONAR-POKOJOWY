@@ -9,6 +9,17 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Mapa: checkboxy "Nowe" / "Reaktywowane" (2026-09-23)
+- **zgłoszenie Mateusza**: skoro wiemy, które oferty są reaktywowane a które nowe, chce widzieć to na głównej mapie — dwa niezależne checkboxy (domyślnie oba włączone), odznaczenie jednego pokazuje tylko drugą grupę.
+- **dane już istniały**: `reactivated` (offer.reactivated_at is not None) jest liczone od dawna w `map_generator.py` i trafia do `docs/data.json` dla każdej oferty — zmiana jest w 100% frontendowa, bez dotykania `src/`.
+- **implementacja**: nowa sekcja "♻️ Pochodzenie" w sidebarze (`docs/index.html`) z checkboxami `layer-origin-new` / `layer-origin-reactivated`; `filterMarkers()` w `docs/assets/script.js` filtruje ofertę po `item.isReactivated` (AND, nie OR — to podział rozłączny: każda aktywna oferta jest albo nowa, albo reaktywowana). Liczniki przy checkboxach dostają własną funkcję `updateOriginCounts()`, analogiczną do `updateBadgeCounts()`.
+- **zweryfikowane w przeglądarce**: 680 widocznych ofert (480 nowych + 200 reaktywowanych), odznaczenie "Nowe" → 200, odznaczenie "Reaktywowane" → 480.
+
+### Indeks: naprzemienne pasy miesięcy na wykresie Saldo (2026-09-23)
+- **zgłoszenie Mateusza**: podział wykresu Saldo tak, żeby miesiące na przemian miały różne odcienie tła; wybrał wariant "akcent chłodny" z 20 zaproponowanych mockupów.
+- **implementacja**: `_monthBandsXaxis()` w `docs/trend.html` liczy granice miesięcy z zakresu dat serii i zwraca adnotacje ApexCharts (`annotations.xaxis`) dla co drugiego miesiąca — wypełnienie `#6c7bf2` przy 7% opacity, bez separatorów i etykiet. Podpięte tylko pod wykres Salda (`monthBands: true`), żeby nie zmieniać pozostałych wykresów `renderFlowChart` bez osobnej akceptacji.
+- **uwaga**: adnotacja linii "równowaga" (yaxis) i pasy miesięcy (xaxis) współdzielą teraz `opts.annotations` — dopisywane przez `.concat()`, nie nadpisywane, żeby nie zgubić żadnej z nich.
+
 ### Saldo zmian cen: rozbicie w tooltipie + naprawiony zablokowany najazd myszą (2026-09-15)
 - **zgłoszenie Mateusza**: „trochę nie rozumiem opisu ostatniego wykresu — powinna być informacja, że np. 10 podwyżek i 12 obniżek, więc ostatecznie bilans na −2".
 - **opis**: przypis i podtytuł karty zaczynają się teraz od konkretnego przykładu (12 obniżek + 10 podwyżek = −2, punkt dwie kreski pod linią równowagi) zamiast od definicji metryki.

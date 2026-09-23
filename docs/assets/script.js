@@ -897,6 +897,9 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
             isRefreshed: isRefreshed,
             priceDown: hasPriceChange && priceDown,
             priceUp: hasPriceChange && priceUp,
+            // Pochodzenie: kiedykolwiek wróciła po zniknięciu z listingu (offer.reactivated,
+            // patrz src/map_generator.py) — checkboxy "Nowe" / "Reaktywowane" w sidebarze.
+            isReactivated: offer.reactivated === true,
             isFirmOffer: isFirmOffer,
             isFirmLublin: isFirmLublin,
             offerType: offerType,
@@ -914,6 +917,8 @@ function createMarkerGroup(baseCoords, address, offers, isActive) {
     updateBadgeCounts();
     // Aktualizuj liczniki w zakresach cenowych (legenda)
     updatePriceRangeCounts();
+    // Aktualizuj liczniki "Nowe" / "Reaktywowane"
+    updateOriginCounts();
 }
 
 // Archiwalna pinezka poprzedniego adresu (po zmianie adresu) — fioletowa kropla, ↩
@@ -1363,7 +1368,12 @@ function filterMarkers() {
     const showNew = document.getElementById('badge-filter-new')?.checked ?? true;
     const showUnchanged = document.getElementById('badge-filter-unchanged')?.checked ?? true;
     const showRefreshed = document.getElementById('badge-filter-refreshed')?.checked ?? true;
-    
+
+    // Pochodzenie: Nowe (nigdy nie reaktywowane) / Reaktywowane — dwa niezależne
+    // checkboxy, oba domyślnie włączone. Odznaczenie jednego pokazuje tylko drugą grupę.
+    const showOriginNew = document.getElementById('layer-origin-new')?.checked ?? true;
+    const showOriginReactivated = document.getElementById('layer-origin-reactivated')?.checked ?? true;
+
     // NOWY: Filtr czasowy
     const timeFilter = document.getElementById('time-filter').value;
     const now = new Date();
@@ -1415,7 +1425,13 @@ function filterMarkers() {
             if (tag === 'kawalerka' && !showKawalerka) visible = false;
             if (tag === 'mieszkanie' && !showMieszkanie) visible = false;
         }
-        
+
+        // Filtr pochodzenia: Nowe / Reaktywowane (AND, nie OR - to podział rozłączny)
+        if (visible) {
+            if (item.isReactivated && !showOriginReactivated) visible = false;
+            if (!item.isReactivated && !showOriginNew) visible = false;
+        }
+
         // Filtr oznaczeń pinezek (OR) - oferty bez badge'a filtrowane przez "Bez zmian"
         if (visible) {
             const hasAnyBadge = item.isNew || item.priceDown || item.priceUp || item.isRefreshed;
@@ -1539,6 +1555,8 @@ function filterMarkers() {
     updateBadgeCounts();
     // Zaktualizuj liczniki w zakresach cenowych (respektują wszystkie filtry oprócz samych zakresów)
     updatePriceRangeCounts();
+    // Zaktualizuj liczniki "Nowe" / "Reaktywowane"
+    updateOriginCounts();
 }
 
 // Wyszukiwanie z zoomem
@@ -2072,6 +2090,13 @@ function setupEventListeners() {
             const el = document.getElementById(id);
             if (el) el.addEventListener('change', filterMarkers);
         });
+
+    // Pochodzenie: Nowe / Reaktywowane
+    ['layer-origin-new', 'layer-origin-reactivated']
+        .forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('change', filterMarkers);
+        });
     
     // Precyzyjne filtry cen - wspólne dla obu warstw (debounce: zdarzenia na każdy znak)
     document.getElementById('price-min').addEventListener('input', filterMarkersDebounced);
@@ -2277,6 +2302,9 @@ function updatePriceRangeCounts() {
     const showUnchanged = document.getElementById('badge-filter-unchanged')?.checked ?? true;
     const showRefreshed = document.getElementById('badge-filter-refreshed')?.checked ?? true;
 
+    const showOriginNew = document.getElementById('layer-origin-new')?.checked ?? true;
+    const showOriginReactivated = document.getElementById('layer-origin-reactivated')?.checked ?? true;
+
     const timeFilter = document.getElementById('time-filter')?.value || 'all';
     let cutoffDate = null;
     if (timeFilter !== 'all') {
@@ -2304,7 +2332,11 @@ function updatePriceRangeCounts() {
         if (tag === 'pokoj' && !showPokoj) return;
         if (tag === 'kawalerka' && !showKawalerka) return;
         if (tag === 'mieszkanie' && !showMieszkanie) return;
-        
+
+        // Filtr pochodzenia: Nowe / Reaktywowane
+        if (item.isReactivated && !showOriginReactivated) return;
+        if (!item.isReactivated && !showOriginNew) return;
+
         // Filtr oznaczeń pinezek (OR) - oferty bez badge'a filtrowane przez "Bez zmian"
         const hasAnyBadge = item.isNew || item.priceDown || item.priceUp || item.isRefreshed;
         if (hasAnyBadge) {
@@ -2377,6 +2409,9 @@ function updateBadgeCounts() {
     const showKawalerka = document.getElementById('layer-tag-kawalerka')?.checked ?? true;
     const showMieszkanie = document.getElementById('layer-tag-mieszkanie')?.checked ?? true;
 
+    const showOriginNew = document.getElementById('layer-origin-new')?.checked ?? true;
+    const showOriginReactivated = document.getElementById('layer-origin-reactivated')?.checked ?? true;
+
     const timeFilter = document.getElementById('time-filter')?.value || 'all';
     let cutoffDate = null;
     if (timeFilter !== 'all') {
@@ -2404,7 +2439,11 @@ function updateBadgeCounts() {
         if (tag === 'pokoj' && !showPokoj) return;
         if (tag === 'kawalerka' && !showKawalerka) return;
         if (tag === 'mieszkanie' && !showMieszkanie) return;
-        
+
+        // Filtr pochodzenia: Nowe / Reaktywowane
+        if (item.isReactivated && !showOriginReactivated) return;
+        if (!item.isReactivated && !showOriginNew) return;
+
         // Filtr czasowy (first_seen LUB price_changed_at)
         if (cutoffDate && !isTimeFilterExempt()) {
             const firstSeenOk = item.firstSeenDate && item.firstSeenDate >= cutoffDate;
@@ -2459,6 +2498,93 @@ function updateBadgeCounts() {
     setText('badge-count-new', counts.isNew);
     setText('badge-count-refreshed', counts.refreshed);
     setText('badge-count-unchanged', counts.unchanged);
+}
+
+// Liczniki checkboxów "Nowe" / "Reaktywowane" (pochodzenie oferty) — respektują
+// WSZYSTKIE inne filtry, oprócz samych tych dwóch checkboxów (patrz updateBadgeCounts).
+function updateOriginCounts() {
+    if (!allMarkers || allMarkers.length === 0) {
+        ['origin-count-new', 'origin-count-reactivated'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = '(0)';
+        });
+        return;
+    }
+
+    const layerState = getLayerFilterState();
+
+    const showPokoj = document.getElementById('layer-tag-pokoj')?.checked ?? true;
+    const showKawalerka = document.getElementById('layer-tag-kawalerka')?.checked ?? true;
+    const showMieszkanie = document.getElementById('layer-tag-mieszkanie')?.checked ?? true;
+
+    const showPriceDown = document.getElementById('badge-filter-price-down')?.checked ?? true;
+    const showPriceUp = document.getElementById('badge-filter-price-up')?.checked ?? true;
+    const showNew = document.getElementById('badge-filter-new')?.checked ?? true;
+    const showUnchanged = document.getElementById('badge-filter-unchanged')?.checked ?? true;
+    const showRefreshed = document.getElementById('badge-filter-refreshed')?.checked ?? true;
+
+    const timeFilter = document.getElementById('time-filter')?.value || 'all';
+    let cutoffDate = null;
+    if (timeFilter !== 'all') {
+        const daysAgo = parseInt(timeFilter);
+        cutoffDate = new Date(Date.now() - (daysAgo * 24 * 60 * 60 * 1000));
+    }
+
+    const selectedRanges = Array.from(document.querySelectorAll('.price-range-filter:checked'))
+        .map(cb => cb.dataset.range);
+
+    const priceMin = parseInt(document.getElementById('price-min')?.value) || 0;
+    const priceMax = parseInt(document.getElementById('price-max')?.value) || 999999;
+
+    const searchTerm = (document.getElementById('search-input')?.value || '').toLowerCase();
+
+    const counts = { new: 0, reactivated: 0 };
+
+    allMarkers.forEach(item => {
+        if (!itemPassesLayerFilter(item, layerState)) return;
+
+        const tag = item.primaryTag || 'pokoj';
+        if (tag === 'pokoj' && !showPokoj) return;
+        if (tag === 'kawalerka' && !showKawalerka) return;
+        if (tag === 'mieszkanie' && !showMieszkanie) return;
+
+        const hasAnyBadge = item.isNew || item.priceDown || item.priceUp || item.isRefreshed;
+        if (hasAnyBadge) {
+            const passes =
+                (item.isNew && showNew) ||
+                (item.priceDown && showPriceDown) ||
+                (item.priceUp && showPriceUp) ||
+                (item.isRefreshed && showRefreshed);
+            if (!passes) return;
+        } else if (!showUnchanged) {
+            return;
+        }
+
+        if (cutoffDate && !isTimeFilterExempt()) {
+            const firstSeenOk = item.firstSeenDate && item.firstSeenDate >= cutoffDate;
+            const priceChangedOk = item.priceChangedAtDate && item.priceChangedAtDate >= cutoffDate;
+            if (!firstSeenOk && !priceChangedOk) return;
+        }
+
+        if (!passesDaySliderFilter(item.firstSeenDate)) return;
+        if (!passesGoneSliderFilter(item.originalOffer || {})) return;
+
+        if (selectedRanges.length > 0 && !selectedRanges.includes(item.priceRange)) return;
+
+        const price = item.offers[0].price;
+        if (price < priceMin || price > priceMax) return;
+
+        if (searchTerm && !item.address.toLowerCase().includes(searchTerm)) return;
+
+        // CELOWO POMIJAMY filtr pochodzenia - to jego liczniki właśnie wyliczamy
+        if (item.isReactivated) counts.reactivated++;
+        else counts.new++;
+    });
+
+    const el1 = document.getElementById('origin-count-new');
+    if (el1) el1.textContent = `(${counts.new})`;
+    const el2 = document.getElementById('origin-count-reactivated');
+    if (el2) el2.textContent = `(${counts.reactivated})`;
 }
 
 // ============================================================
