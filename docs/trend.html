@@ -762,7 +762,7 @@
             (pc.rises.daily || []).forEach(function (p) { risesAt[p[0]] = p[1]; });
 
             renderFlowChart('chart11', net, 'Saldo dnia', ['#6c7bf2', '#a6b0f5'], {
-                unit: 'ogłoszeń netto', negative: true,
+                unit: 'ogłoszeń netto', negative: true, monthBands: true,
                 tooltipCustom: function (ctx) {
                     const point = net.daily[ctx.dataPointIndex];
                     if (!point) return '';
@@ -789,6 +789,31 @@
         } else {
             document.getElementById('chart11').innerHTML =
                 '<div class="loading">Brak danych o zmianach cen.</div>';
+        }
+
+        // Naprzemienne pasy miesięcy w tle (co drugi miesiąc, akcent marki) — wybrany
+        // wariant z 20 mockupów (Artifact "Pasy miesięcy — Saldo"). Tylko wypełnienie,
+        // bez separatorów i etykiet; parzyste miesiące zostają bez pasa.
+        function _monthBandsXaxis(daily) {
+            if (!daily || !daily.length) return [];
+            const domainMin = daily[0][0], domainMax = daily[daily.length - 1][0];
+            const bands = [];
+            let cur = new Date(domainMin);
+            cur.setDate(1); cur.setHours(0, 0, 0, 0);
+            let i = 0;
+            while (cur.getTime() <= domainMax) {
+                const next = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+                if (i % 2 === 1) {
+                    bands.push({
+                        x: Math.max(cur.getTime(), domainMin),
+                        x2: Math.min(next.getTime(), domainMax),
+                        fillColor: '#6c7bf2', opacity: 0.07, borderColor: 'transparent'
+                    });
+                }
+                cur = next;
+                i++;
+            }
+            return bands;
         }
 
         // --- wykresy napływu: nowe / nowe+reaktywacje / reaktywacje ---
@@ -896,6 +921,10 @@
                              borderColor: '#8b93a7',
                              style: { background: '#3a4255', color: '#c7cede', fontSize: '11px' } }
                 }] };
+            }
+            if (extra.monthBands) {
+                opts.annotations = opts.annotations || {};
+                opts.annotations.xaxis = (opts.annotations.xaxis || []).concat(_monthBandsXaxis(metric.daily));
             }
             // Odcinek sprzed startu rzetelnego pomiaru reaktywacji: zakreskowany, podpisany.
             // Pusty lewy brzeg czytałby się jak „nic nie wracało", a to brak danych, nie brak zdarzeń.
