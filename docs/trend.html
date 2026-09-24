@@ -544,7 +544,7 @@
                 yaxis: yAnnotations,
                 // Poziomy odcinek doby w toku to przy 120 dniach ~15 px i ginie pod
                 // markerami — czytelność niesie pionowa kreska w miejscu dzisiejszego dnia.
-                xaxis: PART ? [{
+                xaxis: _monthBandsXaxis(RAW).concat(PART ? [{
                     x: PART.ms, strokeDashArray: 5, borderColor: '#8b93a7',
                     label: {
                         text: 'w toku · ' + PART.scans + '/' + PART.expected,
@@ -552,7 +552,7 @@
                         borderColor: '#8b93a7',
                         style: { background: '#3a4255', color: '#c7cede', fontSize: '11.5px', fontWeight: 600 }
                     }
-                }] : [],
+                }] : []),
                 points: [
                     { x: d.max_ts, y: mx, marker: { size: 5, fillColor: '#e8624c', strokeColor: '#fff', strokeWidth: 1 } },
                     { x: d.min_ts, y: mn, marker: { size: 5, fillColor: '#37c26b', strokeColor: '#fff', strokeWidth: 1 } }
@@ -598,8 +598,9 @@
                 fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.75, opacityTo: 0.35, stops: [0, 100] } },
                 // Etykieta „dzisiaj" siada na SZCZYCIE stosu (suma pasm) — MAX/MIN
                 // opisują linię Indeksu, więc w tym trybie ich nie rysujemy.
-                annotations: li < 0 ? {} : {
+                annotations: li < 0 ? { xaxis: _monthBandsXaxis(bands.new) } : {
                     position: 'front',
+                    xaxis: _monthBandsXaxis(bands.new),
                     points: todayPoint(bands.new[li][0], bands.new[li][1] + bands.react[li][1])
                         .map(function (pt) { return Object.assign(pt, { id: 'today' }); })
                 },
@@ -716,7 +717,8 @@
                 },
                 yaxis: { min: 0, tickAmount: 4, labels: { style: { colors: '#8b93a7' }, formatter: function (v) { return Math.round(v); } } },
                 legend: { labels: { colors: '#8b93a7' }, markers: { radius: 12 }, itemMargin: { horizontal: 10 } },
-                tooltip: { theme: 'dark', shared: true, x: { format: 'dd.MM.yyyy' }, y: { formatter: function (v) { return v + ' ofert'; } } }
+                tooltip: { theme: 'dark', shared: true, x: { format: 'dd.MM.yyyy' }, y: { formatter: function (v) { return v + ' ofert'; } } },
+                annotations: { xaxis: _monthBandsXaxis(of.daily) }
             };
             document.getElementById('chart2').innerHTML = '';
             new ApexCharts(document.querySelector('#chart2'), opts2).render();
@@ -762,7 +764,7 @@
             (pc.rises.daily || []).forEach(function (p) { risesAt[p[0]] = p[1]; });
 
             renderFlowChart('chart11', net, 'Saldo dnia', ['#6c7bf2', '#a6b0f5'], {
-                unit: 'ogłoszeń netto', negative: true, monthBands: true,
+                unit: 'ogłoszeń netto', negative: true,
                 tooltipCustom: function (ctx) {
                     const point = net.daily[ctx.dataPointIndex];
                     if (!point) return '';
@@ -794,16 +796,23 @@
         // Naprzemienne pasy miesięcy w tle (co drugi miesiąc, akcent marki) — wybrany
         // wariant z 20 mockupów (Artifact "Pasy miesięcy — Saldo"). Tylko wypełnienie,
         // bez separatorów i etykiet; parzyste miesiące zostają bez pasa.
-        function _monthBandsXaxis(daily) {
-            if (!daily || !daily.length) return [];
-            const domainMin = daily[0][0], domainMax = daily[daily.length - 1][0];
+        // Na wszystkich wykresach strony; przyjmuje kilka serii (np. nasz pomiar +
+        // backfill brata) i liczy pasy z sumy ich zakresów.
+        function _monthBandsXaxis() {
+            const xs = [];
+            Array.prototype.forEach.call(arguments, function (arr) {
+                (arr || []).forEach(function (p) { if (p && p[0] != null) xs.push(p[0]); });
+            });
+            if (!xs.length) return [];
+            const domainMin = Math.min.apply(null, xs), domainMax = Math.max.apply(null, xs);
             const bands = [];
             let cur = new Date(domainMin);
             cur.setDate(1); cur.setHours(0, 0, 0, 0);
-            let i = 0;
+            // Parzystość z KALENDARZA (cze, sie, paź…), nie od pierwszego miesiąca serii —
+            // inaczej wykresy o różnym starcie (np. z backfillem) cieniują różne miesiące.
             while (cur.getTime() <= domainMax) {
                 const next = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
-                if (i % 2 === 1) {
+                if (cur.getMonth() % 2 === 1) {
                     bands.push({
                         x: Math.max(cur.getTime(), domainMin),
                         x2: Math.min(next.getTime(), domainMax),
@@ -811,7 +820,6 @@
                     });
                 }
                 cur = next;
-                i++;
             }
             return bands;
         }
@@ -922,16 +930,12 @@
                              style: { background: '#3a4255', color: '#c7cede', fontSize: '11px' } }
                 }] };
             }
-            if (extra.monthBands) {
-                opts.annotations = opts.annotations || {};
-                opts.annotations.xaxis = (opts.annotations.xaxis || []).concat(_monthBandsXaxis(metric.daily));
-            }
             // Odcinek sprzed startu rzetelnego pomiaru reaktywacji: zakreskowany, podpisany.
             // Pusty lewy brzeg czytałby się jak „nic nie wracało", a to brak danych, nie brak zdarzeń.
             if (metric.reliable_start_ms && metric.daily.length) {
                 const first = metric.daily[0][0];
                 if (first < metric.reliable_start_ms) {
-                    opts.annotations = {
+                    opts.annotations = Object.assign(opts.annotations || {}, {
                         xaxis: [{
                             x: first, x2: metric.reliable_start_ms,
                             fillColor: '#3a4255', opacity: 0.28,
@@ -942,7 +946,7 @@
                                 style: { background: '#2f3950', color: '#c2c9d8', fontSize: '11px' }
                             }
                         }]
-                    };
+                    });
                 }
             }
             if (bf) {
@@ -969,8 +973,12 @@
                         }
                     });
                 }
-                opts.annotations = { xaxis: marks };
+                opts.annotations = Object.assign(opts.annotations || {}, { xaxis: marks });
             }
+            // Pasy miesięcy pod pozostałymi adnotacjami osi X (hatch, start pomiaru).
+            opts.annotations = opts.annotations || {};
+            opts.annotations.xaxis = _monthBandsXaxis(metric.daily, bf || [])
+                .concat(opts.annotations.xaxis || []);
             document.getElementById(elId).innerHTML = '';
             new ApexCharts(document.querySelector('#' + elId), opts).render();
         }
@@ -1085,7 +1093,8 @@
                         { formatter: function (v) { return v == null ? '—' : (String(v).replace('.', ',') + ' ofert'); } },
                         { formatter: function (v) { return v == null ? '—' : (String(v).replace('.', ',') + '% rynku'); } }
                     ]
-                }
+                },
+                annotations: { xaxis: _monthBandsXaxis(pr.daily) }
             };
             document.getElementById('chart6').innerHTML = '';
             new ApexCharts(document.querySelector('#chart6'), optsP).render();
