@@ -9,6 +9,11 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Indeks: pasy miesięcy na WSZYSTKICH wykresach `trend.html` (2026-09-24)
+- **zgłoszenie Mateusza**: pasy miesięcy miały być na wszystkich wykresach zakładki Indeks, a trafiły tylko na Saldo (flaga `monthBands`).
+- **implementacja**: `_monthBandsXaxis()` przyjmuje kilka serii (zakres = suma, np. nasz pomiar + backfill SZPERACZA) i jest podpięte pod Indeks (oba tryby), odpływ, promowane oraz każdy wykres `renderFlowChart` (flaga usunięta). Adnotacje hatch/backfill są teraz dokładane obok pasów zamiast nadpisywać `annotations`.
+- **parzystość z kalendarza**: cieniowane są cze/sie/paź… niezależnie od startu serii — wcześniej wykresy o różnym pierwszym dniu cieniowały różne miesiące.
+
 ### Mapa: checkboxy "Nowe" / "Reaktywowane" (2026-09-23)
 - **zgłoszenie Mateusza**: skoro wiemy, które oferty są reaktywowane a które nowe, chce widzieć to na głównej mapie — dwa niezależne checkboxy (domyślnie oba włączone), odznaczenie jednego pokazuje tylko drugą grupę.
 - **dane już istniały**: `reactivated` (offer.reactivated_at is not None) jest liczone od dawna w `map_generator.py` i trafia do `docs/data.json` dla każdej oferty — zmiana jest w 100% frontendowa, bez dotykania `src/`.
