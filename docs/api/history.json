@@ -1,8 +1,34 @@
 {
   "system": "sonar",
-  "generatedAt": "2026-09-29T14:14:37.499503+02:00",
+  "generatedAt": "2026-09-29T20:31:33.454244+02:00",
   "count": 20,
   "scans": [
+    {
+      "id": "2026-09-29T20-27-58",
+      "timestamp": "2026-09-29T20:27:58.590486+02:00",
+      "endTimestamp": "2026-09-29T20:29:40.177308+02:00",
+      "durationSeconds": 101.58,
+      "durationFormatted": "1m 41s",
+      "uiStatus": "success",
+      "rawStatus": "completed",
+      "offers": {
+        "found": 1033,
+        "processed": 958,
+        "new": 6,
+        "deactivated": 12,
+        "updated": 952,
+        "active": 838,
+        "inactive": 2305
+      },
+      "skipped": {
+        "noAddress": 60,
+        "noPrice": 1,
+        "noCoords": 12,
+        "duplicates": 2
+      },
+      "errors": [],
+      "hasErrors": false
+    },
     {
       "id": "2026-09-29T14-11-11",
       "timestamp": "2026-09-29T14:11:11.111864+02:00",
@@ -496,37 +522,6 @@
       },
       "errors": [],
       "hasErrors": false
-    },
-    {
-      "id": "2026-09-23T19-43-01",
-      "timestamp": "2026-09-23T19:43:01.050675+02:00",
-      "endTimestamp": "2026-09-23T19:44:07.519274+02:00",
-      "durationSeconds": 66.47,
-      "durationFormatted": "1m 6s",
-      "uiStatus": "failed",
-      "rawStatus": "warning",
-      "offers": {
-        "found": 414,
-        "processed": 388,
-        "new": 11,
-        "deactivated": null,
-        "updated": 377,
-        "active": 879,
-        "inactive": 2136
-      },
-      "skipped": {
-        "noAddress": 16,
-        "noPrice": 0,
-        "noCoords": 6,
-        "duplicates": 4
-      },
-      "errors": [
-        {
-          "message": "SCRAPE_PARTIAL: scrape 414 ofert to mniej niż 70% mediany ostatnich zdrowych skanów (1086). Prawdopodobnie urwana paginacja / soft-block OLX. Paginacja urwana na pustej stronie.",
-          "timestamp": "2026-09-23T19:43:59.745628+02:00"
-        }
-      ],
-      "hasErrors": true
     }
   ]
 }
