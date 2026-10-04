@@ -9,6 +9,11 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Firmy: pole „adresy” — pula adresów z przeniesionymi pinezkami (2026-10-04)
+- **zgłoszenie Mateusza**: przeniesione pinezki (fioletowe ↩, poprzednie adresy po zmianie adresu oferty) nie liczyły się nigdzie, więc uciekała łączna liczba adresów, którymi dysponuje firma. Wybrany wariant C z trzech (A: doliczyć do „łącznie”, B: pola przeniesione + pinezki).
+- **implementacja** (`docs/profile_tracker.html`, belka statystyk): nowa fioletowa pigułka **ADRESY** = unikalne adresy bieżących ogłoszeń + adresy znane tylko z `address_versions[1..]`, z dopiskiem `bieżące + N ↩`. Klucz = adres po `trim().toLowerCase()`; kilka ofert pod jednym adresem i powrót pod stary adres liczone raz. „łącznie” bez zmian (liczba ogłoszeń, 13 + 8 dalej daje 21).
+- **liczby**: Artymiuk 28 (14 + 14 ↩), PokojewLublinie 17 (9 + 8 ↩), Poqui 90 (84 + 6 ↩), MyRent 18, Łukasz 1. Zweryfikowane w Chromium, zero błędów w konsoli.
+
 ### Indeks: pasy miesięcy na WSZYSTKICH wykresach `trend.html` (2026-09-24)
 - **zgłoszenie Mateusza**: pasy miesięcy miały być na wszystkich wykresach zakładki Indeks, a trafiły tylko na Saldo (flaga `monthBands`).
 - **implementacja**: `_monthBandsXaxis()` przyjmuje kilka serii (zakres = suma, np. nasz pomiar + backfill SZPERACZA) i jest podpięte pod Indeks (oba tryby), odpływ, promowane oraz każdy wykres `renderFlowChart` (flaga usunięta). Adnotacje hatch/backfill są teraz dokładane obok pasów zamiast nadpisywać `annotations`.
