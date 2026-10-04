@@ -194,6 +194,11 @@
         .stat .v { font-size: 13px; font-weight: 600; color: #1d4ed8; }
         .stat .v.dim { color: #64748b; }
         .stat .l { font-size: 10px; color: #3b82f6; text-transform: uppercase; }
+        .stat .s { font-size: 10px; color: #64748b; }
+        /* Pula adresów (bieżące + poprzednie ↩) — fiolet jak pinezki przeniesionych ofert */
+        .stat.vio { background: #f5f3ff; border-color: #ddd6fe; }
+        .stat.vio .v { color: #6d28d9; }
+        .stat.vio .l { color: #7c3aed; }
 
         /* Ruch profilu: odświeżenia (🔄) i reaktywacje (♻) w oknach 30/60/90 dni.
            Bursztyn — ta sama rodzina co aktywna zakładka — oddziela metryki RUCHU
@@ -1722,18 +1727,32 @@ function renderProfile(key) {
     const prices = active.map(o => o.price).filter(Boolean);
     const avg = prices.length ? Math.round(prices.reduce((a,b)=>a+b,0)/prices.length) : null;
 
-    // Statsbar
+    // Pula adresów firmy: unikalne adresy bieżące + znane tylko z historii
+    // przeniesień (fioletowe pinezki ↩). Kilka ofert pod jednym adresem i powrót
+    // pod stary adres liczone raz — „łącznie” liczy ogłoszenia, nie adresy.
+    const addrKey = a => (a || '').trim().toLowerCase();
+    const curAddrs = new Set(prof.offers.map(o => addrKey(o.address)).filter(Boolean));
+    const allAddrs = new Set(curAddrs);
+    prof.offers.forEach(o => (o.address_versions || []).slice(1)
+        .forEach(v => { const k = addrKey(v.address); if (k) allAddrs.add(k); }));
+    const movedOnly = allAddrs.size - curAddrs.size;
+
+    // Statsbar: [wartość, etykieta, przygaszona, klasa, dopisek]
     const stats = [
         [active.length, 'aktywne', false],
         [archived.length, 'archiwalne', true],
         [prof.offers.length, 'łącznie', false],
+        [allAddrs.size, 'adresy', false, 'vio', movedOnly ? curAddrs.size + ' + ' + movedOnly + ' ↩' : ''],
         ...(avg ? [[avg + ' zł', 'śr. cena', false]] : []),
         ...(prices.length ? [[Math.min(...prices) + ' zł', 'min', false], [Math.max(...prices) + ' zł', 'max', false]] : []),
     ];
 
     document.getElementById('statsbar').innerHTML =
-        stats.map(([v,l,dim]) =>
-            '<div class="stat"><span class="v' + (dim?' dim':'') + '">' + v + '</span><span class="l">' + l + '</span></div>'
+        stats.map(([v,l,dim,cls,sub]) =>
+            '<div class="stat' + (cls?' '+cls:'') + '"'
+            + (cls === 'vio' ? ' title="Unikalne adresy: bieżące ogłoszenia + poprzednie adresy przeniesionych ofert (↩)"' : '') + '>'
+            + '<span class="v' + (dim?' dim':'') + '">' + v + '</span><span class="l">' + l + '</span>'
+            + (sub ? '<span class="s">' + sub + '</span>' : '') + '</div>'
         ).join('')
         + buildActivityPills(prof.offers)
         + '<a class="proflink" href="' + prof.url + '" target="_blank" rel="noopener">' + prof.url.replace('https://','').replace(/\/$/,'') + ' ↗</a>';
