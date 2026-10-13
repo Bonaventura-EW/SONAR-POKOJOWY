@@ -9,6 +9,12 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Pipeline: oferta z nieobsłużonym wyjątkiem nie ubija już całego skanu (2026-10-13, propagacja z SONAR---DZIA-KOWY, issue#164)
+- **skąd**: u brata refiner lokalizacji wywracał się IndexError-em na pustej nazwie ulicy — wyjątek przerywał `main.py` PRZED zapisem bazy, 4 z 8 skanów przepadły po cichu (workflow zielony dzięki `|| echo`). Konkretny trigger brata u nas już był zagwarantowany (`to_nominative` ma `if not address`, `street.split()[...]` w `address_parser.py` zawsze za `if street and ...`), ale architektura ryzyka była identyczna.
+- **problem**: pętla przetwarzania ofert w `run_scan` (`src/main.py`) wołała `_process_offer` bez żadnej izolacji per-oferta. Cała pętla była pod jednym `try` w `run_scan`, którego `except Exception` loguje i **re-raise'uje** — jedna oferta z nieznanym jeszcze edge case'em parsera/geokodera/duplicate_detectora ubijałaby cały skan bez zapisu `data/offers.json`.
+- **fix**: nowa metoda `_process_offer_safe` (`src/main.py`) — wrapper na `_process_offer`, łapie wyjątek, loguje go (offer_id + URL) do `scan_history.json` przez `scan_logger.log_error`, i klasyfikuje ofertę jako nową kategorię skip `processing_error` (widoczna w `skipped_offers_sample.json`, licznik w podsumowaniu skanu) zamiast pozwolić wyjątkowi wylecieć. Użyta w obu miejscach, które wcześniej wołały `_process_offer` (pętla główna + pętla retry geokodera).
+- **testy**: nowy `test_processing_error_guard.py` (5 przypadków — łapanie wyjątku, logowanie offer_id/URL, derywacja offer_id z URL w ścieżce retry, przezroczyste przejście sukcesu, nie-nadpisywanie istniejącego `_skip_reason` przy zwykłym `None`). Golden parser bez regresji (4659/4659).
+
 ### Firmy: pole „adresy” — pula adresów z przeniesionymi pinezkami (2026-10-04)
 - **zgłoszenie Mateusza**: przeniesione pinezki (fioletowe ↩, poprzednie adresy po zmianie adresu oferty) nie liczyły się nigdzie, więc uciekała łączna liczba adresów, którymi dysponuje firma. Wybrany wariant C z trzech (A: doliczyć do „łącznie”, B: pola przeniesione + pinezki).
 - **implementacja** (`docs/profile_tracker.html`, belka statystyk): nowa fioletowa pigułka **ADRESY** = unikalne adresy bieżących ogłoszeń + adresy znane tylko z `address_versions[1..]`, z dopiskiem `bieżące + N ↩`. Klucz = adres po `trim().toLowerCase()`; kilka ofert pod jednym adresem i powrót pod stary adres liczone raz. „łącznie” bez zmian (liczba ogłoszeń, 13 + 8 dalej daje 21).
