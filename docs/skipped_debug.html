@@ -168,13 +168,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     
         <div class="stat-card no_address">
           <div class="label">Brak adresu</div>
-          <div class="value">30</div>
+          <div class="value">31</div>
           <div class="sub">parser nie znalazł żadnej ulicy w opisie</div>
         </div>
         
         <div class="stat-card no_coords">
           <div class="label">Brak współrzędnych</div>
-          <div class="value">12</div>
+          <div class="value">11</div>
           <div class="sub">parser znalazł adres, geokoder nie</div>
         </div>
         
@@ -186,7 +186,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         
         <div class="stat-card duplicate">
           <div class="label">Duplikaty</div>
-          <div class="value">1</div>
+          <div class="value">0</div>
           <div class="sub">ten sam pokój 2× w wynikach</div>
         </div>
         
@@ -201,46 +201,24 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="filter-bar">
     <label for="category-filter">Kategoria:</label>
     <select id="category-filter">
-      <option value="all">Wszystkie (44 próbek)</option><option value="no_address">Brak adresu (30)</option><option value="no_coords">Brak współrzędnych (12)</option><option value="excluded">Wykluczone (filtr) (0)</option><option value="duplicate">Duplikaty (1)</option><option value="no_price">Brak ceny (1)</option>
+      <option value="all">Wszystkie (43 próbek)</option><option value="no_address">Brak adresu (31)</option><option value="no_coords">Brak współrzędnych (11)</option><option value="excluded">Wykluczone (filtr) (0)</option><option value="duplicate">Duplikaty (0)</option><option value="no_price">Brak ceny (1)</option>
     </select>
     <label for="search-input">Szukaj:</label>
     <input type="text" id="search-input" placeholder="filtruj po tytule/opisie/URL...">
-    <span class="timestamp">Aktualizacja: 2026-10-17 18:10</span>
+    <span class="timestamp">Aktualizacja: 2026-10-17 23:15</span>
   </div>
 
   <div class="offer-list" id="offer-list">
     
-    <div class="offer" data-category="duplicate" data-search="przestronny pokój 16m2: osiedle prestige (ul. melomanów) ">
+    <div class="offer" data-category="no_address" data-search="stancja lsm blisko ronda zus stancja lsm blisko ronda zus lublin oferuję umeblowany pokój w lublinie, idealny dla spokojnej osoby. pokój ma jasną podłogę i zielone ściany, co sprawia, że jest przestronny i przyjemny. w kuchni znajdziesz lodówkę,kuchenkę gazową,mikrofalę,pralkę łazienka jest wyposażona w prysznic oraz umywalkę.lokalizacja jest bardzo atrakcyjna. w pobliżu znajdują się sklepy oraz przystanki komunikacji miejskiej. możesz korzystać z pobliskich parków i terenów zielonych, idealne na spacery.pozostałe pokoje za">
       <div class="offer-header">
-        <span class="badge duplicate">duplikat</span>
-        <div class="offer-title">Przestronny pokój 16m2: Osiedle Prestige (ul. Melomanów)</div>
-        
+        <span class="badge no_address">brak adresu</span>
+        <div class="offer-title">Stancja LSM blisko ronda ZUS</div>
+        <a href="https://www.olx.pl/d/oferta/stancja-lsm-blisko-ronda-zus-CID3-ID1aXxVu.html?search_reason=search%7Cpromoted" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
       </div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Stancja LSM blisko ronda ZUS Lublin Oferuję umeblowany pokój w Lublinie, idealny dla spokojnej osoby. Pokój ma jasną podłogę i zielone ściany, co sprawia, że jest przestronny i przyjemny. W kuchni znajdziesz lodówkę,kuchenkę gazową,mikrofalę,pralkę Łazienka jest wyposażona w prysznic oraz umywalkę.Lokalizacja jest bardzo atrakcyjna. W pobliżu znajdują się sklepy oraz przystanki komunikacji miejskiej. Możesz korzystać z pobliskich parków i terenów zielonych, idealne na spacery.Pozostałe pokoje za</div>
       
-      <div class="offer-meta"><span class="parsed-addr">parsed: "Melomanów"</span></div>
       
-        <div class="duplicate-compare">
-          <div class="duplicate-compare-title">
-            🔗 Porównaj oferty
-            <span class="similarity-pill">96.7% podobne</span>
-          </div>
-          <div class="duplicate-compare-grid">
-            <div class="duplicate-side this">
-              <div class="role-label">⚠️ Odrzucone (duplikat)</div>
-              <strong>Przestronny pokój 16m2: Osiedle Prestige (ul. Melomanów)</strong>
-              <a href="https://www.olx.pl/d/oferta/przestronny-pokoj-16m2-osiedle-prestige-ul-melomanow-CID3-ID1cnkXk.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="url">www.olx.pl/d/oferta/przestronny-pokoj-16m2-osiedle-prestige-ul-melomanow-CID3-ID1cnkXk.html?search_reason=search%7Corganic ↗</a>
-              <div class="meta">parsed: Melomanów · cena: 1500 zł</div>
-            </div>
-            <div class="duplicate-arrow">≈</div>
-            <div class="duplicate-side original">
-              <div class="role-label">✅ Pozostawione na mapie</div>
-              <strong>ID: przestronny-pokoj-16m2-osiedle-prestige-ul-melomanow-CID3-ID1cnkO0</strong>
-              <a href="https://www.olx.pl/d/oferta/przestronny-pokoj-16m2-osiedle-prestige-ul-melomanow-CID3-ID1cnkO0.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="url">www.olx.pl/d/oferta/przestronny-pokoj-16m2-osiedle-prestige-ul-melomanow-CID3-ID1cnkO0.html?search_reason=search%7Corganic ↗</a>
-              <div class="meta">adres: Melomanów · cena: 1500 zł</div>
-            </div>
-          </div>
-        </div>
-        
     </div>
     
     <div class="offer" data-category="no_address" data-search="pokój do wynajęcia pokój do wynajęcia lublin witam, mam do wynajęcia pokój duży jednoosobowy umeblowany z balkonem zamykany na klucz. pokój jest w spokojnej i cichej okolicy, blisko sklep biedronka i przystanek mpk linie (38,16,17,151). preferuje osoby pracujące i uczące się bez nałogów. do ceny trzeba doliczyć media.">
@@ -265,13 +243,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       
     </div>
     
-    <div class="offer" data-category="no_address" data-search="stancja lsm blisko ronda zus stancja lsm blisko ronda zus lublin oferuję umeblowany pokój w lublinie, idealny dla spokojnej osoby. pokój ma jasną podłogę i zielone ściany, co sprawia, że jest przestronny i przyjemny. w kuchni znajdziesz lodówkę,kuchenkę gazową,mikrofalę,pralkę łazienka jest wyposażona w prysznic oraz umywalkę.lokalizacja jest bardzo atrakcyjna. w pobliżu znajdują się sklepy oraz przystanki komunikacji miejskiej. możesz korzystać z pobliskich parków i terenów zielonych, idealne na spacery.pozostałe pokoje za">
+    <div class="offer" data-category="no_address" data-search="okazja !!! 4-pokojowe mieszkanie,112m,bezpośrednioumcs;kul;up okazja !!! 4-pokojowe mieszkanie,112m,bezpośrednioumcs;kul;up lublin rozkładowe, przestronne mieszkanie o pow. 112m, ciepłe i ciche .4-pokoje z widną kuchnią , łazienką i garderobą . pokoje duże ,wszystkie po ok. 20m-25m.1-piętro, balkon, przedpokój .super lokalizacja. w samym centrum miasteczka uniwersyteckiego.  przy parku akademickim. blisko wszystkich lubelskich uczelni, starówki ,galerii handlowej plaza , ogrodu saskiego, centrum kultur oraz wszelkich obiektów sportowych i kulturalnych, med">
       <div class="offer-header">
         <span class="badge no_address">brak adresu</span>
-        <div class="offer-title">Stancja LSM blisko ronda ZUS</div>
-        <a href="https://www.olx.pl/d/oferta/stancja-lsm-blisko-ronda-zus-CID3-ID1aXxVu.html?search_reason=search%7Cpromoted" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+        <div class="offer-title">OKAZJA !!! 4-pokojowe mieszkanie,112m,bezpośrednioUMCS;KUL;UP</div>
+        <a href="https://www.olx.pl/d/oferta/okazja-4-pokojowe-mieszkanie-112m-bezposrednioumcskulup-CID3-ID1bFUDp.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
       </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Stancja LSM blisko ronda ZUS Lublin Oferuję umeblowany pokój w Lublinie, idealny dla spokojnej osoby. Pokój ma jasną podłogę i zielone ściany, co sprawia, że jest przestronny i przyjemny. W kuchni znajdziesz lodówkę,kuchenkę gazową,mikrofalę,pralkę Łazienka jest wyposażona w prysznic oraz umywalkę.Lokalizacja jest bardzo atrakcyjna. W pobliżu znajdują się sklepy oraz przystanki komunikacji miejskiej. Możesz korzystać z pobliskich parków i terenów zielonych, idealne na spacery.Pozostałe pokoje za</div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">OKAZJA !!! 4-pokojowe mieszkanie,112m,bezpośrednioUMCS;KUL;UP Lublin Rozkładowe, przestronne mieszkanie o pow. 112m, ciepłe i ciche .4-pokoje z widną kuchnią , łazienką i garderobą . Pokoje duże ,wszystkie po ok. 20m-25m.1-piętro, balkon, przedpokój .super lokalizacja. W samym centrum Miasteczka Uniwersyteckiego.  Przy Parku Akademickim. Blisko wszystkich lubelskich uczelni, starówki ,galerii handlowej Plaza , Ogrodu Saskiego, Centrum Kultur oraz wszelkich obiektów sportowych i kulturalnych, med</div>
       
       
     </div>
@@ -386,17 +364,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       
     </div>
     
-    <div class="offer" data-category="no_address" data-search="pokój stancja blisko umcs pokój stancja blisko umcs lublin pokój jednoosobowy blisko umcs.umeblowany z osobną kuchnią i łazienką.bez kaucji ;)cena 1000- 1100 opłaty rachunków wliczone w cene.prosze napisać swój numer telefonu, skontaktujemy sie z państwem i uzgodnimy termin oglądania.">
-      <div class="offer-header">
-        <span class="badge no_address">brak adresu</span>
-        <div class="offer-title">Pokój stancja blisko UMCS</div>
-        <a href="https://www.olx.pl/d/oferta/pokoj-stancja-blisko-umcs-CID3-ID1cpndc.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój stancja blisko UMCS Lublin Pokój jednoosobowy blisko UMCS.umeblowany z osobną kuchnią i łazienką.Bez kaucji ;)Cena 1000- 1100 opłaty rachunków wliczone w cene.Prosze napisać swój numer telefonu, skontaktujemy sie z państwem i uzgodnimy termin oglądania.</div>
-      
-      
-    </div>
-    
     <div class="offer" data-category="no_address" data-search="podwojny przytylny pokoj do wynajecia podwojny przytylny pokoj do wynajecia lublin oferuję dwuosobowy pokój, przeznaczony dla kobiet. pokój jest umeblowany i jasny, co zapewnia przyjemną atmosferę. meble w stylu skandynawskim dodają przestrzeni elegancji. w kuchni znajdziesz podstawowe sprzęty, takie jak kuchenka, lodówka i piekarnik. łazienka wyposażona jest w prysznic oraz umywalkę. wszystko w jasnych kolorach, co sprzyja relaksowi. to idealne miejsce dla osób poszukujących komfortu i spokoju. zapraszam do kontaktu, aby umówić się">
       <div class="offer-header">
         <span class="badge no_address">brak adresu</span>
@@ -437,6 +404,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <a href="https://www.olx.pl/d/oferta/dwa-pokoje-do-wynajecia-CID3-IDQKKwV.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
       </div>
       <div class="offer-desc" onclick="this.classList.toggle('expanded')">Dwa pokoje do wynajęcia Lublin Dwa pokoje nieprzechodnie  w mieszkaniu 3 pokojowym. Łazienka / toaleta oddzielne.Mieszkanie trzypokojowe.   Jest pralka, mikrofalówka, zmywarka, żelazko...w pełni wyposażone. Mieszkanie w cichej i spokojnej okolicy. Blisko do sklepów, przystanku. Bezproblemowy dojazd MPK.Najem 800zł plus opłaty licznikowe co miesiąc (prąd ok 60 zł i gaz ok. 7zł) za pokój.</div>
+      
+      
+    </div>
+    
+    <div class="offer" data-category="no_address" data-search="pokój stancja blisko umcs pokój stancja blisko umcs lublin pokój jednoosobowy blisko umcs.umeblowany z osobną kuchnią i łazienką.bez kaucji ;)cena 1000- 1100 opłaty rachunków wliczone w cene.prosze napisać swój numer telefonu, skontaktujemy sie z państwem i uzgodnimy termin oglądania.">
+      <div class="offer-header">
+        <span class="badge no_address">brak adresu</span>
+        <div class="offer-title">Pokój stancja blisko UMCS</div>
+        <a href="https://www.olx.pl/d/oferta/pokoj-stancja-blisko-umcs-CID3-ID1cpndc.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+      </div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój stancja blisko UMCS Lublin Pokój jednoosobowy blisko UMCS.umeblowany z osobną kuchnią i łazienką.Bez kaucji ;)Cena 1000- 1100 opłaty rachunków wliczone w cene.Prosze napisać swój numer telefonu, skontaktujemy sie z państwem i uzgodnimy termin oglądania.</div>
       
       
     </div>
@@ -496,17 +474,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       
     </div>
     
-    <div class="offer" data-category="no_address" data-search="pokoj 16m2 w domujednorodzinnym pokoj 16m2 w domujednorodzinnym lublin pokój w domu jednorodzinnym zamykany , spokojna okolica wygodna komunikacja blisko centrum wszelkie sklepy w bliskim sasiectwie  w domu jest czysto i ciepło spokojnie panuje miła atmosfera zapraszam do kontaktu">
-      <div class="offer-header">
-        <span class="badge no_address">brak adresu</span>
-        <div class="offer-title">Pokoj 16m2 w domujednorodzinnym</div>
-        <a href="https://www.olx.pl/d/oferta/pokoj-16m2-w-domujednorodzinnym-CID3-ID1cgVFk.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokoj 16m2 w domujednorodzinnym Lublin Pokój w domu jednorodzinnym zamykany , spokojna okolica wygodna komunikacja blisko centrum wszelkie sklepy w bliskim sasiectwie  w domu jest czysto i ciepło spokojnie panuje miła atmosfera zapraszam do kontaktu</div>
-      
-      
-    </div>
-    
     <div class="offer" data-category="no_address" data-search="ostatni pokój w super lokalizacji ostatni pokój w super lokalizacji lublin ostatni pokój w mieszkaniu 4 pokojowym , z oddzielną  dużą kuchnią, łazienką z oddzielną toaletą . blisko kul umcs chodzki , w pobliżu sklepy przystanki wszystko co jest potrzebne pokój dostępny od zaraz">
       <div class="offer-header">
         <span class="badge no_address">brak adresu</span>
@@ -514,6 +481,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <a href="https://www.olx.pl/d/oferta/ostatni-pokoj-w-super-lokalizacji-CID3-ID1c1q6K.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
       </div>
       <div class="offer-desc" onclick="this.classList.toggle('expanded')">Ostatni pokój w super lokalizacji Lublin Ostatni pokój w mieszkaniu 4 pokojowym , z oddzielną  dużą kuchnią, łazienką z oddzielną toaletą . Blisko kul UMCS chodzki , w pobliżu sklepy przystanki wszystko co jest potrzebne pokój dostępny od zaraz</div>
+      
+      
+    </div>
+    
+    <div class="offer" data-category="no_address" data-search="pokoj 16m2 w domujednorodzinnym pokoj 16m2 w domujednorodzinnym lublin pokój w domu jednorodzinnym zamykany , spokojna okolica wygodna komunikacja blisko centrum wszelkie sklepy w bliskim sasiectwie  w domu jest czysto i ciepło spokojnie panuje miła atmosfera zapraszam do kontaktu">
+      <div class="offer-header">
+        <span class="badge no_address">brak adresu</span>
+        <div class="offer-title">Pokoj 16m2 w domujednorodzinnym</div>
+        <a href="https://www.olx.pl/d/oferta/pokoj-16m2-w-domujednorodzinnym-CID3-ID1cgVFk.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+      </div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokoj 16m2 w domujednorodzinnym Lublin Pokój w domu jednorodzinnym zamykany , spokojna okolica wygodna komunikacja blisko centrum wszelkie sklepy w bliskim sasiectwie  w domu jest czysto i ciepło spokojnie panuje miła atmosfera zapraszam do kontaktu</div>
       
       
     </div>
@@ -584,6 +562,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       
     </div>
     
+    <div class="offer" data-category="no_coords" data-search="pokój w domku 11m2 pokój w domku 11m2 lublin pokój na niższym parterze w domu wielorodzinnym, ze wspólną kuchnią, łazienką i toaletą na 4 pokoje ( głównie 1 osobowe).kaucja w wysokości opłat miesięcznych( czynsz plus media z możliwością rozbicia na 2-3 raty).czynsz 700 zł plus media 200 zł/osoba.w okolicy przystanki, sklepy, apteki, okulista, przychodnia, bankomat, kościół, szkoła i przedszkola.w pokoju będzie jeszcze komoda pod tv oraz stół.pokój wolny od już.dla osób bez nałogów, polskojęzycznych.">
+      <div class="offer-header">
+        <span class="badge no_coords">brak współrzędnych</span>
+        <div class="offer-title">Pokój w domku 11m2</div>
+        <a href="https://www.olx.pl/d/oferta/pokoj-w-domku-11m2-CID3-ID1cF77L.html?search_reason=search%7Cpromoted" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+      </div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój w domku 11m2 Lublin Pokój na niższym parterze w domu wielorodzinnym, ze wspólną kuchnią, łazienką i toaletą na 4 pokoje ( głównie 1 osobowe).Kaucja w wysokości opłat miesięcznych( czynsz plus media z możliwością rozbicia na 2-3 raty).Czynsz 700 zł plus media 200 zł/osoba.W okolicy przystanki, sklepy, apteki, okulista, przychodnia, bankomat, kościół, szkoła i przedszkola.W pokoju będzie jeszcze komoda pod tv oraz stół.Pokój wolny od już.Dla osób bez nałogów, polskojęzycznych.</div>
+      <div class="offer-meta"><span class="parsed-addr">parsed: "domku 11m"</span></div>
+      
+    </div>
+    
     <div class="offer" data-category="no_coords" data-search="duży pokój po malowaniu, z balkonem - 1-os. duży pokój po malowaniu, z balkonem - 1-os. lublin duży pokój po malowaniu z balkonem -1 os.pokój znajduje się na oddzielnej kondygnacji domu jednorodzinnego z osobnym wejściem, kuchnią i łazienką.bardzo dobre warunki mieszkaniowe. pokój po malowaniu i remoncie. możliwość korzystania z parkingu.szybki i dobry dojazd do centrum - mpk ok 25 min., samochód odsobowy 10 min.w cenę czynszu wchodzi internet, pozostałe miesięczne rachunki to ok.110zł dzielone z pozostałymi współlokatorami.okres zimowy d">
       <div class="offer-header">
         <span class="badge no_coords">brak współrzędnych</span>
@@ -592,17 +581,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       </div>
       <div class="offer-desc" onclick="this.classList.toggle('expanded')">Duży pokój po malowaniu, z balkonem - 1-os. Lublin Duży pokój po malowaniu z balkonem -1 os.Pokój znajduje się na oddzielnej kondygnacji domu jednorodzinnego z osobnym wejściem, kuchnią i łazienką.Bardzo dobre warunki mieszkaniowe. Pokój po malowaniu i remoncie. Możliwość korzystania z parkingu.Szybki i dobry dojazd do centrum - mpk ok 25 min., samochód odsobowy 10 min.W cenę czynszu wchodzi internet, pozostałe miesięczne rachunki to ok.110zł dzielone z pozostałymi współlokatorami.Okres zimowy d</div>
       <div class="offer-meta"><span class="parsed-addr">parsed: "Krężnicka Jeśli"</span></div>
-      
-    </div>
-    
-    <div class="offer" data-category="no_coords" data-search="pokój w domku 11m2 pokój w domku 11m2 lublin pokój na niższym parterze w domu wielorodzinnym, ze wspólną kuchnią, łazienką i toaletą na 4 pokoje ( głównie 1 osobowe).kaucja w wysokości opłat miesięcznych( czynsz plus media z możliwością rozbicia na 2-3 raty).czynsz 700 zł plus media 200 zł/osoba.w okolicy przystanki, sklepy, apteki, okulista, przychodnia, bankomat, kościół, szkoła i przedszkola.w pokoju będzie jeszcze komoda pod tv oraz stół.pokój wolny od już.dla osób bez nałogów, polskojęzycznych.">
-      <div class="offer-header">
-        <span class="badge no_coords">brak współrzędnych</span>
-        <div class="offer-title">Pokój w domku 11m2</div>
-        <a href="https://www.olx.pl/d/oferta/pokoj-w-domku-11m2-CID3-ID1cF77L.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój w domku 11m2 Lublin Pokój na niższym parterze w domu wielorodzinnym, ze wspólną kuchnią, łazienką i toaletą na 4 pokoje ( głównie 1 osobowe).Kaucja w wysokości opłat miesięcznych( czynsz plus media z możliwością rozbicia na 2-3 raty).Czynsz 700 zł plus media 200 zł/osoba.W okolicy przystanki, sklepy, apteki, okulista, przychodnia, bankomat, kościół, szkoła i przedszkola.W pokoju będzie jeszcze komoda pod tv oraz stół.Pokój wolny od już.Dla osób bez nałogów, polskojęzycznych.</div>
-      <div class="offer-meta"><span class="parsed-addr">parsed: "domku 11m"</span></div>
       
     </div>
     
@@ -617,17 +595,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       
     </div>
     
-    <div class="offer" data-category="no_coords" data-search="pokój w domku 11m2 pokój w domku 11m2 lublin pokój na niższym parterze w domu wielorodzinnym, ze wspólną kuchnią, łazienką i toaletą na 4 pokoje ( głównie 1 osobowe).kaucja w wysokości opłat miesięcznych( czynsz plus media z możliwością rozbicia na 2-3 raty).czynsz 700 zł plus media 200 zł/osoba.w okolicy przystanki, sklepy, apteki, okulista, przychodnia, bankomat, kościół, szkoła i przedszkola.w pokoju będzie jeszcze komoda pod tv oraz stół.pokój wolny od już.dla osób bez nałogów, polskojęzycznych.">
-      <div class="offer-header">
-        <span class="badge no_coords">brak współrzędnych</span>
-        <div class="offer-title">Pokój w domku 11m2</div>
-        <a href="https://www.olx.pl/d/oferta/pokoj-w-domku-11m2-CID3-ID1cF77L.html?search_reason=search%7Cpromoted" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój w domku 11m2 Lublin Pokój na niższym parterze w domu wielorodzinnym, ze wspólną kuchnią, łazienką i toaletą na 4 pokoje ( głównie 1 osobowe).Kaucja w wysokości opłat miesięcznych( czynsz plus media z możliwością rozbicia na 2-3 raty).Czynsz 700 zł plus media 200 zł/osoba.W okolicy przystanki, sklepy, apteki, okulista, przychodnia, bankomat, kościół, szkoła i przedszkola.W pokoju będzie jeszcze komoda pod tv oraz stół.Pokój wolny od już.Dla osób bez nałogów, polskojęzycznych.</div>
-      <div class="offer-meta"><span class="parsed-addr">parsed: "domku 11m"</span></div>
-      
-    </div>
-    
     <div class="offer" data-category="no_coords" data-search="wynajmę mieszkanie wynajmę mieszkanie lublin do wynajęcia 2 pokojowe mieszkanie na 3 piętrze w lublinie przy ulicy męczenników majdanka. 2000 zł +oplaty. czynsz 900 zł zawiera woda, ścieki, śmieci, ogrzewanie.w pobliżu market stokrotka, biedronka, kaufland, poczta. zapraszam do kontaktu.">
       <div class="offer-header">
         <span class="badge no_coords">brak współrzędnych</span>
@@ -639,17 +606,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       
     </div>
     
-    <div class="offer" data-category="no_coords" data-search="pokój dla studenta kul politechnika umcs lublin lub ucznia pokój dla studenta kul politechnika umcs lublin lub ucznia lublin wynajmę od zaraz2 pokojew 3 pokojowym mieszkaniu parter umeblowane ,wyposarzone lodowka pralka kuchenka indukcyjna piekarnik mikrofala blisko politechnika naprzećiwko .jnne lokalizacje kul politechnika  lublin kaucja obowiazkowo płatnosc przelewy faktura co mieśiacplus oplaty licznikowe pokuj 700zł.karzdy osobno zamykany prosze dzwonic nie odpisuje na meile i esemesy pozdrawiam serdecznie">
-      <div class="offer-header">
-        <span class="badge no_coords">brak współrzędnych</span>
-        <div class="offer-title">Pokój dla studenta Kul Politechnika UMCS Lublin lub ucznia</div>
-        <a href="https://www.olx.pl/d/oferta/pokoj-dla-studenta-kul-politechnika-umcs-lublin-lub-ucznia-CID3-ID1crv6V.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój dla studenta Kul Politechnika UMCS Lublin lub ucznia Lublin Wynajmę od zaraz2 pokojew 3 pokojowym mieszkaniu parter umeblowane ,Wyposarzone lodowka pralka kuchenka indukcyjna piekarnik mikrofala Blisko Politechnika naprzećiwko .Jnne lokalizacje Kul Politechnika  Lublin Kaucja obowiazkowo płatnosc przelewy faktura co mieśiacPlus oplaty licznikowe pokuj 700zł.Karzdy osobno zamykany Prosze dzwonic nie odpisuje na meile i esemesy pozdrawiam serdecznie</div>
-      <div class="offer-meta"><span class="parsed-addr">parsed: "pokojew 3"</span></div>
-      
-    </div>
-    
     <div class="offer" data-category="no_coords" data-search="pokój duży z balkonem blisko um, wincentego pola pokój duży z balkonem blisko um, wincentego pola lublin oferuję umeblowany pokój  z balkonem w mieszkaniu 63 m² pokój 20 m2 czysty ,  umeblowany idealny dla studenta,osoby pracującej .pokój znajduje się w stylowym mieszkaniu z jasnym wnętrzem.w kuchni znajdziesz podstawowe sprzęty, takie jak kuchenka, duża lodówka i piekarnik wszystkie potrzebne meble ,łazienka wyposażona jest w prysznic i umywalkę. wc.osobno.pokój ma balkon z widokiem na zieleń.mieszkanie jest 3 pokojowe czyste,zadbane,ciche i ">
       <div class="offer-header">
         <span class="badge no_coords">brak współrzędnych</span>
@@ -658,6 +614,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       </div>
       <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój duży z balkonem blisko UM, Wincentego Pola Lublin Oferuję umeblowany pokój  z balkonem w mieszkaniu 63 m² pokój 20 m2 czysty ,  umeblowany idealny dla studenta,OSOBY PRACUJĄCEJ .Pokój znajduje się w stylowym mieszkaniu z jasnym wnętrzem.W kuchni znajdziesz podstawowe sprzęty, takie jak kuchenka, duża lodówka i piekarnik wszystkie potrzebne meble ,Łazienka wyposażona jest w prysznic i umywalkę. WC.OSOBNO.Pokój ma balkon z widokiem na zieleń.Mieszkanie jest 3 pokojowe czyste,zadbane,ciche I </div>
       <div class="offer-meta"><span class="parsed-addr">parsed: "granicach 150"</span></div>
+      
+    </div>
+    
+    <div class="offer" data-category="no_coords" data-search="pokój dla studenta kul politechnika umcs lublin lub ucznia pokój dla studenta kul politechnika umcs lublin lub ucznia lublin wynajmę od zaraz2 pokojew 3 pokojowym mieszkaniu parter umeblowane ,wyposarzone lodowka pralka kuchenka indukcyjna piekarnik mikrofala blisko politechnika naprzećiwko .jnne lokalizacje kul politechnika  lublin kaucja obowiazkowo płatnosc przelewy faktura co mieśiacplus oplaty licznikowe pokuj 700zł.karzdy osobno zamykany prosze dzwonic nie odpisuje na meile i esemesy pozdrawiam serdecznie">
+      <div class="offer-header">
+        <span class="badge no_coords">brak współrzędnych</span>
+        <div class="offer-title">Pokój dla studenta Kul Politechnika UMCS Lublin lub ucznia</div>
+        <a href="https://www.olx.pl/d/oferta/pokoj-dla-studenta-kul-politechnika-umcs-lublin-lub-ucznia-CID3-ID1crv6V.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+      </div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój dla studenta Kul Politechnika UMCS Lublin lub ucznia Lublin Wynajmę od zaraz2 pokojew 3 pokojowym mieszkaniu parter umeblowane ,Wyposarzone lodowka pralka kuchenka indukcyjna piekarnik mikrofala Blisko Politechnika naprzećiwko .Jnne lokalizacje Kul Politechnika  Lublin Kaucja obowiazkowo płatnosc przelewy faktura co mieśiacPlus oplaty licznikowe pokuj 700zł.Karzdy osobno zamykany Prosze dzwonic nie odpisuje na meile i esemesy pozdrawiam serdecznie</div>
+      <div class="offer-meta"><span class="parsed-addr">parsed: "pokojew 3"</span></div>
       
     </div>
     
