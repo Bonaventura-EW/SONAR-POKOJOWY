@@ -189,6 +189,8 @@
             i wróciła, nie ma śladu po swojej pierwszej śmierci. Widać to w bilansie: napływ 3174 &minus; odpływ 1590 = +1584,
             a Indeks urósł w tym czasie o +480; różnica to prawie dokładnie liczba reaktywacji. Szereg domyka się sam
             w miarę kolejnych skanów.
+            <strong>Zniknięcia domknięte powrotem w ciągu 3 dni tu nie wchodzą</strong> — razem z odpowiadającą im
+            reaktywacją idą do kosza jako zacięcie pipeline'u (w tej bazie <span id="flapCount">—</span> takich par).
         </div>
 
         <div class="card" style="margin-top:22px">
@@ -281,6 +283,10 @@
         <div class="foot">
             <strong>Skąd dane:</strong> dla każdego dnia liczba ofert, które tego dnia wróciły na rynek
             po wcześniejszym zniknięciu (data w <code>reactivation_dates</code> = ten dzień).
+            <strong>Powroty w ciągu 3 dni tu nie wchodzą</strong> &mdash; razem z odpowiadającą im dezaktywacją
+            idą do kosza jako zacięcie scrapera (w tej bazie <span id="flapCount2">&mdash;</span> takich par).
+            Działka wycofana ze sprzedaży nie wraca po dwóch dniach; wraca oferta, której portal na chwilę nie
+            pokazał albo którą częściowy scrape uznał za martwą.
             <strong>Dwa dni (21.07, 12.06) są wycięte</strong> jako artefakt pipeline'u &mdash; bug pętli
             <code>scrape&rarr;inactive&rarr;verify&rarr;reactivate</code> + jednorazowy backfill dat
             (naprawione 24.07) wygenerowały piki 432 i 182, kilkanaście % bazy w jeden dzień. Na osi
@@ -376,6 +382,13 @@
 
         const RAW = d.series || [];
         document.getElementById('title').textContent = d.title || 'Lublin – pokoje: wynajem';
+
+        if (d.flapping && d.flapping.pairs != null) {
+            ['flapCount', 'flapCount2'].forEach(function (id) {
+                const el = document.getElementById(id);
+                if (el) el.textContent = d.flapping.pairs;
+            });
+        }
 
         // Doba w toku (trend_generator.partial_day): ma za sobą część zaplanowanych skanów,
         // więc jej wartość to DOLNE oszacowanie — dzień jeszcze rośnie. Do serii, delt ani

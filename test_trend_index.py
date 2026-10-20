@@ -512,6 +512,53 @@ def test_price_changes():
               f"min={pc['net']['min_day']} ({pc['net']['min_label']})")
 
 
+def test_flapping_pairs_filtered():
+    print("\n🧹 Test: pary deaktywacja→reaktywacja ≤3 dni odsiane jako mrugnięcie")
+    offers = [{
+        # mrugnięcie: wraca po 2 dniach — para wypada z obu serii
+        'id': 'mrugniecie', 'first_seen': iso(date(2026, 9, 1)), 'last_seen': iso(date(2026, 9, 30)),
+        'active': True,
+        'deactivation_dates': [iso(date(2026, 9, 10))],
+        'reactivation_dates': [iso(date(2026, 9, 12))],
+    }, {
+        # realne wycofanie i powrót: 10 dni — para ZOSTAJE
+        'id': 'realny-powrot', 'first_seen': iso(date(2026, 9, 1)), 'last_seen': iso(date(2026, 9, 30)),
+        'active': True,
+        'deactivation_dates': [iso(date(2026, 9, 10))],
+        'reactivation_dates': [iso(date(2026, 9, 20))],
+    }]
+
+    gone, back, pairs = tg.life_events(offers[0])
+    check('mrugnięcie: deaktywacja odsiana', gone == [], str(gone))
+    check('mrugnięcie: reaktywacja odsiana', back == [], str(back))
+    check('mrugnięcie: 1 para odsiana', pairs == 1, str(pairs))
+
+    gone2, back2, pairs2 = tg.life_events(offers[1])
+    check('realny powrót: deaktywacja zostaje', gone2 == [date(2026, 9, 10)], str(gone2))
+    check('realny powrót: reaktywacja zostaje', back2 == [date(2026, 9, 20)], str(back2))
+    check('realny powrót: 0 par odsianych', pairs2 == 0, str(pairs2))
+
+    # Przedział życia oferty, której mrugnięcie odsiano, jest CIĄGŁY (bez przerwy)
+    spans, _ = tg.build_spans([offers[0]])
+    (_, iv), = spans
+    check('mrugnięcie nie dzieli przedziału życia', len(iv) == 1, str(iv))
+
+    series = [[tg._day_ms(date(2026, 9, 1) + timedelta(days=i)), 10] for i in range(30)]
+    out = tg.build_outflow(offers, series)
+    react = tg.build_inflow(offers, series)['react']
+    d10 = tg._day_ms(date(2026, 9, 10))
+    d12 = tg._day_ms(date(2026, 9, 12))
+    d20 = tg._day_ms(date(2026, 9, 20))
+    outflow_by_ms = dict(out['daily'])
+    react_by_ms = dict(react['daily'])
+    check('odpływ 10.09 liczy tylko realne wycofanie (1, nie 2)', outflow_by_ms[d10] == 1,
+          str(outflow_by_ms[d10]))
+    check('reaktywacja mrugnięcia (12.09) nie wchodzi do napływu', react_by_ms[d12] == 0,
+          str(react_by_ms[d12]))
+    check('realny powrót (20.09) wchodzi do napływu', react_by_ms[d20] == 1,
+          str(react_by_ms[d20]))
+
+
 def test_day_anchor_is_utc():
     print("\n🌍 Test 8: kotwica dnia niezależna od strefy czasowej")
     days = [date(2027, 3, 24) + timedelta(days=i) for i in range(5)]      # 28.03 = zmiana czasu
@@ -540,6 +587,7 @@ if __name__ == '__main__':
     test_refreshes_two_series()
     test_refresh_unscanned_day_is_a_gap()
     test_szperacz_backfill()
+    test_flapping_pairs_filtered()
     test_day_anchor_is_utc()
     print("\n" + "=" * 60)
     if FAILED:
