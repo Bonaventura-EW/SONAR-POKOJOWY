@@ -9,6 +9,11 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Indeks: odpływ/napływ odsiewa krótkie pary deaktywacja→reaktywacja jako mrugnięcie pipeline'u (2026-10-20)
+- **propagacja** z `SONAR---DZIA-KOWY` (issue #144, manifest `2026-09-03-audyt-wykresow-rynku`) — tam 66% par domykało się w ≤3 dni; u nas zmierzono na żądanie 85,4% (424 par, przegląd 29.09.2026). Mateusz zdecydował poczekać do połowy października mimo jednoznacznego pomiaru; `propagate:go` dał 20.10.2026.
+- **implementacja**: nowa `life_events(offer)` w `src/trend_generator.py` paruje każdą deaktywację z najbliższym późniejszym powrotem; para domknięta w ≤`FLAP_MAX_DAYS` (3) wypada z OBU serii naraz — słupek dnia zostaje (to nie jest luka), tylko nie liczy zdarzenia. Podpięte w `build_spans` (przedział życia nie dzieli się na mrugnięciu), `build_outflow`, `build_inflow` i `build_bands`. Licznik odsianych par w nowym bloku `flapping` w `trend_data.json`, wyświetlany na `docs/trend.html` przy wykresach odpływu i reaktywacji.
+- **świadomie NIE zmieniony**: próg 30% w `main._mark_inactive_offers` zostaje — łapie katastrofy, nie rozłożone w czasie artefakty; to naprawa po stronie wykresów.
+
 ### Firmy: pole „adresy” — pula adresów z przeniesionymi pinezkami (2026-10-04)
 - **zgłoszenie Mateusza**: przeniesione pinezki (fioletowe ↩, poprzednie adresy po zmianie adresu oferty) nie liczyły się nigdzie, więc uciekała łączna liczba adresów, którymi dysponuje firma. Wybrany wariant C z trzech (A: doliczyć do „łącznie”, B: pola przeniesione + pinezki).
 - **implementacja** (`docs/profile_tracker.html`, belka statystyk): nowa fioletowa pigułka **ADRESY** = unikalne adresy bieżących ogłoszeń + adresy znane tylko z `address_versions[1..]`, z dopiskiem `bieżące + N ↩`. Klucz = adres po `trim().toLowerCase()`; kilka ofert pod jednym adresem i powrót pod stary adres liczone raz. „łącznie” bez zmian (liczba ogłoszeń, 13 + 8 dalej daje 21).
