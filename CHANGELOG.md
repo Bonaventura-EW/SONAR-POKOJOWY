@@ -9,6 +9,13 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Odpływ ofert bez mignięć (2026-10-26)
+- **zgłoszenie Mateusza**: „skąd różnica w danych” między Odpływem na Indeksie a „Usuniętymi” w sekcji rotacji. Rozbiór 25.10 oferta po ofercie: Odpływ 32 = 14 wspólnych + **12, które już wróciły** + 6 zdjętych w nocy (inny dzień przypisania); rotacja 27 = 14 + 13 wykrytych dopiero 26.10. Z 12 powracających 10 wróciło przy następnym skanie tego samego dnia — to mignięcia, nie zejścia z rynku.
+- **fix (backend, źródło)**: `trend_generator.exit_days()` — dni zejścia z rynku z `deactivation_dates` (także z `versions[]`), z pominięciem deaktywacji, po której oferta wróciła (`reactivation_dates`) w ciągu `BLINK_MAX_HOURS = 24`. Fallback na `last_seen` dla ofert sprzed 03.09.2026 bez zmian. Używają jej `build_outflow` i `map_generator._gone_days` (suwak „Zniknięcia”) — jedna funkcja zamiast dwóch kopii konwencji, więc mapa i wykres nie mogą się znów rozjechać.
+- **liczby**: odpływ łącznie 3434 → 2969 (−465; od 03.09 to 465 z 1983 zniknięć, prawie co czwarte), średnio 21,1 → 18,2/dzień, rekord 72 (24.09) → 49 (30.09); 25.10: 32 → 20. Zmiana dotyczy wyłącznie dni od 03.09 (wcześniej brak `deactivation_dates`, więc i mignięć w danych).
+- **uwaga**: zniknięcie z ostatnich skanów liczy się, dopóki oferta nie wróci, więc wartość ostatniej doby może jeszcze spaść przy następnej generacji. Powroty mignięć dalej liczą się na wykresach Reaktywacji i Napływu całkowitego — osobna decyzja.
+- **testy**: `test_trend_index.py` Test 10 — powrót po 6 h i po 16 h (przez noc) to mignięcie, powrót po 3 dniach to zejście, mignięcie rozdzielone zmianą adresu (`versions[]`) też pominięte, fallback `last_seen`, mapa = wykres.
+
 ### Analiza rynku: wykres historii Market Velocity + skala bez limitu 100 (2026-10-26)
 - **zgłoszenie Mateusza**: pod „Rozkładem dziennym” w sekcji Wskaźnik Rotacji Rynku chciał wykres Market Velocity z każdego dnia wstecz. Z 5 mockupów na prawdziwych danych wybrał wariant A (linia na tle stref) i skalę „bez limitu”, okres 6 miesięcy z możliwością rozszerzenia na całą historię.
 - **diagnoza skali**: velocity = (nowe + usunięte z 7 dni) ÷ 2 było ucinane na 100, a rynek przekraczał 100 przez 79 z ostatnich 90 dni. Z limitem historia byłaby płaską linią na 100. Limit usunięty: pasek pokazuje realną wartość (szerokość nadal maks. 100%, „/100” dopisane tylko do 100), legenda „81-100” → „81+”.

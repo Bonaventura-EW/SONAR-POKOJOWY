@@ -184,6 +184,9 @@
             <strong>Skąd dane:</strong> dla każdego dnia liczba ofert, które tego dnia wypadły z listingu
             (<code>deactivation_dates</code>). Czerwona linia to dzienny odpływ, pomarańczowa to średnia krocząca
             z 7 dni — wygładza dzienny szum i pokazuje trend nasilenia znikania.
+            <strong>Mignięcia się nie liczą</strong>: oferta, której zabrakło w skanie, a w ciągu doby wróciła,
+            nie zeszła z rynku (od 26.10.2026; wcześniej wliczane: od 03.09 było to 465 z 1983 zniknięć, prawie co czwarte). Zniknięcie z ostatnich
+            skanów liczy się, dopóki oferta nie wróci.
             <strong>Historia jest zaniżona</strong>: daty deaktywacji zapisujemy dopiero od 03.09.2026, a starsze oferty
             zostawiły tylko <code>last_seen</code>, czyli <em>wyłącznie ostatnie</em> zniknięcie — oferta, która umarła
             i wróciła, nie ma śladu po swojej pierwszej śmierci. Widać to w bilansie: napływ 3174 &minus; odpływ 1590 = +1584,
