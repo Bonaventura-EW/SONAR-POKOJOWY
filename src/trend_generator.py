@@ -530,6 +530,36 @@ def build_inflow(offers, series=None):
     }
 
 
+def build_velocity(outflow, inflow):
+    """Market Velocity (sekcja „Wskaźnik Rotacji Rynku"): dla każdego dnia
+    (nowe oferty + zejścia z rynku z 7 dni kończących się tym dniem) ÷ 2.
+
+    Składniki to DOKŁADNIE dzienne szeregi wykresów „Nowe oferty" i „Odpływ ofert",
+    więc kafelki i rozkład dzienny sekcji zgadzają się z tymi wykresami. Okno musi
+    mieć wszystkie 7 dni zmierzone: dzień bez skanu (albo doba w toku) daje lukę,
+    nie zaniżoną wartość. Bez limitu 100 — rynek zwykle go przekracza.
+    """
+    if not outflow or not inflow or not inflow.get('new'):
+        return None
+    out_d, new_d = outflow['daily'], inflow['new']['daily']
+    if [ms for ms, _ in out_d] != [ms for ms, _ in new_d]:
+        return None
+    daily, new7, out7 = [], [], []
+    for i, (ms, _) in enumerate(out_d):
+        window = range(i - 6, i + 1)
+        if i < 6 or any(out_d[j][1] is None or new_d[j][1] is None for j in window):
+            daily.append([ms, None])
+            new7.append([ms, None])
+            out7.append([ms, None])
+            continue
+        n = sum(new_d[j][1] for j in window)
+        r = sum(out_d[j][1] for j in window)
+        daily.append([ms, round((n + r) / 2)])
+        new7.append([ms, n])
+        out7.append([ms, r])
+    return {'daily': daily, 'new7': new7, 'out7': out7}
+
+
 def _price_events(offer):
     """Zmiany ceny oferty jako [(dzień, delta_zł), ...] — jedna para sąsiednich
     wpisów historii to jedno zdarzenie.
@@ -1021,6 +1051,8 @@ def generate_trend_data(base_dir: Path = None) -> bool:
         'promoted': build_promoted(offers, series, load_scan_days(base_dir), base_dir),
         'refreshes': build_refreshes(offers, load_scan_days(base_dir), base_dir),
     }
+
+    out['velocity'] = build_velocity(out['outflow'], out['inflow'])
 
     write_json_atomic(output_file, out)
     of = out['outflow'] or {}

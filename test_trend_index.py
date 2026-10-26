@@ -563,6 +563,24 @@ def test_blinks_are_not_outflow():
         check('mignięcie nie ma dnia zniknięcia na mapie', map_generator._gone_days(offers[0]) == [])
 
 
+def test_velocity():
+    print("\n🔄 Test 11: Market Velocity z szeregów Nowe oferty + Odpływ")
+    days = [date(2026, 5, 16) + timedelta(days=i) for i in range(10)]
+    ms = [tg._day_ms(d) for d in days]
+    new = [2, 4, 6, 8, 10, 12, 14, 1, 1, None]      # ostatni dzień: doba w toku
+    out = [1, 1, 1, 1, 1, 1, 1, 30, 30, None]
+    v = tg.build_velocity({'daily': [[m, x] for m, x in zip(ms, out)]},
+                          {'new': {'daily': [[m, x] for m, x in zip(ms, new)]}})
+    vals = [x for _, x in v['daily']]
+    check('pierwsze 6 dni bez pełnego okna = luka', vals[:6] == [None] * 6, str(vals))
+    check('7. dzień: (56 nowych + 7 zejść) / 2 = 32', vals[6] == 32 and v['new7'][6][1] == 56 and v['out7'][6][1] == 7,
+          f"v={vals[6]} new7={v['new7'][6][1]} out7={v['out7'][6][1]}")
+    check('okno przesuwa się o dzień', vals[7] == round((4 + 6 + 8 + 10 + 12 + 14 + 1 + 6 + 30) / 2), str(vals[7]))
+    check('bez limitu 100', tg.build_velocity({'daily': [[m, 100] for m in ms[:7]]},
+                                              {'new': {'daily': [[m, 100] for m in ms[:7]]}})['daily'][6][1] == 700)
+    check('doba w toku w oknie = luka', vals[9] is None, str(vals))
+
+
 if __name__ == '__main__':
     print("🧪 TEST INDEKSU PODAŻY\n" + "=" * 60)
     test_intervals()
@@ -583,6 +601,7 @@ if __name__ == '__main__':
     test_szperacz_backfill()
     test_day_anchor_is_utc()
     test_blinks_are_not_outflow()
+    test_velocity()
     print("\n" + "=" * 60)
     if FAILED:
         print(f"❌ Niezaliczone ({len(FAILED)}): " + ', '.join(FAILED))
