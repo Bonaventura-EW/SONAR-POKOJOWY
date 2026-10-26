@@ -155,20 +155,53 @@ def exit_days(offer):
     Oferty sprzed wdrożenia `deactivation_dates` (03.09.2026) zostawiły tylko
     `last_seen` i tylko dla nich robimy fallback.
     """
-    gone = _collect_stamps(offer, 'deactivation_dates')
-    back = _collect_stamps(offer, 'reactivation_dates')
-    days = set()
-    for stamp in gone:
-        returned = next((r for r in back if r > stamp), None)
-        if returned is not None and returned - stamp <= timedelta(hours=BLINK_MAX_HOURS):
-            continue
-        days.add(stamp.date())
+    gone, _, blink_gone, _ = _blinks(offer)
+    days = {stamp.date() for stamp in gone if stamp not in blink_gone}
     if not gone and not offer.get('active') and offer.get('last_seen'):
         try:
             days.add(_d(offer['last_seen']))
         except (ValueError, TypeError):
             pass
     return sorted(days)
+
+
+def _blinks(offer):
+    """Mignięcia oferty: deaktywacja, po której NAJBLIŻSZA reaktywacja przyszła
+    w ciągu BLINK_MAX_HOURS. Mignięcie to jedno nie-zdarzenie — oferta nie zeszła
+    z rynku, więc nie liczy się ani zniknięcie, ani powrót.
+
+    Zwraca (deaktywacje, reaktywacje, deaktywacje-mignięcia, powroty-mignięcia).
+    """
+    gone = _collect_stamps(offer, 'deactivation_dates')
+    back = _collect_stamps(offer, 'reactivation_dates')
+    blink_gone, blink_back = set(), set()
+    for stamp in gone:
+        returned = next((r for r in back if r > stamp), None)
+        if returned is not None and returned - stamp <= timedelta(hours=BLINK_MAX_HOURS):
+            blink_gone.add(stamp)
+            blink_back.add(returned)
+    return gone, back, blink_gone, blink_back
+
+
+def real_reactivations(offer):
+    """Dni, w których oferta WRÓCIŁA na rynek (`reactivation_dates`, także
+    z `versions[]`) — bez powrotów z mignięć. Wspólne dla wykresów Reaktywacje
+    i Napływ całkowity (build_inflow) oraz pasm „recykling" (build_bands)."""
+    _, back, _, blink_back = _blinks(offer)
+    return sorted(stamp.date() for stamp in back if stamp not in blink_back)
+
+
+def is_reactivated(offer):
+    """Flaga „reaktywowana" w data.json (mapa: Pochodzenie, Ruch, Analiza rynku).
+
+    Oferta wróciła kiedyś na rynek, jeśli ma `reactivated_at` i choć jeden powrót
+    nie jest mignięciem. Oferty z samym `reactivated_at` bez dat (sprzed
+    `reactivation_dates`) zostają reaktywowane jak dotąd.
+    """
+    if not offer.get('reactivated_at'):
+        return False
+    _, back, _, blink_back = _blinks(offer)
+    return not back or any(stamp not in blink_back for stamp in back)
 
 
 def build_spans(offers):
@@ -474,8 +507,9 @@ def build_inflow(offers, series=None):
 
     - `new`       : nowe oferty (pierwsze pojawienie się, `first_seen` = ten dzień),
                     BEZ reaktywacji. Czysty przyrost świeżych ogłoszeń.
-    - `react`     : same reaktywacje (`reactivation_dates` = ten dzień) — oferty,
-                    które wróciły na rynek po wcześniejszym zniknięciu.
+    - `react`     : same reaktywacje (real_reactivations = ten dzień) — oferty,
+                    które wróciły na rynek po wcześniejszym zniknięciu. Powrót
+                    z mignięcia się nie liczy, tak jak samo mignięcie w odpływie.
     - `new_react` : suma powyższych = wszystkie „pojawienia się" na rynku danego
                     dnia (świeże + wskrzeszone).
 
@@ -499,7 +533,7 @@ def build_inflow(offers, series=None):
                     new[d] = new.get(d, 0) + 1
             except (ValueError, TypeError):
                 pass
-        for d in collect_dates(o, 'reactivation_dates'):
+        for d in real_reactivations(o):
             if d >= start:
                 react[d] = react.get(d, 0) + 1
 
@@ -638,7 +672,8 @@ def build_bands(offers, series=None):
 
     - `new`   : oferty świeże — do dnia D nie miały ani jednej reaktywacji,
     - `react` : „recykling" — oferty, które do dnia D już kiedyś wróciły z martwych
-                (najwcześniejsza data w `reactivation_dates` <= D).
+                (najwcześniejsza data z real_reactivations <= D — mignięcie
+                nie przenosi oferty do recyklingu).
 
     Metoda: UDZIAŁ pasm liczymy z rekonstrukcji przedziałów życia (build_spans),
     a potem nakładamy go na MIERZONY Indeks, żeby suma pasm dalej równała się
@@ -659,7 +694,7 @@ def build_bands(offers, series=None):
 
     first_reactivation = []
     for offer, intervals in spans:
-        dates = collect_dates(offer, 'reactivation_dates')
+        dates = real_reactivations(offer)
         first_reactivation.append((intervals, dates[0] if dates else None))
 
     measured = {ms: value for ms, value in (series or [])}

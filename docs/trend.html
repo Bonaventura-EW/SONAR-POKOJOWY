@@ -200,7 +200,7 @@
             więc prawy koniec zawsze opadał: od 29.07 wykres pokazywał &minus;10%, a rynek w tym czasie urósł o +1,9%.
             Przełącznik <strong>Rozbij</strong> dzieli tę samą liczbę na pasma &mdash; udział pasm bierze się z rekonstrukcji
             przedziałów życia, więc recykling jest <em>zaniżony</em> (oferta martwa danego dnia, wskrzeszona później, liczy się
-            jeszcze jako świeża). MAX/MIN/zakres liczone automatycznie; zmiany 6M/1Y pojawią się, gdy uzbieramy dłuższą historię.
+            jeszcze jako świeża). Mignięcie (powrót w ciągu doby) nie przenosi oferty do recyklingu. MAX/MIN/zakres liczone automatycznie; zmiany 6M/1Y pojawią się, gdy uzbieramy dłuższą historię.
         </div>
 
         <div class="card" style="margin-top:22px">
@@ -330,6 +330,7 @@
         <div class="foot">
             <strong>Skąd dane:</strong> suma nowych ofert (<code>first_seen</code>) i reaktywacji
             (<code>reactivation_dates</code>) danego dnia &mdash; łączny „dopływ" ofert na rynek.
+            Powroty z mignięć się nie liczą (patrz Reaktywacje), więc napływ i odpływ bilansują się z Indeksem.
             Dni-artefakty reaktywacji (bug pętli, naprawiony 24.07) są wycięte także tutaj.
             <strong>Odcinek do 30.06.2026 jest wycięty</strong> &mdash; pole <code>reactivation_dates</code> nie istniało
             do początku lipca (starsze wersje pipeline'u miały wyłącznie licznik <code>reactivation_count</code>), a przy
@@ -346,6 +347,10 @@
         <div class="foot">
             <strong>Skąd dane:</strong> dla każdego dnia liczba ofert, które tego dnia wróciły na rynek
             po wcześniejszym zniknięciu (data w <code>reactivation_dates</code> = ten dzień).
+            <strong>Powrót z mignięcia się nie liczy</strong>: oferta, której zabrakło w skanie, a w ciągu doby wróciła,
+            nie zeszła z rynku, więc nie mogła na niego wrócić (od 26.10.2026, tak samo jak w Odpływie). Takich powrotów
+            było 473 z 1850 reaktywacji, wszystkie od 03.09, odkąd zapisujemy daty zniknięć. Bez tego od 03.09 napływ
+            minus odpływ wychodził +169, choć Indeks spadł o 289.
             <strong>Dwa dni (21.07, 12.06) są wycięte</strong> jako artefakt pipeline'u &mdash; bug pętli
             <code>scrape&rarr;inactive&rarr;verify&rarr;reactivate</code> + jednorazowy backfill dat
             (naprawione 24.07) wygenerowały piki 432 i 182, kilkanaście % bazy w jeden dzień. Na osi

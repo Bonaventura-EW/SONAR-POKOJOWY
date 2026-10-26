@@ -581,6 +581,36 @@ def test_velocity():
     check('doba w toku w oknie = luka', vals[9] is None, str(vals))
 
 
+def test_blink_returns_are_not_reactivations():
+    print("\n♻️  Test 12: powrót z mignięcia nie jest reaktywacją")
+    import map_generator
+    d = lambda day, hour: datetime(2026, 7, day, hour).astimezone().isoformat()
+    blink = {'id': 'b', 'first_seen': d(1, 9), 'last_seen': d(10, 9), 'active': True, 'reactivated_at': d(5, 18),
+             'deactivation_dates': [d(5, 12)], 'reactivation_dates': [d(5, 18)]}
+    real = {'id': 'r', 'first_seen': d(1, 9), 'last_seen': d(10, 9), 'active': True, 'reactivated_at': d(8, 12),
+            'deactivation_dates': [d(5, 12)], 'reactivation_dates': [d(8, 12)]}
+    mixed = {'id': 'm', 'first_seen': d(1, 9), 'last_seen': d(10, 9), 'active': True, 'reactivated_at': d(9, 18),
+             'deactivation_dates': [d(3, 12), d(9, 12)], 'reactivation_dates': [d(6, 12), d(9, 18)]}
+    legacy = {'id': 'l', 'first_seen': d(1, 9), 'last_seen': d(10, 9), 'active': True, 'reactivated_at': d(2, 12)}
+    check('mignięcie: brak prawdziwych reaktywacji', tg.real_reactivations(blink) == [], str(tg.real_reactivations(blink)))
+    check('powrót po 3 dniach zostaje', tg.real_reactivations(real) == [date(2026, 7, 8)])
+    check('mieszana: zostaje tylko prawdziwy powrót', tg.real_reactivations(mixed) == [date(2026, 7, 6)],
+          str(tg.real_reactivations(mixed)))
+    check('flaga mapy: samo mignięcie to nie reaktywacja', map_generator.is_reactivated(blink) is False)
+    check('flaga mapy: prawdziwy powrót / mieszana / stara bez dat', all(map_generator.is_reactivated(o) for o in (real, mixed, legacy)))
+
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        (base / 'data').mkdir()
+        for day in range(1, 11):
+            record_day(base, date(2026, 7, day), 700)
+        offers = [blink, real, mixed]
+        series = tg.build_series(offers, base_dir=base)
+        react = {tg._ms_day(ms).day: v for ms, v in tg.build_inflow(offers, series)['react']['daily']}
+        check('wykres Reaktywacji: 05.07 bez mignięcia, 06.07 i 08.07 po jednej, 09.07 bez mignięcia',
+              (react[5], react[6], react[8], react[9]) == (0, 1, 1, 0), str(react))
+
+
 if __name__ == '__main__':
     print("🧪 TEST INDEKSU PODAŻY\n" + "=" * 60)
     test_intervals()
@@ -602,6 +632,7 @@ if __name__ == '__main__':
     test_day_anchor_is_utc()
     test_blinks_are_not_outflow()
     test_velocity()
+    test_blink_returns_are_not_reactivations()
     print("\n" + "=" * 60)
     if FAILED:
         print(f"❌ Niezaliczone ({len(FAILED)}): " + ', '.join(FAILED))
