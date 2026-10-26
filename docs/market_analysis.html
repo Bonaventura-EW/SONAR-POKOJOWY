@@ -1709,6 +1709,26 @@
             }
         };
 
+        // Pionowa kreska na pierwszym dniu każdego miesiąca (etykiety mają format DD.MM)
+        const velocityMonthLinesPlugin = {
+            id: 'velocityMonthLines',
+            beforeDatasetsDraw(chart) {
+                const { ctx, chartArea: area, scales: { x } } = chart;
+                ctx.save();
+                ctx.strokeStyle = 'rgba(51, 51, 51, 0.22)';
+                ctx.lineWidth = 1;
+                chart.data.labels.forEach((label, i) => {
+                    if (i === 0 || !label.startsWith('01.')) return;
+                    const px = Math.round(x.getPixelForValue(i)) + 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(px, area.top);
+                    ctx.lineTo(px, area.bottom);
+                    ctx.stroke();
+                });
+                ctx.restore();
+            }
+        };
+
         // Wartość dzisiejsza podpisana przy ostatnim punkcie
         const velocityEndLabelPlugin = {
             id: 'velocityEndLabel',
@@ -1816,7 +1836,7 @@
                         }
                     }
                 },
-                plugins: [velocityZonesPlugin, velocityEndLabelPlugin]
+                plugins: [velocityZonesPlugin, velocityMonthLinesPlugin, velocityEndLabelPlugin]
             });
         }
 
