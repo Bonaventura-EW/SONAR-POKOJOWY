@@ -617,6 +617,32 @@
             margin-top: 4px;
         }
 
+        .velocity-history-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px 16px;
+            margin-top: 32px;
+            margin-bottom: 6px;
+        }
+
+        .velocity-history-head h3 {
+            color: #333;
+            font-size: 16px;
+        }
+
+        .velocity-history-head .toggle-btn {
+            padding: 6px 14px;
+            font-size: 13px;
+        }
+
+        .velocity-history-meta {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 12px;
+        }
+
         @media (max-width: 768px) {
             header {
                 flex-direction: column;
@@ -911,13 +937,25 @@
                 </div>
             </div>
             <p style="margin-top: 8px; font-size: 13px; color: #666;">
-                0-30: Rynek słaby | 31-60: Umiarkowany | 61-80: Aktywny | 81-100: Bardzo aktywny
+                0-30: Rynek słaby | 31-60: Umiarkowany | 61-80: Aktywny | 81+: Bardzo aktywny
             </p>
-            
+
             <h3 style="margin-top: 32px; margin-bottom: 16px; color: #333; font-size: 16px;">
                 Rozkład dzienny (ostatnie 7 dni)
             </h3>
             <div class="rotation-bars" id="rotationBars"></div>
+
+            <div class="velocity-history-head">
+                <h3>Market Velocity: historia</h3>
+                <div class="toggle-buttons">
+                    <button class="toggle-btn active" data-velocity-range="6m">6 miesięcy</button>
+                    <button class="toggle-btn" data-velocity-range="all">Cała historia</button>
+                </div>
+            </div>
+            <div class="velocity-history-meta" id="velocityHistoryMeta"></div>
+            <div class="chart-wrapper" style="height: 260px; margin-bottom: 0;">
+                <canvas id="velocityHistoryChart"></canvas>
+            </div>
         </div>
         
         <!-- B3: TIMELINE AKTYWNOŚCI (nowe vs usunięte per dzień) -->
@@ -1210,7 +1248,26 @@
             
             const totalNew = last7Days.reduce((sum, d) => sum + d.new, 0);
             const totalRemoved = last7Days.reduce((sum, d) => sum + d.removed, 0);
-            
+
+            // Historia Market Velocity: dla każdego dnia okno 7 dni kończące się tym dniem
+            // (ta sama formuła co pasek; ostatni punkt = wartość paska)
+            const dayMs = 24 * 60 * 60 * 1000;
+            const dayKeys = Object.keys(dailyNew).concat(Object.keys(dailyRemoved)).sort();
+            const velocityHistory = [];
+            if (dayKeys.length) {
+                const totalDays = Math.floor((now - new Date(dayKeys[0] + 'T00:00:00Z')) / dayMs);
+                const window7 = [];
+                for (let i = totalDays; i >= 0; i--) {
+                    const date = new Date(now - i * dayMs).toISOString().split('T')[0];
+                    window7.push({ new: dailyNew[date] || 0, removed: dailyRemoved[date] || 0 });
+                    if (window7.length > 7) window7.shift();
+                    if (window7.length < 7) continue;
+                    const n = window7.reduce((sum, d) => sum + d.new, 0);
+                    const r = window7.reduce((sum, d) => sum + d.removed, 0);
+                    velocityHistory.push({ date, new: n, removed: r, velocity: Math.round((n + r) / 2) });
+                }
+            }
+
             return {
                 offers: offers,  // B3/C2: surowe oferty dla nowych sekcji
                 survival: {
@@ -1230,9 +1287,11 @@
                         new: totalNew,
                         removed: totalRemoved,
                         net: totalNew - totalRemoved,
-                        velocity: Math.min(100, Math.round((totalNew + totalRemoved) / 2))
+                        // Bez limitu 100: rynek zwykle przekracza 100 i ucięta historia była płaska
+                        velocity: Math.round((totalNew + totalRemoved) / 2)
                     },
-                    daily: last7Days
+                    daily: last7Days,
+                    history: velocityHistory
                 },
                 // Dane dla sekcji Lifespan
                 lifespan: {
@@ -1282,6 +1341,7 @@
             renderLifespan();
             renderPriceChanges();
             renderRotation();
+            renderVelocityHistory();
             renderTimeline();        // B3
             renderPriceDistribution(); // C2-A
         }
@@ -1589,8 +1649,8 @@
             netEl.style.color = net > 0 ? '#10b981' : (net < 0 ? '#ef4444' : '#666');
             
             const velocity = data.last7d.velocity;
-            document.getElementById('velocityFill').style.width = velocity + '%';
-            document.getElementById('velocityText').textContent = velocity + '/100';
+            document.getElementById('velocityFill').style.width = Math.min(100, velocity) + '%';
+            document.getElementById('velocityText').textContent = velocity > 100 ? velocity : velocity + '/100';
             
             const barsContainer = document.getElementById('rotationBars');
             const maxValue = Math.max(...data.daily.map(d => Math.max(d.new, d.removed)), 1);
@@ -1612,7 +1672,163 @@
                 `;
             }).join('');
         }
-        
+
+        // 2.3b HISTORIA MARKET VELOCITY (linia na tle stref z legendy paska)
+        let velocityHistoryRange = '6m';
+        let velocityHistoryChart = null;
+
+        const VELOCITY_ZONES = [
+            { lo: 0, hi: 30, name: 'słaby', tint: 'rgba(16, 185, 129, 0.10)' },
+            { lo: 30, hi: 60, name: 'umiarkowany', tint: 'rgba(163, 196, 58, 0.12)' },
+            { lo: 60, hi: 80, name: 'aktywny', tint: 'rgba(251, 191, 36, 0.14)' },
+            { lo: 80, hi: Infinity, name: 'bardzo aktywny', tint: 'rgba(239, 68, 68, 0.09)' }
+        ];
+
+        function velocityZoneName(v) {
+            return (VELOCITY_ZONES.find(z => v <= z.hi) || VELOCITY_ZONES[VELOCITY_ZONES.length - 1]).name;
+        }
+
+        // Pasy stref pod linią + podpis strefy przy lewej krawędzi
+        const velocityZonesPlugin = {
+            id: 'velocityZones',
+            beforeDatasetsDraw(chart) {
+                const { ctx, chartArea: area, scales: { y } } = chart;
+                ctx.save();
+                VELOCITY_ZONES.forEach(z => {
+                    if (z.lo >= y.max) return;
+                    const top = y.getPixelForValue(Math.min(z.hi, y.max));
+                    const bottom = y.getPixelForValue(z.lo);
+                    ctx.fillStyle = z.tint;
+                    ctx.fillRect(area.left, top, area.right - area.left, bottom - top);
+                    ctx.fillStyle = '#8a8fa3';
+                    ctx.font = '600 10.5px ' + Chart.defaults.font.family;
+                    ctx.textAlign = 'left';
+                    ctx.fillText(z.name.toUpperCase(), area.left + 6, top + 13);
+                });
+                ctx.restore();
+            }
+        };
+
+        // Wartość dzisiejsza podpisana przy ostatnim punkcie
+        const velocityEndLabelPlugin = {
+            id: 'velocityEndLabel',
+            afterDatasetsDraw(chart) {
+                const data = chart.data.datasets[0].data;
+                const point = chart.getDatasetMeta(0).data[data.length - 1];
+                if (!point) return;
+                const { ctx } = chart;
+                ctx.save();
+                ctx.font = '700 12px ' + Chart.defaults.font.family;
+                ctx.fillStyle = '#333';
+                ctx.textAlign = 'right';
+                ctx.fillText(String(data[data.length - 1]), point.x - 8, point.y - 10);
+                ctx.restore();
+            }
+        };
+
+        function renderVelocityHistory() {
+            let history = allData.rotation.history;
+            if (history.length < 2) return;
+
+            if (velocityHistoryRange === '6m') {
+                const cutoff = new Date();
+                cutoff.setMonth(cutoff.getMonth() - 6);
+                const cutoffKey = cutoff.toISOString().split('T')[0];
+                history = history.filter(h => h.date >= cutoffKey);
+            }
+
+            const fmt = (key, withYear) => {
+                const [y, m, d] = key.split('-');
+                return withYear ? `${d}.${m}.${y}` : `${d}.${m}`;
+            };
+            const values = history.map(h => h.velocity);
+            const last = history.length - 1;
+
+            // Statystyki bez dzisiejszej doby: usunięcia z dziś doliczą się dopiero po jutrzejszym skanie
+            const complete = history.slice(0, last);
+            const completeValues = complete.map(h => h.velocity);
+            const maxV = Math.max(...completeValues);
+            const minV = Math.min(...completeValues);
+            const avgV = Math.round(completeValues.reduce((a, b) => a + b, 0) / completeValues.length);
+            document.getElementById('velocityHistoryMeta').textContent =
+                `dziś ${values[last]} (doba w toku) · wczoraj ${values[last - 1]} · średnio ${avgV}` +
+                ` · max ${maxV} (${fmt(complete[completeValues.indexOf(maxV)].date)})` +
+                ` · min ${minV} (${fmt(complete[completeValues.indexOf(minV)].date)})`;
+
+            const yMax = Math.max(100, Math.ceil(Math.max(...values) / 50) * 50);
+
+            if (velocityHistoryChart) velocityHistoryChart.destroy();
+
+            const ctx = document.getElementById('velocityHistoryChart').getContext('2d');
+            velocityHistoryChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: history.map(h => fmt(h.date)),
+                    datasets: [{
+                        label: 'Market Velocity',
+                        data: values,
+                        borderColor: '#667eea',
+                        borderWidth: 2,
+                        tension: 0.25,
+                        fill: false,
+                        // Dzisiejsza doba (w toku): pusty punkt i przerywany ostatni odcinek
+                        pointRadius: values.map((_, i) => i === last ? 5 : 0),
+                        pointHoverRadius: 5,
+                        pointBackgroundColor: values.map((_, i) => i === last ? '#fff' : '#667eea'),
+                        pointBorderColor: '#667eea',
+                        pointBorderWidth: 2,
+                        segment: { borderDash: c => c.p1DataIndex === last ? [5, 4] : undefined }
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            displayColors: false,
+                            callbacks: {
+                                title: items => fmt(history[items[0].dataIndex].date, true),
+                                label: item => {
+                                    const h = history[item.dataIndex];
+                                    const lines = [
+                                        `Velocity: ${h.velocity} · ${velocityZoneName(h.velocity)}`,
+                                        `7 dni: +${h.new} nowych / -${h.removed} usuniętych`
+                                    ];
+                                    if (item.dataIndex === last) lines.push('doba w toku: część usunięć dojdzie jutro');
+                                    return lines;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { maxRotation: 0, autoSkip: true, autoSkipPadding: 16, maxTicksLimit: 12, font: { size: 11 } }
+                        },
+                        y: {
+                            min: 0,
+                            max: yMax,
+                            grid: { color: '#eef0f4' },
+                            ticks: { stepSize: yMax > 100 ? 50 : 20, font: { size: 11 } }
+                        }
+                    }
+                },
+                plugins: [velocityZonesPlugin, velocityEndLabelPlugin]
+            });
+        }
+
+        document.querySelectorAll('[data-velocity-range]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                velocityHistoryRange = btn.dataset.velocityRange;
+                document.querySelectorAll('[data-velocity-range]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderVelocityHistory();
+            });
+        });
+
         // Obsługa suwaka
         document.getElementById('daysSlider').addEventListener('input', (e) => {
             currentDays = parseInt(e.target.value);

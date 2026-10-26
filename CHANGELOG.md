@@ -9,6 +9,13 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Analiza rynku: wykres historii Market Velocity + skala bez limitu 100 (2026-10-26)
+- **zgłoszenie Mateusza**: pod „Rozkładem dziennym” w sekcji Wskaźnik Rotacji Rynku chciał wykres Market Velocity z każdego dnia wstecz. Z 5 mockupów na prawdziwych danych wybrał wariant A (linia na tle stref) i skalę „bez limitu”, okres 6 miesięcy z możliwością rozszerzenia na całą historię.
+- **diagnoza skali**: velocity = (nowe + usunięte z 7 dni) ÷ 2 było ucinane na 100, a rynek przekraczał 100 przez 79 z ostatnich 90 dni. Z limitem historia byłaby płaską linią na 100. Limit usunięty: pasek pokazuje realną wartość (szerokość nadal maks. 100%, „/100” dopisane tylko do 100), legenda „81-100” → „81+”.
+- **implementacja** (`docs/market_analysis.html`): `processData()` liczy `rotation.history`, czyli okno 7 dni dla każdego dnia od początku danych, z tych samych liczników co pasek, więc ostatni punkt = wartość paska. Wykres Chart.js z pasami stref (słaby / umiarkowany / aktywny / bardzo aktywny), podpisem dzisiejszej wartości, tooltipem (velocity, strefa, +nowe / −usunięte z 7 dni) i przełącznikiem 6 miesięcy / cała historia.
+- **doba w toku**: usunięcia liczą się po `last_seen`, więc część dzisiejszych dolicza się dopiero po jutrzejszym porannym skanie. Ostatni punkt jest pusty, ostatni odcinek przerywany, a min/max/średnia w podpisie pomijają dzisiejszą dobę.
+- **do sprawdzenia osobno**: w „całej historii” velocity przed ~10.05.2026 wynosi ~5–15, a potem skacze do 150+. Wykres wiernie oddaje liczniki z `docs/data.json`, przyczyny w danych nie diagnozowałem w tej zmianie.
+
 ### Firmy: pole „adresy” — pula adresów z przeniesionymi pinezkami (2026-10-04)
 - **zgłoszenie Mateusza**: przeniesione pinezki (fioletowe ↩, poprzednie adresy po zmianie adresu oferty) nie liczyły się nigdzie, więc uciekała łączna liczba adresów, którymi dysponuje firma. Wybrany wariant C z trzech (A: doliczyć do „łącznie”, B: pola przeniesione + pinezki).
 - **implementacja** (`docs/profile_tracker.html`, belka statystyk): nowa fioletowa pigułka **ADRESY** = unikalne adresy bieżących ogłoszeń + adresy znane tylko z `address_versions[1..]`, z dopiskiem `bieżące + N ↩`. Klucz = adres po `trim().toLowerCase()`; kilka ofert pod jednym adresem i powrót pod stary adres liczone raz. „łącznie” bez zmian (liczba ogłoszeń, 13 + 8 dalej daje 21).
