@@ -90,6 +90,35 @@
         .ttNet .ttAvg { color: #8b93a7; font-size: 11.5px; margin-top: 5px; }
         .ttNet .ttGap { color: #8b93a7; }
         .apexcharts-menu-item:hover { background: #2f3950 !important; }
+        /* Wskaźnik Rotacji Rynku (przeniesiony z Analizy rynku) */
+        .rotTiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin: 6px 0 22px; }
+        .rotTile { background: #222836; border-radius: 12px; padding: 14px 16px; border-left: 3px solid #6c7bf2; }
+        .rotTile .l { font-size: 12px; color: #8b93a7; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; margin-bottom: 6px; }
+        .rotTile .v { font-size: 28px; font-weight: 700; }
+        .rotH { font-size: 16px; color: #fff; margin: 0 0 10px; }
+        .velBar { height: 36px; background: #3a4255; border-radius: 18px; overflow: hidden; }
+        .velFill {
+            height: 100%; border-radius: 18px; background: linear-gradient(90deg, #37c26b, #f5b942, #e8624c);
+            display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 15px;
+            text-shadow: 0 1px 2px rgba(0,0,0,.35); transition: width .5s ease;
+        }
+        .rotZones { margin: 8px 0 26px; font-size: 13px; color: #8b93a7; }
+        .rotBars { display: flex; gap: 8px; }
+        .rotDay { flex: 1; text-align: center; min-width: 0; }
+        .rotDay .d { font-size: 11px; color: #8b93a7; margin-bottom: 4px; }
+        .rotDay .bars { display: flex; flex-direction: column; gap: 2px; height: 100px; justify-content: flex-end; }
+        .rotDay .bar { border-radius: 4px; }
+        .rotDay .bar.n { background: #37c26b; } .rotDay .bar.r { background: #e8624c; }
+        .rotDay .c { font-size: 10.5px; font-weight: 600; color: #c7cede; margin-top: 4px; font-variant-numeric: tabular-nums; }
+        .velHead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px 16px; margin-top: 28px; }
+        .velHead .rotH { margin: 0; }
+        .velHead .idxToolbar { margin: 0; }
+        .velMeta { font-size: 13px; color: #8b93a7; margin: 6px 0 4px; }
+        .ttVel { padding: 9px 12px; font-size: 12.5px; line-height: 1.6; }
+        .ttVel .ttD { color: #8b93a7; font-size: 11.5px; }
+        @media (max-width: 640px) {
+            .rotBars { gap: 4px; } .rotDay .d { font-size: 9px; } .rotDay .c { font-size: 8.5px; }
+        }
     </style>
 </head>
 <body>
@@ -184,11 +213,47 @@
             <strong>Skąd dane:</strong> dla każdego dnia liczba ofert, które tego dnia wypadły z listingu
             (<code>deactivation_dates</code>). Czerwona linia to dzienny odpływ, pomarańczowa to średnia krocząca
             z 7 dni — wygładza dzienny szum i pokazuje trend nasilenia znikania.
+            <strong>Mignięcia się nie liczą</strong>: oferta, której zabrakło w skanie, a w ciągu doby wróciła,
+            nie zeszła z rynku (od 26.10.2026; wcześniej wliczane: od 03.09 było to 465 z 1983 zniknięć, prawie co czwarte). Zniknięcie z ostatnich
+            skanów liczy się, dopóki oferta nie wróci.
             <strong>Historia jest zaniżona</strong>: daty deaktywacji zapisujemy dopiero od 03.09.2026, a starsze oferty
             zostawiły tylko <code>last_seen</code>, czyli <em>wyłącznie ostatnie</em> zniknięcie — oferta, która umarła
             i wróciła, nie ma śladu po swojej pierwszej śmierci. Widać to w bilansie: napływ 3174 &minus; odpływ 1590 = +1584,
             a Indeks urósł w tym czasie o +480; różnica to prawie dokładnie liczba reaktywacji. Szereg domyka się sam
             w miarę kolejnych skanów.
+        </div>
+
+        <div class="card" style="margin-top:22px">
+            <h2>🔄 Wskaźnik Rotacji Rynku</h2>
+            <div class="sub" id="rotLabel">Nowe oferty i zejścia z rynku z ostatnich 7 pełnych dni</div>
+            <div class="rotTiles">
+                <div class="rotTile"><div class="l">Nowe oferty (7 dni)</div><div class="v" id="rotNew">&mdash;</div></div>
+                <div class="rotTile"><div class="l">Zeszły z rynku (7 dni)</div><div class="v" id="rotOut">&mdash;</div></div>
+                <div class="rotTile"><div class="l">Saldo</div><div class="v" id="rotNet">&mdash;</div></div>
+            </div>
+            <h3 class="rotH">Market Velocity (aktywność rynku)</h3>
+            <div class="velBar"><div class="velFill" id="velFill" style="width:0"><span id="velTxt"></span></div></div>
+            <div class="rotZones">0-30: Rynek słaby | 31-60: Umiarkowany | 61-80: Aktywny | 81+: Bardzo aktywny</div>
+            <h3 class="rotH">Rozkład dzienny (ostatnie 7 dni)</h3>
+            <div class="rotBars" id="rotBars"></div>
+            <div class="velHead">
+                <h3 class="rotH">Market Velocity: historia</h3>
+                <div class="idxToolbar">
+                    <button class="idxBtn on" type="button" data-vel-range="6m">6 miesięcy</button>
+                    <button class="idxBtn" type="button" data-vel-range="all">Cała historia</button>
+                </div>
+            </div>
+            <div class="velMeta" id="velMeta"></div>
+            <div id="chartVel"><div class="loading">Ładowanie danych…</div></div>
+        </div>
+
+        <div class="foot">
+            <strong>Skąd dane:</strong> Market Velocity = (nowe oferty + zejścia z rynku z 7 dni) &divide; 2, liczone dla
+            każdego dnia z oknem 7 dni kończącym się tym dniem. Składniki to dokładnie dzienne szeregi wykresów
+            „Nowe oferty” i „Odpływ ofert” (bez mignięć), więc kafelki i słupki zgadzają się z tymi wykresami.
+            Okno obejmuje tylko pełne doby: dzień w toku i dzień bez skanu to luka. Skala jest bez limitu &mdash;
+            rynek zwykle przekracza 100. Strefy w tle odpowiadają legendzie paska.
+            Historia sprzed 03.09.2026 jest zaniżona tak samo jak odpływ (patrz wyżej).
         </div>
 
         <div class="card" style="margin-top:22px">
@@ -724,6 +789,158 @@
             new ApexCharts(document.querySelector('#chart2'), opts2).render();
         } else {
             document.getElementById('chart2').innerHTML = '<div class="loading">Brak danych o odpływie.</div>';
+        }
+
+        // --- Wskaźnik Rotacji Rynku: kafelki, pasek, rozkład 7 dni, historia velocity ---
+        // Wszystko z tych samych szeregów co „Nowe oferty" i „Odpływ ofert" (backend: build_velocity).
+        const vel = d.velocity;
+        const velPts = vel && vel.daily ? vel.daily.map(function (p, i) {
+            return { ms: p[0], v: p[1], n: vel.new7[i][1], r: vel.out7[i][1] };
+        }).filter(function (p) { return p.v != null; }) : [];
+        if (velPts.length >= 2) {
+            const VEL_ZONES = [
+                { lo: 0, hi: 30, name: 'słaby', fill: '#37c26b', op: 0.10 },
+                { lo: 30, hi: 60, name: 'umiarkowany', fill: '#a3c43a', op: 0.10 },
+                { lo: 60, hi: 80, name: 'aktywny', fill: '#f5b942', op: 0.11 },
+                { lo: 80, hi: Infinity, name: 'bardzo aktywny', fill: '#e8624c', op: 0.07 }
+            ];
+            const zoneOf = function (v) {
+                return VEL_ZONES.find(function (z) { return v <= z.hi; }) || VEL_ZONES[VEL_ZONES.length - 1];
+            };
+            const dd = function (ms, withYear) {
+                const t = new Date(ms);
+                const s = String(t.getUTCDate()).padStart(2, '0') + '.' + String(t.getUTCMonth() + 1).padStart(2, '0');
+                return withYear ? s + '.' + t.getUTCFullYear() : s;
+            };
+            const minus = function (v) { return '−' + v; };
+
+            // kafelki i pasek: ostatnie pełne okno 7 dni
+            const lastP = velPts[velPts.length - 1];
+            const net = lastP.n - lastP.r;
+            document.getElementById('rotNew').textContent = '+' + lastP.n;
+            document.getElementById('rotOut').textContent = minus(lastP.r);
+            const netEl = document.getElementById('rotNet');
+            netEl.textContent = net > 0 ? '+' + net : (net < 0 ? minus(-net) : '0');
+            netEl.style.color = net > 0 ? '#37c26b' : (net < 0 ? '#e8624c' : '#8b93a7');
+            document.getElementById('velFill').style.width = Math.min(100, lastP.v) + '%';
+            document.getElementById('velTxt').textContent = lastP.v > 100 ? lastP.v : lastP.v + '/100';
+
+            // rozkład dzienny: 7 dni okna kończącego się ostatnim pełnym dniem
+            const newAt = {}, outAt = {};
+            d.inflow.new.daily.forEach(function (p) { newAt[p[0]] = p[1]; });
+            d.outflow.daily.forEach(function (p) { outAt[p[0]] = p[1]; });
+            const week = [];
+            for (let i = 6; i >= 0; i--) {
+                const ms = lastP.ms - i * 86400000;
+                week.push({ ms: ms, n: newAt[ms] || 0, r: outAt[ms] || 0 });
+            }
+            document.getElementById('rotLabel').innerHTML =
+                'Okno 7 ostatnich pełnych dni <b>' + dd(week[0].ms) + '–' + dd(lastP.ms) + '</b>. ' +
+                'Nowe i zejścia z rynku to te same liczby co na wykresach „Nowe oferty” i „Odpływ ofert”.';
+            const top = Math.max.apply(null, week.map(function (w) { return Math.max(w.n, w.r); }).concat(1));
+            document.getElementById('rotBars').innerHTML = week.map(function (w) {
+                return '<div class="rotDay"><div class="d">' + dd(w.ms) + '</div><div class="bars">' +
+                    '<div class="bar n" style="height:' + (w.n / top * 100) + 'px"></div>' +
+                    '<div class="bar r" style="height:' + (w.r / top * 100) + 'px"></div></div>' +
+                    '<div class="c">+' + w.n + ' / ' + minus(w.r) + '</div></div>';
+            }).join('');
+
+            // historia velocity na tle stref, kreski na początkach miesięcy
+            let velRange = '6m';
+            let velChart = null;
+            const renderVel = function () {
+                let pts = velPts;
+                if (velRange === '6m') {
+                    const cut = new Date(lastP.ms);
+                    cut.setUTCMonth(cut.getUTCMonth() - 6);
+                    pts = pts.filter(function (p) { return p.ms >= cut.getTime(); });
+                }
+                const vals = pts.map(function (p) { return p.v; });
+                const mx = Math.max.apply(null, vals), mn = Math.min.apply(null, vals);
+                const avg = Math.round(vals.reduce(function (a, b) { return a + b; }, 0) / vals.length);
+                const last = pts[pts.length - 1];
+                document.getElementById('velMeta').textContent =
+                    'ostatni pełny dzień ' + last.v + ' (' + dd(last.ms) + ') · dzień wcześniej ' + pts[pts.length - 2].v +
+                    ' · średnio ' + avg + ' · max ' + mx + ' (' + dd(pts[vals.lastIndexOf(mx)].ms) + ')' +
+                    ' · min ' + mn + ' (' + dd(pts[vals.lastIndexOf(mn)].ms) + ')';
+
+                const yMax = Math.max(100, Math.ceil(mx / 50) * 50);
+                const zones = VEL_ZONES.filter(function (z) { return z.lo < yMax; }).map(function (z) {
+                    const hi = Math.min(z.hi, yMax);
+                    return {
+                        y: z.lo, y2: hi, fillColor: z.fill, opacity: z.op, borderColor: 'transparent',
+                        // podpis tylko w pasie dość wysokim, żeby napisy nie wchodziły na siebie
+                        label: { text: (hi - z.lo) / yMax >= 0.09 ? z.name.toUpperCase() : '', borderWidth: 0,
+                                 position: 'left', textAnchor: 'start', offsetX: 8, offsetY: 15,
+                                 style: { background: 'transparent', color: '#8b93a7', fontSize: '10.5px', fontWeight: 600 } }
+                    };
+                });
+                const monthLines = pts.filter(function (p, i) {
+                    return i > 0 && new Date(p.ms).getUTCDate() === 1;
+                }).map(function (p) { return { x: p.ms, borderColor: '#5a6478', strokeDashArray: 0 }; });
+
+                const opts = {
+                    chart: {
+                        type: 'line', height: 320, background: 'transparent',
+                        locales: [PL_LOCALE], defaultLocale: 'pl',
+                        fontFamily: 'inherit', foreColor: '#8b93a7',
+                        toolbar: { show: false }, zoom: { enabled: false },
+                        animations: { enabled: true, speed: 550 }
+                    },
+                    theme: { mode: 'dark' },
+                    series: [{ name: 'Market Velocity', data: pts.map(function (p) { return [p.ms, p.v]; }) }],
+                    colors: ['#6c7bf2'],
+                    stroke: { curve: 'smooth', width: 2 },
+                    dataLabels: { enabled: false },
+                    markers: { size: 0, hover: { size: 5 } },
+                    legend: { show: false },
+                    grid: { borderColor: '#3a4255', strokeDashArray: 4, xaxis: { lines: { show: false } }, padding: { right: 18 } },
+                    xaxis: {
+                        type: 'datetime', axisBorder: { show: false }, axisTicks: { color: '#3a4255' },
+                        tooltip: { enabled: false },
+                        labels: {
+                            datetimeUTC: false, style: { colors: '#8b93a7' },
+                            datetimeFormatter: { year: 'yyyy', month: "MMM 'yy", day: 'dd MMM', hour: 'HH:mm' }
+                        }
+                    },
+                    yaxis: { min: 0, max: yMax, tickAmount: yMax / 50,
+                             labels: { style: { colors: '#8b93a7' }, formatter: function (v) { return Math.round(v); } } },
+                    annotations: {
+                        yaxis: zones,
+                        xaxis: monthLines,
+                        points: [{
+                            x: last.ms, y: last.v,
+                            marker: { size: 5, fillColor: '#2a3140', strokeColor: '#6c7bf2', strokeWidth: 2 },
+                            label: { text: String(last.v), borderWidth: 0, offsetY: -4,
+                                     style: { background: 'transparent', color: '#e8ecf3', fontSize: '12px', fontWeight: 700 } }
+                        }]
+                    },
+                    tooltip: {
+                        theme: 'dark',
+                        custom: function (ctx) {
+                            const p = pts[ctx.dataPointIndex];
+                            if (!p) return '';
+                            return '<div class="ttVel"><div class="ttD">' + dd(p.ms, true) + '</div>' +
+                                '<b>Velocity: ' + p.v + '</b> · ' + zoneOf(p.v).name + '<br>' +
+                                '7 dni: +' + p.n + ' nowych / ' + minus(p.r) + ' zeszło z rynku</div>';
+                        }
+                    }
+                };
+                if (velChart) velChart.destroy();
+                document.getElementById('chartVel').innerHTML = '';
+                velChart = new ApexCharts(document.querySelector('#chartVel'), opts);
+                velChart.render();
+            };
+            document.querySelectorAll('[data-vel-range]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    velRange = btn.dataset.velRange;
+                    document.querySelectorAll('[data-vel-range]').forEach(function (b) { b.classList.toggle('on', b === btn); });
+                    renderVel();
+                });
+            });
+            renderVel();
+        } else {
+            document.getElementById('chartVel').innerHTML = '<div class="loading">Brak danych o rotacji rynku.</div>';
         }
 
         // --- zmiany cen: obniżki i podwyżki, dwa osobne wykresy ---

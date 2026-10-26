@@ -13,6 +13,7 @@ from pathlib import Path
 # Import taggera ofert (B1)
 from offer_tagger import tag_offer, TAGS as OFFER_TAGS
 from shared_utils import write_json_atomic, format_datetime
+from trend_generator import exit_days
 from profiles_config import TRACKED_PROFILES, FIRM_BORDER_COLOR, FIRM_BORDER_WIDTH
 
 # Definicja zakresów cenowych - 22 przedziały.
@@ -163,32 +164,14 @@ def get_price_range(price):
 
 
 def _gone_days(offer):
-    """Dni, w których oferta WYPADŁA z listingu — format "YYYY-MM-DD".
+    """Dni zejścia oferty z rynku — format "YYYY-MM-DD" (suwak "Zniknięcia").
 
-    Źródłem jest `deactivation_dates` (także te schowane w `versions[]` po
-    zmianie adresu), czyli KAŻDE zniknięcie, również to, po którym oferta
-    wróciła. Oferty sprzed wdrożenia tego pola (03.09.2026) zostawiły tylko
-    `last_seen` — ostatni dzień NA listingu — i tylko dla nich robimy fallback.
-
-    Konwencja MUSI być ta sama co `build_outflow` w trend_generator.py, inaczej
-    suwak "Zniknięcia" na mapie rozjeżdża się z wykresem odpływu: last_seen to
-    ostatni dzień życia oferty, a deaktywacja to dzień, w którym skan wykrył jej
-    brak — zwykle doba później.
+    Liczy je `trend_generator.exit_days`, ta sama funkcja co wykres odpływu:
+    dzień wykrycia braku (`deactivation_dates`, także z `versions[]`), bez mignięć
+    (powrót w ciągu doby), z fallbackiem na `last_seen` dla ofert sprzed 03.09.2026.
+    Wspólny kod, bo przy dwóch kopiach konwencji suwak rozjeżdżał się z wykresem.
     """
-    days = []
-    sources = [offer] + list(offer.get('versions') or [])
-    for src in sources:
-        for raw in (src.get('deactivation_dates') or []):
-            try:
-                days.append(datetime.fromisoformat(str(raw)).date().isoformat())
-            except (ValueError, TypeError):
-                continue
-    if not days and not offer.get('active') and offer.get('last_seen'):
-        try:
-            days.append(datetime.fromisoformat(offer['last_seen']).date().isoformat())
-        except (ValueError, TypeError):
-            pass
-    return sorted(set(days))
+    return [d.isoformat() for d in exit_days(offer)]
 
 
 def format_scan_datetime(iso_string):

@@ -522,6 +522,65 @@ def test_day_anchor_is_utc():
     check('_ms_day odwraca _day_ms', all(tg._ms_day(ms) == d for (ms, _), d in zip(series, days)))
 
 
+def test_blinks_are_not_outflow():
+    print("\n👁️  Test 10: mignięcie (powrót w ciągu doby) nie jest odpływem")
+    import map_generator
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        (base / 'data').mkdir()
+        for day in range(16, 25):
+            record_day(base, date(2026, 5, day), 700)
+        d = lambda day, hour: datetime(2026, 5, day, hour).astimezone().isoformat()
+        offers = [
+            # wróciła po 6 h — mignięcie
+            {'id': 'a', 'first_seen': d(16, 9), 'active': True,
+             'deactivation_dates': [d(20, 12)], 'reactivation_dates': [d(20, 18)]},
+            # zniknęła wieczorem, wróciła rano po 16 h — też mignięcie
+            {'id': 'b', 'first_seen': d(16, 9), 'active': True,
+             'deactivation_dates': [d(20, 20)], 'reactivation_dates': [d(21, 12)]},
+            # wróciła po 3 dniach — prawdziwe zejście z rynku 20.05
+            {'id': 'c', 'first_seen': d(16, 9), 'active': True,
+             'deactivation_dates': [d(20, 12)], 'reactivation_dates': [d(23, 12)]},
+            # zniknęła i nie wróciła
+            {'id': 'd', 'first_seen': d(16, 9), 'active': False, 'last_seen': d(21, 9),
+             'deactivation_dates': [d(21, 12)]},
+            # mignięcie rozdzielone zmianą adresu: deaktywacja w versions[], powrót na wierzchu
+            {'id': 'e', 'first_seen': d(16, 9), 'active': True,
+             'versions': [{'deactivation_dates': [d(22, 12)]}], 'reactivation_dates': [d(22, 20)]},
+            # sprzed deactivation_dates: tylko last_seen
+            {'id': 'f', 'first_seen': d(16, 9), 'active': False, 'last_seen': d(19, 21)},
+        ]
+        series = tg.build_series(offers, base_dir=base)
+        out = tg.build_outflow(offers, series)
+        by_day = {tg._ms_day(ms).day: v for ms, v in out['daily']}
+        check('19.05: fallback last_seen', by_day[19] == 1, str(by_day))
+        check('20.05: liczy tylko powrót po 3 dniach (bez mignięć a, b)', by_day[20] == 1, str(by_day))
+        check('21.05: zejście bez powrotu', by_day[21] == 1, str(by_day))
+        check('22.05: mignięcie z versions[] pominięte', by_day[22] == 0, str(by_day))
+        check('łącznie 3 zejścia z rynku', out['total'] == 3, str(out['total']))
+        same = all(map_generator._gone_days(o) == [x.isoformat() for x in tg.exit_days(o)] for o in offers)
+        check('suwak na mapie liczy to samo co wykres', same)
+        check('mignięcie nie ma dnia zniknięcia na mapie', map_generator._gone_days(offers[0]) == [])
+
+
+def test_velocity():
+    print("\n🔄 Test 11: Market Velocity z szeregów Nowe oferty + Odpływ")
+    days = [date(2026, 5, 16) + timedelta(days=i) for i in range(10)]
+    ms = [tg._day_ms(d) for d in days]
+    new = [2, 4, 6, 8, 10, 12, 14, 1, 1, None]      # ostatni dzień: doba w toku
+    out = [1, 1, 1, 1, 1, 1, 1, 30, 30, None]
+    v = tg.build_velocity({'daily': [[m, x] for m, x in zip(ms, out)]},
+                          {'new': {'daily': [[m, x] for m, x in zip(ms, new)]}})
+    vals = [x for _, x in v['daily']]
+    check('pierwsze 6 dni bez pełnego okna = luka', vals[:6] == [None] * 6, str(vals))
+    check('7. dzień: (56 nowych + 7 zejść) / 2 = 32', vals[6] == 32 and v['new7'][6][1] == 56 and v['out7'][6][1] == 7,
+          f"v={vals[6]} new7={v['new7'][6][1]} out7={v['out7'][6][1]}")
+    check('okno przesuwa się o dzień', vals[7] == round((4 + 6 + 8 + 10 + 12 + 14 + 1 + 6 + 30) / 2), str(vals[7]))
+    check('bez limitu 100', tg.build_velocity({'daily': [[m, 100] for m in ms[:7]]},
+                                              {'new': {'daily': [[m, 100] for m in ms[:7]]}})['daily'][6][1] == 700)
+    check('doba w toku w oknie = luka', vals[9] is None, str(vals))
+
+
 if __name__ == '__main__':
     print("🧪 TEST INDEKSU PODAŻY\n" + "=" * 60)
     test_intervals()
@@ -541,6 +600,8 @@ if __name__ == '__main__':
     test_refresh_unscanned_day_is_a_gap()
     test_szperacz_backfill()
     test_day_anchor_is_utc()
+    test_blinks_are_not_outflow()
+    test_velocity()
     print("\n" + "=" * 60)
     if FAILED:
         print(f"❌ Niezaliczone ({len(FAILED)}): " + ', '.join(FAILED))

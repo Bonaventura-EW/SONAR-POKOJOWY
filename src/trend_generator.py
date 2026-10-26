@@ -50,6 +50,12 @@ REACT_RELIABLE_START = date(2026, 7, 1)
 # luka i nie wchodzi do średniej ani statystyk. Dziś nic nie tnie (rekord to 42).
 OUTFLOW_ARTIFACT_THRESHOLD = 100
 
+# Mignięcie: oferta wypadła z listingu i wróciła najpóźniej po tylu godzinach —
+# zwykle brakowało jej w jednym skanie, a w następnym już była. To nie jest zejście
+# z rynku, więc nie liczy się do odpływu. W tygodniu 19–25.10.2026 takich powrotów
+# w ciągu doby było 27 na ~180 zniknięć (np. 25.10: 10 z 32 wróciło tego samego dnia).
+BLINK_MAX_HOURS = 24
+
 # Odświeżenia (bumpy). DWA szeregi o RÓŻNYCH początkach, bo pole `refresh_dates`
 # miało dwa źródła:
 #
@@ -123,6 +129,46 @@ def collect_dates(offer, field):
             except (ValueError, TypeError):
                 continue
     return sorted(out)
+
+
+def _collect_stamps(offer, field):
+    """Jak collect_dates, ale pełne znaczniki czasu (z offsetem) zamiast dni."""
+    out = []
+    for src in [offer] + list(offer.get('versions') or []):
+        for raw in (src.get(field) or []):
+            try:
+                stamp = datetime.fromisoformat(str(raw))
+            except (ValueError, TypeError):
+                continue
+            out.append(stamp if stamp.tzinfo else stamp.astimezone())
+    return sorted(out)
+
+
+def exit_days(offer):
+    """Dni, w których oferta ZESZŁA z rynku — wspólna konwencja wykresu odpływu
+    (build_outflow) i suwaka „Zniknięcia" na mapie (map_generator._gone_days).
+
+    Źródłem jest `deactivation_dates` (także z `versions[]`), czyli dzień, w którym
+    skan wykrył brak oferty. Pomijamy mignięcia: deaktywację, po której oferta
+    wróciła (`reactivation_dates`) w ciągu BLINK_MAX_HOURS. Zniknięcie z ostatnich
+    skanów liczy się, dopóki oferta nie wróci — wtedy wypada przy następnej generacji.
+    Oferty sprzed wdrożenia `deactivation_dates` (03.09.2026) zostawiły tylko
+    `last_seen` i tylko dla nich robimy fallback.
+    """
+    gone = _collect_stamps(offer, 'deactivation_dates')
+    back = _collect_stamps(offer, 'reactivation_dates')
+    days = set()
+    for stamp in gone:
+        returned = next((r for r in back if r > stamp), None)
+        if returned is not None and returned - stamp <= timedelta(hours=BLINK_MAX_HOURS):
+            continue
+        days.add(stamp.date())
+    if not gone and not offer.get('active') and offer.get('last_seen'):
+        try:
+            days.add(_d(offer['last_seen']))
+        except (ValueError, TypeError):
+            pass
+    return sorted(days)
 
 
 def build_spans(offers):
@@ -394,8 +440,9 @@ def _flow_metric(counts, days, exclude=None):
 def build_outflow(offers, series=None):
     """Dzienny odpływ ofert (ile zniknęło danego dnia) + średnia krocząca 7 dni.
 
-    Zniknięcie bierzemy z `deactivation_dates` — KAŻDE wypadnięcie z listingu,
-    także to, po którym oferta wróciła. Oferta bez tych dat (wszystko sprzed
+    Zniknięcie bierzemy z `deactivation_dates` (exit_days) — każde wypadnięcie
+    z listingu, także to, po którym oferta później wróciła, ale BEZ mignięć
+    (powrót w ciągu BLINK_MAX_HOURS). Oferta bez tych dat (wszystko sprzed
     03.09.2026) ma tylko jeden ślad: `last_seen`, czyli WYŁĄCZNIE ostatnią
     śmierć. Dlatego historyczny odpływ jest zaniżony — bilans się nie spinał:
     napływ 3174 − odpływ 1590 = +1584, a Indeks urósł w tym czasie o +480;
@@ -411,17 +458,10 @@ def build_outflow(offers, series=None):
 
     dep = {}
     for o in offers:
-        gone = collect_dates(o, 'deactivation_dates')
-        if not gone and not o.get('active') and o.get('last_seen'):
-            try:
-                gone = [_d(o['last_seen'])]
-            except (ValueError, TypeError):
-                gone = []
-        # Dedup per (oferta, dzień): jedna oferta może wypaść z listingu dwa razy
-        # tego samego dnia (skan poranny i wieczorny, między nimi reaktywacja) —
-        # to szum skanowania, nie dwie oferty. Metryka liczy OFERTY, tak jak
-        # suwak "Zniknięcia" na mapie, gdzie jedna oferta to jeden marker.
-        for d in sorted(set(gone)):
+        # exit_days zwraca dni bez powtórzeń: jedna oferta może wypaść z listingu
+        # dwa razy tego samego dnia — to szum skanowania, nie dwie oferty. Metryka
+        # liczy OFERTY, tak jak suwak "Zniknięcia" na mapie (jedna oferta = jeden marker).
+        for d in exit_days(o):
             if d >= start:
                 dep[d] = dep.get(d, 0) + 1
 
@@ -488,6 +528,36 @@ def build_inflow(offers, series=None):
         'react': react_metric,
         'new_react': combined_metric,
     }
+
+
+def build_velocity(outflow, inflow):
+    """Market Velocity (sekcja „Wskaźnik Rotacji Rynku"): dla każdego dnia
+    (nowe oferty + zejścia z rynku z 7 dni kończących się tym dniem) ÷ 2.
+
+    Składniki to DOKŁADNIE dzienne szeregi wykresów „Nowe oferty" i „Odpływ ofert",
+    więc kafelki i rozkład dzienny sekcji zgadzają się z tymi wykresami. Okno musi
+    mieć wszystkie 7 dni zmierzone: dzień bez skanu (albo doba w toku) daje lukę,
+    nie zaniżoną wartość. Bez limitu 100 — rynek zwykle go przekracza.
+    """
+    if not outflow or not inflow or not inflow.get('new'):
+        return None
+    out_d, new_d = outflow['daily'], inflow['new']['daily']
+    if [ms for ms, _ in out_d] != [ms for ms, _ in new_d]:
+        return None
+    daily, new7, out7 = [], [], []
+    for i, (ms, _) in enumerate(out_d):
+        window = range(i - 6, i + 1)
+        if i < 6 or any(out_d[j][1] is None or new_d[j][1] is None for j in window):
+            daily.append([ms, None])
+            new7.append([ms, None])
+            out7.append([ms, None])
+            continue
+        n = sum(new_d[j][1] for j in window)
+        r = sum(out_d[j][1] for j in window)
+        daily.append([ms, round((n + r) / 2)])
+        new7.append([ms, n])
+        out7.append([ms, r])
+    return {'daily': daily, 'new7': new7, 'out7': out7}
 
 
 def _price_events(offer):
@@ -981,6 +1051,8 @@ def generate_trend_data(base_dir: Path = None) -> bool:
         'promoted': build_promoted(offers, series, load_scan_days(base_dir), base_dir),
         'refreshes': build_refreshes(offers, load_scan_days(base_dir), base_dir),
     }
+
+    out['velocity'] = build_velocity(out['outflow'], out['inflow'])
 
     write_json_atomic(output_file, out)
     of = out['outflow'] or {}

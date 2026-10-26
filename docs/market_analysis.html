@@ -551,72 +551,6 @@
             color: #999;
         }
         
-        .velocity-indicator {
-            position: relative;
-            height: 40px;
-            background: #e5e7eb;
-            border-radius: 20px;
-            overflow: hidden;
-            margin-top: 12px;
-        }
-        
-        .velocity-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #10b981, #fbbf24, #ef4444);
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 700;
-            font-size: 16px;
-            transition: width 0.5s ease;
-        }
-        
-        .rotation-bars {
-            display: flex;
-            gap: 8px;
-            margin-top: 16px;
-        }
-        
-        .rotation-day {
-            flex: 1;
-            text-align: center;
-        }
-        
-        .rotation-day .date {
-            font-size: 11px;
-            color: #666;
-            margin-bottom: 4px;
-        }
-        
-        .rotation-day .bars {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-            height: 100px;
-            justify-content: flex-end;
-        }
-        
-        .rotation-day .bar {
-            border-radius: 4px;
-        }
-        
-        .rotation-day .bar.new {
-            background: #10b981;
-        }
-        
-        .rotation-day .bar.removed {
-            background: #ef4444;
-        }
-        
-        .rotation-day .count {
-            font-size: 10px;
-            font-weight: 600;
-            color: #333;
-            margin-top: 4px;
-        }
-
         @media (max-width: 768px) {
             header {
                 flex-direction: column;
@@ -634,10 +568,6 @@
             
             .toggle-btn {
                 width: 100%;
-            }
-            
-            .rotation-day .date {
-                font-size: 9px;
             }
         }
     
@@ -881,43 +811,6 @@
                     <li><strong>Oferty powyżej 7 dni</strong> mogą być zawyżone cenowo - warto negocjować</li>
                 </ul>
             </div>
-        </div>
-        
-        <!-- 2.3 WSKAŹNIK ROTACJI RYNKU -->
-        <div class="section">
-            <h2>🔄 Wskaźnik Rotacji Rynku</h2>
-            
-            <div class="stats-grid">
-                <div class="stat-box">
-                    <div class="label">Nowe oferty (7 dni)</div>
-                    <div class="value" id="rotationNew">-</div>
-                </div>
-                <div class="stat-box">
-                    <div class="label">Usunięte (7 dni)</div>
-                    <div class="value" id="rotationRemoved">-</div>
-                </div>
-                <div class="stat-box">
-                    <div class="label">Saldo</div>
-                    <div class="value" id="rotationNet">-</div>
-                </div>
-            </div>
-            
-            <h3 style="margin-top: 24px; margin-bottom: 12px; color: #333; font-size: 16px;">
-                Market Velocity (aktywność rynku)
-            </h3>
-            <div class="velocity-indicator">
-                <div class="velocity-fill" id="velocityFill" style="width: 0%;">
-                    <span id="velocityText">0/100</span>
-                </div>
-            </div>
-            <p style="margin-top: 8px; font-size: 13px; color: #666;">
-                0-30: Rynek słaby | 31-60: Umiarkowany | 61-80: Aktywny | 81-100: Bardzo aktywny
-            </p>
-            
-            <h3 style="margin-top: 32px; margin-bottom: 16px; color: #333; font-size: 16px;">
-                Rozkład dzienny (ostatnie 7 dni)
-            </h3>
-            <div class="rotation-bars" id="rotationBars"></div>
         </div>
         
         <!-- B3: TIMELINE AKTYWNOŚCI (nowe vs usunięte per dzień) -->
@@ -1180,37 +1073,6 @@
             
             console.log('Zmiany cen:', priceChanges.length);
             
-            // Rotacja rynku
-            const dailyNew = {};
-            const dailyRemoved = {};
-            
-            offers.forEach(offer => {
-                if (offer.first_seen) {
-                    const date = parseDateString(offer.first_seen);
-                    const dateKey = date.toISOString().split('T')[0];
-                    dailyNew[dateKey] = (dailyNew[dateKey] || 0) + 1;
-                }
-                
-                if (!offer.active && offer.last_seen) {
-                    const date = parseDateString(offer.last_seen);
-                    const dateKey = date.toISOString().split('T')[0];
-                    dailyRemoved[dateKey] = (dailyRemoved[dateKey] || 0) + 1;
-                }
-            });
-            
-            const last7Days = [];
-            for (let i = 6; i >= 0; i--) {
-                const date = new Date(now - i * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                last7Days.push({
-                    date,
-                    new: dailyNew[date] || 0,
-                    removed: dailyRemoved[date] || 0
-                });
-            }
-            
-            const totalNew = last7Days.reduce((sum, d) => sum + d.new, 0);
-            const totalRemoved = last7Days.reduce((sum, d) => sum + d.removed, 0);
-            
             return {
                 offers: offers,  // B3/C2: surowe oferty dla nowych sekcji
                 survival: {
@@ -1224,15 +1086,6 @@
                     decreases: priceChanges.filter(p => p.change < 0),
                     increases: priceChanges.filter(p => p.change > 0),
                     stable: offers.length - priceChanges.length
-                },
-                rotation: {
-                    last7d: {
-                        new: totalNew,
-                        removed: totalRemoved,
-                        net: totalNew - totalRemoved,
-                        velocity: Math.min(100, Math.round((totalNew + totalRemoved) / 2))
-                    },
-                    daily: last7Days
                 },
                 // Dane dla sekcji Lifespan
                 lifespan: {
@@ -1281,7 +1134,6 @@
             
             renderLifespan();
             renderPriceChanges();
-            renderRotation();
             renderTimeline();        // B3
             renderPriceDistribution(); // C2-A
         }
@@ -1574,43 +1426,6 @@
             }
             
             container.innerHTML = html;
-        }
-        
-        // 2.3 ROTATION
-        function renderRotation() {
-            const data = allData.rotation;
-            
-            document.getElementById('rotationNew').textContent = '+' + data.last7d.new;
-            document.getElementById('rotationRemoved').textContent = '-' + data.last7d.removed;
-            
-            const net = data.last7d.net;
-            const netEl = document.getElementById('rotationNet');
-            netEl.textContent = (net >= 0 ? '+' : '') + net;
-            netEl.style.color = net > 0 ? '#10b981' : (net < 0 ? '#ef4444' : '#666');
-            
-            const velocity = data.last7d.velocity;
-            document.getElementById('velocityFill').style.width = velocity + '%';
-            document.getElementById('velocityText').textContent = velocity + '/100';
-            
-            const barsContainer = document.getElementById('rotationBars');
-            const maxValue = Math.max(...data.daily.map(d => Math.max(d.new, d.removed)), 1);
-            
-            barsContainer.innerHTML = data.daily.map(day => {
-                const newHeight = (day.new / maxValue) * 100;
-                const removedHeight = (day.removed / maxValue) * 100;
-                const dateFormatted = new Date(day.date).toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit' });
-                
-                return `
-                    <div class="rotation-day">
-                        <div class="date">${dateFormatted}</div>
-                        <div class="bars">
-                            <div class="bar new" style="height: ${newHeight}px;"></div>
-                            <div class="bar removed" style="height: ${removedHeight}px;"></div>
-                        </div>
-                        <div class="count">+${day.new} / -${day.removed}</div>
-                    </div>
-                `;
-            }).join('');
         }
         
         // Obsługa suwaka
