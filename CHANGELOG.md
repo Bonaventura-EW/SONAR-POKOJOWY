@@ -9,6 +9,13 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Powrót z mignięcia to nie reaktywacja (2026-10-26)
+- **zgłoszenie Mateusza**: po odfiltrowaniu mignięć z Odpływu ich powroty dalej liczyły się jako reaktywacje — „co jest bardziej logiczne? … ok naprawiaj”.
+- **diagnoza**: mignięcie zostawia dwa ślady (deaktywacja + reaktywacja w ciągu doby). Odpływ od dziś pomijał pierwszy, Reaktywacje i Napływ całkowity dalej liczyły drugi. Bilans od 03.09: Indeks −289, a napływ − odpływ = **+169** (zły znak). Po poprawce **−304** — 15 ofert od Indeksu.
+- **fix (backend, źródło)**: `trend_generator._blinks()` paruje deaktywację z najbliższą reaktywacją w ciągu `BLINK_MAX_HOURS`; korzystają z niej `exit_days` (odpływ, mapa „Zniknięcia”), nowe `real_reactivations` (wykresy Reaktywacje i Napływ całkowity, pasma „recykling” w trybie Rozbij) i `is_reactivated` (pole `reactivated` w `data.json`: mapa „Pochodzenie”, plakietka na Ruchu, podział w Czasie życia na Analizie rynku). Oferta bez dat reaktywacji, ale z `reactivated_at` (sprzed 01.07), zostaje reaktywowana jak dotąd.
+- **liczby**: reaktywacje 1850 → 1377 (średnio 15,7 → 11,7/dzień, rekord 59 z 25.09 → 57 z 22.07), napływ całkowity 4084 → 3611, recykling na Indeksie dziś 290 → 234, mapa „Reaktywowane” 281 → 225 aktywnych (1277 → 1069 wszystkich). Odpływ bez zmian.
+- **testy**: `test_trend_index.py` Test 12 — mignięcie, powrót po 3 dniach, oferta mieszana, stara bez dat, wykres Reaktywacji dzień po dniu.
+
 ### Indeks: Wskaźnik Rotacji Rynku przeniesiony z Analizy rynku + historia Market Velocity (2026-10-26)
 - **zgłoszenie Mateusza**: najpierw wykres Market Velocity „z każdego dnia wstecz” pod „Rozkładem dziennym” (z 5 mockupów wybrał linię na tle stref, skalę bez limitu, 6 miesięcy + cała historia, kreski na początkach miesięcy), potem przeniesienie całej sekcji z `market_analysis.html` na `trend.html` pod wykres „Odpływ ofert”.
 - **dlaczego nie 1:1**: stara sekcja liczyła „usunięte” jako obecnie nieaktywne oferty po `last_seen` (z `data.json`), Odpływ — dzień wykrycia braku z `deactivation_dates`. Pod sobą pokazywałyby różne liczby (25.10: 32 vs 27). Mateusz wybrał wariant C: najpierw Odpływ bez mignięć (wpis niżej), potem sekcja liczona z tych samych szeregów co wykresy Indeksu.

@@ -13,7 +13,7 @@ from pathlib import Path
 # Import taggera ofert (B1)
 from offer_tagger import tag_offer, TAGS as OFFER_TAGS
 from shared_utils import write_json_atomic, format_datetime
-from trend_generator import exit_days
+from trend_generator import exit_days, is_reactivated
 from profiles_config import TRACKED_PROFILES, FIRM_BORDER_COLOR, FIRM_BORDER_WIDTH
 
 # Definicja zakresów cenowych - 22 przedziały.
@@ -411,7 +411,7 @@ def generate_map_data(input_file, output_file):
             'refresh_count': offer.get('refresh_count', 0),
             'last_refresh': (format_datetime(offer.get('last_refresh_date', ''))
                              if offer.get('last_refresh_date') else None),
-            'reactivated': offer.get('reactivated_at') is not None,  # Czy była reaktywowana
+            'reactivated': is_reactivated(offer),  # wróciła kiedyś na rynek (bez mignięć)
             'reactivated_at': format_datetime(offer.get('reactivated_at', '')) if offer.get('reactivated_at') else None,
             # Precyzja adresu: 'exact' (z numerem) lub 'street_only' (środek ulicy)
             'precision': offer.get('address', {}).get('precision', 'exact'),
