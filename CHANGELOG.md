@@ -9,6 +9,11 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### CI: test odświeżeń niezależny od zmiany czasu (2026-10-27)
+- **problem**: `test_refresh_tracking.py` (Test 2) oczekiwał dla „Odświeżono dzisiaj o 07:23” sztywnego `+02:00`, a „dzisiaj” bierze datę z zegara — od zmiany czasu 25.10.2026 wychodzi `+01:00`, więc test padał na każdym PR i na `main`. Skutek uboczny: w `tests.yml` stoi przed `test_refresh_signals`, `test_trend_index`, `test_address_precision_upgrade` i goldenem parsera, więc te od 25.10 w CI w ogóle się nie wykonywały.
+- **fix (tylko test)**: sprawdzamy godzinę 07:23 i to, że przesunięcie strefy zgadza się z `Europe/Warsaw` dla tej daty. Kod scrapera bez zmian.
+- **weryfikacja**: cała lista z `tests.yml` lokalnie 9/9, golden bez regresji.
+
 ### Powrót z mignięcia to nie reaktywacja (2026-10-26)
 - **zgłoszenie Mateusza**: po odfiltrowaniu mignięć z Odpływu ich powroty dalej liczyły się jako reaktywacje — „co jest bardziej logiczne? … ok naprawiaj”.
 - **diagnoza**: mignięcie zostawia dwa ślady (deaktywacja + reaktywacja w ciągu doby). Odpływ od dziś pomijał pierwszy, Reaktywacje i Napływ całkowity dalej liczyły drugi. Bilans od 03.09: Indeks −289, a napływ − odpływ = **+169** (zły znak). Po poprawce **−304** — 15 ofert od Indeksu.
