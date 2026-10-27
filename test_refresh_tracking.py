@@ -83,7 +83,11 @@ def test_card_extraction():
     plain = next(o for o in offers if 'ID1fghij' in o['url'])
 
     assert bumped['api_last_refresh'].startswith('20'), bumped['api_last_refresh']
-    assert bumped['api_last_refresh'].endswith('T07:23:00+02:00'), bumped['api_last_refresh']
+    # „Dzisiaj" to data z zegara, więc strefa zależy od pory roku (+02:00 latem,
+    # +01:00 zimą). Sztywne +02:00 padało od zmiany czasu 25.10.2026.
+    stamp = datetime.fromisoformat(bumped['api_last_refresh'])
+    assert (stamp.hour, stamp.minute) == (7, 23), bumped['api_last_refresh']
+    assert stamp.utcoffset() == PL_TZ.localize(stamp.replace(tzinfo=None)).utcoffset(), bumped['api_last_refresh']
     assert plain['api_last_refresh'] == '', plain['api_last_refresh']
     print(f'   ✅ karta z podbiciem  → {bumped["api_last_refresh"]}')
     print(f'   ✅ karta bez podbicia → (brak)')
