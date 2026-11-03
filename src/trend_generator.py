@@ -87,6 +87,29 @@ REFRESH_ALL_RELIABLE_START = date(2026, 9, 7)
 # asekuracja: taki dzień rysowałby się jako luka i nie wchodził do średniej/statystyk.
 REACT_ARTIFACT_THRESHOLD = 100
 
+# Para deaktywacja→reaktywacja domykająca się w ciągu tylu dni (lub krócej) to
+# prawie zawsze „mrugnięcie" pipeline'u (chwilowe niewidzenie oferty przez częściowy
+# scrape albo kolejkę skipped_offer_ids), nie realne wycofanie i powrót —
+# działka wycofana ze sprzedaży nie wraca po dwóch dniach. Zmierzone na żądanie
+# (przegląd 29.09.2026, 26 dni danych): 424 pary, 85,4% zamyka się w ≤3 dni
+# (306 w ≤1 dzień), rozkład dzienny bez koncentracji (śr. ~14/dzień, max 49) —
+# żaden dzień nie przekracza OUTFLOW_ARTIFACT_THRESHOLD/REACT_ARTIFACT_THRESHOLD,
+# czyli hurtowy guard nigdy nie złapie tego rozłożonego w czasie artefaktu
+# (propagacja z SONAR---DZIA-KOWY, issue #144, zatwierdzone przez Mateusza
+# po przeglądzie 13.10.2026 — patrz life_events()).
+#
+# UWAGA: to NIE jest ten sam próg co BLINK_MAX_HOURS wyżej, i to ŚWIADOMIE.
+# BLINK_MAX_HOURS (mapa: suwak „Zniknięcia" i flaga `reactivated`) łapie
+# WĄSKI, osobno zmierzony sygnał „mignięcia" w jednym cyklu skanowania — ten
+# sam skan nie zobaczył oferty, następny już tak. FLAP_MAX_DAYS (TYLKO wykres
+# Indeksu: build_outflow/build_inflow/build_bands, przez life_events()) łapie
+# SZERSZY wzorzec „artefaktu pipeline'u" — także wolniejsze powroty przez
+# kolejkę inteligentnego pomijania ofert, zmierzone i potwierdzone audytem
+# siostrzanego repo SONAR---DZIA-KOWY (66% par ≤3 dni, u nas 85,4%). Mapa i
+# wykres MAJĄ różne okna — to nie jest niespójność do „naprawienia", a dwa
+# różne, niezależnie zmierzone zjawiska na dwóch różnych widokach.
+FLAP_MAX_DAYS = 3
+
 # Karta „💰 Rozkład cen" (pod Wskaźnikiem Rotacji Rynku): słupki co PRICE_DIST_STEP zł,
 # oferty droższe niż PRICE_DIST_CAP zł NIE wchodzą ani do słupków, ani do cen
 # (decyzja Mateusza 03.11.2026 — to rynek pokoi, drogie mieszkania rozciągały oś).
@@ -140,6 +163,43 @@ def collect_dates(offer, field):
     return sorted(out)
 
 
+def life_events(offer):
+    """(deaktywacje, reaktywacje, ile par odsiano) — zdarzenia życia oferty
+    po odfiltrowaniu „mrugnięć" pipeline'u (patrz FLAP_MAX_DAYS).
+
+    Każdą deaktywację parujemy z najbliższym późniejszym powrotem. Para krótsza
+    lub równa FLAP_MAX_DAYS wypada Z OBU serii naraz — inaczej wykres odpływu i
+    wykres reaktywacji pokazywałyby dwa „rekordy rynkowe" będące jednym
+    zacięciem scrapera. Powrót domykający deaktywację, która ZOSTAJE, też
+    zostaje. Słupek dnia nie zamienia się w lukę — po prostu nie liczy tej
+    konkretnej pary (dzień może mieć inne, nieparowane zdarzenia).
+
+    Używana WYŁĄCZNIE przez wykresy Indeksu (build_spans/build_outflow/
+    build_inflow/build_bands). Mapa ma swój własny, węższy filtr mignięć —
+    patrz _blinks()/exit_days()/real_reactivations()/is_reactivated() poniżej
+    i komentarz przy FLAP_MAX_DAYS wyżej.
+    """
+    deactivations = collect_dates(offer, 'deactivation_dates')
+    reactivations = collect_dates(offer, 'reactivation_dates')
+
+    drop_d, drop_r, matched = set(), set(), set()
+    for i, gone in enumerate(deactivations):
+        back = next((j for j, r in enumerate(reactivations)
+                     if j not in matched and r >= gone), None)
+        if back is None:
+            continue
+        matched.add(back)
+        if (reactivations[back] - gone).days <= FLAP_MAX_DAYS:
+            drop_d.add(i)
+            drop_r.add(back)
+
+    return (
+        [d for i, d in enumerate(deactivations) if i not in drop_d],
+        [r for j, r in enumerate(reactivations) if j not in drop_r],
+        len(drop_d),
+    )
+
+
 def _collect_stamps(offer, field):
     """Jak collect_dates, ale pełne znaczniki czasu (z offsetem) zamiast dni."""
     out = []
@@ -154,8 +214,14 @@ def _collect_stamps(offer, field):
 
 
 def exit_days(offer):
-    """Dni, w których oferta ZESZŁA z rynku — wspólna konwencja wykresu odpływu
-    (build_outflow) i suwaka „Zniknięcia" na mapie (map_generator._gone_days).
+    """Dni, w których oferta ZESZŁA z rynku — konwencja suwaka „Zniknięcia" na
+    mapie (map_generator._gone_days).
+
+    UWAGA: wykres odpływu Indeksu (build_outflow) TERAZ liczy przez
+    life_events()/FLAP_MAX_DAYS (3 dni), nie przez tę funkcję — patrz komentarz
+    przy FLAP_MAX_DAYS. exit_days() zostaje węższym, 24-godzinnym filtrem
+    (BLINK_MAX_HOURS) wyłącznie dla mapy; to świadomy rozjazd, nie dług do
+    spłacenia.
 
     Źródłem jest `deactivation_dates` (także z `versions[]`), czyli dzień, w którym
     skan wykrył brak oferty. Pomijamy mignięcia: deaktywację, po której oferta
@@ -194,8 +260,14 @@ def _blinks(offer):
 
 def real_reactivations(offer):
     """Dni, w których oferta WRÓCIŁA na rynek (`reactivation_dates`, także
-    z `versions[]`) — bez powrotów z mignięć. Wspólne dla wykresów Reaktywacje
-    i Napływ całkowity (build_inflow) oraz pasm „recykling" (build_bands)."""
+    z `versions[]`) — bez powrotów z mignięć (BLINK_MAX_HOURS).
+
+    UWAGA: wykresy Reaktywacje/Napływ całkowity (build_inflow) i pasma
+    „recykling" (build_bands) TERAZ liczą przez życiowe wydarzenia z
+    life_events()/FLAP_MAX_DAYS (3 dni) — patrz komentarz przy FLAP_MAX_DAYS.
+    Ta funkcja zostaje jako budulec is_reactivated() i węższej, 24-godzinnej
+    konwencji mignięcia.
+    """
     _, back, _, blink_back = _blinks(offer)
     return sorted(stamp.date() for stamp in back if stamp not in blink_back)
 
@@ -206,6 +278,10 @@ def is_reactivated(offer):
     Oferta wróciła kiedyś na rynek, jeśli ma `reactivated_at` i choć jeden powrót
     nie jest mignięciem. Oferty z samym `reactivated_at` bez dat (sprzed
     `reactivation_dates`) zostają reaktywowane jak dotąd.
+
+    Używa węższego, 24-godzinnego okna mignięcia (BLINK_MAX_HOURS) — patrz
+    komentarz przy FLAP_MAX_DAYS o tym, dlaczego mapa i wykres Indeksu mają
+    różne okna. To świadome, nie jest to do „ujednolicenia".
     """
     if not offer.get('reactivated_at'):
         return False
@@ -218,7 +294,9 @@ def build_spans(offers):
 
     Oferta może żyć na raty: zniknęła z listingu (`deactivation_dates`) i wróciła
     (`reactivation_dates`). Każda taka przerwa zamyka jeden przedział i otwiera
-    następny, więc dzień w środku przerwy nie liczy się jako żywy.
+    następny, więc dzień w środku przerwy nie liczy się jako żywy. Daty idą
+    przez `life_events` — przerwa ≤FLAP_MAX_DAYS to „mrugnięcie" pipeline'u, nie
+    realne wycofanie, więc nie dzieli przedziału.
 
     UWAGA na dane historyczne: `deactivation_dates` zapisujemy dopiero od
     03.09.2026. Oferta bez ani jednej daty deaktywacji dostaje — jak dawniej —
@@ -245,8 +323,9 @@ def build_spans(offers):
         if final_end < start:
             final_end = start
 
-        deactivations = [d for d in collect_dates(o, 'deactivation_dates') if start <= d <= final_end]
-        reactivations = collect_dates(o, 'reactivation_dates')
+        gone, back_dates, _ = life_events(o)
+        deactivations = [d for d in gone if start <= d <= final_end]
+        reactivations = back_dates
 
         intervals = []
         cursor = start
@@ -491,6 +570,9 @@ def build_outflow(offers, series=None):
     różnica ≈ 1131 reaktywacji, których poprzedzające zgony nigdzie nie trafiły.
     Od wdrożenia `deactivation_dates` szereg domyka się sam.
 
+    Deaktywacje domknięte powrotem w ≤FLAP_MAX_DAYS (patrz life_events) tu NIE
+    wchodzą — to zacięcie pipeline'u, nie realne zniknięcie z rynku.
+
     Druga seria to trailing average z 7 dni — wygładza dzienny szum.
     """
     days, _ = _axis(offers, series)
@@ -500,10 +582,19 @@ def build_outflow(offers, series=None):
 
     dep = {}
     for o in offers:
-        # exit_days zwraca dni bez powtórzeń: jedna oferta może wypaść z listingu
-        # dwa razy tego samego dnia — to szum skanowania, nie dwie oferty. Metryka
-        # liczy OFERTY, tak jak suwak "Zniknięcia" na mapie (jedna oferta = jeden marker).
-        for d in exit_days(o):
+        gone, _, _ = life_events(o)
+        if not gone and not o.get('active') and o.get('last_seen'):
+            try:
+                gone = [_d(o['last_seen'])]
+            except (ValueError, TypeError):
+                gone = []
+        # Dedup per (oferta, dzień): jedna oferta może wypaść z listingu dwa razy
+        # tego samego dnia (skan poranny i wieczorny, między nimi reaktywacja) —
+        # to szum skanowania, nie dwie oferty. Metryka liczy OFERTY — jedna
+        # oferta to jedno zdarzenie, tak jak suwak "Zniknięcia" na mapie liczy
+        # jedną ofertę jako jeden marker, choć mapa i ten wykres filtrują
+        # mignięcia innym oknem (patrz FLAP_MAX_DAYS vs BLINK_MAX_HOURS).
+        for d in sorted(set(gone)):
             if d >= start:
                 dep[d] = dep.get(d, 0) + 1
 
@@ -525,6 +616,10 @@ def build_inflow(offers, series=None):
     Ten sam zakres (od RELIABLE_START do dziś) i konwencja co Indeks/odpływ.
     Serie z reaktywacjami zaczynają się dopiero od REACT_RELIABLE_START — patrz
     komentarz przy tej stałej.
+
+    Reaktywacje domknięte w ≤FLAP_MAX_DAYS po deaktywacji (patrz life_events) tu
+    NIE wchodzą — razem z odpowiadającą im deaktywacją idą do kosza jako
+    zacięcie pipeline'u, nie realny powrót na rynek.
     """
     days, _ = _axis(offers, series)
     if not days:
@@ -542,7 +637,8 @@ def build_inflow(offers, series=None):
                     new[d] = new.get(d, 0) + 1
             except (ValueError, TypeError):
                 pass
-        for d in real_reactivations(o):
+        _, reactivations, _ = life_events(o)
+        for d in reactivations:
             if d >= start:
                 react[d] = react.get(d, 0) + 1
 
@@ -703,7 +799,7 @@ def build_bands(offers, series=None):
 
     first_reactivation = []
     for offer, intervals in spans:
-        dates = real_reactivations(offer)
+        dates = life_events(offer)[1]
         first_reactivation.append((intervals, dates[0] if dates else None))
 
     measured = {ms: value for ms, value in (series or [])}
@@ -1281,6 +1377,13 @@ def generate_trend_data(base_dir: Path = None) -> bool:
         'bands': build_bands(offers, series),
         'promoted': build_promoted(offers, series, load_scan_days(base_dir), base_dir),
         'refreshes': build_refreshes(offers, load_scan_days(base_dir), base_dir),
+        # ile par „zniknęła i zaraz wróciła" odsialiśmy jako zacięcie pipeline'u
+        # (patrz life_events / FLAP_MAX_DAYS) — front pokazuje liczbę par w opisie
+        # wykresu reaktywacji, żeby „dlaczego mniej niż się wydaje" miało źródło.
+        'flapping': {
+            'pairs': sum(life_events(o)[2] for o in offers),
+            'max_days': FLAP_MAX_DAYS,
+        },
     }
 
     out['velocity'] = build_velocity(out['outflow'], out['inflow'])
@@ -1301,6 +1404,8 @@ def generate_trend_data(base_dir: Path = None) -> bool:
           f"teraz={current}, max={mx}, min={mn}; "
           f"odpływ: łącznie={of.get('total')}, śr={of.get('rate')}/dzień, "
           f"rekord={of.get('max_day')} ({of.get('max_label')})")
+    print(f"   🧹 odsiane mrugnięcia pipeline'u (powrót ≤{FLAP_MAX_DAYS} dni): "
+          f"{out['flapping']['pairs']} par")
     pr = out['promoted']
     if pr:
         print(f"   ⭐ promowane: teraz={pr.get('current')} ({pr.get('current_share')}% rynku), "

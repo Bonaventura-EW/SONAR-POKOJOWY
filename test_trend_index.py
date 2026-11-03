@@ -513,6 +513,53 @@ def test_price_changes():
               f"min={pc['net']['min_day']} ({pc['net']['min_label']})")
 
 
+def test_flapping_pairs_filtered():
+    print("\n🧹 Test: pary deaktywacja→reaktywacja ≤3 dni odsiane jako mrugnięcie")
+    offers = [{
+        # mrugnięcie: wraca po 2 dniach — para wypada z obu serii
+        'id': 'mrugniecie', 'first_seen': iso(date(2026, 9, 1)), 'last_seen': iso(date(2026, 9, 30)),
+        'active': True,
+        'deactivation_dates': [iso(date(2026, 9, 10))],
+        'reactivation_dates': [iso(date(2026, 9, 12))],
+    }, {
+        # realne wycofanie i powrót: 10 dni — para ZOSTAJE
+        'id': 'realny-powrot', 'first_seen': iso(date(2026, 9, 1)), 'last_seen': iso(date(2026, 9, 30)),
+        'active': True,
+        'deactivation_dates': [iso(date(2026, 9, 10))],
+        'reactivation_dates': [iso(date(2026, 9, 20))],
+    }]
+
+    gone, back, pairs = tg.life_events(offers[0])
+    check('mrugnięcie: deaktywacja odsiana', gone == [], str(gone))
+    check('mrugnięcie: reaktywacja odsiana', back == [], str(back))
+    check('mrugnięcie: 1 para odsiana', pairs == 1, str(pairs))
+
+    gone2, back2, pairs2 = tg.life_events(offers[1])
+    check('realny powrót: deaktywacja zostaje', gone2 == [date(2026, 9, 10)], str(gone2))
+    check('realny powrót: reaktywacja zostaje', back2 == [date(2026, 9, 20)], str(back2))
+    check('realny powrót: 0 par odsianych', pairs2 == 0, str(pairs2))
+
+    # Przedział życia oferty, której mrugnięcie odsiano, jest CIĄGŁY (bez przerwy)
+    spans, _ = tg.build_spans([offers[0]])
+    (_, iv), = spans
+    check('mrugnięcie nie dzieli przedziału życia', len(iv) == 1, str(iv))
+
+    series = [[tg._day_ms(date(2026, 9, 1) + timedelta(days=i)), 10] for i in range(30)]
+    out = tg.build_outflow(offers, series)
+    react = tg.build_inflow(offers, series)['react']
+    d10 = tg._day_ms(date(2026, 9, 10))
+    d12 = tg._day_ms(date(2026, 9, 12))
+    d20 = tg._day_ms(date(2026, 9, 20))
+    outflow_by_ms = dict(out['daily'])
+    react_by_ms = dict(react['daily'])
+    check('odpływ 10.09 liczy tylko realne wycofanie (1, nie 2)', outflow_by_ms[d10] == 1,
+          str(outflow_by_ms[d10]))
+    check('reaktywacja mrugnięcia (12.09) nie wchodzi do napływu', react_by_ms[d12] == 0,
+          str(react_by_ms[d12]))
+    check('realny powrót (20.09) wchodzi do napływu', react_by_ms[d20] == 1,
+          str(react_by_ms[d20]))
+
+
 def test_day_anchor_is_utc():
     print("\n🌍 Test 8: kotwica dnia niezależna od strefy czasowej")
     days = [date(2027, 3, 24) + timedelta(days=i) for i in range(5)]      # 28.03 = zmiana czasu
@@ -524,24 +571,25 @@ def test_day_anchor_is_utc():
 
 
 def test_blinks_are_not_outflow():
-    print("\n👁️  Test 10: mignięcie (powrót w ciągu doby) nie jest odpływem")
+    print("\n👁️  Test 10: wykres Odpływu odsiewa mrugnięcia pipeline'u (≤3 dni, FLAP_MAX_DAYS)")
     import map_generator
     with tempfile.TemporaryDirectory() as tmp:
         base = Path(tmp)
         (base / 'data').mkdir()
-        for day in range(16, 25):
+        for day in range(16, 27):
             record_day(base, date(2026, 5, day), 700)
         d = lambda day, hour: datetime(2026, 5, day, hour).astimezone().isoformat()
         offers = [
-            # wróciła po 6 h — mignięcie
+            # wróciła po 6 h — mignięcie (też w oknie mapy, 24h)
             {'id': 'a', 'first_seen': d(16, 9), 'active': True,
              'deactivation_dates': [d(20, 12)], 'reactivation_dates': [d(20, 18)]},
             # zniknęła wieczorem, wróciła rano po 16 h — też mignięcie
             {'id': 'b', 'first_seen': d(16, 9), 'active': True,
              'deactivation_dates': [d(20, 20)], 'reactivation_dates': [d(21, 12)]},
-            # wróciła po 3 dniach — prawdziwe zejście z rynku 20.05
+            # wróciła po 5 dniach (> FLAP_MAX_DAYS) — prawdziwe zejście z rynku 20.05,
+            # na wykresie I na mapie (gap dużo większy niż oba okna, 3 dni i 24h)
             {'id': 'c', 'first_seen': d(16, 9), 'active': True,
-             'deactivation_dates': [d(20, 12)], 'reactivation_dates': [d(23, 12)]},
+             'deactivation_dates': [d(20, 12)], 'reactivation_dates': [d(25, 12)]},
             # zniknęła i nie wróciła
             {'id': 'd', 'first_seen': d(16, 9), 'active': False, 'last_seen': d(21, 9),
              'deactivation_dates': [d(21, 12)]},
@@ -555,13 +603,23 @@ def test_blinks_are_not_outflow():
         out = tg.build_outflow(offers, series)
         by_day = {tg._ms_day(ms).day: v for ms, v in out['daily']}
         check('19.05: fallback last_seen', by_day[19] == 1, str(by_day))
-        check('20.05: liczy tylko powrót po 3 dniach (bez mignięć a, b)', by_day[20] == 1, str(by_day))
+        check('20.05: liczy tylko powrót po 5 dniach (bez mignięć a, b)', by_day[20] == 1, str(by_day))
         check('21.05: zejście bez powrotu', by_day[21] == 1, str(by_day))
         check('22.05: mignięcie z versions[] pominięte', by_day[22] == 0, str(by_day))
         check('łącznie 3 zejścia z rynku', out['total'] == 3, str(out['total']))
+
+        # Mapa (exit_days/_gone_days, BLINK_MAX_HOURS=24h) i wykres (life_events,
+        # FLAP_MAX_DAYS=3 dni) są ŚWIADOMIE różnymi oknami — patrz komentarz przy
+        # FLAP_MAX_DAYS w trend_generator.py. Tu pilnujemy tylko, że suwak mapy
+        # jest wewnętrznie zgodny ze swoim własnym exit_days(), NIE że zgadza się
+        # z wykresem.
         same = all(map_generator._gone_days(o) == [x.isoformat() for x in tg.exit_days(o)] for o in offers)
-        check('suwak na mapie liczy to samo co wykres', same)
+        check('suwak mapy liczy to samo co exit_days (własna, 24h konwencja mapy)', same)
         check('mignięcie nie ma dnia zniknięcia na mapie', map_generator._gone_days(offers[0]) == [])
+        # Oferta 'b' (gap 16h, przez noc) to mignięcie na mapie, ale jej gap w DNIACH
+        # kalendarzowych (20→21) to 1 dzień ≤ FLAP_MAX_DAYS, więc wykres ją też odsiewa —
+        # oba okna się tu zgadzają, co innego niż 'c' poniżej.
+        check("mignięcie 'b' pominięte też przez exit_days mapy", map_generator._gone_days(offers[1]) == [])
 
 
 def test_velocity():
@@ -583,33 +641,47 @@ def test_velocity():
 
 
 def test_blink_returns_are_not_reactivations():
-    print("\n♻️  Test 12: powrót z mignięcia nie jest reaktywacją")
+    print("\n♻️  Test 12: powrót z mignięcia (mapa, 24h) vs odsiew pipeline'u (wykres, 3 dni)")
     import map_generator
     d = lambda day, hour: datetime(2026, 7, day, hour).astimezone().isoformat()
     blink = {'id': 'b', 'first_seen': d(1, 9), 'last_seen': d(10, 9), 'active': True, 'reactivated_at': d(5, 18),
              'deactivation_dates': [d(5, 12)], 'reactivation_dates': [d(5, 18)]}
+    # Gap 3 dni: NIE jest mignięciem mapy (>24h), więc real_reactivations/is_reactivated
+    # (mapa) uznają ją za prawdziwy powrót — ale TEN SAM gap jest ≤ FLAP_MAX_DAYS, więc
+    # life_events (wykres Indeksu) go odsiewa jako mrugnięcie pipeline'u. To jest
+    # ŚWIADOMY rozjazd mapy i wykresu, nie błąd — patrz komentarz przy FLAP_MAX_DAYS.
     real = {'id': 'r', 'first_seen': d(1, 9), 'last_seen': d(10, 9), 'active': True, 'reactivated_at': d(8, 12),
             'deactivation_dates': [d(5, 12)], 'reactivation_dates': [d(8, 12)]}
     mixed = {'id': 'm', 'first_seen': d(1, 9), 'last_seen': d(10, 9), 'active': True, 'reactivated_at': d(9, 18),
              'deactivation_dates': [d(3, 12), d(9, 12)], 'reactivation_dates': [d(6, 12), d(9, 18)]}
     legacy = {'id': 'l', 'first_seen': d(1, 9), 'last_seen': d(10, 9), 'active': True, 'reactivated_at': d(2, 12)}
+    # Gap 8 dni (> FLAP_MAX_DAYS i > BLINK_MAX_HOURS) — prawdziwy powrót dla OBU:
+    # mapy i wykresu zgadzają się, bo to już nie jest żaden z dwóch artefaktów.
+    real_long = {'id': 'rl', 'first_seen': d(1, 9), 'last_seen': d(10, 9), 'active': True, 'reactivated_at': d(10, 12),
+                 'deactivation_dates': [d(2, 12)], 'reactivation_dates': [d(10, 12)]}
     check('mignięcie: brak prawdziwych reaktywacji', tg.real_reactivations(blink) == [], str(tg.real_reactivations(blink)))
-    check('powrót po 3 dniach zostaje', tg.real_reactivations(real) == [date(2026, 7, 8)])
-    check('mieszana: zostaje tylko prawdziwy powrót', tg.real_reactivations(mixed) == [date(2026, 7, 6)],
+    check('powrót po 3 dniach zostaje (konwencja mapy, 24h)', tg.real_reactivations(real) == [date(2026, 7, 8)])
+    check('mieszana: zostaje tylko prawdziwy powrót (konwencja mapy)', tg.real_reactivations(mixed) == [date(2026, 7, 6)],
           str(tg.real_reactivations(mixed)))
+    check('powrót po 8 dniach zostaje też w konwencji mapy', tg.real_reactivations(real_long) == [date(2026, 7, 10)])
     check('flaga mapy: samo mignięcie to nie reaktywacja', map_generator.is_reactivated(blink) is False)
-    check('flaga mapy: prawdziwy powrót / mieszana / stara bez dat', all(map_generator.is_reactivated(o) for o in (real, mixed, legacy)))
+    check('flaga mapy: prawdziwy powrót / mieszana / stara bez dat / długi powrót',
+          all(map_generator.is_reactivated(o) for o in (real, mixed, legacy, real_long)))
 
     with tempfile.TemporaryDirectory() as tmp:
         base = Path(tmp)
         (base / 'data').mkdir()
         for day in range(1, 11):
             record_day(base, date(2026, 7, day), 700)
-        offers = [blink, real, mixed]
+        offers = [blink, real, mixed, real_long]
         series = tg.build_series(offers, base_dir=base)
         react = {tg._ms_day(ms).day: v for ms, v in tg.build_inflow(offers, series)['react']['daily']}
-        check('wykres Reaktywacji: 05.07 bez mignięcia, 06.07 i 08.07 po jednej, 09.07 bez mignięcia',
-              (react[5], react[6], react[8], react[9]) == (0, 1, 1, 0), str(react))
+        # Na WYKRESIE (life_events/FLAP_MAX_DAYS=3) wszystkie pary ≤3 dni wypadają —
+        # 06.07 i 08.07 (uznane za "prawdziwe" przez mapę powyżej) tu liczą się jako 0,
+        # bo to dokładnie ten szerszy, rozłożony w czasie artefakt pipeline'u, który
+        # PR odsiewa. Tylko 'real_long' (gap 8 dni) przechodzi przez oba filtry.
+        check("wykres Indeksu: 05.07/06.07/08.07/09.07 odsiane jako mrugnięcie (≤3 dni), 10.07 (8 dni) zostaje",
+              (react[5], react[6], react[8], react[9], react[10]) == (0, 0, 0, 0, 1), str(react))
 
 
 def _priced(*prices, active=True):
@@ -748,6 +820,7 @@ if __name__ == '__main__':
     test_refreshes_two_series()
     test_refresh_unscanned_day_is_a_gap()
     test_szperacz_backfill()
+    test_flapping_pairs_filtered()
     test_day_anchor_is_utc()
     test_blinks_are_not_outflow()
     test_velocity()

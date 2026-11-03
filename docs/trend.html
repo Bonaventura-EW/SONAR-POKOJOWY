@@ -274,7 +274,8 @@
             więc prawy koniec zawsze opadał: od 29.07 wykres pokazywał &minus;10%, a rynek w tym czasie urósł o +1,9%.
             Przełącznik <strong>Rozbij</strong> dzieli tę samą liczbę na pasma &mdash; udział pasm bierze się z rekonstrukcji
             przedziałów życia, więc recykling jest <em>zaniżony</em> (oferta martwa danego dnia, wskrzeszona później, liczy się
-            jeszcze jako świeża). Mignięcie (powrót w ciągu doby) nie przenosi oferty do recyklingu. MAX/MIN/zakres liczone automatycznie; zmiany 6M/1Y pojawią się, gdy uzbieramy dłuższą historię.
+            jeszcze jako świeża). Powrót z mrugnięcia pipeline'u (&le;3 dni, patrz Reaktywacje poniżej) nie przenosi
+            oferty do recyklingu. MAX/MIN/zakres liczone automatycznie; zmiany 6M/1Y pojawią się, gdy uzbieramy dłuższą historię.
         </div>
 
         <div class="card" style="margin-top:22px">
@@ -287,9 +288,16 @@
             <strong>Skąd dane:</strong> dla każdego dnia liczba ofert, które tego dnia wypadły z listingu
             (<code>deactivation_dates</code>). Czerwona linia to dzienny odpływ, pomarańczowa to średnia krocząca
             z 7 dni — wygładza dzienny szum i pokazuje trend nasilenia znikania.
-            <strong>Mignięcia się nie liczą</strong>: oferta, której zabrakło w skanie, a w ciągu doby wróciła,
-            nie zeszła z rynku (od 26.10.2026; wcześniej wliczane: od 03.09 było to 465 z 1983 zniknięć, prawie co czwarte). Zniknięcie z ostatnich
-            skanów liczy się, dopóki oferta nie wróci.
+            <strong>Zniknięcia domknięte powrotem w ciągu 3 dni tu nie wchodzą</strong>: para zniknięcie→powrót
+            domykająca się w ≤3 dni to prawie zawsze mrugnięcie pipeline'u (chwilowe niewidzenie oferty przez
+            częściowy scrape albo kolejkę pomijania ofert), nie realne zejście z rynku — idzie do kosza razem z
+            odpowiadającą jej reaktywacją (w tej bazie <span id="flapCount">—</span> takich par; szerszy filtr od
+            20.10.2026 zastąpił tu węższy, tylko-24-godzinny z 26.10). Zniknięcie z ostatnich skanów liczy się,
+            dopóki oferta nie wróci.
+            <strong>Mapa liczy to inaczej</strong>: suwak „Zniknięcia" i flaga „reaktywowana" na mapie zostają przy
+            węższym, 24-godzinnym oknie (jeden skan nie widzi oferty, następny już tak) — osobno zmierzony, ciaśniejszy
+            sygnał mignięcia w jednym cyklu skanowania, nie ten sam artefakt co tutaj. Rozjazd jest świadomy, nie
+            błędem do ujednolicenia.
             <strong>Historia jest zaniżona</strong>: daty deaktywacji zapisujemy dopiero od 03.09.2026, a starsze oferty
             zostawiły tylko <code>last_seen</code>, czyli <em>wyłącznie ostatnie</em> zniknięcie — oferta, która umarła
             i wróciła, nie ma śladu po swojej pierwszej śmierci. Widać to w bilansie: napływ 3174 &minus; odpływ 1590 = +1584,
@@ -531,10 +539,16 @@
         <div class="foot">
             <strong>Skąd dane:</strong> dla każdego dnia liczba ofert, które tego dnia wróciły na rynek
             po wcześniejszym zniknięciu (data w <code>reactivation_dates</code> = ten dzień).
-            <strong>Powrót z mignięcia się nie liczy</strong>: oferta, której zabrakło w skanie, a w ciągu doby wróciła,
-            nie zeszła z rynku, więc nie mogła na niego wrócić (od 26.10.2026, tak samo jak w Odpływie). Takich powrotów
-            było 473 z 1850 reaktywacji, wszystkie od 03.09, odkąd zapisujemy daty zniknięć. Bez tego od 03.09 napływ
-            minus odpływ wychodził +169, choć Indeks spadł o 289.
+            <strong>Powroty w ciągu 3 dni tu nie wchodzą</strong>: para zniknięcie&rarr;powrót domykająca się w &le;3
+            dni to prawie zawsze mrugnięcie pipeline'u (chwilowe niewidzenie oferty przez częściowy scrape albo
+            kolejkę pomijania ofert) &mdash; razem z odpowiadającą jej dezaktywacją idzie do kosza (w tej bazie
+            <span id="flapCount2">&mdash;</span> takich par; szerszy filtr od 20.10.2026 zastąpił tu węższy,
+            tylko-24-godzinny z 26.10, który wyłapywał 473 z 1850 reaktywacji). Działka wycofana ze sprzedaży nie
+            wraca po dwóch dniach; wraca oferta, której portal na chwilę nie pokazał albo którą częściowy scrape
+            uznał za martwą.
+            <strong>Mapa liczy to inaczej</strong>: flaga „reaktywowana" na mapie zostaje przy węższym, 24-godzinnym
+            oknie mignięcia &mdash; osobno zmierzony, ciaśniejszy sygnał jednego cyklu skanowania, świadomie różny
+            od tego filtra, nie rozjazd do naprawienia.
             <strong>Dwa dni (21.07, 12.06) są wycięte</strong> jako artefakt pipeline'u &mdash; bug pętli
             <code>scrape&rarr;inactive&rarr;verify&rarr;reactivate</code> + jednorazowy backfill dat
             (naprawione 24.07) wygenerowały piki 432 i 182, kilkanaście % bazy w jeden dzień. Na osi
@@ -630,6 +644,13 @@
 
         const RAW = d.series || [];
         document.getElementById('title').textContent = d.title || 'Lublin – pokoje: wynajem';
+
+        if (d.flapping && d.flapping.pairs != null) {
+            ['flapCount', 'flapCount2'].forEach(function (id) {
+                const el = document.getElementById(id);
+                if (el) el.textContent = d.flapping.pairs;
+            });
+        }
 
         // Doba w toku (trend_generator.partial_day): ma za sobą część zaplanowanych skanów,
         // więc jej wartość to DOLNE oszacowanie — dzień jeszcze rośnie. Do serii, delt ani
