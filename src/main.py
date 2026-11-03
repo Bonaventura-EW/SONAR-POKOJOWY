@@ -5,6 +5,7 @@ WERSJA 2.0: Równoległy scraping + monitoring
 """
 
 import json
+import traceback
 from pathlib import Path
 from datetime import datetime, timedelta
 import pytz
@@ -679,7 +680,7 @@ class SonarPokojowy:
         except Exception as e:
             print(f"      ❌ Błąd przetwarzania oferty {offer_id} ({raw_offer.get('url', '')}): {e}")
             self.scan_logger.log_error(
-                f"processing_error offer_id={offer_id} url={raw_offer.get('url', '')}: {e}"
+                f"processing_error offer_id={offer_id} url={raw_offer.get('url', '')}:\n{traceback.format_exc()}"
             )
             self._skip_reason = 'processing_error'
             self._skip_detail = str(e)
