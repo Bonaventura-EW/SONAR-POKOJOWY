@@ -19,6 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
 import index_history
+import price_history
 import trend_generator as tg
 
 FAILED = []
@@ -611,6 +612,85 @@ def test_blink_returns_are_not_reactivations():
               (react[5], react[6], react[8], react[9]) == (0, 1, 1, 0), str(react))
 
 
+def _priced(*prices, active=True):
+    """Oferty z podanymi cenami (None = oferta bez ceny)."""
+    return [{'active': active, 'price': {'current': p}} for p in prices]
+
+
+def test_price_history_store():
+    print("\n💰 Test 13: magazyn rozkładu cen (data/price_history.json)")
+    snap = price_history.snapshot(_priced(800, 800, 849.5, None) + _priced(900, active=False))
+    check('snapshot: nieaktywne pominięte, oferta bez ceny liczy się do active, nie do cen',
+          snap == {'active': 4, 'prices': {'800': 2, '849.5': 1}}, str(snap))
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        (base / 'data').mkdir()
+        day = date(2026, 9, 1)
+        price_history.record(_priced(800, 900, 1000), iso(day, 9), base_dir=base)
+        price_history.record(_priced(800, 900), iso(day, 15), base_dir=base)
+        entry = price_history.load(base)['days'][day.isoformat()]
+        check('skan częściowy (mniej aktywnych) nie podmienia dnia',
+              entry['active'] == 3 and entry['prices'] == {'800': 1, '900': 1, '1000': 1}, str(entry))
+        price_history.record(_priced(800, 900, 1000, 1100), iso(day, 21), base_dir=base)
+        entry = price_history.load(base)['days'][day.isoformat()]
+        check('pełniejszy skan tego samego dnia podmienia rozkład',
+              entry['active'] == 4 and entry['prices'].get('1100') == 1 and entry['ts'] == iso(day, 21), str(entry))
+
+        path = base / 'data' / 'price_history.json'
+        before = path.read_text()
+        path.write_text(before[: len(before) // 2])
+        price_history.record(_priced(700), iso(day + timedelta(days=1), 9), base_dir=base)
+        check('plik nieczytelny: record() niczego nie zapisuje', path.read_text() == before[: len(before) // 2])
+        path.write_text(before)
+        try:
+            price_history.save({'days': {}}, base_dir=base)
+            refused = False
+        except price_history.PriceHistoryError:
+            refused = True
+        check('save() odmawia zastąpienia historii pustką', refused)
+
+
+def test_price_dist_card():
+    print("\n💰 Test 14: karta „Rozkład cen” — kubełki 20 zł, próg 1500 zł, kafelki dnia")
+    d1, d2, d3 = date(2026, 9, 1), date(2026, 9, 2), date(2026, 9, 3)
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        (base / 'data').mkdir()
+        record_day(base, d1, 10)
+        record_day(base, d2, 12)
+        index_history.record(11, iso(d3, 9), base_dir=base)          # doba w toku: 1 z 3 skanów
+        price_history.record(_priced(700, 900), iso(d1, 9), base_dir=base)
+        price_history.record(_priced(800, 819, 820, 1499, 1500, 1501, 4000), iso(d2, 9), base_dir=base)
+        price_history.record(_priced(900), iso(d3, 9), base_dir=base)
+
+        offers = [
+            {'first_seen': iso(d2, 10), 'active': True},
+            {'first_seen': iso(d2, 11), 'active': True},
+            {'first_seen': iso(d1, 10), 'active': True, 'promoted_dates': [iso(d3, 9)]},
+        ]
+        pd = tg.build_price_dist(offers, base_dir=base)
+        by = {e['label']: e for e in pd['days']}
+        e1, e2, e3 = by['01.09.2026'], by['02.09.2026'], by['03.09.2026']
+
+        check('krok 20 zł i próg 1500 zł', (pd['step'], pd['cap']) == (20, 1500), str((pd['step'], pd['cap'])))
+        check('kubełki od zera co 20 zł; 1501 i 4000 zł pominięte, 1500 zł zostaje',
+              e2['hist'] == {'800': 2, '820': 1, '1480': 1, '1500': 1}, str(e2['hist']))
+        check('statystyki z dokładnych cen do 1500 zł',
+              e2['stats'] == {'n': 5, 'min': 800, 'q1': 819, 'med': 820, 'avg': 1088, 'q3': 1499, 'max': 1500},
+              str(e2['stats']))
+        check('oś wspólna dla wszystkich dni (od najtańszego kubełka)', pd['axis_from'] == 700, str(pd['axis_from']))
+        check('Aktywne i Zmiana z index_history (nie z liczby cen)',
+              (e2['active'], e2['change']) == (12, 2) and e1['change'] is None, f"{e2['active']} {e2['change']} {e1['change']}")
+        check('Nowe = first_seen tego dnia', (e1['new'], e2['new'], e3['new']) == (1, 2, 0),
+              f"{e1['new']} {e2['new']} {e3['new']}")
+        check('Promowane: brak pomiaru przed pierwszym dniem z danymi, potem liczba i % rynku',
+              e2['promoted'] is None and (e3['promoted'], e3['promoted_share']) == (1, 9.1),
+              f"{e2['promoted']} {e3['promoted']} {e3['promoted_share']}")
+        check('doba w toku: ma wartości i plakietkę (1 z 3 skanów), poprzednie dni bez niej',
+              e3['active'] == 11 and e3.get('partial') == {'scans': 1, 'expected': 3} and 'partial' not in e2,
+              str(e3.get('partial')))
+
+
 if __name__ == '__main__':
     print("🧪 TEST INDEKSU PODAŻY\n" + "=" * 60)
     test_intervals()
@@ -633,6 +713,8 @@ if __name__ == '__main__':
     test_blinks_are_not_outflow()
     test_velocity()
     test_blink_returns_are_not_reactivations()
+    test_price_history_store()
+    test_price_dist_card()
     print("\n" + "=" * 60)
     if FAILED:
         print(f"❌ Niezaliczone ({len(FAILED)}): " + ', '.join(FAILED))

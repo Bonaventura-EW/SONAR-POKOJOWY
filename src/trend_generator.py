@@ -25,6 +25,7 @@ from datetime import datetime, date, timedelta, timezone
 from pathlib import Path
 
 import index_history
+import price_history
 from shared_utils import write_json_atomic
 
 TITLE = "Lublin – pokoje: wynajem"
@@ -85,6 +86,14 @@ REFRESH_ALL_RELIABLE_START = date(2026, 9, 7)
 # data/backups/). Dziś ten próg NIC nie tnie (dane czyste) — zostaje jako tania
 # asekuracja: taki dzień rysowałby się jako luka i nie wchodził do średniej/statystyk.
 REACT_ARTIFACT_THRESHOLD = 100
+
+# Karta „💰 Rozkład cen" (pod Wskaźnikiem Rotacji Rynku): słupki co PRICE_DIST_STEP zł,
+# oferty droższe niż PRICE_DIST_CAP zł NIE wchodzą ani do słupków, ani do cen
+# (decyzja Mateusza 03.11.2026 — to rynek pokoi, drogie mieszkania rozciągały oś).
+# Oferta za równe 1500 zł zostaje. Magazyn (data/price_history.json) trzyma pełne
+# ceny, więc zmiana kroku albo progu nie wymaga nowego backfillu.
+PRICE_DIST_STEP = 20
+PRICE_DIST_CAP = 1500
 
 
 def _day_ms(d: date) -> int:
@@ -1000,6 +1009,113 @@ def build_refreshes(offers, scan_days=None, base_dir=None):
     return {'firm': firm, 'all': whole}
 
 
+def _price_stats(prices):
+    """Statystyki z DOKŁADNYCH cen (lista posortowana rosnąco), nie z kubełków.
+
+    Kwartyle tak jak w SZPERACZU: element na pozycji ⌊n·0,25⌋ / ⌊n·0,75⌋.
+    """
+    n = len(prices)
+    if not n:
+        return None
+    med = prices[n // 2] if n % 2 else (prices[n // 2 - 1] + prices[n // 2]) / 2
+    num = lambda v: int(v) if float(v).is_integer() else round(v, 2)  # noqa: E731
+    return {
+        'n': n,
+        'min': num(prices[0]),
+        'q1': num(prices[int(n * 0.25)]),
+        'med': num(med),
+        'avg': round(sum(prices) / n),
+        'q3': num(prices[int(n * 0.75)]),
+        'max': num(prices[-1]),
+    }
+
+
+def build_price_dist(offers, base_dir=None):
+    """Karta „Rozkład cen": stan rynku dzień po dniu, do wyboru suwakiem.
+
+    Źródło cen to data/price_history.json — rozkład zmierzony przy skanie (od
+    16.05.2026 odtworzony z rewizji offers.json w gicie), nie rekonstrukcja.
+    Każdy dzień niesie też kafelki: Aktywne/Zmiana z index_history (te same
+    liczby co Indeks), Nowe (first_seen = ten dzień, jak `inflow.new`) i
+    Promowane (jak `promoted.daily`). Doba w toku NIE jest tu maskowana — karta
+    pokazuje stan wybranego dnia, a front oznacza ją plakietką.
+    """
+    snaps = price_history.daily(base_dir)
+    days = sorted(d for d in snaps if d >= RELIABLE_START)
+    if not days:
+        return None
+
+    measured = {day: val for day, val in index_history.daily_series(base_dir=base_dir) if val}
+
+    def active_on(day):
+        if day in measured:
+            return measured[day]
+        snap = snaps.get(day)
+        return snap['active'] if snap else None
+
+    new, promoted = {}, {}
+    for o in offers:
+        fs = o.get('first_seen')
+        if fs:
+            try:
+                d = _d(fs)
+                new[d] = new.get(d, 0) + 1
+            except (ValueError, TypeError):
+                pass
+        for d in set(collect_dates(o, 'promoted_dates')):
+            promoted[d] = promoted.get(d, 0) + 1
+    promo_start = min(promoted) if promoted else None
+
+    part = partial_day(base_dir)
+    part_day = _ms_day(part['ms']) if part else None
+
+    out_days = []
+    axis_from = None
+    for day in days:
+        expanded = []
+        hist = {}
+        for price, count in snaps[day]['prices'].items():
+            if price > PRICE_DIST_CAP:
+                continue
+            expanded.extend([price] * count)
+            bucket = int(price // PRICE_DIST_STEP * PRICE_DIST_STEP)
+            hist[bucket] = hist.get(bucket, 0) + count
+        expanded.sort()
+        stats = _price_stats(expanded)
+        if hist:
+            axis_from = min(hist) if axis_from is None else min(axis_from, min(hist))
+
+        active = active_on(day)
+        prev = active_on(day - timedelta(days=1))
+        pr = promoted.get(day, 0) if promo_start and day >= promo_start else None
+        entry = {
+            'ms': _day_ms(day),
+            'label': day.strftime('%d.%m.%Y'),
+            'active': active,
+            'change': (active - prev) if (active is not None and prev is not None) else None,
+            'new': new.get(day, 0),
+            'promoted': pr,
+            'promoted_share': round(100 * pr / active, 1) if (pr is not None and active) else None,
+            # {dolna granica kubełka: liczba ofert}, tylko niepuste — słownik, nie lista
+            # par: przy wcięciu zapisu trend_data.json para [od, liczba] zajmuje 4 linie.
+            'hist': {str(b): hist[b] for b in sorted(hist)},
+            'stats': stats,
+        }
+        if day == part_day:
+            entry['partial'] = {'scans': part['scans'], 'expected': part['expected']}
+        out_days.append(entry)
+
+    return {
+        'step': PRICE_DIST_STEP,
+        'cap': PRICE_DIST_CAP,
+        'axis_from': axis_from,
+        'start': days[0].isoformat(),
+        'start_label': days[0].strftime('%d.%m.%Y'),
+        'promoted_start_label': promo_start.strftime('%d.%m.%Y') if promo_start else None,
+        'days': out_days,
+    }
+
+
 def _value_at_or_before(series, target_ms):
     """Ostatni ZMIERZONY odczyt nie później niż target_ms. Dni bez skanu (None)
     przeskakujemy — inaczej awaria Actions kasowałaby porównanie."""
@@ -1088,6 +1204,7 @@ def generate_trend_data(base_dir: Path = None) -> bool:
     }
 
     out['velocity'] = build_velocity(out['outflow'], out['inflow'])
+    out['price_dist'] = build_price_dist(offers, base_dir)
 
     write_json_atomic(output_file, out)
     of = out['outflow'] or {}
@@ -1120,6 +1237,15 @@ def generate_trend_data(base_dir: Path = None) -> bool:
               f"saldo {ne['total']:+d} (śr {ne['rate']:+}/dzień, "
               f"najlepszy {ne['max_day']:+d} {ne['max_label']}, "
               f"najgorszy {ne['min_day']:+d} {ne['min_label']})")
+    pd_ = out['price_dist']
+    if pd_ and pd_['days']:
+        last = pd_['days'][-1]
+        st = last['stats'] or {}
+        print(f"   💰 rozkład cen: {len(pd_['days'])} dni od {pd_['start_label']}, "
+              f"co {pd_['step']} zł do {pd_['cap']} zł; {last['label']}: {st.get('n')} ofert, "
+              f"mediana {st.get('med')} zł, średnia {st.get('avg')} zł")
+    else:
+        print("   💰 rozkład cen: brak data/price_history.json (scripts/backfill_price_history.py)")
     rf = out['refreshes'] or {}
     for key, label in (('firm', 'firmy'), ('all', 'cała baza')):
         blk = rf.get(key)
