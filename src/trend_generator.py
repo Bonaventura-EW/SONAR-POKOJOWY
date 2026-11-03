@@ -25,6 +25,7 @@ from datetime import datetime, date, timedelta, timezone
 from pathlib import Path
 
 import index_history
+import price_history
 from shared_utils import write_json_atomic
 
 TITLE = "Lublin – pokoje: wynajem"
@@ -49,6 +50,12 @@ REACT_RELIABLE_START = date(2026, 7, 1)
 # nie ruch na rynku — realny odpływ to ~15 ofert dziennie. Taki dzień rysuje się jako
 # luka i nie wchodzi do średniej ani statystyk. Dziś nic nie tnie (rekord to 42).
 OUTFLOW_ARTIFACT_THRESHOLD = 100
+
+# Mignięcie: oferta wypadła z listingu i wróciła najpóźniej po tylu godzinach —
+# zwykle brakowało jej w jednym skanie, a w następnym już była. To nie jest zejście
+# z rynku, więc nie liczy się do odpływu. W tygodniu 19–25.10.2026 takich powrotów
+# w ciągu doby było 27 na ~180 zniknięć (np. 25.10: 10 z 32 wróciło tego samego dnia).
+BLINK_MAX_HOURS = 24
 
 # Odświeżenia (bumpy). DWA szeregi o RÓŻNYCH początkach, bo pole `refresh_dates`
 # miało dwa źródła:
@@ -90,7 +97,26 @@ REACT_ARTIFACT_THRESHOLD = 100
 # czyli hurtowy guard nigdy nie złapie tego rozłożonego w czasie artefaktu
 # (propagacja z SONAR---DZIA-KOWY, issue #144, zatwierdzone przez Mateusza
 # po przeglądzie 13.10.2026 — patrz life_events()).
+#
+# UWAGA: to NIE jest ten sam próg co BLINK_MAX_HOURS wyżej, i to ŚWIADOMIE.
+# BLINK_MAX_HOURS (mapa: suwak „Zniknięcia" i flaga `reactivated`) łapie
+# WĄSKI, osobno zmierzony sygnał „mignięcia" w jednym cyklu skanowania — ten
+# sam skan nie zobaczył oferty, następny już tak. FLAP_MAX_DAYS (TYLKO wykres
+# Indeksu: build_outflow/build_inflow/build_bands, przez life_events()) łapie
+# SZERSZY wzorzec „artefaktu pipeline'u" — także wolniejsze powroty przez
+# kolejkę inteligentnego pomijania ofert, zmierzone i potwierdzone audytem
+# siostrzanego repo SONAR---DZIA-KOWY (66% par ≤3 dni, u nas 85,4%). Mapa i
+# wykres MAJĄ różne okna — to nie jest niespójność do „naprawienia", a dwa
+# różne, niezależnie zmierzone zjawiska na dwóch różnych widokach.
 FLAP_MAX_DAYS = 3
+
+# Karta „💰 Rozkład cen" (pod Wskaźnikiem Rotacji Rynku): słupki co PRICE_DIST_STEP zł,
+# oferty droższe niż PRICE_DIST_CAP zł NIE wchodzą ani do słupków, ani do cen
+# (decyzja Mateusza 03.11.2026 — to rynek pokoi, drogie mieszkania rozciągały oś).
+# Oferta za równe 1500 zł zostaje. Magazyn (data/price_history.json) trzyma pełne
+# ceny, więc zmiana kroku albo progu nie wymaga nowego backfillu.
+PRICE_DIST_STEP = 20
+PRICE_DIST_CAP = 1500
 
 
 def _day_ms(d: date) -> int:
@@ -147,6 +173,11 @@ def life_events(offer):
     zacięciem scrapera. Powrót domykający deaktywację, która ZOSTAJE, też
     zostaje. Słupek dnia nie zamienia się w lukę — po prostu nie liczy tej
     konkretnej pary (dzień może mieć inne, nieparowane zdarzenia).
+
+    Używana WYŁĄCZNIE przez wykresy Indeksu (build_spans/build_outflow/
+    build_inflow/build_bands). Mapa ma swój własny, węższy filtr mignięć —
+    patrz _blinks()/exit_days()/real_reactivations()/is_reactivated() poniżej
+    i komentarz przy FLAP_MAX_DAYS wyżej.
     """
     deactivations = collect_dates(offer, 'deactivation_dates')
     reactivations = collect_dates(offer, 'reactivation_dates')
@@ -167,6 +198,95 @@ def life_events(offer):
         [r for j, r in enumerate(reactivations) if j not in drop_r],
         len(drop_d),
     )
+
+
+def _collect_stamps(offer, field):
+    """Jak collect_dates, ale pełne znaczniki czasu (z offsetem) zamiast dni."""
+    out = []
+    for src in [offer] + list(offer.get('versions') or []):
+        for raw in (src.get(field) or []):
+            try:
+                stamp = datetime.fromisoformat(str(raw))
+            except (ValueError, TypeError):
+                continue
+            out.append(stamp if stamp.tzinfo else stamp.astimezone())
+    return sorted(out)
+
+
+def exit_days(offer):
+    """Dni, w których oferta ZESZŁA z rynku — konwencja suwaka „Zniknięcia" na
+    mapie (map_generator._gone_days).
+
+    UWAGA: wykres odpływu Indeksu (build_outflow) TERAZ liczy przez
+    life_events()/FLAP_MAX_DAYS (3 dni), nie przez tę funkcję — patrz komentarz
+    przy FLAP_MAX_DAYS. exit_days() zostaje węższym, 24-godzinnym filtrem
+    (BLINK_MAX_HOURS) wyłącznie dla mapy; to świadomy rozjazd, nie dług do
+    spłacenia.
+
+    Źródłem jest `deactivation_dates` (także z `versions[]`), czyli dzień, w którym
+    skan wykrył brak oferty. Pomijamy mignięcia: deaktywację, po której oferta
+    wróciła (`reactivation_dates`) w ciągu BLINK_MAX_HOURS. Zniknięcie z ostatnich
+    skanów liczy się, dopóki oferta nie wróci — wtedy wypada przy następnej generacji.
+    Oferty sprzed wdrożenia `deactivation_dates` (03.09.2026) zostawiły tylko
+    `last_seen` i tylko dla nich robimy fallback.
+    """
+    gone, _, blink_gone, _ = _blinks(offer)
+    days = {stamp.date() for stamp in gone if stamp not in blink_gone}
+    if not gone and not offer.get('active') and offer.get('last_seen'):
+        try:
+            days.add(_d(offer['last_seen']))
+        except (ValueError, TypeError):
+            pass
+    return sorted(days)
+
+
+def _blinks(offer):
+    """Mignięcia oferty: deaktywacja, po której NAJBLIŻSZA reaktywacja przyszła
+    w ciągu BLINK_MAX_HOURS. Mignięcie to jedno nie-zdarzenie — oferta nie zeszła
+    z rynku, więc nie liczy się ani zniknięcie, ani powrót.
+
+    Zwraca (deaktywacje, reaktywacje, deaktywacje-mignięcia, powroty-mignięcia).
+    """
+    gone = _collect_stamps(offer, 'deactivation_dates')
+    back = _collect_stamps(offer, 'reactivation_dates')
+    blink_gone, blink_back = set(), set()
+    for stamp in gone:
+        returned = next((r for r in back if r > stamp), None)
+        if returned is not None and returned - stamp <= timedelta(hours=BLINK_MAX_HOURS):
+            blink_gone.add(stamp)
+            blink_back.add(returned)
+    return gone, back, blink_gone, blink_back
+
+
+def real_reactivations(offer):
+    """Dni, w których oferta WRÓCIŁA na rynek (`reactivation_dates`, także
+    z `versions[]`) — bez powrotów z mignięć (BLINK_MAX_HOURS).
+
+    UWAGA: wykresy Reaktywacje/Napływ całkowity (build_inflow) i pasma
+    „recykling" (build_bands) TERAZ liczą przez życiowe wydarzenia z
+    life_events()/FLAP_MAX_DAYS (3 dni) — patrz komentarz przy FLAP_MAX_DAYS.
+    Ta funkcja zostaje jako budulec is_reactivated() i węższej, 24-godzinnej
+    konwencji mignięcia.
+    """
+    _, back, _, blink_back = _blinks(offer)
+    return sorted(stamp.date() for stamp in back if stamp not in blink_back)
+
+
+def is_reactivated(offer):
+    """Flaga „reaktywowana" w data.json (mapa: Pochodzenie, Ruch, Analiza rynku).
+
+    Oferta wróciła kiedyś na rynek, jeśli ma `reactivated_at` i choć jeden powrót
+    nie jest mignięciem. Oferty z samym `reactivated_at` bez dat (sprzed
+    `reactivation_dates`) zostają reaktywowane jak dotąd.
+
+    Używa węższego, 24-godzinnego okna mignięcia (BLINK_MAX_HOURS) — patrz
+    komentarz przy FLAP_MAX_DAYS o tym, dlaczego mapa i wykres Indeksu mają
+    różne okna. To świadome, nie jest to do „ujednolicenia".
+    """
+    if not offer.get('reactivated_at'):
+        return False
+    _, back, _, blink_back = _blinks(offer)
+    return not back or any(stamp not in blink_back for stamp in back)
 
 
 def build_spans(offers):
@@ -441,8 +561,9 @@ def _flow_metric(counts, days, exclude=None):
 def build_outflow(offers, series=None):
     """Dzienny odpływ ofert (ile zniknęło danego dnia) + średnia krocząca 7 dni.
 
-    Zniknięcie bierzemy z `deactivation_dates` — KAŻDE wypadnięcie z listingu,
-    także to, po którym oferta wróciła. Oferta bez tych dat (wszystko sprzed
+    Zniknięcie bierzemy z `deactivation_dates` (exit_days) — każde wypadnięcie
+    z listingu, także to, po którym oferta później wróciła, ale BEZ mignięć
+    (powrót w ciągu BLINK_MAX_HOURS). Oferta bez tych dat (wszystko sprzed
     03.09.2026) ma tylko jeden ślad: `last_seen`, czyli WYŁĄCZNIE ostatnią
     śmierć. Dlatego historyczny odpływ jest zaniżony — bilans się nie spinał:
     napływ 3174 − odpływ 1590 = +1584, a Indeks urósł w tym czasie o +480;
@@ -469,8 +590,10 @@ def build_outflow(offers, series=None):
                 gone = []
         # Dedup per (oferta, dzień): jedna oferta może wypaść z listingu dwa razy
         # tego samego dnia (skan poranny i wieczorny, między nimi reaktywacja) —
-        # to szum skanowania, nie dwie oferty. Metryka liczy OFERTY, tak jak
-        # suwak "Zniknięcia" na mapie, gdzie jedna oferta to jeden marker.
+        # to szum skanowania, nie dwie oferty. Metryka liczy OFERTY — jedna
+        # oferta to jedno zdarzenie, tak jak suwak "Zniknięcia" na mapie liczy
+        # jedną ofertę jako jeden marker, choć mapa i ten wykres filtrują
+        # mignięcia innym oknem (patrz FLAP_MAX_DAYS vs BLINK_MAX_HOURS).
         for d in sorted(set(gone)):
             if d >= start:
                 dep[d] = dep.get(d, 0) + 1
@@ -484,8 +607,9 @@ def build_inflow(offers, series=None):
 
     - `new`       : nowe oferty (pierwsze pojawienie się, `first_seen` = ten dzień),
                     BEZ reaktywacji. Czysty przyrost świeżych ogłoszeń.
-    - `react`     : same reaktywacje (`reactivation_dates` = ten dzień) — oferty,
-                    które wróciły na rynek po wcześniejszym zniknięciu.
+    - `react`     : same reaktywacje (real_reactivations = ten dzień) — oferty,
+                    które wróciły na rynek po wcześniejszym zniknięciu. Powrót
+                    z mignięcia się nie liczy, tak jak samo mignięcie w odpływie.
     - `new_react` : suma powyższych = wszystkie „pojawienia się" na rynku danego
                     dnia (świeże + wskrzeszone).
 
@@ -543,6 +667,36 @@ def build_inflow(offers, series=None):
         'react': react_metric,
         'new_react': combined_metric,
     }
+
+
+def build_velocity(outflow, inflow):
+    """Market Velocity (sekcja „Wskaźnik Rotacji Rynku"): dla każdego dnia
+    (nowe oferty + zejścia z rynku z 7 dni kończących się tym dniem) ÷ 2.
+
+    Składniki to DOKŁADNIE dzienne szeregi wykresów „Nowe oferty" i „Odpływ ofert",
+    więc kafelki i rozkład dzienny sekcji zgadzają się z tymi wykresami. Okno musi
+    mieć wszystkie 7 dni zmierzone: dzień bez skanu (albo doba w toku) daje lukę,
+    nie zaniżoną wartość. Bez limitu 100 — rynek zwykle go przekracza.
+    """
+    if not outflow or not inflow or not inflow.get('new'):
+        return None
+    out_d, new_d = outflow['daily'], inflow['new']['daily']
+    if [ms for ms, _ in out_d] != [ms for ms, _ in new_d]:
+        return None
+    daily, new7, out7 = [], [], []
+    for i, (ms, _) in enumerate(out_d):
+        window = range(i - 6, i + 1)
+        if i < 6 or any(out_d[j][1] is None or new_d[j][1] is None for j in window):
+            daily.append([ms, None])
+            new7.append([ms, None])
+            out7.append([ms, None])
+            continue
+        n = sum(new_d[j][1] for j in window)
+        r = sum(out_d[j][1] for j in window)
+        daily.append([ms, round((n + r) / 2)])
+        new7.append([ms, n])
+        out7.append([ms, r])
+    return {'daily': daily, 'new7': new7, 'out7': out7}
 
 
 def _price_events(offer):
@@ -623,7 +777,8 @@ def build_bands(offers, series=None):
 
     - `new`   : oferty świeże — do dnia D nie miały ani jednej reaktywacji,
     - `react` : „recykling" — oferty, które do dnia D już kiedyś wróciły z martwych
-                (najwcześniejsza data w `reactivation_dates` <= D).
+                (najwcześniejsza data z real_reactivations <= D — mignięcie
+                nie przenosi oferty do recyklingu).
 
     Metoda: UDZIAŁ pasm liczymy z rekonstrukcji przedziałów życia (build_spans),
     a potem nakładamy go na MIERZONY Indeks, żeby suma pasm dalej równała się
@@ -950,6 +1105,193 @@ def build_refreshes(offers, scan_days=None, base_dir=None):
     return {'firm': firm, 'all': whole}
 
 
+def _price_stats(prices):
+    """Statystyki z DOKŁADNYCH cen (lista posortowana rosnąco), nie z kubełków.
+
+    Kwartyle tak jak w SZPERACZU: element na pozycji ⌊n·0,25⌋ / ⌊n·0,75⌋.
+    """
+    n = len(prices)
+    if not n:
+        return None
+    med = prices[n // 2] if n % 2 else (prices[n // 2 - 1] + prices[n // 2]) / 2
+    num = lambda v: int(v) if float(v).is_integer() else round(v, 2)  # noqa: E731
+    return {
+        'n': n,
+        'min': num(prices[0]),
+        'q1': num(prices[int(n * 0.25)]),
+        'med': num(med),
+        'avg': round(sum(prices) / n),
+        'q3': num(prices[int(n * 0.75)]),
+        'max': num(prices[-1]),
+    }
+
+
+def build_price_dist(offers, base_dir=None):
+    """Karta „Rozkład cen": stan rynku dzień po dniu, do wyboru suwakiem.
+
+    Źródło cen to data/price_history.json — rozkład zmierzony przy skanie (od
+    16.05.2026 odtworzony z rewizji offers.json w gicie), nie rekonstrukcja.
+    Każdy dzień niesie też kafelki: Aktywne/Zmiana z index_history (te same
+    liczby co Indeks), Nowe (first_seen = ten dzień, jak `inflow.new`) i
+    Promowane (jak `promoted.daily`). Doba w toku NIE jest tu maskowana — karta
+    pokazuje stan wybranego dnia, a front oznacza ją plakietką.
+    """
+    snaps = price_history.daily(base_dir)
+    days = sorted(d for d in snaps if d >= RELIABLE_START)
+    if not days:
+        return None
+
+    measured = {day: val for day, val in index_history.daily_series(base_dir=base_dir) if val}
+
+    def active_on(day):
+        if day in measured:
+            return measured[day]
+        snap = snaps.get(day)
+        return snap['active'] if snap else None
+
+    new, promoted = {}, {}
+    for o in offers:
+        fs = o.get('first_seen')
+        if fs:
+            try:
+                d = _d(fs)
+                new[d] = new.get(d, 0) + 1
+            except (ValueError, TypeError):
+                pass
+        for d in set(collect_dates(o, 'promoted_dates')):
+            promoted[d] = promoted.get(d, 0) + 1
+    promo_start = min(promoted) if promoted else None
+
+    part = partial_day(base_dir)
+    part_day = _ms_day(part['ms']) if part else None
+
+    out_days = []
+    axis_from = None
+    for day in days:
+        expanded = []
+        hist = {}
+        for price, count in snaps[day]['prices'].items():
+            if price > PRICE_DIST_CAP:
+                continue
+            expanded.extend([price] * count)
+            bucket = int(price // PRICE_DIST_STEP * PRICE_DIST_STEP)
+            hist[bucket] = hist.get(bucket, 0) + count
+        expanded.sort()
+        stats = _price_stats(expanded)
+        if hist:
+            axis_from = min(hist) if axis_from is None else min(axis_from, min(hist))
+
+        active = active_on(day)
+        prev = active_on(day - timedelta(days=1))
+        pr = promoted.get(day, 0) if promo_start and day >= promo_start else None
+        entry = {
+            'ms': _day_ms(day),
+            'label': day.strftime('%d.%m.%Y'),
+            'active': active,
+            'change': (active - prev) if (active is not None and prev is not None) else None,
+            'new': new.get(day, 0),
+            'promoted': pr,
+            'promoted_share': round(100 * pr / active, 1) if (pr is not None and active) else None,
+            # {dolna granica kubełka: liczba ofert}, tylko niepuste — słownik, nie lista
+            # par: przy wcięciu zapisu trend_data.json para [od, liczba] zajmuje 4 linie.
+            'hist': {str(b): hist[b] for b in sorted(hist)},
+            'stats': stats,
+        }
+        if day == part_day:
+            entry['partial'] = {'scans': part['scans'], 'expected': part['expected']}
+        out_days.append(entry)
+
+    return {
+        'step': PRICE_DIST_STEP,
+        'cap': PRICE_DIST_CAP,
+        'axis_from': axis_from,
+        'start': days[0].isoformat(),
+        'start_label': days[0].strftime('%d.%m.%Y'),
+        'promoted_start_label': promo_start.strftime('%d.%m.%Y') if promo_start else None,
+        'days': out_days,
+    }
+
+
+def build_exit_price_dist(offers, price_dist):
+    """Karta „Zejścia z rynku": ceny ofert, które danego dnia zeszły z rynku i NIE wróciły.
+
+    Oferta liczy się raz — w dniu swojego OSTATNIEGO zejścia (max z `exit_days`, czyli
+    ta sama konwencja dnia co Odpływ i bez mignięć) — i tylko gdy dziś jest nieaktywna.
+    Oferta, która zeszła i wróciła, nie liczy się w dniu tamtego zejścia, dlatego liczby
+    są niższe niż na Odpływie (ten liczy też powroty po ponad dobie). Zejścia z ostatnich
+    dni mogą jeszcze zniknąć z karty, jeśli oferta wróci.
+
+    Dni i oś bierzemy z karty „Rozkład cen" (`price_dist`), więc obie karty mają ten sam
+    suwak, ten sam krok i próg, a słupki stoją pod sobą. Cena = ostatnia cena oferty
+    przed zejściem; liczba zejść obejmuje wszystkie oferty, słupki i ceny tylko do progu.
+    """
+    if not price_dist or not price_dist.get('days'):
+        return None
+    step, cap = price_dist['step'], price_dist['cap']
+
+    gone_on = {}
+    for o in offers:
+        if o.get('active'):
+            continue
+        days = exit_days(o)
+        if days:
+            gone_on.setdefault(max(days), []).append(o)
+
+    out_days = []
+    axis_from = price_dist.get('axis_from')
+    for src in price_dist['days']:
+        day = _ms_day(src['ms'])
+        gone = gone_on.get(day, [])
+        prices, lifespans, dropped = [], [], 0
+        hist = {}
+        for o in gone:
+            price = o.get('price')
+            if isinstance(price, dict):
+                price = price.get('current')
+            if isinstance(price, (int, float)) and not isinstance(price, bool) and 0 < price <= cap:
+                prices.append(price)
+                bucket = int(price // step * step)
+                hist[bucket] = hist.get(bucket, 0) + 1
+            try:
+                lifespans.append(max(0, (day - _d(o['first_seen'])).days))
+            except (KeyError, ValueError, TypeError):
+                pass
+            if any(delta < 0 for _, delta in _price_events(o)):
+                dropped += 1
+        prices.sort()
+        lifespans.sort()
+        stats = _price_stats(prices)
+        if hist:
+            axis_from = min(hist) if axis_from is None else min(axis_from, min(hist))
+        market_med = (src.get('stats') or {}).get('med')
+        n = len(lifespans)
+        entry = {
+            'ms': src['ms'],
+            'label': src['label'],
+            'count': len(gone),
+            'lifespan_median': (round(lifespans[n // 2] if n % 2 else (lifespans[n // 2 - 1] + lifespans[n // 2]) / 2)
+                                if n else None),
+            'drop_share': round(100 * dropped / len(gone)) if gone else None,
+            'hist': {str(b): hist[b] for b in sorted(hist)},
+            'stats': stats,
+            'market_med': market_med,
+            'vs_market': round(stats['med'] - market_med) if (stats and market_med is not None) else None,
+        }
+        if src.get('partial'):
+            entry['partial'] = src['partial']
+        out_days.append(entry)
+
+    # Wspólna oś obu kart: słupki zejść stoją dokładnie pod słupkami rynku.
+    price_dist['axis_from'] = axis_from
+    return {
+        'step': step,
+        'cap': cap,
+        'axis_from': axis_from,
+        'start_label': price_dist.get('start_label'),
+        'days': out_days,
+    }
+
+
 def _value_at_or_before(series, target_ms):
     """Ostatni ZMIERZONY odczyt nie później niż target_ms. Dni bez skanu (None)
     przeskakujemy — inaczej awaria Actions kasowałaby porównanie."""
@@ -1044,6 +1386,10 @@ def generate_trend_data(base_dir: Path = None) -> bool:
         },
     }
 
+    out['velocity'] = build_velocity(out['outflow'], out['inflow'])
+    out['price_dist'] = build_price_dist(offers, base_dir)
+    out['exit_price_dist'] = build_exit_price_dist(offers, out['price_dist'])
+
     write_json_atomic(output_file, out)
     of = out['outflow'] or {}
     # Doba w toku jest w serii jako None, ale to nie jest „dzień bez skanu" —
@@ -1077,6 +1423,21 @@ def generate_trend_data(base_dir: Path = None) -> bool:
               f"saldo {ne['total']:+d} (śr {ne['rate']:+}/dzień, "
               f"najlepszy {ne['max_day']:+d} {ne['max_label']}, "
               f"najgorszy {ne['min_day']:+d} {ne['min_label']})")
+    pd_ = out['price_dist']
+    if pd_ and pd_['days']:
+        last = pd_['days'][-1]
+        st = last['stats'] or {}
+        print(f"   💰 rozkład cen: {len(pd_['days'])} dni od {pd_['start_label']}, "
+              f"co {pd_['step']} zł do {pd_['cap']} zł; {last['label']}: {st.get('n')} ofert, "
+              f"mediana {st.get('med')} zł, średnia {st.get('avg')} zł")
+    else:
+        print("   💰 rozkład cen: brak data/price_history.json (scripts/backfill_price_history.py)")
+    ex = out['exit_price_dist']
+    if ex and ex['days']:
+        total = sum(e['count'] for e in ex['days'])
+        last = ex['days'][-1]
+        print(f"   🚪 zejścia z rynku (bez powrotu): {total} w {len(ex['days'])} dniach, "
+              f"śr {total / len(ex['days']):.1f}/dzień; {last['label']}: {last['count']}")
     rf = out['refreshes'] or {}
     for key, label in (('firm', 'firmy'), ('all', 'cała baza')):
         blk = rf.get(key)

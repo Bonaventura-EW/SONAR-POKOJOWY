@@ -5,6 +5,7 @@ WERSJA 2.0: Równoległy scraping + monitoring
 """
 
 import json
+import traceback
 from pathlib import Path
 from datetime import datetime, timedelta
 import pytz
@@ -23,6 +24,7 @@ from duplicate_detector import DuplicateDetector
 from scan_logger import ScanLogger
 from shared_utils import write_json_atomic, DATA_DIR
 import index_history
+import price_history
 
 class SonarPokojowy:
     # Hierarchia precyzji adresu — im wyżej, tym lepszy marker. Używane przy
@@ -323,6 +325,8 @@ class SonarPokojowy:
         # FIX 2026-06-09: jawny powód odrzucenia oferty (zamiast zgadywania przez
         # re-derywację w run_scan). Ustawiany przed każdym `return None`.
         # Wartości: 'excluded' | 'no_address' | 'no_price' | 'no_coords' | 'price_outlier' | None.
+        # ('processing_error' też istnieje, ale jest ustawiany Z ZEWNĄTRZ, w run_scan,
+        # gdy samo wywołanie _process_offer rzuci nieobsłużony wyjątek — patrz issue#164.)
         self._skip_reason = None
         self._skip_detail = None  # dodatkowy kontekst (np. dopasowana fraza wykluczenia)
 
@@ -657,7 +661,33 @@ class SonarPokojowy:
                                if raw_offer.get('promoted') else []),
             'promoted_count': 1 if raw_offer.get('promoted') else 0,
         }
-    
+
+    def _process_offer_safe(self, raw_offer: Dict, offer_id: str = None) -> Dict:
+        """
+        Wrapper na `_process_offer` łapiący NIEOBSŁUŻONE wyjątki (edge case
+        parsera/geokodera/duplicate_detectora) — propagacja z SONAR---DZIA-KOWY
+        (2026-10-07, issue#164). Bez tego jedna oferta ubijała CAŁY skan przed
+        zapisem bazy (run_scan → except Exception → raise), bo pętla przetwarzania
+        (main.py) wołała `_process_offer` bez żadnej izolacji per-oferta.
+
+        Wyjątek jest logowany (offer_id + URL) i klasyfikowany jako skip_reason
+        'processing_error', żeby był widoczny w skipped_offers_sample.json, a nie
+        połknięty po cichu.
+        """
+        if offer_id is None:
+            offer_id = raw_offer['url'].split('/')[-1].split('.')[0]
+        try:
+            return self._process_offer(raw_offer)
+        except Exception as e:
+            print(f"      ❌ Błąd przetwarzania oferty {offer_id} ({raw_offer.get('url', '')}): {e}")
+            self.scan_logger.log_error(
+                f"processing_error offer_id={offer_id} url={raw_offer.get('url', '')}:\n{traceback.format_exc()}"
+            )
+            self._skip_reason = 'processing_error'
+            self._skip_detail = str(e)
+            self._geocode_transient = False
+            return None
+
     def _find_existing_offer(self, offer_id: str) -> Dict:
         """Znajduje istniejące ogłoszenie po ID."""
         for offer in self.database['offers']:
@@ -1753,6 +1783,9 @@ class SonarPokojowy:
             skipped_duplicate = 0
             skipped_excluded = 0  # FIX 2026-06-09: oferty odrzucone przez filtr excluded_phrases
             skipped_price_outlier = 0  # oferty odrzucone jako cena-outlier (>= 10x średnia)
+            # Propagacja z SONAR---DZIA-KOWY (2026-10-07): licznik ofert, na których
+            # _process_offer rzucił nieobsłużony wyjątek (edge case parsera/geokodera).
+            skipped_processing_error = 0
 
             # Zbieram próbki odrzuconych ofert do analizy (max 50 per kategorię)
             skipped_samples = {
@@ -1761,7 +1794,8 @@ class SonarPokojowy:
                 'no_coords': [],
                 'duplicate': [],
                 'excluded': [],  # FIX 2026-06-09: osobna kategoria (nie myl z no_coords)
-                'price_outlier': []
+                'price_outlier': [],
+                'processing_error': []
             }
             SAMPLE_LIMIT = 50
 
@@ -1776,6 +1810,7 @@ class SonarPokojowy:
                 (z dedupem). Wspólne dla głównej pętli i przebiegu retry."""
                 nonlocal skipped_no_address, skipped_no_price, skipped_no_coords
                 nonlocal skipped_duplicate, skipped_excluded, skipped_price_outlier
+                nonlocal skipped_processing_error
 
                 if not processed:
                     # FIX 2026-06-09: klasyfikuj wg JAWNEGO powodu ustawionego przez
@@ -1796,6 +1831,14 @@ class SonarPokojowy:
                         if len(skipped_samples['excluded']) < SAMPLE_LIMIT:
                             sample['excluded_phrase'] = getattr(self, '_skip_detail', None)
                             skipped_samples['excluded'].append(sample)
+                    elif reason == 'processing_error':
+                        # Propagacja z SONAR---DZIA-KOWY (2026-10-07): _process_offer
+                        # rzucił nieobsłużony wyjątek — oferta jest pomijana, skan jedzie
+                        # dalej (patrz guard w pętli głównej / retry poniżej).
+                        skipped_processing_error += 1
+                        if len(skipped_samples['processing_error']) < SAMPLE_LIMIT:
+                            sample['error'] = getattr(self, '_skip_detail', None)
+                            skipped_samples['processing_error'].append(sample)
                     elif reason == 'price_outlier':
                         skipped_price_outlier += 1
                         if len(skipped_samples['price_outlier']) < SAMPLE_LIMIT:
@@ -1885,7 +1928,7 @@ class SonarPokojowy:
 
                 # Pomiar czasu geokodowania
                 geo_start = time.time()
-                processed = self._process_offer(raw_offer)
+                processed = self._process_offer_safe(raw_offer, offer_id)
                 geocoding_time += time.time() - geo_start
 
                 # FIX 2026-06-09: jeśli oferta padła na TYMCZASOWY błąd geokodera,
@@ -1910,7 +1953,7 @@ class SonarPokojowy:
                     still_transient = []
                     for raw_offer in retry_queue:
                         geo_start = time.time()
-                        processed = self._process_offer(raw_offer)
+                        processed = self._process_offer_safe(raw_offer)
                         geocoding_time += time.time() - geo_start
                         if processed:
                             print(f"      ✅ Retry OK: {raw_offer['title'][:50]}")
@@ -1937,7 +1980,8 @@ class SonarPokojowy:
                         'no_coords': skipped_no_coords,
                         'duplicate': skipped_duplicate,
                         'excluded': skipped_excluded,
-                        'price_outlier': skipped_price_outlier
+                        'price_outlier': skipped_price_outlier,
+                        'processing_error': skipped_processing_error
                     },
                     'samples': skipped_samples
                 })
@@ -1953,7 +1997,8 @@ class SonarPokojowy:
                 'skipped_no_coords': skipped_no_coords,
                 'skipped_duplicate': skipped_duplicate,
                 'skipped_excluded': skipped_excluded,
-                'skipped_price_outlier': skipped_price_outlier
+                'skipped_price_outlier': skipped_price_outlier,
+                'skipped_processing_error': skipped_processing_error
             })
 
             # Dodaj metryki geokodowania
@@ -1967,7 +2012,8 @@ class SonarPokojowy:
             print(f"   Pominięte - brak współrzędnych: {skipped_no_coords}")
             print(f"   Pominięte - duplikaty: {skipped_duplicate}")
             print(f"   Pominięte - wykluczone (filtr): {skipped_excluded}")
-            print(f"   Pominięte - cena-outlier (10x średnia): {skipped_price_outlier}\n")
+            print(f"   Pominięte - cena-outlier (10x średnia): {skipped_price_outlier}")
+            print(f"   Pominięte - błąd przetwarzania (edge case): {skipped_processing_error}\n")
             
             # 3. Aktualizacja bazy danych
             print("💾 Krok 3: Aktualizacja bazy danych...")
@@ -2183,6 +2229,9 @@ class SonarPokojowy:
             # maksimum z odczytów, więc skan częściowy nie obniży już zapisanego dnia.
             scan_ts = (self.scan_logger.current_scan or {}).get('timestamp')
             index_history.record(active, scan_ts)
+            # Ten sam skan → rozkład cen aktywnych ofert (karta „Rozkład cen" na Indeksie).
+            # Ta sama konwencja dnia: zostaje skan z największą liczbą aktywnych ofert.
+            price_history.record(self.database['offers'], scan_ts)
 
             final_status = 'warning' if scrape_blocked else 'completed'
             self.scan_logger.end_scan(final_status, total_duration)
