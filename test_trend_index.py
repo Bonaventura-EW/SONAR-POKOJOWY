@@ -19,6 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
 import index_history
+import price_history
 import trend_generator as tg
 
 FAILED = []
@@ -522,6 +523,213 @@ def test_day_anchor_is_utc():
     check('_ms_day odwraca _day_ms', all(tg._ms_day(ms) == d for (ms, _), d in zip(series, days)))
 
 
+def test_blinks_are_not_outflow():
+    print("\n👁️  Test 10: mignięcie (powrót w ciągu doby) nie jest odpływem")
+    import map_generator
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        (base / 'data').mkdir()
+        for day in range(16, 25):
+            record_day(base, date(2026, 5, day), 700)
+        d = lambda day, hour: datetime(2026, 5, day, hour).astimezone().isoformat()
+        offers = [
+            # wróciła po 6 h — mignięcie
+            {'id': 'a', 'first_seen': d(16, 9), 'active': True,
+             'deactivation_dates': [d(20, 12)], 'reactivation_dates': [d(20, 18)]},
+            # zniknęła wieczorem, wróciła rano po 16 h — też mignięcie
+            {'id': 'b', 'first_seen': d(16, 9), 'active': True,
+             'deactivation_dates': [d(20, 20)], 'reactivation_dates': [d(21, 12)]},
+            # wróciła po 3 dniach — prawdziwe zejście z rynku 20.05
+            {'id': 'c', 'first_seen': d(16, 9), 'active': True,
+             'deactivation_dates': [d(20, 12)], 'reactivation_dates': [d(23, 12)]},
+            # zniknęła i nie wróciła
+            {'id': 'd', 'first_seen': d(16, 9), 'active': False, 'last_seen': d(21, 9),
+             'deactivation_dates': [d(21, 12)]},
+            # mignięcie rozdzielone zmianą adresu: deaktywacja w versions[], powrót na wierzchu
+            {'id': 'e', 'first_seen': d(16, 9), 'active': True,
+             'versions': [{'deactivation_dates': [d(22, 12)]}], 'reactivation_dates': [d(22, 20)]},
+            # sprzed deactivation_dates: tylko last_seen
+            {'id': 'f', 'first_seen': d(16, 9), 'active': False, 'last_seen': d(19, 21)},
+        ]
+        series = tg.build_series(offers, base_dir=base)
+        out = tg.build_outflow(offers, series)
+        by_day = {tg._ms_day(ms).day: v for ms, v in out['daily']}
+        check('19.05: fallback last_seen', by_day[19] == 1, str(by_day))
+        check('20.05: liczy tylko powrót po 3 dniach (bez mignięć a, b)', by_day[20] == 1, str(by_day))
+        check('21.05: zejście bez powrotu', by_day[21] == 1, str(by_day))
+        check('22.05: mignięcie z versions[] pominięte', by_day[22] == 0, str(by_day))
+        check('łącznie 3 zejścia z rynku', out['total'] == 3, str(out['total']))
+        same = all(map_generator._gone_days(o) == [x.isoformat() for x in tg.exit_days(o)] for o in offers)
+        check('suwak na mapie liczy to samo co wykres', same)
+        check('mignięcie nie ma dnia zniknięcia na mapie', map_generator._gone_days(offers[0]) == [])
+
+
+def test_velocity():
+    print("\n🔄 Test 11: Market Velocity z szeregów Nowe oferty + Odpływ")
+    days = [date(2026, 5, 16) + timedelta(days=i) for i in range(10)]
+    ms = [tg._day_ms(d) for d in days]
+    new = [2, 4, 6, 8, 10, 12, 14, 1, 1, None]      # ostatni dzień: doba w toku
+    out = [1, 1, 1, 1, 1, 1, 1, 30, 30, None]
+    v = tg.build_velocity({'daily': [[m, x] for m, x in zip(ms, out)]},
+                          {'new': {'daily': [[m, x] for m, x in zip(ms, new)]}})
+    vals = [x for _, x in v['daily']]
+    check('pierwsze 6 dni bez pełnego okna = luka', vals[:6] == [None] * 6, str(vals))
+    check('7. dzień: (56 nowych + 7 zejść) / 2 = 32', vals[6] == 32 and v['new7'][6][1] == 56 and v['out7'][6][1] == 7,
+          f"v={vals[6]} new7={v['new7'][6][1]} out7={v['out7'][6][1]}")
+    check('okno przesuwa się o dzień', vals[7] == round((4 + 6 + 8 + 10 + 12 + 14 + 1 + 6 + 30) / 2), str(vals[7]))
+    check('bez limitu 100', tg.build_velocity({'daily': [[m, 100] for m in ms[:7]]},
+                                              {'new': {'daily': [[m, 100] for m in ms[:7]]}})['daily'][6][1] == 700)
+    check('doba w toku w oknie = luka', vals[9] is None, str(vals))
+
+
+def test_blink_returns_are_not_reactivations():
+    print("\n♻️  Test 12: powrót z mignięcia nie jest reaktywacją")
+    import map_generator
+    d = lambda day, hour: datetime(2026, 7, day, hour).astimezone().isoformat()
+    blink = {'id': 'b', 'first_seen': d(1, 9), 'last_seen': d(10, 9), 'active': True, 'reactivated_at': d(5, 18),
+             'deactivation_dates': [d(5, 12)], 'reactivation_dates': [d(5, 18)]}
+    real = {'id': 'r', 'first_seen': d(1, 9), 'last_seen': d(10, 9), 'active': True, 'reactivated_at': d(8, 12),
+            'deactivation_dates': [d(5, 12)], 'reactivation_dates': [d(8, 12)]}
+    mixed = {'id': 'm', 'first_seen': d(1, 9), 'last_seen': d(10, 9), 'active': True, 'reactivated_at': d(9, 18),
+             'deactivation_dates': [d(3, 12), d(9, 12)], 'reactivation_dates': [d(6, 12), d(9, 18)]}
+    legacy = {'id': 'l', 'first_seen': d(1, 9), 'last_seen': d(10, 9), 'active': True, 'reactivated_at': d(2, 12)}
+    check('mignięcie: brak prawdziwych reaktywacji', tg.real_reactivations(blink) == [], str(tg.real_reactivations(blink)))
+    check('powrót po 3 dniach zostaje', tg.real_reactivations(real) == [date(2026, 7, 8)])
+    check('mieszana: zostaje tylko prawdziwy powrót', tg.real_reactivations(mixed) == [date(2026, 7, 6)],
+          str(tg.real_reactivations(mixed)))
+    check('flaga mapy: samo mignięcie to nie reaktywacja', map_generator.is_reactivated(blink) is False)
+    check('flaga mapy: prawdziwy powrót / mieszana / stara bez dat', all(map_generator.is_reactivated(o) for o in (real, mixed, legacy)))
+
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        (base / 'data').mkdir()
+        for day in range(1, 11):
+            record_day(base, date(2026, 7, day), 700)
+        offers = [blink, real, mixed]
+        series = tg.build_series(offers, base_dir=base)
+        react = {tg._ms_day(ms).day: v for ms, v in tg.build_inflow(offers, series)['react']['daily']}
+        check('wykres Reaktywacji: 05.07 bez mignięcia, 06.07 i 08.07 po jednej, 09.07 bez mignięcia',
+              (react[5], react[6], react[8], react[9]) == (0, 1, 1, 0), str(react))
+
+
+def _priced(*prices, active=True):
+    """Oferty z podanymi cenami (None = oferta bez ceny)."""
+    return [{'active': active, 'price': {'current': p}} for p in prices]
+
+
+def test_price_history_store():
+    print("\n💰 Test 13: magazyn rozkładu cen (data/price_history.json)")
+    snap = price_history.snapshot(_priced(800, 800, 849.5, None) + _priced(900, active=False))
+    check('snapshot: nieaktywne pominięte, oferta bez ceny liczy się do active, nie do cen',
+          snap == {'active': 4, 'prices': {'800': 2, '849.5': 1}}, str(snap))
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        (base / 'data').mkdir()
+        day = date(2026, 9, 1)
+        price_history.record(_priced(800, 900, 1000), iso(day, 9), base_dir=base)
+        price_history.record(_priced(800, 900), iso(day, 15), base_dir=base)
+        entry = price_history.load(base)['days'][day.isoformat()]
+        check('skan częściowy (mniej aktywnych) nie podmienia dnia',
+              entry['active'] == 3 and entry['prices'] == {'800': 1, '900': 1, '1000': 1}, str(entry))
+        price_history.record(_priced(800, 900, 1000, 1100), iso(day, 21), base_dir=base)
+        entry = price_history.load(base)['days'][day.isoformat()]
+        check('pełniejszy skan tego samego dnia podmienia rozkład',
+              entry['active'] == 4 and entry['prices'].get('1100') == 1 and entry['ts'] == iso(day, 21), str(entry))
+
+        path = base / 'data' / 'price_history.json'
+        before = path.read_text()
+        path.write_text(before[: len(before) // 2])
+        price_history.record(_priced(700), iso(day + timedelta(days=1), 9), base_dir=base)
+        check('plik nieczytelny: record() niczego nie zapisuje', path.read_text() == before[: len(before) // 2])
+        path.write_text(before)
+        try:
+            price_history.save({'days': {}}, base_dir=base)
+            refused = False
+        except price_history.PriceHistoryError:
+            refused = True
+        check('save() odmawia zastąpienia historii pustką', refused)
+
+
+def test_price_dist_card():
+    print("\n💰 Test 14: karta „Rozkład cen” — kubełki 20 zł, próg 1500 zł, kafelki dnia")
+    d1, d2, d3 = date(2026, 9, 1), date(2026, 9, 2), date(2026, 9, 3)
+    with tempfile.TemporaryDirectory() as tmp:
+        base = Path(tmp)
+        (base / 'data').mkdir()
+        record_day(base, d1, 10)
+        record_day(base, d2, 12)
+        index_history.record(11, iso(d3, 9), base_dir=base)          # doba w toku: 1 z 3 skanów
+        price_history.record(_priced(700, 900), iso(d1, 9), base_dir=base)
+        price_history.record(_priced(800, 819, 820, 1499, 1500, 1501, 4000), iso(d2, 9), base_dir=base)
+        price_history.record(_priced(900), iso(d3, 9), base_dir=base)
+
+        offers = [
+            {'first_seen': iso(d2, 10), 'active': True},
+            {'first_seen': iso(d2, 11), 'active': True},
+            {'first_seen': iso(d1, 10), 'active': True, 'promoted_dates': [iso(d3, 9)]},
+        ]
+        pd = tg.build_price_dist(offers, base_dir=base)
+        by = {e['label']: e for e in pd['days']}
+        e1, e2, e3 = by['01.09.2026'], by['02.09.2026'], by['03.09.2026']
+
+        check('krok 20 zł i próg 1500 zł', (pd['step'], pd['cap']) == (20, 1500), str((pd['step'], pd['cap'])))
+        check('kubełki od zera co 20 zł; 1501 i 4000 zł pominięte, 1500 zł zostaje',
+              e2['hist'] == {'800': 2, '820': 1, '1480': 1, '1500': 1}, str(e2['hist']))
+        check('statystyki z dokładnych cen do 1500 zł',
+              e2['stats'] == {'n': 5, 'min': 800, 'q1': 819, 'med': 820, 'avg': 1088, 'q3': 1499, 'max': 1500},
+              str(e2['stats']))
+        check('oś wspólna dla wszystkich dni (od najtańszego kubełka)', pd['axis_from'] == 700, str(pd['axis_from']))
+        check('Aktywne i Zmiana z index_history (nie z liczby cen)',
+              (e2['active'], e2['change']) == (12, 2) and e1['change'] is None, f"{e2['active']} {e2['change']} {e1['change']}")
+        check('Nowe = first_seen tego dnia', (e1['new'], e2['new'], e3['new']) == (1, 2, 0),
+              f"{e1['new']} {e2['new']} {e3['new']}")
+        check('Promowane: brak pomiaru przed pierwszym dniem z danymi, potem liczba i % rynku',
+              e2['promoted'] is None and (e3['promoted'], e3['promoted_share']) == (1, 9.1),
+              f"{e2['promoted']} {e3['promoted']} {e3['promoted_share']}")
+        check('doba w toku: ma wartości i plakietkę (1 z 3 skanów), poprzednie dni bez niej',
+              e3['active'] == 11 and e3.get('partial') == {'scans': 1, 'expected': 3} and 'partial' not in e2,
+              str(e3.get('partial')))
+
+
+def test_exit_price_dist_card():
+    print("\n🚪 Test 15: karta „Zejścia z rynku” — oferty, które zeszły i nie wróciły")
+    d0, d1, d2, d3 = (date(2026, 9, 1) + timedelta(days=i) for i in range(4))
+    pd = {'step': 20, 'cap': 1500, 'axis_from': 700, 'start_label': '02.09.2026', 'days': [
+        {'ms': tg._day_ms(d), 'label': d.strftime('%d.%m.%Y'), 'stats': {'med': 880}} for d in (d1, d2, d3)]}
+    pd['days'][-1]['partial'] = {'scans': 1, 'expected': 3}
+
+    def gone(current, **kw):
+        offer = {'active': False, 'first_seen': iso(d0), 'price': {'current': current}}
+        offer.update(kw)
+        return offer
+
+    offers = [
+        gone(800, deactivation_dates=[iso(d2, 9)]),                                    # A: zeszła 2.
+        gone(1600, deactivation_dates=[iso(d2, 9)]),                                   # B: droższa niż próg
+        gone(850, deactivation_dates=[iso(d2, 15)],                                    # C: z obniżką ceny
+             price={'current': 850, 'history_full': [{'price': 900, 'date': iso(d0)},
+                                                     {'price': 850, 'date': iso(d1)}]}),
+        gone(700, deactivation_dates=[iso(d1, 9), iso(d3, 9)],                         # D: wróciła po 1., zeszła 3.
+             reactivation_dates=[iso(d1 + timedelta(days=1), 15)]),
+        {'active': True, 'first_seen': iso(d0), 'price': {'current': 900},             # E: zeszła i wróciła
+         'deactivation_dates': [iso(d1, 9)], 'reactivation_dates': [iso(d2, 21)]},
+        gone(1000, last_seen=iso(d1, 21)),                                             # F: sprzed deactivation_dates
+    ]
+    ex = tg.build_exit_price_dist(offers, pd)
+    by = {e['label']: e for e in ex['days']}
+    e1, e2, e3 = (by[d.strftime('%d.%m.%Y')] for d in (d1, d2, d3))
+    check('liczy się tylko ostatnie zejście oferty, która nie wróciła (D w 3., nie w 1.; E nigdzie)',
+          (e1['count'], e2['count'], e3['count']) == (1, 3, 1), f"{e1['count']} {e2['count']} {e3['count']}")
+    check('fallback last_seen dla oferty bez dat deaktywacji', e1['hist'] == {'1000': 1}, str(e1['hist']))
+    check('słupki co 20 zł do progu 1500 zł, kafelek liczy wszystkie zejścia',
+          e2['hist'] == {'800': 1, '840': 1} and e2['stats']['n'] == 2, f"{e2['hist']} n={e2['stats']['n']}")
+    check('mediana vs rynek = mediana zejść − mediana aktywnych', e2['vs_market'] == 825 - 880, str(e2['vs_market']))
+    check('odsetek z obniżką ceny i mediana czasu na rynku',
+          e2['drop_share'] == 33 and e2['lifespan_median'] == 2, f"{e2['drop_share']}% {e2['lifespan_median']} dni")
+    check('oś wspólna z kartą „Rozkład cen”', ex['axis_from'] == pd['axis_from'] == 700, str(ex['axis_from']))
+    check('doba w toku przechodzi z karty „Rozkład cen”', e3.get('partial') == {'scans': 1, 'expected': 3})
+
+
 if __name__ == '__main__':
     print("🧪 TEST INDEKSU PODAŻY\n" + "=" * 60)
     test_intervals()
@@ -541,6 +749,12 @@ if __name__ == '__main__':
     test_refresh_unscanned_day_is_a_gap()
     test_szperacz_backfill()
     test_day_anchor_is_utc()
+    test_blinks_are_not_outflow()
+    test_velocity()
+    test_blink_returns_are_not_reactivations()
+    test_price_history_store()
+    test_price_dist_card()
+    test_exit_price_dist_card()
     print("\n" + "=" * 60)
     if FAILED:
         print(f"❌ Niezaliczone ({len(FAILED)}): " + ', '.join(FAILED))

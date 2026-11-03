@@ -24,6 +24,7 @@ from duplicate_detector import DuplicateDetector
 from scan_logger import ScanLogger
 from shared_utils import write_json_atomic, DATA_DIR
 import index_history
+import price_history
 
 class SonarPokojowy:
     # Hierarchia precyzji adresu — im wyżej, tym lepszy marker. Używane przy
@@ -2228,6 +2229,9 @@ class SonarPokojowy:
             # maksimum z odczytów, więc skan częściowy nie obniży już zapisanego dnia.
             scan_ts = (self.scan_logger.current_scan or {}).get('timestamp')
             index_history.record(active, scan_ts)
+            # Ten sam skan → rozkład cen aktywnych ofert (karta „Rozkład cen" na Indeksie).
+            # Ta sama konwencja dnia: zostaje skan z największą liczbą aktywnych ofert.
+            price_history.record(self.database['offers'], scan_ts)
 
             final_status = 'warning' if scrape_blocked else 'completed'
             self.scan_logger.end_scan(final_status, total_duration)

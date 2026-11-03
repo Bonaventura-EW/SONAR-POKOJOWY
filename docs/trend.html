@@ -90,6 +90,109 @@
         .ttNet .ttAvg { color: #8b93a7; font-size: 11.5px; margin-top: 5px; }
         .ttNet .ttGap { color: #8b93a7; }
         .apexcharts-menu-item:hover { background: #2f3950 !important; }
+        /* Wskaźnik Rotacji Rynku (przeniesiony z Analizy rynku) */
+        .rotTiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin: 6px 0 22px; }
+        .rotTile { background: #222836; border-radius: 12px; padding: 14px 16px; border-left: 3px solid #6c7bf2; }
+        .rotTile .l { font-size: 12px; color: #8b93a7; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; margin-bottom: 6px; }
+        .rotTile .v { font-size: 28px; font-weight: 700; }
+        .rotH { font-size: 16px; color: #fff; margin: 0 0 10px; }
+        .velBar { height: 36px; background: #3a4255; border-radius: 18px; overflow: hidden; }
+        .velFill {
+            height: 100%; border-radius: 18px; background: linear-gradient(90deg, #37c26b, #f5b942, #e8624c);
+            display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 15px;
+            text-shadow: 0 1px 2px rgba(0,0,0,.35); transition: width .5s ease;
+        }
+        .rotZones { margin: 8px 0 26px; font-size: 13px; color: #8b93a7; }
+        .rotBars { display: flex; gap: 8px; }
+        .rotDay { flex: 1; text-align: center; min-width: 0; }
+        .rotDay .d { font-size: 11px; color: #8b93a7; margin-bottom: 4px; }
+        .rotDay .bars { display: flex; flex-direction: column; gap: 2px; height: 100px; justify-content: flex-end; }
+        .rotDay .bar { border-radius: 4px; }
+        .rotDay .bar.n { background: #37c26b; } .rotDay .bar.r { background: #e8624c; }
+        .rotDay .c { font-size: 10.5px; font-weight: 600; color: #c7cede; margin-top: 4px; font-variant-numeric: tabular-nums; }
+        .velHead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px 16px; margin-top: 28px; }
+        .velHead .rotH { margin: 0; }
+        .velHead .idxToolbar { margin: 0; }
+        .velMeta { font-size: 13px; color: #8b93a7; margin: 6px 0 4px; }
+        .ttVel { padding: 9px 12px; font-size: 12.5px; line-height: 1.6; }
+        .ttVel .ttD { color: #8b93a7; font-size: 11.5px; }
+        @media (max-width: 640px) {
+            .rotBars { gap: 4px; } .rotDay .d { font-size: 9px; } .rotDay .c { font-size: 8.5px; }
+        }
+        /* Rozkład cen (karta pod Wskaźnikiem Rotacji Rynku). Siatki z gap: 1px na tle
+           koloru linii — podziałki rysują się same przy każdej liczbie kolumn. */
+        .pdKpis, .pdStats { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px;
+            background: #3a4255; border-radius: 12px; overflow: hidden; }
+        .pdKpi, .pdStat { background: #222836; text-align: center; min-width: 0; }
+        .pdKpi { padding: 16px 10px 14px; }
+        .pdKpi .v { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .pdKpi .v small { font-size: 13px; font-weight: 600; color: #8b93a7; margin-left: 4px; }
+        .pdKpi .l, .pdStat .l { font-size: 11.5px; color: #8b93a7; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; margin-top: 6px; }
+        .pdStat { padding: 12px 8px; }
+        .pdStat .v { font-size: 17px; font-weight: 700; color: #aab3ff; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .pdStat .v.med { color: #37c26b; }
+        .pdHead { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px 14px; margin: 26px 0 10px; }
+        .pdHead .t { font-size: 13px; font-weight: 700; letter-spacing: .08em; color: #c7cede; }
+        .pdHead .t span { font-weight: 400; letter-spacing: 0; color: #8b93a7; margin-left: 6px; }
+        .pdHead .day { font-size: 14px; font-weight: 700; color: #aab3ff; font-variant-numeric: tabular-nums; }
+        .pdSlider { padding: 0 9px; }
+        .pdSlider input { width: 100%; margin: 6px 0 0; accent-color: #6c7bf2; height: 22px; cursor: pointer; }
+        .pdSlider input:focus-visible { outline: 2px solid #6c7bf2; outline-offset: 4px; border-radius: 4px; }
+        .pdTicks { position: relative; height: 18px; margin: 2px 9px 0; }
+        .pdTicks span, .pdAxis span { position: absolute; transform: translateX(-50%); font-size: 11px; color: #8b93a7;
+            white-space: nowrap; font-variant-numeric: tabular-nums; }
+        .pdHistBox { position: relative; margin-top: 22px; }
+        .pdHist { display: flex; align-items: flex-end; gap: 2px; height: 200px; border-bottom: 1px solid #3a4255; }
+        .pdHist.dense { gap: 1px; }
+        .pdHist .slot { flex: 1; height: 100%; display: flex; align-items: flex-end; min-width: 0; }
+        .pdHist .bar { width: 100%; background: #6c7bf2; border-radius: 3px 3px 0 0; transition: height .2s ease; }
+        .pdHist .bar.q { background: #aab3ff; }
+        .pdHist .bar.m { background: #37c26b; }
+        .pdHist .slot:hover .bar { filter: brightness(1.25); }
+        .pdHist .loading { width: 100%; align-self: center; }
+        .pdAxis { position: relative; height: 18px; margin-top: 6px; }
+        .pdTrend { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+        .pdTrend path { fill: none; stroke-linejoin: round; stroke-linecap: round; }
+        .pdTrend .halo { stroke: #2a3140; stroke-width: 6; opacity: .85; }
+        .pdTrend .now { stroke: #f5b942; stroke-width: 2.5; }
+        .pdTip { position: absolute; pointer-events: none; background: #1b2230; border: 1px solid #3a4357; border-radius: 8px;
+            padding: 6px 10px; font-size: 12.5px; white-space: nowrap; transform: translate(-50%, -100%); margin-top: -8px; z-index: 2; }
+        .pdTip[hidden] { display: none; }
+        .pdTip b { font-variant-numeric: tabular-nums; }
+        .pdLegend { display: flex; gap: 18px; flex-wrap: wrap; margin: 10px 0 16px; font-size: 13px; color: #a9b2c4; }
+        .pdLegend i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; margin-right: 7px; vertical-align: -1px; }
+        .pdLegend i.ln { width: 22px; height: 0; border-radius: 0; border-top: 2.5px solid #f5b942; vertical-align: 3px; }
+        .pdTrend .mkt { stroke: #c7cede; stroke-width: 1.5; stroke-dasharray: 5 4; }
+        .pdTrend text { fill: #c7cede; font-size: 11.5px; font-weight: 600; font-family: inherit; }
+        .pdLegend i.vl { width: 0; height: 13px; border-radius: 0; border-left: 1.5px dashed #c7cede; margin: 0 8px 0 4px; vertical-align: -2px; }
+        /* Karta „Zejścia z rynku”: ta sama budowa, kolory odpływu */
+        .pdExit .pdHist .bar { background: #e8624c; }
+        .pdExit .pdHist .bar.q { background: #f2a493; }
+        .pdExit .pdHist .bar.m { background: #37c26b; }
+        .pdExit .pdStat .v { color: #f2a493; }
+        .pdExit .pdStat .v.med { color: #37c26b; }
+        .pdExit .pdHead .day { color: #f2a493; }
+        .pdExit .pdSlider input { accent-color: #e8624c; }
+        .pdExit .pdSlider input:focus-visible { outline-color: #e8624c; }
+        .pdExit .pdHistBox { margin-top: 32px; }
+        @media (max-width: 900px) {
+            /* 4 + 3 w siatce 12 kolumn: oba rzędy pełne, bez pustej komórki */
+            .pdKpis, .pdStats { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+            .pdKpi, .pdStat { grid-column: span 3; }
+            .pdKpi:nth-child(n+5), .pdStat:nth-child(n+5) { grid-column: span 4; }
+        }
+        @media (max-width: 560px) {
+            .pdKpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .pdKpi, .pdKpi:nth-child(n+5) { grid-column: auto; }
+            .pdKpi:first-child { grid-column: 1 / -1; }
+            .pdKpi .v { font-size: 22px; }
+            .pdStats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .pdStat, .pdStat:nth-child(n+5) { grid-column: auto; }
+            .pdStat:last-child { grid-column: 1 / -1; }
+            .pdStat .v { font-size: 14px; }
+            .pdHist { height: 160px; gap: 1px; }
+        }
+        @media (prefers-reduced-motion: reduce) { .pdHist .bar { transition: none; } }
     </style>
 </head>
 <body>
@@ -171,7 +274,7 @@
             więc prawy koniec zawsze opadał: od 29.07 wykres pokazywał &minus;10%, a rynek w tym czasie urósł o +1,9%.
             Przełącznik <strong>Rozbij</strong> dzieli tę samą liczbę na pasma &mdash; udział pasm bierze się z rekonstrukcji
             przedziałów życia, więc recykling jest <em>zaniżony</em> (oferta martwa danego dnia, wskrzeszona później, liczy się
-            jeszcze jako świeża). MAX/MIN/zakres liczone automatycznie; zmiany 6M/1Y pojawią się, gdy uzbieramy dłuższą historię.
+            jeszcze jako świeża). Mignięcie (powrót w ciągu doby) nie przenosi oferty do recyklingu. MAX/MIN/zakres liczone automatycznie; zmiany 6M/1Y pojawią się, gdy uzbieramy dłuższą historię.
         </div>
 
         <div class="card" style="margin-top:22px">
@@ -184,11 +287,157 @@
             <strong>Skąd dane:</strong> dla każdego dnia liczba ofert, które tego dnia wypadły z listingu
             (<code>deactivation_dates</code>). Czerwona linia to dzienny odpływ, pomarańczowa to średnia krocząca
             z 7 dni — wygładza dzienny szum i pokazuje trend nasilenia znikania.
+            <strong>Mignięcia się nie liczą</strong>: oferta, której zabrakło w skanie, a w ciągu doby wróciła,
+            nie zeszła z rynku (od 26.10.2026; wcześniej wliczane: od 03.09 było to 465 z 1983 zniknięć, prawie co czwarte). Zniknięcie z ostatnich
+            skanów liczy się, dopóki oferta nie wróci.
             <strong>Historia jest zaniżona</strong>: daty deaktywacji zapisujemy dopiero od 03.09.2026, a starsze oferty
             zostawiły tylko <code>last_seen</code>, czyli <em>wyłącznie ostatnie</em> zniknięcie — oferta, która umarła
             i wróciła, nie ma śladu po swojej pierwszej śmierci. Widać to w bilansie: napływ 3174 &minus; odpływ 1590 = +1584,
             a Indeks urósł w tym czasie o +480; różnica to prawie dokładnie liczba reaktywacji. Szereg domyka się sam
             w miarę kolejnych skanów.
+        </div>
+
+        <div class="card" style="margin-top:22px">
+            <h2>🔄 Wskaźnik Rotacji Rynku</h2>
+            <div class="sub" id="rotLabel">Nowe oferty i zejścia z rynku z ostatnich 7 pełnych dni</div>
+            <div class="rotTiles">
+                <div class="rotTile"><div class="l">Nowe oferty (7 dni)</div><div class="v" id="rotNew">&mdash;</div></div>
+                <div class="rotTile"><div class="l">Zeszły z rynku (7 dni)</div><div class="v" id="rotOut">&mdash;</div></div>
+                <div class="rotTile"><div class="l">Saldo</div><div class="v" id="rotNet">&mdash;</div></div>
+            </div>
+            <h3 class="rotH">Market Velocity (aktywność rynku)</h3>
+            <div class="velBar"><div class="velFill" id="velFill" style="width:0"><span id="velTxt"></span></div></div>
+            <div class="rotZones">0-30: Rynek słaby | 31-60: Umiarkowany | 61-80: Aktywny | 81+: Bardzo aktywny</div>
+            <h3 class="rotH">Rozkład dzienny (ostatnie 7 dni)</h3>
+            <div class="rotBars" id="rotBars"></div>
+            <div class="velHead">
+                <h3 class="rotH">Market Velocity: historia</h3>
+                <div class="idxToolbar">
+                    <button class="idxBtn on" type="button" data-vel-range="6m">6 miesięcy</button>
+                    <button class="idxBtn" type="button" data-vel-range="all">Cała historia</button>
+                </div>
+            </div>
+            <div class="velMeta" id="velMeta"></div>
+            <div id="chartVel"><div class="loading">Ładowanie danych…</div></div>
+        </div>
+
+        <div class="foot">
+            <strong>Skąd dane:</strong> Market Velocity = (nowe oferty + zejścia z rynku z 7 dni) &divide; 2, liczone dla
+            każdego dnia z oknem 7 dni kończącym się tym dniem. Składniki to dokładnie dzienne szeregi wykresów
+            „Nowe oferty” i „Odpływ ofert” (bez mignięć), więc kafelki i słupki zgadzają się z tymi wykresami.
+            Okno obejmuje tylko pełne doby: dzień w toku i dzień bez skanu to luka. Skala jest bez limitu &mdash;
+            rynek zwykle przekracza 100. Strefy w tle odpowiadają legendzie paska.
+            Historia sprzed 03.09.2026 jest zaniżona tak samo jak odpływ (patrz wyżej).
+        </div>
+
+        <div class="card" style="margin-top:22px">
+            <h2>💰 Rozkład cen &ndash; oferty do 1500 zł</h2>
+            <div class="sub">Stan rynku z wybranego dnia. Przesuń suwak, żeby zobaczyć inny dzień.</div>
+            <div class="pdKpis">
+                <div class="pdKpi"><div class="v" id="pdA">&mdash;</div><div class="l">Aktywne</div></div>
+                <div class="pdKpi"><div class="v" id="pdC">&mdash;</div><div class="l">Zmiana</div></div>
+                <div class="pdKpi"><div class="v" id="pdN">&mdash;</div><div class="l">Nowe</div></div>
+                <div class="pdKpi"><div class="v" id="pdP">&mdash;</div><div class="l">⭐ Promowane</div></div>
+                <div class="pdKpi"><div class="v" id="pdAvg">&mdash;</div><div class="l">Średnia cena</div></div>
+                <div class="pdKpi"><div class="v" id="pdMin">&mdash;</div><div class="l">Min cena</div></div>
+                <div class="pdKpi"><div class="v" id="pdMax">&mdash;</div><div class="l">Max cena</div></div>
+            </div>
+            <div class="pdHead">
+                <div class="t">💰 ROZKŁAD CEN<span id="pdStepTxt"></span></div>
+                <div class="day" id="pdDay"></div>
+            </div>
+            <div class="pdSlider"><input type="range" id="pdSlider" min="0" max="0" value="0" aria-label="Dzień rozkładu cen"></div>
+            <div class="pdTicks" id="pdTicks"></div>
+            <div class="pdHistBox" id="pdHistBox">
+                <div class="pdHist" id="pdHist"><div class="loading">Ładowanie danych…</div></div>
+                <div class="pdAxis" id="pdAxis"></div>
+                <svg class="pdTrend" id="pdTrend" aria-hidden="true"></svg>
+                <div class="pdTip" id="pdTip" hidden></div>
+            </div>
+            <div class="pdLegend">
+                <span><i style="background:#6c7bf2"></i><span id="pdStepLeg">Przedział</span></span>
+                <span><i style="background:#37c26b"></i>Mediana</span>
+                <span><i style="background:#aab3ff"></i>Q1 / Q3</span>
+                <span><i class="ln"></i>Linia trendu (wygładzona, ±50 zł)</span>
+            </div>
+            <div class="pdStats">
+                <div class="pdStat"><div class="v" id="pdSMin"></div><div class="l">Min</div></div>
+                <div class="pdStat"><div class="v" id="pdSQ1"></div><div class="l">Q1 25%</div></div>
+                <div class="pdStat"><div class="v med" id="pdSMed"></div><div class="l">Mediana</div></div>
+                <div class="pdStat"><div class="v" id="pdSAvg"></div><div class="l">Średnia</div></div>
+                <div class="pdStat"><div class="v" id="pdSQ3"></div><div class="l">Q3 75%</div></div>
+                <div class="pdStat"><div class="v" id="pdSMax"></div><div class="l">Max</div></div>
+                <div class="pdStat"><div class="v" id="pdSN"></div><div class="l">Ogłoszeń</div></div>
+            </div>
+        </div>
+
+        <div class="foot">
+            <strong>Skąd dane:</strong> rozkład cen aktywnych ofert ze skanu z największą liczbą ofert danego dnia
+            (ta sama konwencja co Indeks), zapisywany przy każdym skanie w <code>data/price_history.json</code>.
+            Dni od 16.05.2026 do wdrożenia odtworzone z rewizji <code>offers.json</code> w historii gita &mdash;
+            to stan bazy po tamtych skanach, nie rekonstrukcja. Słupki co 20 zł, liczone od zera (np. 800&ndash;819,
+            840&ndash;859 zł). <strong>Oferty droższe niż 1500 zł nie są liczone</strong> ani w słupkach, ani w cenach;
+            oferta za równe 1500 zł zostaje. Min, Q1, Mediana, Średnia, Q3 i Max liczone z dokładnych kwot, nie z
+            przedziałów. Aktywne i Zmiana to wartości Indeksu (wszystkie oferty, także droższe), Nowe to oferty,
+            które pojawiły się tego dnia po raz pierwszy (jak wykres „Nowe oferty”), Promowane mierzymy od 27.08.2026.
+            Żółta linia trendu to liczba ofert w przedziale uśredniona z sąsiednimi przedziałami (średnia ważona
+            w oknie ±50 zł), w tej samej skali co słupki: wygładza piki na okrągłych kwotach (800, 850, 900 zł)
+            i pokazuje kształt rozkładu.
+        </div>
+
+        <div class="card pdExit" style="margin-top:22px">
+            <h2>🚪 Zejścia z rynku &ndash; ceny ofert, które nie wróciły</h2>
+            <div class="sub">Oferty, które zeszły z rynku w wybranym dniu i do dziś nie wróciły. Przesuń suwak, żeby zobaczyć inny dzień.</div>
+            <div class="pdKpis">
+                <div class="pdKpi"><div class="v" id="exCnt">&mdash;</div><div class="l">Zeszły z rynku</div></div>
+                <div class="pdKpi"><div class="v" id="exLife">&mdash;</div><div class="l">Mediana czasu na rynku</div></div>
+                <div class="pdKpi"><div class="v" id="exDrop">&mdash;</div><div class="l">Z obniżką ceny</div></div>
+                <div class="pdKpi"><div class="v" id="exAvg">&mdash;</div><div class="l">Średnia cena</div></div>
+                <div class="pdKpi"><div class="v" id="exMin">&mdash;</div><div class="l">Min cena</div></div>
+                <div class="pdKpi"><div class="v" id="exMax">&mdash;</div><div class="l">Max cena</div></div>
+                <div class="pdKpi"><div class="v" id="exVs">&mdash;</div><div class="l">Mediana vs rynek</div></div>
+            </div>
+            <div class="pdHead">
+                <div class="t">🚪 ROZKŁAD CEN ZEJŚĆ<span id="exStepTxt"></span></div>
+                <div class="day" id="exDay"></div>
+            </div>
+            <div class="pdSlider"><input type="range" id="exSlider" min="0" max="0" value="0" aria-label="Dzień zejść z rynku"></div>
+            <div class="pdTicks" id="exTicks"></div>
+            <div class="pdHistBox" id="exHistBox">
+                <div class="pdHist" id="exHist"><div class="loading">Ładowanie danych…</div></div>
+                <div class="pdAxis" id="exAxis"></div>
+                <svg class="pdTrend" id="exTrend" aria-hidden="true"></svg>
+                <div class="pdTip" id="exTip" hidden></div>
+            </div>
+            <div class="pdLegend">
+                <span><i style="background:#e8624c"></i><span id="exStepLeg">Przedział</span></span>
+                <span><i style="background:#37c26b"></i>Mediana</span>
+                <span><i style="background:#f2a493"></i>Q1 / Q3</span>
+                <span><i class="ln"></i>Linia trendu (wygładzona, ±50 zł)</span>
+                <span><i class="vl"></i>Mediana rynku (aktywne oferty)</span>
+            </div>
+            <div class="pdStats">
+                <div class="pdStat"><div class="v" id="exSMin"></div><div class="l">Min</div></div>
+                <div class="pdStat"><div class="v" id="exSQ1"></div><div class="l">Q1 25%</div></div>
+                <div class="pdStat"><div class="v med" id="exSMed"></div><div class="l">Mediana</div></div>
+                <div class="pdStat"><div class="v" id="exSAvg"></div><div class="l">Średnia</div></div>
+                <div class="pdStat"><div class="v" id="exSQ3"></div><div class="l">Q3 75%</div></div>
+                <div class="pdStat"><div class="v" id="exSMax"></div><div class="l">Max</div></div>
+                <div class="pdStat"><div class="v" id="exSN"></div><div class="l">Zejść</div></div>
+            </div>
+        </div>
+
+        <div class="foot">
+            <strong>Skąd dane:</strong> oferta, która zeszła z rynku w wybranym dniu i do dziś nie wróciła. Liczy się raz,
+            w dniu swojego <strong>ostatniego</strong> zejścia. Dzień zejścia to dzień skanu, który wykrył brak oferty,
+            z pominięciem mignięć &mdash; ta sama konwencja co wykres „Odpływ ofert” (przed 03.09.2026 to ostatni dzień,
+            w którym ofertę widzieliśmy). Liczby są niższe niż na Odpływie, bo tam liczą się też oferty, które wróciły
+            po ponad dobie. Zejścia z ostatnich dni mogą jeszcze zniknąć, jeśli oferta wróci.
+            Cena to ostatnia cena oferty przed zejściem; oferty droższe niż 1500 zł nie są liczone w słupkach ani w cenach
+            (kafelek „Zeszły z rynku” liczy wszystkie). Czas na rynku liczony od pierwszego pojawienia się oferty.
+            „Z obniżką ceny” to odsetek zejść, którym cena choć raz spadła w trakcie życia ogłoszenia.
+            Przerywana kreska to mediana cen aktywnych ofert tego samego dnia z karty „Rozkład cen”, a „Mediana vs rynek”
+            to różnica median: wartość ujemna znaczy, że schodziły tańsze oferty niż typowe na rynku.
         </div>
 
         <div class="card" style="margin-top:22px">
@@ -265,6 +514,7 @@
         <div class="foot">
             <strong>Skąd dane:</strong> suma nowych ofert (<code>first_seen</code>) i reaktywacji
             (<code>reactivation_dates</code>) danego dnia &mdash; łączny „dopływ" ofert na rynek.
+            Powroty z mignięć się nie liczą (patrz Reaktywacje), więc napływ i odpływ bilansują się z Indeksem.
             Dni-artefakty reaktywacji (bug pętli, naprawiony 24.07) są wycięte także tutaj.
             <strong>Odcinek do 30.06.2026 jest wycięty</strong> &mdash; pole <code>reactivation_dates</code> nie istniało
             do początku lipca (starsze wersje pipeline'u miały wyłącznie licznik <code>reactivation_count</code>), a przy
@@ -281,6 +531,10 @@
         <div class="foot">
             <strong>Skąd dane:</strong> dla każdego dnia liczba ofert, które tego dnia wróciły na rynek
             po wcześniejszym zniknięciu (data w <code>reactivation_dates</code> = ten dzień).
+            <strong>Powrót z mignięcia się nie liczy</strong>: oferta, której zabrakło w skanie, a w ciągu doby wróciła,
+            nie zeszła z rynku, więc nie mogła na niego wrócić (od 26.10.2026, tak samo jak w Odpływie). Takich powrotów
+            było 473 z 1850 reaktywacji, wszystkie od 03.09, odkąd zapisujemy daty zniknięć. Bez tego od 03.09 napływ
+            minus odpływ wychodził +169, choć Indeks spadł o 289.
             <strong>Dwa dni (21.07, 12.06) są wycięte</strong> jako artefakt pipeline'u &mdash; bug pętli
             <code>scrape&rarr;inactive&rarr;verify&rarr;reactivate</code> + jednorazowy backfill dat
             (naprawione 24.07) wygenerowały piki 432 i 182, kilkanaście % bazy w jeden dzień. Na osi
@@ -726,6 +980,170 @@
             document.getElementById('chart2').innerHTML = '<div class="loading">Brak danych o odpływie.</div>';
         }
 
+        // --- Wskaźnik Rotacji Rynku: kafelki, pasek, rozkład 7 dni, historia velocity ---
+        // Wszystko z tych samych szeregów co „Nowe oferty" i „Odpływ ofert" (backend: build_velocity).
+        const vel = d.velocity;
+        const velPts = vel && vel.daily ? vel.daily.map(function (p, i) {
+            return { ms: p[0], v: p[1], n: vel.new7[i][1], r: vel.out7[i][1] };
+        }).filter(function (p) { return p.v != null; }) : [];
+        if (velPts.length >= 2) {
+            const VEL_ZONES = [
+                { lo: 0, hi: 30, name: 'słaby', fill: '#37c26b', op: 0.10 },
+                { lo: 30, hi: 60, name: 'umiarkowany', fill: '#a3c43a', op: 0.10 },
+                { lo: 60, hi: 80, name: 'aktywny', fill: '#f5b942', op: 0.11 },
+                { lo: 80, hi: Infinity, name: 'bardzo aktywny', fill: '#e8624c', op: 0.07 }
+            ];
+            const zoneOf = function (v) {
+                return VEL_ZONES.find(function (z) { return v <= z.hi; }) || VEL_ZONES[VEL_ZONES.length - 1];
+            };
+            const dd = function (ms, withYear) {
+                const t = new Date(ms);
+                const s = String(t.getUTCDate()).padStart(2, '0') + '.' + String(t.getUTCMonth() + 1).padStart(2, '0');
+                return withYear ? s + '.' + t.getUTCFullYear() : s;
+            };
+            const minus = function (v) { return '−' + v; };
+
+            // kafelki i pasek: ostatnie pełne okno 7 dni
+            const lastP = velPts[velPts.length - 1];
+            const net = lastP.n - lastP.r;
+            document.getElementById('rotNew').textContent = '+' + lastP.n;
+            document.getElementById('rotOut').textContent = minus(lastP.r);
+            const netEl = document.getElementById('rotNet');
+            netEl.textContent = net > 0 ? '+' + net : (net < 0 ? minus(-net) : '0');
+            netEl.style.color = net > 0 ? '#37c26b' : (net < 0 ? '#e8624c' : '#8b93a7');
+            document.getElementById('velFill').style.width = Math.min(100, lastP.v) + '%';
+            document.getElementById('velTxt').textContent = lastP.v > 100 ? lastP.v : lastP.v + '/100';
+
+            // rozkład dzienny: 7 dni okna kończącego się ostatnim pełnym dniem
+            const newAt = {}, outAt = {};
+            d.inflow.new.daily.forEach(function (p) { newAt[p[0]] = p[1]; });
+            d.outflow.daily.forEach(function (p) { outAt[p[0]] = p[1]; });
+            const week = [];
+            for (let i = 6; i >= 0; i--) {
+                const ms = lastP.ms - i * 86400000;
+                week.push({ ms: ms, n: newAt[ms] || 0, r: outAt[ms] || 0 });
+            }
+            document.getElementById('rotLabel').innerHTML =
+                'Okno 7 ostatnich pełnych dni <b>' + dd(week[0].ms) + '–' + dd(lastP.ms) + '</b>. ' +
+                'Nowe i zejścia z rynku to te same liczby co na wykresach „Nowe oferty” i „Odpływ ofert”.';
+            const top = Math.max.apply(null, week.map(function (w) { return Math.max(w.n, w.r); }).concat(1));
+            document.getElementById('rotBars').innerHTML = week.map(function (w) {
+                return '<div class="rotDay"><div class="d">' + dd(w.ms) + '</div><div class="bars">' +
+                    '<div class="bar n" style="height:' + (w.n / top * 100) + 'px"></div>' +
+                    '<div class="bar r" style="height:' + (w.r / top * 100) + 'px"></div></div>' +
+                    '<div class="c">+' + w.n + ' / ' + minus(w.r) + '</div></div>';
+            }).join('');
+
+            // historia velocity na tle stref, kreski na początkach miesięcy
+            let velRange = '6m';
+            let velChart = null;
+            const renderVel = function () {
+                let pts = velPts;
+                if (velRange === '6m') {
+                    const cut = new Date(lastP.ms);
+                    cut.setUTCMonth(cut.getUTCMonth() - 6);
+                    pts = pts.filter(function (p) { return p.ms >= cut.getTime(); });
+                }
+                const vals = pts.map(function (p) { return p.v; });
+                const mx = Math.max.apply(null, vals), mn = Math.min.apply(null, vals);
+                const avg = Math.round(vals.reduce(function (a, b) { return a + b; }, 0) / vals.length);
+                const last = pts[pts.length - 1];
+                document.getElementById('velMeta').textContent =
+                    'ostatni pełny dzień ' + last.v + ' (' + dd(last.ms) + ') · dzień wcześniej ' + pts[pts.length - 2].v +
+                    ' · średnio ' + avg + ' · max ' + mx + ' (' + dd(pts[vals.lastIndexOf(mx)].ms) + ')' +
+                    ' · min ' + mn + ' (' + dd(pts[vals.lastIndexOf(mn)].ms) + ')';
+
+                const yMax = Math.max(100, Math.ceil(mx / 50) * 50);
+                const zones = VEL_ZONES.filter(function (z) { return z.lo < yMax; }).map(function (z) {
+                    const hi = Math.min(z.hi, yMax);
+                    return {
+                        y: z.lo, y2: hi, fillColor: z.fill, opacity: z.op, borderColor: 'transparent',
+                        // podpis tylko w pasie dość wysokim, żeby napisy nie wchodziły na siebie
+                        label: { text: (hi - z.lo) / yMax >= 0.09 ? z.name.toUpperCase() : '', borderWidth: 0,
+                                 position: 'left', textAnchor: 'start', offsetX: 8, offsetY: 15,
+                                 style: { background: 'transparent', color: '#8b93a7', fontSize: '10.5px', fontWeight: 600 } }
+                    };
+                });
+                const monthLines = pts.filter(function (p, i) {
+                    return i > 0 && new Date(p.ms).getUTCDate() === 1;
+                }).map(function (p) { return { x: p.ms, borderColor: '#5a6478', strokeDashArray: 0 }; });
+
+                const opts = {
+                    chart: {
+                        type: 'line', height: 320, background: 'transparent',
+                        locales: [PL_LOCALE], defaultLocale: 'pl',
+                        fontFamily: 'inherit', foreColor: '#8b93a7',
+                        toolbar: { show: false }, zoom: { enabled: false },
+                        animations: { enabled: true, speed: 550 }
+                    },
+                    theme: { mode: 'dark' },
+                    series: [{ name: 'Market Velocity', data: pts.map(function (p) { return [p.ms, p.v]; }) }],
+                    colors: ['#6c7bf2'],
+                    stroke: { curve: 'smooth', width: 2 },
+                    dataLabels: { enabled: false },
+                    markers: { size: 0, hover: { size: 5 } },
+                    legend: { show: false },
+                    grid: { borderColor: '#3a4255', strokeDashArray: 4, xaxis: { lines: { show: false } }, padding: { right: 18 } },
+                    xaxis: {
+                        type: 'datetime', axisBorder: { show: false }, axisTicks: { color: '#3a4255' },
+                        tooltip: { enabled: false },
+                        labels: {
+                            datetimeUTC: false, style: { colors: '#8b93a7' },
+                            datetimeFormatter: { year: 'yyyy', month: "MMM 'yy", day: 'dd MMM', hour: 'HH:mm' }
+                        }
+                    },
+                    yaxis: { min: 0, max: yMax, tickAmount: yMax / 50,
+                             labels: { style: { colors: '#8b93a7' }, formatter: function (v) { return Math.round(v); } } },
+                    annotations: {
+                        yaxis: zones,
+                        xaxis: monthLines,
+                        points: [{
+                            x: last.ms, y: last.v,
+                            marker: { size: 5, fillColor: '#2a3140', strokeColor: '#6c7bf2', strokeWidth: 2 },
+                            label: { text: String(last.v), borderWidth: 0, offsetY: -4,
+                                     style: { background: 'transparent', color: '#e8ecf3', fontSize: '12px', fontWeight: 700 } }
+                        }]
+                    },
+                    tooltip: {
+                        theme: 'dark',
+                        custom: function (ctx) {
+                            const p = pts[ctx.dataPointIndex];
+                            if (!p) return '';
+                            return '<div class="ttVel"><div class="ttD">' + dd(p.ms, true) + '</div>' +
+                                '<b>Velocity: ' + p.v + '</b> · ' + zoneOf(p.v).name + '<br>' +
+                                '7 dni: +' + p.n + ' nowych / ' + minus(p.r) + ' zeszło z rynku</div>';
+                        }
+                    }
+                };
+                if (velChart) velChart.destroy();
+                document.getElementById('chartVel').innerHTML = '';
+                velChart = new ApexCharts(document.querySelector('#chartVel'), opts);
+                velChart.render();
+            };
+            document.querySelectorAll('[data-vel-range]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    velRange = btn.dataset.velRange;
+                    document.querySelectorAll('[data-vel-range]').forEach(function (b) { b.classList.toggle('on', b === btn); });
+                    renderVel();
+                });
+            });
+            renderVel();
+        } else {
+            document.getElementById('chartVel').innerHTML = '<div class="loading">Brak danych o rotacji rynku.</div>';
+        }
+
+        // --- Rozkład cen: suwak dni + histogram (backend: build_price_dist) ---
+        priceHistCard({
+            prefix: 'pd', data: d.price_dist, tiles: marketTiles, unit: ['ogłoszenie', 'ogłoszenia', 'ogłoszeń'],
+            emptyText: 'Brak danych o cenach.', noDayText: 'Brak ofert do 1500 zł w tym dniu.'
+        });
+        // --- Zejścia z rynku: ceny ofert, które danego dnia zeszły i nie wróciły (build_exit_price_dist) ---
+        priceHistCard({
+            prefix: 'ex', data: d.exit_price_dist, tiles: exitTiles, unit: ['zejście', 'zejścia', 'zejść'],
+            marker: function (e) { return e.market_med; },
+            emptyText: 'Brak danych o zejściach z rynku.', noDayText: 'Brak zejść do 1500 zł w tym dniu.'
+        });
+
         // --- zmiany cen: obniżki i podwyżki, dwa osobne wykresy ---
         // Osobno, bo podwyżek jest ~2,4× mniej niż obniżek: na wspólnej osi
         // leżałyby płasko przy zerze i nie dałoby się odczytać ich własnego trendu.
@@ -798,6 +1216,188 @@
         // bez separatorów i etykiet; parzyste miesiące zostają bez pasa.
         // Na wszystkich wykresach strony; przyjmuje kilka serii (np. nasz pomiar +
         // backfill brata) i liczy pasy z sumy ich zakresów.
+        // Karty „Rozkład cen" i „Zejścia z rynku": suwak dni + histogram co `step` zł.
+        // Dane dnia (słupki, kafelki, statystyki) liczy backend (build_price_dist,
+        // build_exit_price_dist); tu tylko rysowanie, wygładzona linia trendu
+        // i opcjonalna kreska mediany rynku. Elementy karty mają id `prefix + nazwa`.
+        function priceHistCard(cfg) {
+            const P = cfg.prefix, pd = cfg.data;
+            const $ = function (name) { return document.getElementById(P + name); };
+            const histEl = $('Hist');
+            if (!pd || !pd.days || !pd.days.length || pd.axis_from == null) {
+                histEl.innerHTML = '<div class="loading">' + cfg.emptyText + '</div>';
+                return;
+            }
+            const DAYS = pd.days, STEP = pd.step, CAP = pd.cap;
+            const SMOOTH_ZL = 50;        // okno wygładzania linii trendu (odchylenie jądra)
+            const MIN_TICK_PX = 44;      // minimalny odstęp etykiet osi X
+            // Wspólna oś wszystkich dni: przesuwanie suwaka nie przestawia słupków.
+            const FROMS = [];
+            for (let f = pd.axis_from; f <= CAP; f += STEP) FROMS.push(f);
+
+            const fmt = function (n) { return Math.round(n).toLocaleString('pl-PL'); };
+            const zl = function (n) { return n == null ? '—' : fmt(n) + ' zł'; };
+            const plural = function (n, one, few, many) {
+                return n === 1 ? one : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) ? few : many;
+            };
+            const kpi = function (name, html, cls) {
+                const el = $(name);
+                el.innerHTML = html;
+                el.className = 'v' + (cls ? ' ' + cls : '');
+            };
+            const H = { fmt: fmt, zl: zl, kpi: kpi };
+            const slider = $('Slider'), box = $('HistBox'), tip = $('Tip'), svg = $('Trend');
+            $('StepTxt').textContent = 'co ' + STEP + ' zł';
+            $('StepLeg').textContent = 'Przedział ' + STEP + ' zł';
+            slider.max = DAYS.length - 1;
+            slider.value = DAYS.length - 1;
+
+            // Etykiety suwaka: pierwsze dni miesięcy, w miejscu odpowiadającym pozycji suwaka.
+            const last = Math.max(1, DAYS.length - 1);
+            $('Ticks').innerHTML = DAYS.map(function (e, i) {
+                if (e.label.slice(0, 2) !== '01') return '';
+                return '<span style="left:' + (i / last * 100).toFixed(2) + '%">' + e.label.slice(0, 5) + '</span>';
+            }).join('');
+
+            // Średnia ważona jądrem Gaussa (±3σ); przy krawędzi osi normujemy po wagach,
+            // które się mieszczą, żeby linia nie opadała sztucznie przy początku i końcu osi.
+            function smooth(counts) {
+                const sigma = SMOOTH_ZL / STEP, r = Math.ceil(3 * sigma);
+                return counts.map(function (_, i) {
+                    let sum = 0, w = 0;
+                    for (let j = -r; j <= r; j++) {
+                        const t = i + j;
+                        if (t < 0 || t >= counts.length) continue;
+                        const k = Math.exp(-(j * j) / (2 * sigma * sigma));
+                        sum += counts[t] * k; w += k;
+                    }
+                    return sum / w;
+                });
+            }
+            // Gładka krzywa przez punkty (Catmull-Rom → Bézier), przycięta do linii bazowej.
+            function curve(vals, xs, h, max) {
+                const pts = vals.map(function (v, i) { return [xs[i], h - v / max * h]; });
+                const r1 = function (n) { return Math.round(n * 10) / 10; };
+                let path = 'M' + r1(pts[0][0]) + ',' + r1(pts[0][1]);
+                for (let i = 0; i < pts.length - 1; i++) {
+                    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+                    const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = Math.min(h, p1[1] + (p2[1] - p0[1]) / 6);
+                    const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = Math.min(h, p2[1] - (p3[1] - p1[1]) / 6);
+                    path += ' C' + r1(c1x) + ',' + r1(c1y) + ' ' + r1(c2x) + ',' + r1(c2y) + ' ' + r1(p2[0]) + ',' + r1(p2[1]);
+                }
+                return path;
+            }
+
+            function draw() {
+                const e = DAYS[+slider.value];
+                const st = e.stats, n = st ? st.n : 0;
+                $('Day').innerHTML = e.label + ' · ' + fmt(n) + ' ' + plural(n, cfg.unit[0], cfg.unit[1], cfg.unit[2]) +
+                    ' do ' + fmt(CAP) + ' zł' +
+                    (e.partial ? '<span class="wip">doba w toku &middot; ' + e.partial.scans + ' z ' + e.partial.expected + ' skanów</span>' : '');
+                cfg.tiles(e, H);
+                [['SMin', 'min'], ['SQ1', 'q1'], ['SMed', 'med'], ['SAvg', 'avg'], ['SQ3', 'q3'], ['SMax', 'max']]
+                    .forEach(function (p) { $(p[0]).textContent = zl(st && st[p[1]]); });
+                $('SN').textContent = fmt(n);
+
+                if (!st) {
+                    histEl.innerHTML = '<div class="loading">' + cfg.noDayText + '</div>';
+                    svg.innerHTML = ''; $('Axis').innerHTML = '';
+                    return;
+                }
+                const bucket = function (p) { return Math.floor(p / STEP) * STEP; };
+                const medB = bucket(st.med), q1B = bucket(st.q1), q3B = bucket(st.q3);
+                const counts = FROMS.map(function (f) { return e.hist[f] || 0; });
+                const trend = smooth(counts);
+                const max = Math.max.apply(null, counts.concat([1]));
+                histEl.classList.toggle('dense', histEl.clientWidth / FROMS.length < 12);
+                histEl.innerHTML = FROMS.map(function (f, i) {
+                    const cls = f === medB ? ' m' : (f === q1B || f === q3B) ? ' q' : '';
+                    return '<div class="slot" data-i="' + i + '"><div class="bar' + cls + '" style="height:' +
+                        (counts[i] / max * 100).toFixed(2) + '%"></div></div>';
+                }).join('');
+
+                // Linia trendu w pikselach (nie w skalowanym viewBoxie), żeby grubość nie
+                // zależała od proporcji; środki słupków czytamy z DOM, z odstępami.
+                const W = histEl.clientWidth, h = histEl.clientHeight;
+                svg.setAttribute('width', W); svg.setAttribute('height', h); svg.setAttribute('viewBox', '0 0 ' + W + ' ' + h);
+                const xs = Array.prototype.map.call(histEl.children, function (sl) { return sl.offsetLeft + sl.offsetWidth / 2; });
+                const dn = curve(trend, xs, h, max);
+                let html = '<path class="halo" d="' + dn + '"/><path class="now" d="' + dn + '"/>';
+                // Kreska mediany rynku (karta zejść): pozycja wewnątrz przedziału liniowo.
+                const mk = cfg.marker ? cfg.marker(e) : null;
+                const mi = mk != null ? FROMS.indexOf(bucket(mk)) : -1;
+                if (mi >= 0) {
+                    const sl = histEl.children[mi];
+                    const x = sl.offsetLeft + sl.offsetWidth * ((mk - FROMS[mi]) / STEP);
+                    const right = x > W - 130;
+                    html += '<path class="mkt" d="M' + x.toFixed(1) + ',-14 V' + h + '"/>' +
+                        '<text x="' + (x + (right ? -6 : 6)).toFixed(1) + '" y="-4" text-anchor="' + (right ? 'end' : 'start') +
+                        '">rynek: ' + fmt(mk) + ' zł</text>';
+                }
+                svg.innerHTML = html;
+
+                // Etykiety osi tylko na granicach przedziałów, co tyle zł, żeby się nie nakładały.
+                const slotPx = W / FROMS.length || 20;
+                const every = [STEP, STEP * 5, STEP * 10, STEP * 25].find(function (z) {
+                    return slotPx * z / STEP >= MIN_TICK_PX && z % 50 === 0;
+                }) || STEP * 25;
+                $('Axis').innerHTML = FROMS.map(function (f, i) {
+                    return f % every === 0
+                        ? '<span style="left:' + ((i + 0.5) / FROMS.length * 100).toFixed(2) + '%">' + f + '</span>' : '';
+                }).join('');
+            }
+
+            histEl.addEventListener('mousemove', function (ev) {
+                const slot = ev.target.closest('.slot');
+                if (!slot) { tip.hidden = true; return; }
+                const f = FROMS[+slot.dataset.i];
+                const c = DAYS[+slider.value].hist[f] || 0;
+                const b = box.getBoundingClientRect(), r = slot.getBoundingClientRect();
+                tip.innerHTML = f + '&ndash;' + (f + STEP - 1) + ' zł: <b>' + c + '</b> ' + plural(c, 'oferta', 'oferty', 'ofert');
+                tip.hidden = false;
+                tip.style.left = Math.min(Math.max(r.left + r.width / 2 - b.left, 70), b.width - 70) + 'px';
+                tip.style.top = (slot.firstChild.getBoundingClientRect().top - b.top) + 'px';
+            });
+            histEl.addEventListener('mouseleave', function () { tip.hidden = true; });
+            slider.addEventListener('input', draw);
+            let resizeRaf = 0;
+            window.addEventListener('resize', function () {
+                cancelAnimationFrame(resizeRaf);
+                resizeRaf = requestAnimationFrame(draw);
+            });
+            draw();
+        }
+
+        // Kafelki karty „Rozkład cen": stan rynku dnia (Aktywne/Zmiana jak Indeks).
+        function marketTiles(e, H) {
+            const st = e.stats;
+            H.kpi('A', e.active == null ? '&mdash;' : H.fmt(e.active), e.active == null ? 'na' : '');
+            if (e.change == null) H.kpi('C', '&mdash;', 'na');
+            else H.kpi('C', (e.change > 0 ? '+' : e.change < 0 ? '−' : '') + Math.abs(e.change),
+                e.change > 0 ? 'pos' : e.change < 0 ? 'neg' : '');
+            H.kpi('N', e.new == null ? '&mdash;' : H.fmt(e.new), e.new == null ? 'na' : '');
+            if (e.promoted == null) H.kpi('P', '&mdash;', 'na');
+            else H.kpi('P', H.fmt(e.promoted) + (e.promoted_share != null
+                ? '<small>(' + String(e.promoted_share).replace('.', ',') + '%)</small>' : ''));
+            H.kpi('Avg', H.zl(st && st.avg), st ? '' : 'na');
+            H.kpi('Min', H.zl(st && st.min), st ? '' : 'na');
+            H.kpi('Max', H.zl(st && st.max), st ? '' : 'na');
+        }
+
+        // Kafelki karty „Zejścia z rynku": oferty, które tego dnia zeszły i nie wróciły.
+        function exitTiles(e, H) {
+            const st = e.stats;
+            H.kpi('Cnt', H.fmt(e.count));
+            H.kpi('Life', e.lifespan_median == null ? '&mdash;' : H.fmt(e.lifespan_median) + '<small>dni</small>',
+                e.lifespan_median == null ? 'na' : '');
+            H.kpi('Drop', e.drop_share == null ? '&mdash;' : e.drop_share + '%', e.drop_share == null ? 'na' : '');
+            H.kpi('Avg', H.zl(st && st.avg), st ? '' : 'na');
+            H.kpi('Min', H.zl(st && st.min), st ? '' : 'na');
+            H.kpi('Max', H.zl(st && st.max), st ? '' : 'na');
+            if (e.vs_market == null) H.kpi('Vs', '&mdash;', 'na');
+            else H.kpi('Vs', (e.vs_market > 0 ? '+' : e.vs_market < 0 ? '−' : '') + H.fmt(Math.abs(e.vs_market)) + ' zł');
+        }
+
         function _monthBandsXaxis() {
             const xs = [];
             Array.prototype.forEach.call(arguments, function (arr) {
