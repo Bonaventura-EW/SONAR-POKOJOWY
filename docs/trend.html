@@ -162,6 +162,19 @@
         .pdLegend { display: flex; gap: 18px; flex-wrap: wrap; margin: 10px 0 16px; font-size: 13px; color: #a9b2c4; }
         .pdLegend i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; margin-right: 7px; vertical-align: -1px; }
         .pdLegend i.ln { width: 22px; height: 0; border-radius: 0; border-top: 2.5px solid #f5b942; vertical-align: 3px; }
+        .pdTrend .mkt { stroke: #c7cede; stroke-width: 1.5; stroke-dasharray: 5 4; }
+        .pdTrend text { fill: #c7cede; font-size: 11.5px; font-weight: 600; font-family: inherit; }
+        .pdLegend i.vl { width: 0; height: 13px; border-radius: 0; border-left: 1.5px dashed #c7cede; margin: 0 8px 0 4px; vertical-align: -2px; }
+        /* Karta „Zejścia z rynku”: ta sama budowa, kolory odpływu */
+        .pdExit .pdHist .bar { background: #e8624c; }
+        .pdExit .pdHist .bar.q { background: #f2a493; }
+        .pdExit .pdHist .bar.m { background: #37c26b; }
+        .pdExit .pdStat .v { color: #f2a493; }
+        .pdExit .pdStat .v.med { color: #37c26b; }
+        .pdExit .pdHead .day { color: #f2a493; }
+        .pdExit .pdSlider input { accent-color: #e8624c; }
+        .pdExit .pdSlider input:focus-visible { outline-color: #e8624c; }
+        .pdExit .pdHistBox { margin-top: 32px; }
         @media (max-width: 900px) {
             /* 4 + 3 w siatce 12 kolumn: oba rzędy pełne, bez pustej komórki */
             .pdKpis, .pdStats { grid-template-columns: repeat(12, minmax(0, 1fr)); }
@@ -370,6 +383,61 @@
             Żółta linia trendu to liczba ofert w przedziale uśredniona z sąsiednimi przedziałami (średnia ważona
             w oknie ±50 zł), w tej samej skali co słupki: wygładza piki na okrągłych kwotach (800, 850, 900 zł)
             i pokazuje kształt rozkładu.
+        </div>
+
+        <div class="card pdExit" style="margin-top:22px">
+            <h2>🚪 Zejścia z rynku &ndash; ceny ofert, które nie wróciły</h2>
+            <div class="sub">Oferty, które zeszły z rynku w wybranym dniu i do dziś nie wróciły. Przesuń suwak, żeby zobaczyć inny dzień.</div>
+            <div class="pdKpis">
+                <div class="pdKpi"><div class="v" id="exCnt">&mdash;</div><div class="l">Zeszły z rynku</div></div>
+                <div class="pdKpi"><div class="v" id="exLife">&mdash;</div><div class="l">Mediana czasu na rynku</div></div>
+                <div class="pdKpi"><div class="v" id="exDrop">&mdash;</div><div class="l">Z obniżką ceny</div></div>
+                <div class="pdKpi"><div class="v" id="exAvg">&mdash;</div><div class="l">Średnia cena</div></div>
+                <div class="pdKpi"><div class="v" id="exMin">&mdash;</div><div class="l">Min cena</div></div>
+                <div class="pdKpi"><div class="v" id="exMax">&mdash;</div><div class="l">Max cena</div></div>
+                <div class="pdKpi"><div class="v" id="exVs">&mdash;</div><div class="l">Mediana vs rynek</div></div>
+            </div>
+            <div class="pdHead">
+                <div class="t">🚪 ROZKŁAD CEN ZEJŚĆ<span id="exStepTxt"></span></div>
+                <div class="day" id="exDay"></div>
+            </div>
+            <div class="pdSlider"><input type="range" id="exSlider" min="0" max="0" value="0" aria-label="Dzień zejść z rynku"></div>
+            <div class="pdTicks" id="exTicks"></div>
+            <div class="pdHistBox" id="exHistBox">
+                <div class="pdHist" id="exHist"><div class="loading">Ładowanie danych…</div></div>
+                <div class="pdAxis" id="exAxis"></div>
+                <svg class="pdTrend" id="exTrend" aria-hidden="true"></svg>
+                <div class="pdTip" id="exTip" hidden></div>
+            </div>
+            <div class="pdLegend">
+                <span><i style="background:#e8624c"></i><span id="exStepLeg">Przedział</span></span>
+                <span><i style="background:#37c26b"></i>Mediana</span>
+                <span><i style="background:#f2a493"></i>Q1 / Q3</span>
+                <span><i class="ln"></i>Linia trendu (wygładzona, ±50 zł)</span>
+                <span><i class="vl"></i>Mediana rynku (aktywne oferty)</span>
+            </div>
+            <div class="pdStats">
+                <div class="pdStat"><div class="v" id="exSMin"></div><div class="l">Min</div></div>
+                <div class="pdStat"><div class="v" id="exSQ1"></div><div class="l">Q1 25%</div></div>
+                <div class="pdStat"><div class="v med" id="exSMed"></div><div class="l">Mediana</div></div>
+                <div class="pdStat"><div class="v" id="exSAvg"></div><div class="l">Średnia</div></div>
+                <div class="pdStat"><div class="v" id="exSQ3"></div><div class="l">Q3 75%</div></div>
+                <div class="pdStat"><div class="v" id="exSMax"></div><div class="l">Max</div></div>
+                <div class="pdStat"><div class="v" id="exSN"></div><div class="l">Zejść</div></div>
+            </div>
+        </div>
+
+        <div class="foot">
+            <strong>Skąd dane:</strong> oferta, która zeszła z rynku w wybranym dniu i do dziś nie wróciła. Liczy się raz,
+            w dniu swojego <strong>ostatniego</strong> zejścia. Dzień zejścia to dzień skanu, który wykrył brak oferty,
+            z pominięciem mignięć &mdash; ta sama konwencja co wykres „Odpływ ofert” (przed 03.09.2026 to ostatni dzień,
+            w którym ofertę widzieliśmy). Liczby są niższe niż na Odpływie, bo tam liczą się też oferty, które wróciły
+            po ponad dobie. Zejścia z ostatnich dni mogą jeszcze zniknąć, jeśli oferta wróci.
+            Cena to ostatnia cena oferty przed zejściem; oferty droższe niż 1500 zł nie są liczone w słupkach ani w cenach
+            (kafelek „Zeszły z rynku” liczy wszystkie). Czas na rynku liczony od pierwszego pojawienia się oferty.
+            „Z obniżką ceny” to odsetek zejść, którym cena choć raz spadła w trakcie życia ogłoszenia.
+            Przerywana kreska to mediana cen aktywnych ofert tego samego dnia z karty „Rozkład cen”, a „Mediana vs rynek”
+            to różnica median: wartość ujemna znaczy, że schodziły tańsze oferty niż typowe na rynku.
         </div>
 
         <div class="card" style="margin-top:22px">
@@ -1065,7 +1133,16 @@
         }
 
         // --- Rozkład cen: suwak dni + histogram (backend: build_price_dist) ---
-        renderPriceDist(d.price_dist);
+        priceHistCard({
+            prefix: 'pd', data: d.price_dist, tiles: marketTiles, unit: ['ogłoszenie', 'ogłoszenia', 'ogłoszeń'],
+            emptyText: 'Brak danych o cenach.', noDayText: 'Brak ofert do 1500 zł w tym dniu.'
+        });
+        // --- Zejścia z rynku: ceny ofert, które danego dnia zeszły i nie wróciły (build_exit_price_dist) ---
+        priceHistCard({
+            prefix: 'ex', data: d.exit_price_dist, tiles: exitTiles, unit: ['zejście', 'zejścia', 'zejść'],
+            marker: function (e) { return e.market_med; },
+            emptyText: 'Brak danych o zejściach z rynku.', noDayText: 'Brak zejść do 1500 zł w tym dniu.'
+        });
 
         // --- zmiany cen: obniżki i podwyżki, dwa osobne wykresy ---
         // Osobno, bo podwyżek jest ~2,4× mniej niż obniżek: na wspólnej osi
@@ -1139,12 +1216,16 @@
         // bez separatorów i etykiet; parzyste miesiące zostają bez pasa.
         // Na wszystkich wykresach strony; przyjmuje kilka serii (np. nasz pomiar +
         // backfill brata) i liczy pasy z sumy ich zakresów.
-        // Karta „Rozkład cen". Dzień = wpis z price_dist.days (słupki, kafelki, statystyki
-        // policzone w backendzie); tu tylko rysowanie i wygładzona linia trendu.
-        function renderPriceDist(pd) {
-            const histEl = document.getElementById('pdHist');
+        // Karty „Rozkład cen" i „Zejścia z rynku": suwak dni + histogram co `step` zł.
+        // Dane dnia (słupki, kafelki, statystyki) liczy backend (build_price_dist,
+        // build_exit_price_dist); tu tylko rysowanie, wygładzona linia trendu
+        // i opcjonalna kreska mediany rynku. Elementy karty mają id `prefix + nazwa`.
+        function priceHistCard(cfg) {
+            const P = cfg.prefix, pd = cfg.data;
+            const $ = function (name) { return document.getElementById(P + name); };
+            const histEl = $('Hist');
             if (!pd || !pd.days || !pd.days.length || pd.axis_from == null) {
-                histEl.innerHTML = '<div class="loading">Brak danych o cenach.</div>';
+                histEl.innerHTML = '<div class="loading">' + cfg.emptyText + '</div>';
                 return;
             }
             const DAYS = pd.days, STEP = pd.step, CAP = pd.cap;
@@ -1156,21 +1237,24 @@
 
             const fmt = function (n) { return Math.round(n).toLocaleString('pl-PL'); };
             const zl = function (n) { return n == null ? '—' : fmt(n) + ' zł'; };
-            const word = function (n) {
-                return n === 1 ? 'oferta' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) ? 'oferty' : 'ofert';
+            const plural = function (n, one, few, many) {
+                return n === 1 ? one : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) ? few : many;
             };
-            const slider = document.getElementById('pdSlider');
-            const box = document.getElementById('pdHistBox');
-            const tip = document.getElementById('pdTip');
-            const svg = document.getElementById('pdTrend');
-            document.getElementById('pdStepTxt').textContent = 'co ' + STEP + ' zł';
-            document.getElementById('pdStepLeg').textContent = 'Przedział ' + STEP + ' zł';
+            const kpi = function (name, html, cls) {
+                const el = $(name);
+                el.innerHTML = html;
+                el.className = 'v' + (cls ? ' ' + cls : '');
+            };
+            const H = { fmt: fmt, zl: zl, kpi: kpi };
+            const slider = $('Slider'), box = $('HistBox'), tip = $('Tip'), svg = $('Trend');
+            $('StepTxt').textContent = 'co ' + STEP + ' zł';
+            $('StepLeg').textContent = 'Przedział ' + STEP + ' zł';
             slider.max = DAYS.length - 1;
             slider.value = DAYS.length - 1;
 
             // Etykiety suwaka: pierwsze dni miesięcy, w miejscu odpowiadającym pozycji suwaka.
             const last = Math.max(1, DAYS.length - 1);
-            document.getElementById('pdTicks').innerHTML = DAYS.map(function (e, i) {
+            $('Ticks').innerHTML = DAYS.map(function (e, i) {
                 if (e.label.slice(0, 2) !== '01') return '';
                 return '<span style="left:' + (i / last * 100).toFixed(2) + '%">' + e.label.slice(0, 5) + '</span>';
             }).join('');
@@ -1191,47 +1275,33 @@
                 });
             }
             // Gładka krzywa przez punkty (Catmull-Rom → Bézier), przycięta do linii bazowej.
-            function curve(vals, xs, H, max) {
-                const pts = vals.map(function (v, i) { return [xs[i], H - v / max * H]; });
+            function curve(vals, xs, h, max) {
+                const pts = vals.map(function (v, i) { return [xs[i], h - v / max * h]; });
                 const r1 = function (n) { return Math.round(n * 10) / 10; };
                 let path = 'M' + r1(pts[0][0]) + ',' + r1(pts[0][1]);
                 for (let i = 0; i < pts.length - 1; i++) {
                     const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
-                    const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = Math.min(H, p1[1] + (p2[1] - p0[1]) / 6);
-                    const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = Math.min(H, p2[1] - (p3[1] - p1[1]) / 6);
+                    const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = Math.min(h, p1[1] + (p2[1] - p0[1]) / 6);
+                    const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = Math.min(h, p2[1] - (p3[1] - p1[1]) / 6);
                     path += ' C' + r1(c1x) + ',' + r1(c1y) + ' ' + r1(c2x) + ',' + r1(c2y) + ' ' + r1(p2[0]) + ',' + r1(p2[1]);
                 }
                 return path;
             }
-            function kpi(id, html, cls) {
-                const el = document.getElementById(id);
-                el.innerHTML = html;
-                el.className = 'v' + (cls ? ' ' + cls : '');
-            }
 
             function draw() {
                 const e = DAYS[+slider.value];
-                const st = e.stats;
-                document.getElementById('pdDay').innerHTML = e.label + ' · ' + (st ? fmt(st.n) : 0) + ' ogłoszeń do ' + fmt(CAP) + ' zł' +
+                const st = e.stats, n = st ? st.n : 0;
+                $('Day').innerHTML = e.label + ' · ' + fmt(n) + ' ' + plural(n, cfg.unit[0], cfg.unit[1], cfg.unit[2]) +
+                    ' do ' + fmt(CAP) + ' zł' +
                     (e.partial ? '<span class="wip">doba w toku &middot; ' + e.partial.scans + ' z ' + e.partial.expected + ' skanów</span>' : '');
-
-                kpi('pdA', e.active == null ? '&mdash;' : fmt(e.active), e.active == null ? 'na' : '');
-                if (e.change == null) kpi('pdC', '&mdash;', 'na');
-                else kpi('pdC', (e.change > 0 ? '+' : e.change < 0 ? '−' : '') + Math.abs(e.change), e.change > 0 ? 'pos' : e.change < 0 ? 'neg' : '');
-                kpi('pdN', e.new == null ? '&mdash;' : fmt(e.new), e.new == null ? 'na' : '');
-                if (e.promoted == null) kpi('pdP', '&mdash;', 'na');
-                else kpi('pdP', fmt(e.promoted) + (e.promoted_share != null
-                    ? '<small>(' + String(e.promoted_share).replace('.', ',') + '%)</small>' : ''));
-                kpi('pdAvg', zl(st && st.avg), st ? '' : 'na');
-                kpi('pdMin', zl(st && st.min), st ? '' : 'na');
-                kpi('pdMax', zl(st && st.max), st ? '' : 'na');
-                [['pdSMin', 'min'], ['pdSQ1', 'q1'], ['pdSMed', 'med'], ['pdSAvg', 'avg'], ['pdSQ3', 'q3'], ['pdSMax', 'max']]
-                    .forEach(function (p) { document.getElementById(p[0]).textContent = zl(st && st[p[1]]); });
-                document.getElementById('pdSN').textContent = st ? fmt(st.n) : '0';
+                cfg.tiles(e, H);
+                [['SMin', 'min'], ['SQ1', 'q1'], ['SMed', 'med'], ['SAvg', 'avg'], ['SQ3', 'q3'], ['SMax', 'max']]
+                    .forEach(function (p) { $(p[0]).textContent = zl(st && st[p[1]]); });
+                $('SN').textContent = fmt(n);
 
                 if (!st) {
-                    histEl.innerHTML = '<div class="loading">Brak ofert do ' + fmt(CAP) + ' zł w tym dniu.</div>';
-                    svg.innerHTML = ''; document.getElementById('pdAxis').innerHTML = '';
+                    histEl.innerHTML = '<div class="loading">' + cfg.noDayText + '</div>';
+                    svg.innerHTML = ''; $('Axis').innerHTML = '';
                     return;
                 }
                 const bucket = function (p) { return Math.floor(p / STEP) * STEP; };
@@ -1248,18 +1318,30 @@
 
                 // Linia trendu w pikselach (nie w skalowanym viewBoxie), żeby grubość nie
                 // zależała od proporcji; środki słupków czytamy z DOM, z odstępami.
-                const W = histEl.clientWidth, H = histEl.clientHeight;
-                svg.setAttribute('width', W); svg.setAttribute('height', H); svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+                const W = histEl.clientWidth, h = histEl.clientHeight;
+                svg.setAttribute('width', W); svg.setAttribute('height', h); svg.setAttribute('viewBox', '0 0 ' + W + ' ' + h);
                 const xs = Array.prototype.map.call(histEl.children, function (sl) { return sl.offsetLeft + sl.offsetWidth / 2; });
-                const dn = curve(trend, xs, H, max);
-                svg.innerHTML = '<path class="halo" d="' + dn + '"/><path class="now" d="' + dn + '"/>';
+                const dn = curve(trend, xs, h, max);
+                let html = '<path class="halo" d="' + dn + '"/><path class="now" d="' + dn + '"/>';
+                // Kreska mediany rynku (karta zejść): pozycja wewnątrz przedziału liniowo.
+                const mk = cfg.marker ? cfg.marker(e) : null;
+                const mi = mk != null ? FROMS.indexOf(bucket(mk)) : -1;
+                if (mi >= 0) {
+                    const sl = histEl.children[mi];
+                    const x = sl.offsetLeft + sl.offsetWidth * ((mk - FROMS[mi]) / STEP);
+                    const right = x > W - 130;
+                    html += '<path class="mkt" d="M' + x.toFixed(1) + ',-14 V' + h + '"/>' +
+                        '<text x="' + (x + (right ? -6 : 6)).toFixed(1) + '" y="-4" text-anchor="' + (right ? 'end' : 'start') +
+                        '">rynek: ' + fmt(mk) + ' zł</text>';
+                }
+                svg.innerHTML = html;
 
                 // Etykiety osi tylko na granicach przedziałów, co tyle zł, żeby się nie nakładały.
                 const slotPx = W / FROMS.length || 20;
                 const every = [STEP, STEP * 5, STEP * 10, STEP * 25].find(function (z) {
                     return slotPx * z / STEP >= MIN_TICK_PX && z % 50 === 0;
                 }) || STEP * 25;
-                document.getElementById('pdAxis').innerHTML = FROMS.map(function (f, i) {
+                $('Axis').innerHTML = FROMS.map(function (f, i) {
                     return f % every === 0
                         ? '<span style="left:' + ((i + 0.5) / FROMS.length * 100).toFixed(2) + '%">' + f + '</span>' : '';
                 }).join('');
@@ -1271,7 +1353,7 @@
                 const f = FROMS[+slot.dataset.i];
                 const c = DAYS[+slider.value].hist[f] || 0;
                 const b = box.getBoundingClientRect(), r = slot.getBoundingClientRect();
-                tip.innerHTML = f + '&ndash;' + (f + STEP - 1) + ' zł: <b>' + c + '</b> ' + word(c);
+                tip.innerHTML = f + '&ndash;' + (f + STEP - 1) + ' zł: <b>' + c + '</b> ' + plural(c, 'oferta', 'oferty', 'ofert');
                 tip.hidden = false;
                 tip.style.left = Math.min(Math.max(r.left + r.width / 2 - b.left, 70), b.width - 70) + 'px';
                 tip.style.top = (slot.firstChild.getBoundingClientRect().top - b.top) + 'px';
@@ -1284,6 +1366,36 @@
                 resizeRaf = requestAnimationFrame(draw);
             });
             draw();
+        }
+
+        // Kafelki karty „Rozkład cen": stan rynku dnia (Aktywne/Zmiana jak Indeks).
+        function marketTiles(e, H) {
+            const st = e.stats;
+            H.kpi('A', e.active == null ? '&mdash;' : H.fmt(e.active), e.active == null ? 'na' : '');
+            if (e.change == null) H.kpi('C', '&mdash;', 'na');
+            else H.kpi('C', (e.change > 0 ? '+' : e.change < 0 ? '−' : '') + Math.abs(e.change),
+                e.change > 0 ? 'pos' : e.change < 0 ? 'neg' : '');
+            H.kpi('N', e.new == null ? '&mdash;' : H.fmt(e.new), e.new == null ? 'na' : '');
+            if (e.promoted == null) H.kpi('P', '&mdash;', 'na');
+            else H.kpi('P', H.fmt(e.promoted) + (e.promoted_share != null
+                ? '<small>(' + String(e.promoted_share).replace('.', ',') + '%)</small>' : ''));
+            H.kpi('Avg', H.zl(st && st.avg), st ? '' : 'na');
+            H.kpi('Min', H.zl(st && st.min), st ? '' : 'na');
+            H.kpi('Max', H.zl(st && st.max), st ? '' : 'na');
+        }
+
+        // Kafelki karty „Zejścia z rynku": oferty, które tego dnia zeszły i nie wróciły.
+        function exitTiles(e, H) {
+            const st = e.stats;
+            H.kpi('Cnt', H.fmt(e.count));
+            H.kpi('Life', e.lifespan_median == null ? '&mdash;' : H.fmt(e.lifespan_median) + '<small>dni</small>',
+                e.lifespan_median == null ? 'na' : '');
+            H.kpi('Drop', e.drop_share == null ? '&mdash;' : e.drop_share + '%', e.drop_share == null ? 'na' : '');
+            H.kpi('Avg', H.zl(st && st.avg), st ? '' : 'na');
+            H.kpi('Min', H.zl(st && st.min), st ? '' : 'na');
+            H.kpi('Max', H.zl(st && st.max), st ? '' : 'na');
+            if (e.vs_market == null) H.kpi('Vs', '&mdash;', 'na');
+            else H.kpi('Vs', (e.vs_market > 0 ? '+' : e.vs_market < 0 ? '−' : '') + H.fmt(Math.abs(e.vs_market)) + ' zł');
         }
 
         function _monthBandsXaxis() {

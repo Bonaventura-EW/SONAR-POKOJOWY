@@ -1116,6 +1116,86 @@ def build_price_dist(offers, base_dir=None):
     }
 
 
+def build_exit_price_dist(offers, price_dist):
+    """Karta „Zejścia z rynku": ceny ofert, które danego dnia zeszły z rynku i NIE wróciły.
+
+    Oferta liczy się raz — w dniu swojego OSTATNIEGO zejścia (max z `exit_days`, czyli
+    ta sama konwencja dnia co Odpływ i bez mignięć) — i tylko gdy dziś jest nieaktywna.
+    Oferta, która zeszła i wróciła, nie liczy się w dniu tamtego zejścia, dlatego liczby
+    są niższe niż na Odpływie (ten liczy też powroty po ponad dobie). Zejścia z ostatnich
+    dni mogą jeszcze zniknąć z karty, jeśli oferta wróci.
+
+    Dni i oś bierzemy z karty „Rozkład cen" (`price_dist`), więc obie karty mają ten sam
+    suwak, ten sam krok i próg, a słupki stoją pod sobą. Cena = ostatnia cena oferty
+    przed zejściem; liczba zejść obejmuje wszystkie oferty, słupki i ceny tylko do progu.
+    """
+    if not price_dist or not price_dist.get('days'):
+        return None
+    step, cap = price_dist['step'], price_dist['cap']
+
+    gone_on = {}
+    for o in offers:
+        if o.get('active'):
+            continue
+        days = exit_days(o)
+        if days:
+            gone_on.setdefault(max(days), []).append(o)
+
+    out_days = []
+    axis_from = price_dist.get('axis_from')
+    for src in price_dist['days']:
+        day = _ms_day(src['ms'])
+        gone = gone_on.get(day, [])
+        prices, lifespans, dropped = [], [], 0
+        hist = {}
+        for o in gone:
+            price = o.get('price')
+            if isinstance(price, dict):
+                price = price.get('current')
+            if isinstance(price, (int, float)) and not isinstance(price, bool) and 0 < price <= cap:
+                prices.append(price)
+                bucket = int(price // step * step)
+                hist[bucket] = hist.get(bucket, 0) + 1
+            try:
+                lifespans.append(max(0, (day - _d(o['first_seen'])).days))
+            except (KeyError, ValueError, TypeError):
+                pass
+            if any(delta < 0 for _, delta in _price_events(o)):
+                dropped += 1
+        prices.sort()
+        lifespans.sort()
+        stats = _price_stats(prices)
+        if hist:
+            axis_from = min(hist) if axis_from is None else min(axis_from, min(hist))
+        market_med = (src.get('stats') or {}).get('med')
+        n = len(lifespans)
+        entry = {
+            'ms': src['ms'],
+            'label': src['label'],
+            'count': len(gone),
+            'lifespan_median': (round(lifespans[n // 2] if n % 2 else (lifespans[n // 2 - 1] + lifespans[n // 2]) / 2)
+                                if n else None),
+            'drop_share': round(100 * dropped / len(gone)) if gone else None,
+            'hist': {str(b): hist[b] for b in sorted(hist)},
+            'stats': stats,
+            'market_med': market_med,
+            'vs_market': round(stats['med'] - market_med) if (stats and market_med is not None) else None,
+        }
+        if src.get('partial'):
+            entry['partial'] = src['partial']
+        out_days.append(entry)
+
+    # Wspólna oś obu kart: słupki zejść stoją dokładnie pod słupkami rynku.
+    price_dist['axis_from'] = axis_from
+    return {
+        'step': step,
+        'cap': cap,
+        'axis_from': axis_from,
+        'start_label': price_dist.get('start_label'),
+        'days': out_days,
+    }
+
+
 def _value_at_or_before(series, target_ms):
     """Ostatni ZMIERZONY odczyt nie później niż target_ms. Dni bez skanu (None)
     przeskakujemy — inaczej awaria Actions kasowałaby porównanie."""
@@ -1205,6 +1285,7 @@ def generate_trend_data(base_dir: Path = None) -> bool:
 
     out['velocity'] = build_velocity(out['outflow'], out['inflow'])
     out['price_dist'] = build_price_dist(offers, base_dir)
+    out['exit_price_dist'] = build_exit_price_dist(offers, out['price_dist'])
 
     write_json_atomic(output_file, out)
     of = out['outflow'] or {}
@@ -1246,6 +1327,12 @@ def generate_trend_data(base_dir: Path = None) -> bool:
               f"mediana {st.get('med')} zł, średnia {st.get('avg')} zł")
     else:
         print("   💰 rozkład cen: brak data/price_history.json (scripts/backfill_price_history.py)")
+    ex = out['exit_price_dist']
+    if ex and ex['days']:
+        total = sum(e['count'] for e in ex['days'])
+        last = ex['days'][-1]
+        print(f"   🚪 zejścia z rynku (bez powrotu): {total} w {len(ex['days'])} dniach, "
+              f"śr {total / len(ex['days']):.1f}/dzień; {last['label']}: {last['count']}")
     rf = out['refreshes'] or {}
     for key, label in (('firm', 'firmy'), ('all', 'cała baza')):
         blk = rf.get(key)

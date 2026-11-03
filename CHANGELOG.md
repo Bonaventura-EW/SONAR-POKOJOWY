@@ -9,6 +9,15 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Indeks: karta „Zejścia z rynku” — ceny ofert, które zeszły i nie wróciły (2026-11-03)
+- **zgłoszenie Mateusza**: „podobny wykres, ale oparty o oferty, które spadły (i nie powróciły) danego dnia”. Z podglądu wybrał okno **1 dzień** (alternatywą było 7 dni kończących się wybranym dniem: przy ~16 zejściach dziennie i 66 przedziałach dzień bywa rzadki, np. 02.11 = 5 zejść).
+- **definicja (backend, `trend_generator.build_exit_price_dist`)**: oferta dziś nieaktywna liczy się raz, w dniu swojego **ostatniego** zejścia (`max(exit_days)` — konwencja Odpływu, bez mignięć; przed 03.09.2026 fallback `last_seen`). Oferta, która zeszła i wróciła, nie liczy się w dniu tamtego zejścia — dlatego liczby są niższe niż na Odpływie, który liczy też powroty po ponad dobie (01.11: 21 wobec 23). Cena = ostatnia cena przed zejściem.
+- **kafelki**: Zeszły z rynku (wszystkie, także droższe niż 1500 zł), mediana czasu na rynku (od `first_seen`), odsetek z obniżką ceny (`_price_events`, także z `versions[]`), Średnia/Min/Max cena i Mediana vs rynek (mediana zejść − mediana aktywnych tego dnia z karty „Rozkład cen”).
+- **front** (`docs/trend.html`): karta pod „Rozkładem cen”, w kolorach odpływu, z przerywaną pionową kreską mediany rynku. Obie karty rysuje jedna funkcja `priceHistCard(cfg)` (prefiks id elementów + własne kafelki), mają ten sam suwak, krok 20 zł, próg 1500 zł i wspólną oś, więc słupki stoją pod sobą.
+- **liczby**: 2825 zejść bez powrotu od 16.05 (śr. 16,4/dzień); 01.11: 21 zejść, mediana 1000 zł wobec 880 zł rynku (+120 zł), mediana 60 dni na rynku, 33% z obniżką ceny.
+- **rozmiar**: `trend_data.json` 477 → 583 KB.
+- **testy**: `test_trend_index.py` Test 15 — tylko ostatnie zejście oferty, która nie wróciła; oferta, która wróciła, nie liczy się nigdzie; fallback `last_seen`; próg 1500 zł; mediana vs rynek; odsetek z obniżką; wspólna oś; doba w toku.
+
 ### Indeks: karta „Rozkład cen” z suwakiem dni (2026-11-03)
 - **zgłoszenie Mateusza**: wykres jak w panelu profilu SZPERACZA (kafelki + histogram cen z suwakiem dni) pod Wskaźnikiem Rotacji Rynku. Z podglądu wybrał: krok **20 zł** (porównywane 15 / 20 / 25 zł), oferty **powyżej 1500 zł znikają całkiem** (bez kafelka „Pow. 1500 zł”), żółta **linia trendu** = kształt rozkładu wybranego dnia (wariant A, bez porównania sprzed 30 dni).
 - **nowe źródło danych (`src/price_history.py`, `data/price_history.json`)**: każdy skan zapisuje rozkład cen aktywnych ofert `{cena: liczba ofert}`. Dzień = skan z największą liczbą aktywnych, czyli konwencja `index_history`. Zapisujemy pełne ceny, bez kubełków i bez progu, więc zmiana kroku albo progu nie wymaga nowego backfillu. Ochrona jak w `index_history`: nieczytelny plik → brak zapisu dnia, `save()` odmawia zastąpienia historii pustką.

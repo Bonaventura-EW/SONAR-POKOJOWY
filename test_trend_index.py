@@ -691,6 +691,45 @@ def test_price_dist_card():
               str(e3.get('partial')))
 
 
+def test_exit_price_dist_card():
+    print("\n🚪 Test 15: karta „Zejścia z rynku” — oferty, które zeszły i nie wróciły")
+    d0, d1, d2, d3 = (date(2026, 9, 1) + timedelta(days=i) for i in range(4))
+    pd = {'step': 20, 'cap': 1500, 'axis_from': 700, 'start_label': '02.09.2026', 'days': [
+        {'ms': tg._day_ms(d), 'label': d.strftime('%d.%m.%Y'), 'stats': {'med': 880}} for d in (d1, d2, d3)]}
+    pd['days'][-1]['partial'] = {'scans': 1, 'expected': 3}
+
+    def gone(current, **kw):
+        offer = {'active': False, 'first_seen': iso(d0), 'price': {'current': current}}
+        offer.update(kw)
+        return offer
+
+    offers = [
+        gone(800, deactivation_dates=[iso(d2, 9)]),                                    # A: zeszła 2.
+        gone(1600, deactivation_dates=[iso(d2, 9)]),                                   # B: droższa niż próg
+        gone(850, deactivation_dates=[iso(d2, 15)],                                    # C: z obniżką ceny
+             price={'current': 850, 'history_full': [{'price': 900, 'date': iso(d0)},
+                                                     {'price': 850, 'date': iso(d1)}]}),
+        gone(700, deactivation_dates=[iso(d1, 9), iso(d3, 9)],                         # D: wróciła po 1., zeszła 3.
+             reactivation_dates=[iso(d1 + timedelta(days=1), 15)]),
+        {'active': True, 'first_seen': iso(d0), 'price': {'current': 900},             # E: zeszła i wróciła
+         'deactivation_dates': [iso(d1, 9)], 'reactivation_dates': [iso(d2, 21)]},
+        gone(1000, last_seen=iso(d1, 21)),                                             # F: sprzed deactivation_dates
+    ]
+    ex = tg.build_exit_price_dist(offers, pd)
+    by = {e['label']: e for e in ex['days']}
+    e1, e2, e3 = (by[d.strftime('%d.%m.%Y')] for d in (d1, d2, d3))
+    check('liczy się tylko ostatnie zejście oferty, która nie wróciła (D w 3., nie w 1.; E nigdzie)',
+          (e1['count'], e2['count'], e3['count']) == (1, 3, 1), f"{e1['count']} {e2['count']} {e3['count']}")
+    check('fallback last_seen dla oferty bez dat deaktywacji', e1['hist'] == {'1000': 1}, str(e1['hist']))
+    check('słupki co 20 zł do progu 1500 zł, kafelek liczy wszystkie zejścia',
+          e2['hist'] == {'800': 1, '840': 1} and e2['stats']['n'] == 2, f"{e2['hist']} n={e2['stats']['n']}")
+    check('mediana vs rynek = mediana zejść − mediana aktywnych', e2['vs_market'] == 825 - 880, str(e2['vs_market']))
+    check('odsetek z obniżką ceny i mediana czasu na rynku',
+          e2['drop_share'] == 33 and e2['lifespan_median'] == 2, f"{e2['drop_share']}% {e2['lifespan_median']} dni")
+    check('oś wspólna z kartą „Rozkład cen”', ex['axis_from'] == pd['axis_from'] == 700, str(ex['axis_from']))
+    check('doba w toku przechodzi z karty „Rozkład cen”', e3.get('partial') == {'scans': 1, 'expected': 3})
+
+
 if __name__ == '__main__':
     print("🧪 TEST INDEKSU PODAŻY\n" + "=" * 60)
     test_intervals()
@@ -715,6 +754,7 @@ if __name__ == '__main__':
     test_blink_returns_are_not_reactivations()
     test_price_history_store()
     test_price_dist_card()
+    test_exit_price_dist_card()
     print("\n" + "=" * 60)
     if FAILED:
         print(f"❌ Niezaliczone ({len(FAILED)}): " + ', '.join(FAILED))
