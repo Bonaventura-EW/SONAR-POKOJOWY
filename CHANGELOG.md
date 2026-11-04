@@ -11,6 +11,7 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ### Ulubione: +1 oferta „Ładny pokój jednoosobowy" (2026-11-04)
 - Dodana do `data/favorites.json`: `1d6ZfZ` (`numeric_id` 1109890643), rozwiązane przez `resolve_numeric_id`. API v1: aktywna, 800 zł, wystawiona 04.11.2026. Snapshoty (cena, wyświetlenia, status) i `favorites_data.json` zapełni tracker przy najbliższym skanie.
+- **zasada (`CLAUDE.md`)**: PR, który wyłącznie dodaje ogłoszenie do ulubionych, Claude merguje do `main` od razu, bez pytania (decyzja Mateusza). Procedura opisana w sekcji komend-skrótów.
 
 ### Indeks: karta „Zejścia z rynku” — ceny ofert, które zeszły i nie wróciły (2026-11-03)
 - **zgłoszenie Mateusza**: „podobny wykres, ale oparty o oferty, które spadły (i nie powróciły) danego dnia”. Z podglądu wybrał okno **1 dzień** (alternatywą było 7 dni kończących się wybranym dniem: przy ~16 zejściach dziennie i 66 przedziałach dzień bywa rzadki, np. 02.11 = 5 zejść).

@@ -12,7 +12,7 @@
 
 - **Mateusz**: koncepcja, decyzje wizualne/produktowe, wybór wariantów, kierunek.
 - **Claude**: **pełna egzekucja od A do Z** — implementacja, commit, push, **otwarcie PR-a, merge do `main`**, weryfikacja czy GitHub Pages się zaktualizowały. Mateusz NIE robi mergów ani PR-ów. Po akceptacji wizualnej Claude doprowadza zmianę do produkcji bez dopytywania o każdy krok.
-- Wyjątki gdy Claude PYTA przed wykonaniem: rzeczy destrukcyjne (force push, reset --hard, kasowanie branchy z cudzymi commitami), zmiana w `main` bez PR-a, edycja workflowów GitHub Actions, zmiany w `data/offers.json` ręcznie, **merge PR-a do `main`** (zawsze zapytaj przed mergem).
+- Wyjątki gdy Claude PYTA przed wykonaniem: rzeczy destrukcyjne (force push, reset --hard, kasowanie branchy z cudzymi commitami), zmiana w `main` bez PR-a, edycja workflowów GitHub Actions, zmiany w `data/offers.json` ręcznie, **merge PR-a do `main`** (zawsze zapytaj przed mergem — z jednym wyjątkiem: dodanie ogłoszenia do ulubionych, patrz niżej).
 
 ---
 
@@ -20,6 +20,7 @@
 
 - **"scan" / "uruchom scan" / "odpal scan" / "zrób scan"** → **ZAWSZE** znaczy: triggeruj GitHub Actions workflow `238181145` przez `curl -X POST` z `$GITHUB_TOKEN` na endpoint `https://api.github.com/repos/Bonaventura-EW/SONAR-POKOJOWY/actions/workflows/238181145/dispatches` z body `{"ref":"main"}`. Spodziewany kod: `204`. **Nigdy** nie odpalaj `python src/main.py` lokalnie, chyba że Mateusz wyraźnie napisze "lokalnie".
 - Po triggerze: zwróć tylko kod HTTP i link do https://github.com/Bonaventura-EW/SONAR-POKOJOWY/actions. Nie pollu statusu, nie czekaj na koniec.
+- **"dodaj do ulubionych <URL OLX>"** → dopisz wpis do `data/favorites.json` (`short_id`, `url` bez parametrów `?…`, `numeric_id` z `favorites_tracker.resolve_numeric_id`, `added` = dziś), wpis w `CHANGELOG.md`, `python test_favorites.py`, commit, push, PR i **od razu merge do `main` bez pytania** (decyzja Mateusza, 2026-11-04). Wyjątek dotyczy tylko PR-a, który wyłącznie dodaje ulubione.
 
 ---
 
