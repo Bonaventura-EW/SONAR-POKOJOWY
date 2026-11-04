@@ -9,6 +9,9 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: +1 oferta „Ładny pokój jednoosobowy" (2026-11-04)
+- Dodana do `data/favorites.json`: `1d6ZfZ` (`numeric_id` 1109890643), rozwiązane przez `resolve_numeric_id`. API v1: aktywna, 800 zł, wystawiona 04.11.2026. Snapshoty (cena, wyświetlenia, status) i `favorites_data.json` zapełni tracker przy najbliższym skanie.
+
 ### Indeks: karta „Zejścia z rynku” — ceny ofert, które zeszły i nie wróciły (2026-11-03)
 - **zgłoszenie Mateusza**: „podobny wykres, ale oparty o oferty, które spadły (i nie powróciły) danego dnia”. Z podglądu wybrał okno **1 dzień** (alternatywą było 7 dni kończących się wybranym dniem: przy ~16 zejściach dziennie i 66 przedziałach dzień bywa rzadki, np. 02.11 = 5 zejść).
 - **definicja (backend, `trend_generator.build_exit_price_dist`)**: oferta dziś nieaktywna liczy się raz, w dniu swojego **ostatniego** zejścia (`max(exit_days)` — konwencja Odpływu, bez mignięć; przed 03.09.2026 fallback `last_seen`). Oferta, która zeszła i wróciła, nie liczy się w dniu tamtego zejścia — dlatego liczby są niższe niż na Odpływie, który liczy też powroty po ponad dobie (01.11: 21 wobec 23). Cena = ostatnia cena przed zejściem.
