@@ -101,6 +101,8 @@ Te błędy są naprawione. Jeśli edytujesz odpowiedni kod, **zachowaj zabezpiec
 - **Price pipeline**: JSON-LD = źródło prawdy. HTML fallback wyciąga koszty mediów albo numer ulicy jako cenę — używaj tylko gdy JSON-LD nie ma.
 - **Price range per-offer**: ceny przypisuj per-oferta, nigdy averagowane na markerze.
 - **Geocoding cache**: usuwając wpisy z `offers.json`, **usuń też** odpowiadające wpisy z `geocoding_cache.json`. Inaczej stare/błędne współrzędne wrócą.
+- **OLX API v1 jest martwe dla naszych maszyn** (od 06.11.2026): `/api/v1/offers/<id>/` oddaje 403 CloudFronta z runnera Actions i z kontenerów chmurowych — tak samo z nagłówkami przeglądarki, z Refererem i z impersonacją TLS. Z przeglądarki na domowym łączu ten sam URL działa, więc „u mnie działa" nic tu nie znaczy. Dane o ofercie bierz ze **strony oferty**: daty i status z `__PRERENDERED_STATE__` (okno kotwicz na `lastRefreshTime` — samo `"status"` pada w HTML-u kilkanaście razy w tłumaczeniach UI), cena i tytuł z JSON-LD. Patrz `favorites_tracker.parse_offer_page`.
+- **Cichy generator = zamarła zakładka**: `favorites_tracker` leci jako osobny proces PO `main.py`, więc `scan_logger.log_error` już nie ma gdzie pisać, a krok workflow ma `continue-on-error`. Każdy taki generator musi zostawić meldunek w pliku stanu (`data/favorites_status.json`), z którego `api_generator` zrobi alert. Bez tego porażka trwa, aż ktoś spojrzy na wykres (06–11.11.2026: 15 skanów, `status.json` przez cały czas `operational`).
 
 ### Frontend
 
@@ -181,6 +183,7 @@ git push
 | "duplikaty na mapie" | `src/duplicate_detector.py` — threshold Levenshtein 95% |
 | "OCR / parser łapie bzdury" | `src/address_parser_data.py` → `EXCLUDED_WORDS` (blocklista). Po zmianie: `python test_address_parser_golden.py` (regresja na 2255 realnych tekstach). Zmiana zamierzona → `python scripts/build_golden.py`. |
 | "marker na złej ulicy obok prawdziwej" (punkt orientacyjny wygrał) | `extract_street_only` — ulica ZNANA bije NIEZNANĄ bez względu na pozycję. Dodaj realną ulicę (też dwuczłonową) do `HARDCODED_LUBLIN_STREETS`. Patrz pułapka Backend/pipeline. |
+| "w Ulubionych nie ma wykresów od <data>" / karta świeci AKTYWNA mimo zmian | `data/favorites_status.json` (ile ofert zmierzono, ile padło) + alert `favorites_stale` w `docs/api/status.json`. Źródło snapshotu: `favorites_tracker.fetch_page_snapshot` — NIE API v1, patrz pułapka wyżej. |
 | "golden test nagle pokazuje regresje" | NAJPIERW `pip install -r requirements.txt` (brak `geopy`/`pytz` → fałszywe regresje), dopiero potem podejrzewaj golden. Zdrowy = 2255/2255. |
 
 ---

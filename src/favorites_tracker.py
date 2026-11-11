@@ -29,6 +29,10 @@ _session = OLXScraper.make_olx_session()
 
 FAVORITES_FILE = DATA_DIR / 'favorites.json'
 TRACKING_FILE = DATA_DIR / 'favorites_tracking.json'
+# Meldunek z ostatniego przebiegu — czyta go api_generator i robi z niego
+# alert `favorites_stale` (zakładka Ulubione zamarła na 6 dni, 06–11.11.2026,
+# bo nikt nie zgłaszał, że pomiary nie wchodzą).
+STATUS_FILE = DATA_DIR / 'favorites_status.json'
 LISTING_POSITIONS_FILE = DATA_DIR / 'listing_positions.json'
 # Mapa pozycji jest zapisywana przez main.py na starcie scanu. Tracker leci
 # w tym samym runie kilka minut później, więc świeża. Powyżej tego progu
@@ -36,13 +40,23 @@ LISTING_POSITIONS_FILE = DATA_DIR / 'listing_positions.json'
 # strony niż nieaktualna.
 LISTING_MAX_AGE_H = 12
 
-API_URL = 'https://www.olx.pl/api/v1/offers/{numeric_id}/'
 # UA spójny z impersonacją TLS (Safari) — patrz scraper.py HEADERS.
 HEADERS = {
     'User-Agent': OLXScraper.HEADERS['User-Agent'],
-    'Accept': 'application/json',
 }
 REQUEST_TIMEOUT = 20
+
+# Blok JSON-LD oferty — tu mieszka cena i tytuł (konwencja całego projektu:
+# JSON-LD = źródło prawdy o cenie, patrz price_parser).
+JSONLD_PATTERN = re.compile(
+    r'<script[^>]+application/ld\+json[^>]*>(.*?)</script>', re.S)
+# Daty i status siedzą w window.__PRERENDERED_STATE__ — JSON zaescape'owany
+# wewnątrz HTML-a (\"klucz\":\"wartość\"). Kotwiczymy okno na lastRefreshTime,
+# bo samo "status" pada w HTML-u kilkanaście razy (tłumaczenia UI) i pierwsze
+# trafienie bywa cudze.
+STATE_ANCHOR = re.compile(r'\\"lastRefreshTime\\"')
+STATE_WINDOW = 1500  # znaków w każdą stronę od kotwicy
+
 VIEWS_PATTERN = re.compile(r'Wyświetlenia:\s*([\d\s ]+)')
 
 
@@ -104,43 +118,89 @@ def resolve_numeric_id(url: str) -> int | None:
     return None
 
 
-def fetch_api_snapshot(numeric_id: int) -> dict | None:
-    """Snapshot z OLX API v1 (anonimowe). None = błąd sieci (nie zapisuj),
-    {'status': 'removed'} = oferty nie ma już na OLX (410/404)."""
+def _state_field(window: str, key: str) -> str:
+    """Wartość klucza z zaescape'owanego JSON-a __PRERENDERED_STATE__.
+    `null` (np. pushupTime oferty, której nikt nie podbijał) → pusty string,
+    dokładnie jak dawało API v1."""
+    m = re.search(r'\\"' + key + r'\\":(?:\\"([^"\\]+)\\"|null)', window)
+    return m.group(1) if m and m.group(1) else ''
+
+
+def parse_offer_page(html: str) -> dict | None:
+    """Snapshot z HTML-a strony oferty — te same pola, które dawało API v1.
+
+    None = strona nie jest stroną oferty (interstitial WAF-a, zgoda na
+    ciasteczka, przebudowa OLX-a). Lepiej brak pomiaru niż pusty snapshot,
+    który na karcie wygląda jak prawdziwy."""
+    anchor = STATE_ANCHOR.search(html)
+    if not anchor:
+        return None
+    window = html[max(0, anchor.start() - STATE_WINDOW):anchor.start() + STATE_WINDOW]
+
+    title, price = '', None
+    ld = JSONLD_PATTERN.search(html)
+    if ld:
+        try:
+            data = json.loads(ld.group(1))
+            title = data.get('name', '') or ''
+            raw_price = (data.get('offers') or {}).get('price')
+            price = int(float(raw_price)) if raw_price is not None else None
+        except (ValueError, TypeError, AttributeError):
+            pass
+
+    return {
+        'status': _state_field(window, 'status'),
+        'price': price,
+        'title': title,
+        'last_refresh': _state_field(window, 'lastRefreshTime'),
+        'pushup': _state_field(window, 'pushupTime'),
+        'created': _state_field(window, 'createdTime'),
+        'valid_to': _state_field(window, 'validToTime'),
+    }
+
+
+def fetch_page_snapshot(url: str) -> dict | None:
+    """Snapshot ze strony oferty. None = nie udało się zmierzyć (nie zapisuj),
+    {'status': 'removed'} = oferty nie ma już na OLX (410/404).
+
+    Dlaczego nie API v1 (`/api/v1/offers/<id>/`), które było tu do 11.11.2026:
+    od 06.11.2026 CloudFront OLX-a oddaje na nie 403 "Request blocked" każdemu
+    klientowi spoza przeglądarki — zmierzone na runnerze Actions i w kontenerze
+    chmurowym, z nagłówkami przeglądarki, z Refererem i z impersonacją TLS.
+    Strona oferty z tych samych maszyn odpowiada 200 i niesie komplet tych
+    samych pól (status, cena, created/validTo/lastRefresh/pushup).
+
+    HEAD przed GET: zdjęta oferta kosztuje 0 B zamiast 1,7 MB strony błędu —
+    przy 28 ulubionych to różnica 49 MB → 10 MB na skan."""
+    # OLX na zdjętą ofertę odpowiada 410 Gone (404 zdarza się dla ID, którego
+    # nigdy nie było). Bez tych kodów każda zdjęta oferta wpadała w gałąź
+    # "błąd sieci" → brak snapshotu → wpis zamarzał na ostatnim stanie
+    # i świecił "AKTYWNA" w nieskończoność (zgłoszenie Mateusza,
+    # ID1bKFSC: ostatni pomiar 22.08, karta aktywna 04.09).
     try:
-        resp = _session.get(API_URL.format(numeric_id=numeric_id),
-                            headers=HEADERS, timeout=REQUEST_TIMEOUT)
+        head = _session.head(url, timeout=REQUEST_TIMEOUT, allow_redirects=False)
+        if head.status_code in (404, 410):
+            return {'status': 'removed'}
     except NETWORK_EXCEPTIONS as e:
-        print(f"   ⚠️ Błąd API dla {numeric_id}: {e}")
+        print(f"   ⚠️ Błąd HEAD {url}: {e}")
         return None
 
-    # OLX na zdjętą ofertę odpowiada 410 Gone (404 zdarza się dla ID, którego
-    # nigdy nie było). Bez 410 na tej liście każda zdjęta oferta wpadała w gałąź
-    # "inny kod = błąd sieci" → brak snapshotu → wpis zamarzał na ostatnim
-    # stanie i świecił "AKTYWNA" w nieskończoność (zgłoszenie Mateusza,
-    # ID1bKFSC: ostatni pomiar 22.08, karta aktywna 04.09).
+    try:
+        resp = _session.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+    except NETWORK_EXCEPTIONS as e:
+        print(f"   ⚠️ Błąd strony {url}: {e}")
+        return None
+
     if resp.status_code in (404, 410):
         return {'status': 'removed'}
     if resp.status_code != 200:
-        print(f"   ⚠️ API {numeric_id}: HTTP {resp.status_code}")
+        print(f"   ⚠️ Strona {url}: HTTP {resp.status_code}")
         return None
 
-    d = resp.json().get('data', {})
-    price = None
-    for p in d.get('params', []):
-        if p.get('key') == 'price':
-            price = (p.get('value') or {}).get('value')
-            break
-
-    return {
-        'status': d.get('status', ''),
-        'price': price,
-        'title': d.get('title', ''),
-        'last_refresh': d.get('last_refresh_time') or '',
-        'pushup': d.get('pushup_time') or '',
-        'created': d.get('created_time') or '',
-        'valid_to': d.get('valid_to_time') or '',
-    }
+    snap = parse_offer_page(resp.text)
+    if snap is None:
+        print(f"   ⚠️ {url}: strona bez danych oferty ({len(resp.text)} zn.)")
+    return snap
 
 
 def _views_from_network(payloads: list) -> int | None:
@@ -297,28 +357,33 @@ def track_favorites() -> bool:
     # Oferty zdjęte z OLX nie mają już strony — Playwright i tak wisiałby na
     # nich ~30 s (goto na 410 → scroll → timeout czekania na licznik), a licznik
     # wyświetleń dla nieistniejącej oferty nie istnieje. Pomijamy je w tym
-    # przejściu; status i tak weryfikuje tańsze API niżej.
+    # przejściu; status i tak weryfikuje tańszy HEAD niżej.
     removed_ids = {sid for sid, entry in tracking.items()
                    if last_snapshot_status(entry) == 'removed'}
     if removed_ids:
         print(f"   ⏭️ Pomijam wyświetlenia dla {len(removed_ids)} zdjętych ofert.")
-    views_map = fetch_views([f for f in favorites if f.get('numeric_id')
-                             and f.get('short_id') not in removed_ids])
+    views_map = fetch_views([f for f in favorites
+                             if f.get('short_id') not in removed_ids])
 
+    measured, failed = 0, []
     for fav in favorites:
         short_id = fav.get('short_id', '')
-        numeric_id = fav.get('numeric_id')
-        if not short_id or not numeric_id:
+        url = (fav.get('url') or '').split('?')[0]
+        if not short_id or not url:
             print(f"   ⚠️ Pomijam wpis bez ID: {fav.get('url', '(brak URL)')}")
             continue
 
-        snap = fetch_api_snapshot(numeric_id)
+        snap = fetch_page_snapshot(url)
         if snap is None:
-            continue  # błąd sieci — nie fałszuj historii pustym snapshotem
+            # Nie fałszuj historii pustym snapshotem, ale ZGŁOŚ to dalej —
+            # cicha porażka tutaj zamroziła zakładkę na 6 dni (06–11.11.2026).
+            failed.append(short_id)
+            continue
+        measured += 1
 
         entry = tracking.setdefault(short_id, {
-            'url': fav['url'].split('?')[0],
-            'numeric_id': numeric_id,
+            'url': url,
+            'numeric_id': fav.get('numeric_id'),
             'added': fav.get('added', now_iso[:10]),
             'title': '',
             'snapshots': [],
@@ -328,8 +393,8 @@ def track_favorites() -> bool:
 
         # Zdjęta oferta już się nie zmieni — jeden snapshot 'removed' wystarczy.
         # Bez tego licznik "Pomiary" na karcie rósłby 3×/dobę bez żadnego pomiaru.
-        # Odpytujemy ją dalej (1 request), więc gdyby 410 okazało się chwilowe,
-        # kolejny snapshot 'active' sam odkręci status.
+        # Sprawdzamy ją dalej (sam HEAD, 0 B), więc gdyby 410 okazało się
+        # chwilowe, kolejny snapshot 'active' sam odkręci status.
         if snap.get('status') == 'removed' and last_snapshot_status(entry) == 'removed':
             print(f"   ⏭️ {short_id}: zdjęta z OLX (bez zmian)")
             continue
@@ -353,7 +418,35 @@ def track_favorites() -> bool:
 
     write_json_atomic(TRACKING_FILE, tracking)
     print(f"💾 Zapisano {TRACKING_FILE}")
-    return True
+    write_status(now_iso, tracking, measured, failed)
+    return not failed
+
+
+def newest_snapshot_ts(tracking: dict) -> str:
+    """Najświeższy pomiar w całym pliku — wiek tej daty to wiek zakładki."""
+    stamps = [e['snapshots'][-1]['ts'] for e in tracking.values()
+              if e.get('snapshots') and e['snapshots'][-1].get('ts')]
+    return max(stamps) if stamps else ''
+
+
+def write_status(now_iso: str, tracking: dict, measured: int, failed: list) -> None:
+    """Meldunek z przebiegu dla api_generator (alert `favorites_stale`).
+
+    Osobny plik, bo tracker leci jako własny proces PO main.py — scan_logger
+    pisze tylko do skanu trzymanego w pamięci, więc nie ma już czego dopisać
+    do scan_history.json."""
+    write_json_atomic(STATUS_FILE, {
+        'checked_at': now_iso,
+        'tracked': len(tracking),
+        'measured': measured,
+        'failed': len(failed),
+        'failed_ids': failed[:20],
+        'last_snapshot_at': newest_snapshot_ts(tracking),
+    })
+    if failed:
+        print(f"   ⚠️ Bez pomiaru: {len(failed)} z {measured + len(failed)} ofert "
+              f"({', '.join(failed[:5])}{'…' if len(failed) > 5 else ''})")
+    print(f"💾 Zapisano {STATUS_FILE}")
 
 
 if __name__ == '__main__':
