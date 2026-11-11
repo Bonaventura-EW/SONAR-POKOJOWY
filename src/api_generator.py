@@ -17,7 +17,7 @@ from typing import Dict, List, Optional
 import pytz
 
 from scan_logger import ScanLogger
-from shared_utils import write_json_atomic
+from shared_utils import DATA_DIR, write_json_atomic
 
 
 class APIGenerator:
@@ -31,6 +31,11 @@ class APIGenerator:
     MASS_DEACT_CRITICAL_PCT = 30.0
     MASS_DEACT_WARNING_ABS = 100     # ...albo tyle ofert naraz
     SCRAPE_DROP_WARNING_PCT = 70.0   # scrape < 70% mediany ostatnich skanów
+
+    # Progi alertu o zakładce Ulubione (patrz _favorites_alert). Pomiar leci
+    # 3×/dobę, więc doba bez pomiaru to już trzy przepadnięte przebiegi.
+    FAVORITES_STALE_WARNING_H = 24
+    FAVORITES_STALE_CRITICAL_H = 72
     
     def __init__(self, output_dir: str = "../docs/api"):
         self.output_dir = Path(output_dir)
@@ -154,8 +159,85 @@ class APIGenerator:
                     }
                 })
 
+        # 4. Ulubione: pomiar padł albo dane na zakładce się zestarzały
+        fav_alert = self._favorites_alert()
+        if fav_alert:
+            alerts.append(fav_alert)
+
         alerts.sort(key=lambda a: 0 if a['severity'] == 'critical' else 1)
         return alerts
+
+    @staticmethod
+    def _read_json(path: Path, default=None):
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            return default if default is not None else {}
+
+    def _favorites_alert(self) -> Optional[Dict]:
+        """
+        Alert o zakładce Ulubione: nie udało się pobrać odświeżeń/ceny/statusu,
+        albo karty stoją na starym pomiarze.
+
+        Powód: 06–11.11.2026 OLX zablokował API v1, z którego tracker brał te
+        dane (403 z CloudFronta na każdą ofertę). Tracker kończył się kodem 0,
+        krok workflow ma `continue-on-error`, nic nie szło do scan_history —
+        więc przez 15 skanów status.json mówił `operational`, a karty stały
+        na pomiarze z 05.11 15:04. Sześć dni ciszy.
+        """
+        status = self._read_json(DATA_DIR / 'favorites_status.json')
+        last_at = status.get('last_snapshot_at')
+        if not last_at:
+            tracking = self._read_json(DATA_DIR / 'favorites_tracking.json')
+            stamps = [e['snapshots'][-1]['ts'] for e in tracking.values()
+                      if isinstance(e, dict) and e.get('snapshots')
+                      and e['snapshots'][-1].get('ts')]
+            last_at = max(stamps) if stamps else None
+        if not last_at:
+            return None  # ulubionych nie ma wcale — nie ma o co bić na alarm
+
+        try:
+            hours = round((datetime.now(self.tz)
+                           - datetime.fromisoformat(last_at)).total_seconds() / 3600, 1)
+        except (TypeError, ValueError):
+            return None
+
+        tracked = status.get('tracked', 0)
+        failed = status.get('failed', 0)
+        measured = status.get('measured', 0)
+
+        if failed and failed >= tracked:
+            severity, head = "critical", (
+                f"Żadna z {tracked} ulubionych ofert nie dała się zmierzyć")
+        elif hours >= self.FAVORITES_STALE_CRITICAL_H:
+            severity, head = "critical", (
+                f"Ulubione bez pomiaru od {round(hours / 24, 1)} dnia")
+        elif failed:
+            severity, head = "warning", (
+                f"{failed} z {tracked} ulubionych ofert bez pomiaru")
+        elif hours >= self.FAVORITES_STALE_WARNING_H:
+            severity, head = "warning", (
+                f"Ulubione bez pomiaru od {hours} h")
+        else:
+            return None
+
+        return {
+            "type": "favorites_stale",
+            "severity": severity,
+            "scanId": (status.get('checked_at') or '')[:19].replace(':', '-'),
+            "message": f"{head} — odświeżenia, cena i status na zakładce "
+                       f"Ulubione są nieaktualne (ostatni pomiar: {last_at[:16]}).",
+            "details": {
+                "tracked": tracked,
+                "measured": measured,
+                "failed": failed,
+                "failedIds": status.get('failed_ids', []),
+                "lastSnapshotAt": last_at,
+                "hoursSinceSnapshot": hours,
+                "checkedAt": status.get('checked_at'),
+            }
+        }
 
     def _generate_scan_status(self):
         """

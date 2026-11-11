@@ -9,11 +9,15 @@ snapshotu. Wpis zamarzał na ostatnim pomiarze i świecił "AKTYWNA" bez końca
 miało ten sam objaw).
 """
 
+import json
 import sys
+import tempfile
+from datetime import timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
+import api_generator as ag
 import favorites_generator as fg
 import favorites_tracker as ft
 
@@ -27,20 +31,44 @@ def check(label, condition, detail=''):
 
 
 class FakeResponse:
-    def __init__(self, status_code, payload=None):
+    def __init__(self, status_code, text=''):
         self.status_code = status_code
-        self._payload = payload or {}
-
-    def json(self):
-        return self._payload
+        self.text = text
 
 
-def with_status(status_code, payload=None):
+def with_status(status_code, text=''):
     """Podmiana sesji HTTP trackera na atrapę o zadanym kodzie odpowiedzi."""
     class FakeSession:
+        def head(self, *a, **kw):
+            return FakeResponse(status_code)
+
         def get(self, *a, **kw):
-            return FakeResponse(status_code, payload)
+            return FakeResponse(status_code, text)
     ft._session = FakeSession()
+
+
+# Strona oferty w kształcie, w jakim oddaje ją OLX: cena i tytuł w JSON-LD,
+# daty i status w zaescape'owanym __PRERENDERED_STATE__. Na początku DEKOY —
+# "status" z tłumaczeń UI, którego parser NIE może złapać (w HTML-u OLX-a jest
+# takich kilkanaście przed właściwym blokiem oferty).
+PAGE_HTML = (
+    '<html><head><title>Ładny pokój jednoosobowy Lublin • OLX.pl</title>'
+    '<script type="application/ld+json">'
+    '{"@context":"https://schema.org","@type":"Product",'
+    '"name":"Ładny pokój jednoosobowy",'
+    '"offers":{"@type":"Offer","availability":"https://schema.org/InStock",'
+    '"priceCurrency":"PLN","price":825}}'
+    '</script></head><body>'
+    '<script>window.i18n = "\\"priceNegotiation.status\\":\\"ZAAKCEPTOWANO\\""</script>'
+    + 'x' * 2000 +
+    '<script>window.__PRERENDERED_STATE__ = "'
+    '\\"createdTime\\":\\"2026-11-04T14:28:56+01:00\\",'
+    '\\"lastRefreshTime\\":\\"2026-11-11T14:30:01+01:00\\",'
+    '\\"pushupTime\\":null,'
+    '\\"validToTime\\":\\"2026-12-04T14:29:56+01:00\\",'
+    '\\"isActive\\":true,\\"status\\":\\"active\\""</script>'
+    '</body></html>'
+)
 
 
 def snapshot(ts, status='active', price=2500, views=None):
@@ -51,25 +79,40 @@ def snapshot(ts, status='active', price=2500, views=None):
 
 
 def test_http_codes():
-    print("\n🌐 Test 1: kody HTTP z API OLX")
+    print("\n🌐 Test 1: snapshot ze strony oferty (po blokadzie API v1)")
     original = ft._session
     try:
         with_status(410)
         check("410 Gone = oferta zdjęta z OLX",
-              ft.fetch_api_snapshot(1)['status'] == 'removed')
+              ft.fetch_page_snapshot('u')['status'] == 'removed')
         with_status(404)
         check("404 = oferta zdjęta z OLX",
-              ft.fetch_api_snapshot(1)['status'] == 'removed')
+              ft.fetch_page_snapshot('u')['status'] == 'removed')
         with_status(403)
         check("403 (WAF) = brak snapshotu, nie fałszujemy historii",
-              ft.fetch_api_snapshot(1) is None)
+              ft.fetch_page_snapshot('u') is None)
         with_status(500)
-        check("500 = brak snapshotu", ft.fetch_api_snapshot(1) is None)
-        with_status(200, {'data': {'status': 'active', 'title': 'Pokój',
-                                   'params': [{'key': 'price', 'value': {'value': 1200}}]}})
-        snap = ft.fetch_api_snapshot(1)
-        check("200 = normalny snapshot z ceną",
-              snap['status'] == 'active' and snap['price'] == 1200, str(snap))
+        check("500 = brak snapshotu", ft.fetch_page_snapshot('u') is None)
+
+        with_status(200, PAGE_HTML)
+        snap = ft.fetch_page_snapshot('u')
+        check("200 = snapshot ze stanu strony", snap is not None)
+        check("status z bloku oferty, nie z tłumaczeń UI",
+              snap['status'] == 'active', snap['status'])
+        check("cena z JSON-LD", snap['price'] == 825, str(snap['price']))
+        check("tytuł z JSON-LD (bez ' • OLX.pl')",
+              snap['title'] == 'Ładny pokój jednoosobowy', snap['title'])
+        check("odświeżenie — to po nie tu przyszliśmy",
+              snap['last_refresh'] == '2026-11-11T14:30:01+01:00', snap['last_refresh'])
+        check("data wystawienia", snap['created'] == '2026-11-04T14:28:56+01:00')
+        check("data ważności", snap['valid_to'] == '2026-12-04T14:29:56+01:00')
+        check("pushupTime: null = pusty string (jak w API)",
+              snap['pushup'] == '', repr(snap['pushup']))
+
+        # Interstitial WAF-a / zgoda na ciasteczka: HTTP 200, ale bez oferty.
+        with_status(200, '<html><body>Potwierdź, że jesteś człowiekiem</body></html>')
+        check("200 bez danych oferty = brak snapshotu (nie pusta karta)",
+              ft.fetch_page_snapshot('u') is None)
     finally:
         ft._session = original
 
@@ -87,31 +130,31 @@ def test_no_duplicate_removed_snapshots():
 
     # pełny przebieg trackera na atrapach: zdjęta (410) + żywa (200)
     tracking = {
-        'ZDJETA': {'url': 'u', 'numeric_id': 1, 'added': '2026-08-06', 'title': 'zdjęta',
+        'ZDJETA': {'url': 'u1', 'numeric_id': 1, 'added': '2026-08-06', 'title': 'zdjęta',
                    'snapshots': [snapshot('2026-08-22T08:39:33+02:00'),
                                  snapshot('2026-09-04T12:50:00+02:00', status='removed', price=None)]},
-        'ZYWA': {'url': 'u', 'numeric_id': 2, 'added': '2026-08-06', 'title': 'żywa',
+        'ZYWA': {'url': 'u2', 'numeric_id': 2, 'added': '2026-08-06', 'title': 'żywa',
                  'snapshots': [snapshot('2026-09-04T12:50:00+02:00')]},
     }
-    api = {1: {'status': 'removed'},
-           2: {'status': 'active', 'price': 1300, 'title': 'żywa', 'last_refresh': '',
-               'pushup': '', 'created': '', 'valid_to': ''}}
+    pages = {'u1': {'status': 'removed'},
+             'u2': {'status': 'active', 'price': 1300, 'title': 'żywa', 'last_refresh': '',
+                    'pushup': '', 'created': '', 'valid_to': ''}}
     views_seen = []
     saved = {}
     originals = (ft.load_favorites, ft.load_tracking, ft.load_listing_positions,
-                 ft.fetch_views, ft.fetch_api_snapshot, ft.write_json_atomic)
+                 ft.fetch_views, ft.fetch_page_snapshot, ft.write_json_atomic)
     try:
-        ft.load_favorites = lambda: [{'short_id': 'ZDJETA', 'numeric_id': 1, 'url': 'u'},
-                                     {'short_id': 'ZYWA', 'numeric_id': 2, 'url': 'u'}]
+        ft.load_favorites = lambda: [{'short_id': 'ZDJETA', 'numeric_id': 1, 'url': 'u1'},
+                                     {'short_id': 'ZYWA', 'numeric_id': 2, 'url': 'u2'}]
         ft.load_tracking = lambda: tracking
         ft.load_listing_positions = lambda: {}
         ft.fetch_views = lambda favs: (views_seen.extend(f['short_id'] for f in favs), {})[1]
-        ft.fetch_api_snapshot = lambda nid: api[nid]
-        ft.write_json_atomic = lambda path, data: saved.update({'path': path, 'data': data})
+        ft.fetch_page_snapshot = lambda url: pages[url]
+        ft.write_json_atomic = lambda path, data: saved.update({str(path): data})
         ft.track_favorites()
     finally:
         (ft.load_favorites, ft.load_tracking, ft.load_listing_positions,
-         ft.fetch_views, ft.fetch_api_snapshot, ft.write_json_atomic) = originals
+         ft.fetch_views, ft.fetch_page_snapshot, ft.write_json_atomic) = originals
 
     check("zdjęta oferta pominięta w kosztownym pomiarze wyświetleń",
           views_seen == ['ZYWA'], str(views_seen))
@@ -119,22 +162,26 @@ def test_no_duplicate_removed_snapshots():
           len(tracking['ZDJETA']['snapshots']) == 2, str(len(tracking['ZDJETA']['snapshots'])))
     check("żywa oferta dostała nowy pomiar",
           len(tracking['ZYWA']['snapshots']) == 2, str(len(tracking['ZYWA']['snapshots'])))
-    check("wynik zapisany na dysk", saved.get('path') == ft.TRACKING_FILE)
+    check("wynik zapisany na dysk", str(ft.TRACKING_FILE) in saved)
+    status = saved.get(str(ft.STATUS_FILE), {})
+    check("meldunek dla API: 2 wpisy, 2 zmierzone, 0 bez pomiaru",
+          (status.get('tracked'), status.get('measured'), status.get('failed')) == (2, 2, 0),
+          str(status))
 
     # oferta zdjęta PO RAZ PIERWSZY dostaje snapshot 'removed' (odmrożenie wpisu)
     first_removal = {'ZDJETA': dict(tracking['ZDJETA'],
                                     snapshots=[snapshot('2026-08-22T08:39:33+02:00')])}
     try:
-        ft.load_favorites = lambda: [{'short_id': 'ZDJETA', 'numeric_id': 1, 'url': 'u'}]
+        ft.load_favorites = lambda: [{'short_id': 'ZDJETA', 'numeric_id': 1, 'url': 'u1'}]
         ft.load_tracking = lambda: first_removal
         ft.load_listing_positions = lambda: {}
         ft.fetch_views = lambda favs: {}
-        ft.fetch_api_snapshot = lambda nid: {'status': 'removed'}
+        ft.fetch_page_snapshot = lambda url: {'status': 'removed'}
         ft.write_json_atomic = lambda path, data: None
         ft.track_favorites()
     finally:
         (ft.load_favorites, ft.load_tracking, ft.load_listing_positions,
-         ft.fetch_views, ft.fetch_api_snapshot, ft.write_json_atomic) = originals
+         ft.fetch_views, ft.fetch_page_snapshot, ft.write_json_atomic) = originals
     snaps = first_removal['ZDJETA']['snapshots']
     check("pierwsze zniknięcie zapisane jako snapshot 'removed'",
           len(snaps) == 2 and snaps[-1]['status'] == 'removed', str(snaps[-1].get('status')))
@@ -176,11 +223,78 @@ def test_card_after_removal():
           fg._build_favorite('1bKFSC', alive, {'id': 'x', 'active': False})['status'] == 'inactive')
 
 
+def test_api_alert():
+    """Czego zabrakło 06–11.11.2026: przez 15 skanów nikt nie krzyknął, że
+    pomiary ulubionych nie wchodzą (OLX zablokował API v1 → 403)."""
+    print("\n🚨 Test 4: alert w API, gdy pomiar ulubionych nie wchodzi")
+    original_data_dir = ag.DATA_DIR
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        ag.DATA_DIR = tmp
+        gen = ag.APIGenerator(output_dir=str(tmp / 'api'))
+        now = __import__('datetime').datetime.now(gen.tz)
+
+        def status(**kw):
+            (tmp / 'favorites_status.json').write_text(
+                json.dumps(kw, default=str), encoding='utf-8')
+
+        try:
+            # a) komplet pomiarów — cisza w eterze
+            status(checked_at=now.isoformat(), tracked=28, measured=28,
+                   failed=0, failed_ids=[], last_snapshot_at=now.isoformat())
+            check("komplet pomiarów = brak alertu", gen._favorites_alert() is None)
+
+            # b) część ofert bez pomiaru — ostrzeżenie JUŻ w tym skanie
+            status(checked_at=now.isoformat(), tracked=28, measured=26, failed=2,
+                   failed_ids=['1d6ZfZ', '1bw9sZ'], last_snapshot_at=now.isoformat())
+            alert = gen._favorites_alert()
+            check("2 z 28 bez pomiaru = warning",
+                  alert and alert['severity'] == 'warning', str(alert and alert['severity']))
+            check("alert nazywa po imieniu, czego brakuje",
+                  alert and 'odświeżenia' in alert['message'], alert['message'])
+            check("alert niesie ID-ki, które padły",
+                  alert['details']['failedIds'] == ['1d6ZfZ', '1bw9sZ'])
+
+            # c) scenariusz 06.11: 403 na wszystko — critical natychmiast,
+            #    bez czekania aż dane się zestarzeją
+            status(checked_at=now.isoformat(), tracked=28, measured=0, failed=28,
+                   failed_ids=['1d6ZfZ'], last_snapshot_at=now.isoformat())
+            alert = gen._favorites_alert()
+            check("zero pomiarów = critical w tym samym skanie",
+                  alert and alert['severity'] == 'critical', str(alert and alert['severity']))
+
+            # d) tracker w ogóle nie zameldował, a karty stoją sprzed 6 dni
+            (tmp / 'favorites_status.json').unlink()
+            old = (now - timedelta(days=6)).isoformat()
+            (tmp / 'favorites_tracking.json').write_text(json.dumps(
+                {'1d6ZfZ': {'snapshots': [{'ts': old, 'status': 'active'}]}}),
+                encoding='utf-8')
+            alert = gen._favorites_alert()
+            check("brak meldunku + pomiar sprzed 6 dni = critical",
+                  alert and alert['severity'] == 'critical', str(alert and alert['severity']))
+            check("alert podaje wiek danych",
+                  alert and round(alert['details']['hoursSinceSnapshot']) == 144,
+                  str(alert and alert['details']['hoursSinceSnapshot']))
+
+            # e) świeży pomiar w pliku śledzenia = cisza
+            (tmp / 'favorites_tracking.json').write_text(json.dumps(
+                {'1d6ZfZ': {'snapshots': [{'ts': now.isoformat(), 'status': 'active'}]}}),
+                encoding='utf-8')
+            check("świeży pomiar = brak alertu", gen._favorites_alert() is None)
+
+            # f) brak ulubionych w ogóle — nie ma o co bić na alarm
+            (tmp / 'favorites_tracking.json').unlink()
+            check("brak ulubionych = brak alertu", gen._favorites_alert() is None)
+        finally:
+            ag.DATA_DIR = original_data_dir
+
+
 if __name__ == '__main__':
     print("🧪 TEST ULUBIONYCH\n" + "=" * 60)
     test_http_codes()
     test_no_duplicate_removed_snapshots()
     test_card_after_removal()
+    test_api_alert()
     print("\n" + "=" * 60)
     if FAILED:
         print(f"❌ Niezaliczone ({len(FAILED)}): " + ', '.join(FAILED))
