@@ -43,4 +43,8 @@ jobs:
           python test_trend_index.py
           python test_address_precision_upgrade.py
           python test_address_parser_golden.py
+          # Na końcu świadomie: `set -e` ubija całą listę na pierwszym błędzie,
+          # a to najmłodszy test w zestawie (dopisany 11.11.2026). Nie chcemy,
+          # żeby przez niego przestał się wykonywać golden parsera.
+          python test_favorites.py
 
