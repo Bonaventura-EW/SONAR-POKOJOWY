@@ -9,6 +9,14 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Indeks: Wskaźnik Rotacji Rynku liczy też reaktywacje (2026-11-13)
+- **pytanie Mateusza**: „czy wskaźnik jest korygowany o oferty, które wróciły na rynek?". **Diagnoza**: nie. Odpływ liczył każde zniknięcie (poza powrotami w ≤3 dni, `FLAP_MAX_DAYS`), a powrót nie liczył się nigdzie, bo `build_velocity` brał `inflow['new']` (same świeże oferty). Oferta, która zeszła na tydzień i wróciła, zawyżała wskaźnik o jedno zdarzenie bez przeciwwagi.
+- **decyzja (opcja C, po podglądzie before/after)**: wskaźnik = (nowe + reaktywacje + odpływ z 7 dni) ÷ 2, czyli `inflow['new_react']` zamiast `inflow['new']`. Zmiana w `src/trend_generator.build_velocity`; `docs/trend.html` czyta `inflow.new_react` do słupków 7 dni, kafelek „Nowe i wróciły (7 dni)", opis pod sekcją zaktualizowany.
+- **skutek na prawdziwych danych**: ostatni pełny dzień (11.11) **69 → 86**, średnia od 07.07 **136 → 171** (+26%).
+- **zakres**: wskaźnik ma teraz wartości dopiero od **07.07.2026** (reaktywacje rzetelne od 01.07, `REACT_RELIABLE_START`, plus okno 7 dni); wcześniejsze dni to luka zamiast liczb ze starego wzoru.
+- **bez zmian, świadomie**: filtr `FLAP_MAX_DAYS = 3` (powrót w ≤3 dni wypada razem ze zniknięciem), dni-artefakty (>100 reaktywacji) i dni bez skanu nadal dają lukę.
+- **test**: `test_trend_index.py` Test 11 przepięty na `new_react` + sprawdzenie, że stary kształt wejścia daje brak wskaźnika.
+
 ### Ulubione: snapshot ze strony oferty + alert w API o cichej porażce (2026-11-11)
 - **zgłoszenie Mateusza**: „co to się stało, że nie ma wykresów po 5.11? powinno być jakieś ostrzeżenie przez API".
 - **diagnoza**: OLX od **06.11.2026** oddaje **403 „Request blocked"** (CloudFront) na anonimowe `/api/v1/offers/<id>/`, z którego tracker brał status, cenę i daty odświeżeń. 403 wychodzi tak samo z nagłówkami przeglądarki, z Refererem i z impersonacją TLS Safari — zmierzone na runnerze Actions (14:39) i w kontenerze chmurowym (22:04), na wszystkie 28 ulubionych. Z przeglądarki na domowym łączu ten sam URL działa, więc blokada jest na ścieżce `/api/`, nie na ofercie. `fetch_api_snapshot` zwracał `None` → `continue` → **żaden snapshot nie powstawał**, plik zapisywał się niezmieniony, a generator przepisywał tylko `generated`. Karty zamarły na **05.11 15:04** i dalej świeciły „AKTYWNA".
