@@ -671,16 +671,29 @@ def build_inflow(offers, series=None):
 
 def build_velocity(outflow, inflow):
     """Market Velocity (sekcja „Wskaźnik Rotacji Rynku"): dla każdego dnia
-    (nowe oferty + zejścia z rynku z 7 dni kończących się tym dniem) ÷ 2.
+    (nowe oferty + reaktywacje + zejścia z rynku z 7 dni kończących się tym dniem) ÷ 2.
 
-    Składniki to DOKŁADNIE dzienne szeregi wykresów „Nowe oferty" i „Odpływ ofert",
-    więc kafelki i rozkład dzienny sekcji zgadzają się z tymi wykresami. Okno musi
-    mieć wszystkie 7 dni zmierzone: dzień bez skanu (albo doba w toku) daje lukę,
-    nie zaniżoną wartość. Bez limitu 100 — rynek zwykle go przekracza.
+    Napływ to `inflow['new_react']`: oferty świeże ORAZ te, które wróciły na rynek
+    po zniknięciu. Reaktywacja jest rotacją tak samo jak zniknięcie — wcześniej
+    odpływ liczył każde zniknięcie, a powrót nie liczył się wcale, więc oferta,
+    która zeszła na tydzień i wróciła, zawyżała wskaźnik o jedno zdarzenie bez
+    przeciwwagi (decyzja Mateusza, 13.11.2026, opcja C). Powroty w ≤FLAP_MAX_DAYS
+    nadal wypadają razem ze zniknięciem (life_events).
+
+    Składniki to DOKŁADNIE dzienne szeregi wykresów „Napływ całkowity" (nowe +
+    reaktywacje) i „Odpływ ofert", więc kafelki i rozkład dzienny sekcji zgadzają się
+    z tymi wykresami. Seria reaktywacji jest rzetelna od REACT_RELIABLE_START, więc
+    wskaźnik zaczyna się dopiero po 7 pełnych dniach od tej daty (07.07.2026);
+    wcześniej jest luką. Okno musi mieć wszystkie 7 dni zmierzone: dzień bez skanu
+    (albo doba w toku) daje lukę, nie zaniżoną wartość. Bez limitu 100 — rynek
+    zwykle go przekracza.
+
+    Klucze `new7`/`out7` zostają (front czyta je po nazwie); `new7` oznacza teraz
+    napływ całkowity (nowe + reaktywacje).
     """
-    if not outflow or not inflow or not inflow.get('new'):
+    if not outflow or not inflow or not inflow.get('new_react'):
         return None
-    out_d, new_d = outflow['daily'], inflow['new']['daily']
+    out_d, new_d = outflow['daily'], inflow['new_react']['daily']
     if [ms for ms, _ in out_d] != [ms for ms, _ in new_d]:
         return None
     daily, new7, out7 = [], [], []

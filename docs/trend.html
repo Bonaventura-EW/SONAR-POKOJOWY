@@ -307,9 +307,9 @@
 
         <div class="card" style="margin-top:22px">
             <h2>🔄 Wskaźnik Rotacji Rynku</h2>
-            <div class="sub" id="rotLabel">Nowe oferty i zejścia z rynku z ostatnich 7 pełnych dni</div>
+            <div class="sub" id="rotLabel">Nowe i wracające oferty oraz zejścia z rynku z ostatnich 7 pełnych dni</div>
             <div class="rotTiles">
-                <div class="rotTile"><div class="l">Nowe oferty (7 dni)</div><div class="v" id="rotNew">&mdash;</div></div>
+                <div class="rotTile"><div class="l">Nowe i wróciły (7 dni)</div><div class="v" id="rotNew">&mdash;</div></div>
                 <div class="rotTile"><div class="l">Zeszły z rynku (7 dni)</div><div class="v" id="rotOut">&mdash;</div></div>
                 <div class="rotTile"><div class="l">Saldo</div><div class="v" id="rotNet">&mdash;</div></div>
             </div>
@@ -330,12 +330,12 @@
         </div>
 
         <div class="foot">
-            <strong>Skąd dane:</strong> Market Velocity = (nowe oferty + zejścia z rynku z 7 dni) &divide; 2, liczone dla
+            <strong>Skąd dane:</strong> Market Velocity = (nowe oferty + oferty, które wróciły na rynek + zejścia z rynku z 7 dni) &divide; 2, liczone dla
             każdego dnia z oknem 7 dni kończącym się tym dniem. Składniki to dokładnie dzienne szeregi wykresów
-            „Nowe oferty” i „Odpływ ofert” (bez mignięć), więc kafelki i słupki zgadzają się z tymi wykresami.
+            „Napływ całkowity” i „Odpływ ofert” (bez mignięć), więc kafelki i słupki zgadzają się z tymi wykresami.
             Okno obejmuje tylko pełne doby: dzień w toku i dzień bez skanu to luka. Skala jest bez limitu &mdash;
             rynek zwykle przekracza 100. Strefy w tle odpowiadają legendzie paska.
-            Historia sprzed 03.09.2026 jest zaniżona tak samo jak odpływ (patrz wyżej).
+            Wskaźnik liczony od 07.07.2026, bo rzetelne dane o reaktywacjach są od 01.07. Historia sprzed 03.09.2026 jest zaniżona tak samo jak odpływ (patrz wyżej).
         </div>
 
         <div class="card" style="margin-top:22px">
@@ -1002,7 +1002,7 @@
         }
 
         // --- Wskaźnik Rotacji Rynku: kafelki, pasek, rozkład 7 dni, historia velocity ---
-        // Wszystko z tych samych szeregów co „Nowe oferty" i „Odpływ ofert" (backend: build_velocity).
+        // Wszystko z tych samych szeregów co „Napływ całkowity" (nowe + reaktywacje) i „Odpływ ofert" (backend: build_velocity).
         const vel = d.velocity;
         const velPts = vel && vel.daily ? vel.daily.map(function (p, i) {
             return { ms: p[0], v: p[1], n: vel.new7[i][1], r: vel.out7[i][1] };
@@ -1037,7 +1037,7 @@
 
             // rozkład dzienny: 7 dni okna kończącego się ostatnim pełnym dniem
             const newAt = {}, outAt = {};
-            d.inflow.new.daily.forEach(function (p) { newAt[p[0]] = p[1]; });
+            d.inflow.new_react.daily.forEach(function (p) { newAt[p[0]] = p[1]; });
             d.outflow.daily.forEach(function (p) { outAt[p[0]] = p[1]; });
             const week = [];
             for (let i = 6; i >= 0; i--) {
@@ -1046,7 +1046,7 @@
             }
             document.getElementById('rotLabel').innerHTML =
                 'Okno 7 ostatnich pełnych dni <b>' + dd(week[0].ms) + '–' + dd(lastP.ms) + '</b>. ' +
-                'Nowe i zejścia z rynku to te same liczby co na wykresach „Nowe oferty” i „Odpływ ofert”.';
+                'Nowe + wracające i zejścia z rynku to te same liczby co na wykresach „Napływ całkowity” i „Odpływ ofert”.';
             const top = Math.max.apply(null, week.map(function (w) { return Math.max(w.n, w.r); }).concat(1));
             document.getElementById('rotBars').innerHTML = week.map(function (w) {
                 return '<div class="rotDay"><div class="d">' + dd(w.ms) + '</div><div class="bars">' +
