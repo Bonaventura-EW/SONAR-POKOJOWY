@@ -710,11 +710,11 @@
         </div>
         <div class="act-body" id="act-body"></div>
         <div class="act-foot">
+            <span class="act-key"><i style="background:#db2777"></i> nowe ogłoszenia (pierwszy raz w skanie)</span>
             <span class="act-key"><i style="background:#f59e0b"></i> odświeżenia (podbicia na OLX)</span>
             <span class="act-key"><i style="background:#7c3aed"></i> reaktywacje (powroty ofert)</span>
             <span class="act-key"><i style="background:#16a34a"></i> zniknięcia (zdjęte z OLX na stałe)</span>
             <span class="act-key"><i style="background:#0891b2"></i> zmiany adresu</span>
-            <span class="act-key"><i style="background:#db2777"></i> nowe ogłoszenia (pierwszy raz w skanie)</span>
             <span class="act-cover" id="act-cover"></span>
         </div>
     </div>
@@ -1481,15 +1481,15 @@ function actTooltip(day) {
         + ', ' + day.n + ' ' + plural(day.n, 'nowe ogłoszenie', 'nowe ogłoszenia', 'nowych ogłoszeń');
 }
 
-// Wykres: pięć paneli pod sobą, wspólna oś dat — podbicia, powroty, zejścia
+// Wykres: pięć paneli pod sobą (nowe ogłoszenia na górze), wspólna oś dat — podbicia, powroty, zejścia
 // z OLX, przeprowadzki i nowe ogłoszenia (first_seen). Każdy panel ma własną skalę, bo proporcje bywają
 // skrajne: 25 podbić dziennie kontra pojedyncza zmiana adresu raz na miesiąc.
 const ACT_PANELS = [
+    { key: 'n', color: ACT_C_NEW,  label: '🆕 nowe ogłoszenia' },
     { key: 'r', color: ACT_C_REF,  label: '🔄 odświeżenia' },
     { key: 'a', color: ACT_C_ACT,  label: '♻ reaktywacje' },
     { key: 'g', color: ACT_C_GONE, label: '✖ zniknięcia (bez tych, co wróciły)' },
     { key: 'm', color: ACT_C_ADDR, label: '📍 zmiany adresu' },
-    { key: 'n', color: ACT_C_NEW,  label: '🆕 nowe ogłoszenia' },
 ];
 function buildActivityChart(days) {
     const W = 900, L = 36, R = 12, T = 18, GAP = 24, B = 26, PH = 78;
@@ -1510,9 +1510,10 @@ function buildActivityChart(days) {
         const idx = days.findIndex(d => d.d.getTime() >= REFRESH_TRACKED_FROM);
         if (idx > 0) {
             const w = idx * slot;
-            band = '<rect x="' + L + '" y="' + T + '" width="' + w + '" height="' + ph + '" fill="url(#act-hatch)"/>'
-                + '<line x1="' + (L + w) + '" y1="' + T + '" x2="' + (L + w) + '" y2="' + (T + ph) + '" stroke="' + ACT_C_REF_INK + '" stroke-width="1" stroke-dasharray="3 2"/>'
-                + '<text x="' + (L + w + 5) + '" y="' + (T + 11) + '" font-size="9.5" fill="' + ACT_C_REF_INK + '">start pomiaru odświeżeń</text>';
+            const bt = T + ACT_PANELS.findIndex(pn => pn.key === 'r') * (ph + GAP);  // pasek tylko na panelu odświeżeń
+            band = '<rect x="' + L + '" y="' + bt + '" width="' + w + '" height="' + ph + '" fill="url(#act-hatch)"/>'
+                + '<line x1="' + (L + w) + '" y1="' + bt + '" x2="' + (L + w) + '" y2="' + (bt + ph) + '" stroke="' + ACT_C_REF_INK + '" stroke-width="1" stroke-dasharray="3 2"/>'
+                + '<text x="' + (L + w + 5) + '" y="' + (bt + 11) + '" font-size="9.5" fill="' + ACT_C_REF_INK + '">start pomiaru odświeżeń</text>';
         }
     }
 

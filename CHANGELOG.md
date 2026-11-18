@@ -11,7 +11,7 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ### Profile: panel „nowe ogłoszenia" w oknie Ruch profilu (2026-11-18)
 - **prośba Mateusza**: w oknie „Ruch profilu" brakowało wykresu, kiedy pojawiały się ogłoszenia danego profilu firmowego. Wariant A po podglądzie before/after.
-- **zmiana (`docs/profile_tracker.html`)**: piąty panel „🆕 nowe ogłoszenia" (liczba ofert z `first_seen` w danym dniu), licznik w tytule okna, pozycja w legendzie i w tooltipie dnia. Te same zakresy 30/60/90/wszystko.
+- **zmiana (`docs/profile_tracker.html`)**: panel „🆕 nowe ogłoszenia" na górze okna, nad odświeżeniami (liczba ofert z `first_seen` w danym dniu), licznik w tytule okna, pozycja w legendzie i w tooltipie dnia. Te same zakresy 30/60/90/wszystko.
 - **dane**: z istniejącego `first_seen` w `profile_data.json`, więc bez zmian w backendzie. Panel sięga początku śledzenia profilu, nie tylko od 30.06 jak odświeżenia.
 
 ### Indeks: Wskaźnik Rotacji Rynku liczy też reaktywacje (2026-11-13)
