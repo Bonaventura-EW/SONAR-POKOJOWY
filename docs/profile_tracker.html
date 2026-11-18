@@ -714,6 +714,7 @@
             <span class="act-key"><i style="background:#7c3aed"></i> reaktywacje (powroty ofert)</span>
             <span class="act-key"><i style="background:#16a34a"></i> zniknięcia (zdjęte z OLX na stałe)</span>
             <span class="act-key"><i style="background:#0891b2"></i> zmiany adresu</span>
+            <span class="act-key"><i style="background:#db2777"></i> nowe ogłoszenia (pierwszy raz w skanie)</span>
             <span class="act-cover" id="act-cover"></span>
         </div>
     </div>
@@ -1400,7 +1401,7 @@ const ACT_RANGES = [
 const ACT_C_REF = '#f59e0b', ACT_C_REF_INK = '#b45309', ACT_C_ACT = '#7c3aed';
 // Zniknięcia zielone — ten sam kolor co sygnał „−N zdjęte z OLX" przy zakładce.
 // Zmiany adresu morskie, żeby nie myliły się z fioletem powrotów.
-const ACT_C_GONE = '#16a34a', ACT_C_ADDR = '#0891b2';
+const ACT_C_GONE = '#16a34a', ACT_C_ADDR = '#0891b2', ACT_C_NEW = '#db2777';
 const ACT_C_GRID = '#e8eef6', ACT_C_AXIS = '#94a3b8';
 const ACT_MONTHS = ['sty','lut','mar','kwi','maj','cze','lip','sie','wrz','paź','lis','gru'];
 const DAY_MS = 86400000;
@@ -1423,7 +1424,7 @@ function shortDateY(ts) { return shortDate(ts) + '.' + new Date(ts).getFullYear(
 // Zmiany adresu: każda wersja adresu poza najstarszą, w dniu jej pierwszego
 // widzenia (`address_versions` idzie od najnowszej, więc pomijamy ostatnią).
 function dailyActivity(offers) {
-    const refresh = {}, react = {}, gone = {}, addr = {};
+    const refresh = {}, react = {}, gone = {}, addr = {}, fresh = {};
     let first = null;
     const bump = (bag, t) => {
         const k = dayKey(new Date(t));
@@ -1433,6 +1434,7 @@ function dailyActivity(offers) {
     (offers || []).forEach(o => {
         (o.refresh_dates || []).forEach(d => { const t = parseAnyDate(d); if (t) bump(refresh, t); });
         (o.reactivation_dates || []).forEach(d => { const t = parseAnyDate(d); if (t) bump(react, t); });
+        { const t = parseAnyDate(o.first_seen); if (t) bump(fresh, t); }
         if (o.active === false) { const t = parseAnyDate(o.last_seen); if (t) bump(gone, t); }
         const vs = o.address_versions || [];
         for (let i = 0; i < vs.length - 1; i++) {
@@ -1440,7 +1442,7 @@ function dailyActivity(offers) {
             if (t) bump(addr, t);
         }
     });
-    return { refresh, react, gone, addr, first };
+    return { refresh, react, gone, addr, fresh, first };
 }
 
 // Oś: pełna lista dni (także pustych) od początku zakresu do dziś.
@@ -1457,6 +1459,7 @@ function actDays(data, range) {
             d,
             r: data.refresh[k] || 0, a: data.react[k] || 0,
             g: data.gone[k] || 0,    m: data.addr[k] || 0,
+            n: data.fresh[k] || 0,
         });
     }
     return days;
@@ -1474,17 +1477,19 @@ function actTooltip(day) {
         + day.r + ' ' + plural(day.r, 'odświeżenie', 'odświeżenia', 'odświeżeń')
         + ', ' + day.a + ' ' + plural(day.a, 'reaktywacja', 'reaktywacje', 'reaktywacji')
         + ', ' + day.g + ' ' + plural(day.g, 'zniknięcie', 'zniknięcia', 'zniknięć')
-        + ', ' + day.m + ' ' + plural(day.m, 'zmiana adresu', 'zmiany adresu', 'zmian adresu');
+        + ', ' + day.m + ' ' + plural(day.m, 'zmiana adresu', 'zmiany adresu', 'zmian adresu')
+        + ', ' + day.n + ' ' + plural(day.n, 'nowe ogłoszenie', 'nowe ogłoszenia', 'nowych ogłoszeń');
 }
 
-// Wykres: cztery panele pod sobą, wspólna oś dat — podbicia, powroty, zejścia
-// z OLX i przeprowadzki. Każdy panel ma własną skalę, bo proporcje bywają
+// Wykres: pięć paneli pod sobą, wspólna oś dat — podbicia, powroty, zejścia
+// z OLX, przeprowadzki i nowe ogłoszenia (first_seen). Każdy panel ma własną skalę, bo proporcje bywają
 // skrajne: 25 podbić dziennie kontra pojedyncza zmiana adresu raz na miesiąc.
 const ACT_PANELS = [
     { key: 'r', color: ACT_C_REF,  label: '🔄 odświeżenia' },
     { key: 'a', color: ACT_C_ACT,  label: '♻ reaktywacje' },
     { key: 'g', color: ACT_C_GONE, label: '✖ zniknięcia (bez tych, co wróciły)' },
     { key: 'm', color: ACT_C_ADDR, label: '📍 zmiany adresu' },
+    { key: 'n', color: ACT_C_NEW,  label: '🆕 nowe ogłoszenia' },
 ];
 function buildActivityChart(days) {
     const W = 900, L = 36, R = 12, T = 18, GAP = 24, B = 26, PH = 78;
@@ -1547,7 +1552,7 @@ function buildActivityChart(days) {
     ).join('');
 
     return '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" '
-        + 'aria-label="Odświeżenia, reaktywacje, zniknięcia i zmiany adresu dzień po dniu">'
+        + 'aria-label="Odświeżenia, reaktywacje, zniknięcia, zmiany adresu i nowe ogłoszenia dzień po dniu">'
         + defs + band
         + ACT_PANELS.map((pn, i) => panel(T + i * (ph + GAP), pn.key, pn.color, pn.label)).join('')
         + ticksSvg + '</svg>';

@@ -9,6 +9,11 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Profile: panel „nowe ogłoszenia" w oknie Ruch profilu (2026-11-18)
+- **prośba Mateusza**: w oknie „Ruch profilu" brakowało wykresu, kiedy pojawiały się ogłoszenia danego profilu firmowego. Wariant A po podglądzie before/after.
+- **zmiana (`docs/profile_tracker.html`)**: piąty panel „🆕 nowe ogłoszenia" (liczba ofert z `first_seen` w danym dniu), licznik w tytule okna, pozycja w legendzie i w tooltipie dnia. Te same zakresy 30/60/90/wszystko.
+- **dane**: z istniejącego `first_seen` w `profile_data.json`, więc bez zmian w backendzie. Panel sięga początku śledzenia profilu, nie tylko od 30.06 jak odświeżenia.
+
 ### Indeks: Wskaźnik Rotacji Rynku liczy też reaktywacje (2026-11-13)
 - **pytanie Mateusza**: „czy wskaźnik jest korygowany o oferty, które wróciły na rynek?". **Diagnoza**: nie. Odpływ liczył każde zniknięcie (poza powrotami w ≤3 dni, `FLAP_MAX_DAYS`), a powrót nie liczył się nigdzie, bo `build_velocity` brał `inflow['new']` (same świeże oferty). Oferta, która zeszła na tydzień i wróciła, zawyżała wskaźnik o jedno zdarzenie bez przeciwwagi.
 - **decyzja (opcja C, po podglądzie before/after)**: wskaźnik = (nowe + reaktywacje + odpływ z 7 dni) ÷ 2, czyli `inflow['new_react']` zamiast `inflow['new']`. Zmiana w `src/trend_generator.build_velocity`; `docs/trend.html` czyta `inflow.new_react` do słupków 7 dni, kafelek „Nowe i wróciły (7 dni)", opis pod sekcją zaktualizowany.
