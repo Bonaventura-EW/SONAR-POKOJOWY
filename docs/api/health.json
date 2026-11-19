@@ -1,14 +1,25 @@
 {
-  "status": "ok",
-  "timestamp": "2026-11-19T02:00:33.036028+01:00",
-  "lastScanAt": "2026-11-19T01:57:52.659671+01:00",
+  "status": "critical",
+  "timestamp": "2026-11-19T12:23:02.571480+01:00",
+  "lastScanAt": "2026-11-19T12:20:36.315580+01:00",
   "hoursSinceLastScan": 0.0,
   "isFresh": true,
-  "alerts": [],
+  "alerts": [
+    {
+      "type": "partial_scrape",
+      "severity": "critical",
+      "message": "Częściowy scrape OLX — dezaktywacja ofert wstrzymana. Dane z tego skanu są niepełne."
+    },
+    {
+      "type": "scrape_drop",
+      "severity": "warning",
+      "message": "Scraper pobrał 24 ofert — tylko 4.9% mediany ostatnich skanów (487)."
+    }
+  ],
   "systems": {
     "sonar": {
       "enabled": true,
-      "lastStatus": "completed"
+      "lastStatus": "warning"
     },
     "scanMonitor": {
       "enabled": false,

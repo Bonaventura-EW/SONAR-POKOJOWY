@@ -1,41 +1,69 @@
 {
   "system": "sonar",
   "version": "1.0.0",
-  "generatedAt": "2026-11-19T02:00:33.032724+01:00",
+  "generatedAt": "2026-11-19T12:23:02.567500+01:00",
   "status": {
-    "current": "operational",
-    "isHealthy": true,
-    "hasErrors": false,
-    "errorMessages": [],
-    "hasAlerts": false,
-    "alertLevel": "none"
+    "current": "degraded",
+    "isHealthy": false,
+    "hasErrors": true,
+    "errorMessages": [
+      "SCRAPE_PARTIAL: scraper zwrócił tylko 24 ofert (baza: 426 aktywnych, próg: 127). Prawdopodobna blokada OLX lub awaria scrapera."
+    ],
+    "hasAlerts": true,
+    "alertLevel": "critical"
   },
-  "alerts": [],
+  "alerts": [
+    {
+      "type": "partial_scrape",
+      "severity": "critical",
+      "scanId": "2026-11-19T12-20-36",
+      "message": "Częściowy scrape OLX — dezaktywacja ofert wstrzymana. Dane z tego skanu są niepełne.",
+      "details": {
+        "reason": "SCRAPE_PARTIAL: scraper zwrócił tylko 24 ofert (baza: 426 aktywnych, próg: 127). Prawdopodobna blokada OLX lub awaria scrapera."
+      }
+    },
+    {
+      "type": "scrape_drop",
+      "severity": "warning",
+      "scanId": "2026-11-19T12-20-36",
+      "message": "Scraper pobrał 24 ofert — tylko 4.9% mediany ostatnich skanów (487).",
+      "details": {
+        "rawOffers": 24,
+        "medianRawOffers": 487,
+        "percentOfMedian": 4.9
+      }
+    }
+  ],
   "lastScan": {
-    "id": "2026-11-19T01-57-52",
-    "timestamp": "2026-11-19T01:57:52.659671+01:00",
-    "endTimestamp": "2026-11-19T01:59:02.792562+01:00",
-    "durationSeconds": 70.12,
-    "durationFormatted": "1m 10s",
-    "uiStatus": "success",
-    "rawStatus": "completed",
+    "id": "2026-11-19T12-20-36",
+    "timestamp": "2026-11-19T12:20:36.315580+01:00",
+    "endTimestamp": "2026-11-19T12:21:15.249034+01:00",
+    "durationSeconds": 38.93,
+    "durationFormatted": "38s",
+    "uiStatus": "failed",
+    "rawStatus": "warning",
     "offers": {
-      "found": 480,
-      "processed": 450,
-      "new": 1,
+      "found": 24,
+      "processed": 23,
+      "new": 0,
       "deactivated": null,
-      "updated": 449,
+      "updated": 23,
       "active": 426,
       "inactive": 3101
     },
     "skipped": {
-      "noAddress": 19,
-      "noPrice": 1,
-      "noCoords": 9,
-      "duplicates": 1
+      "noAddress": 1,
+      "noPrice": 0,
+      "noCoords": 0,
+      "duplicates": 0
     },
-    "errors": [],
-    "hasErrors": false
+    "errors": [
+      {
+        "message": "SCRAPE_PARTIAL: scraper zwrócił tylko 24 ofert (baza: 426 aktywnych, próg: 127). Prawdopodobna blokada OLX lub awaria scrapera.",
+        "timestamp": "2026-11-19T12:21:09.368105+01:00"
+      }
+    ],
+    "hasErrors": true
   },
   "schedule": {
     "times": [
@@ -44,12 +72,12 @@
       "21:00"
     ],
     "timezone": "Europe/Warsaw",
-    "nextScanAt": "2026-11-19T09:00:00+01:00"
+    "nextScanAt": "2026-11-19T15:00:00+01:00"
   },
   "statistics": {
     "totalScans": 100,
-    "successRate": 100.0,
-    "avgDurationSeconds": 80.6,
-    "avgOffersFound": 585.7
+    "successRate": 98.0,
+    "avgDurationSeconds": 78.72,
+    "avgOffersFound": 570.9
   }
 }
