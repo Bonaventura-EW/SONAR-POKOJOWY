@@ -1,17 +1,39 @@
 {
-  "generatedAt": "2026-11-19T12:23:02.573214+01:00",
+  "generatedAt": "2026-11-19T12:37:11.136166+01:00",
   "lastScan": {
-    "id": "2026-11-19T12-20-36",
-    "timestamp": "2026-11-19T12:20:36.315580+01:00",
-    "durationFormatted": "38s",
+    "id": "2026-11-19T12-34-26",
+    "timestamp": "2026-11-19T12:34:26.399595+01:00",
+    "durationFormatted": "55s",
     "success": false,
-    "failureReason": "SCRAPE_PARTIAL: scraper zwrócił tylko 24 ofert (baza: 426 aktywnych, próg: 127). Prawdopodobna blokada OLX lub awaria scrapera.",
-    "newOffers": 0,
+    "failureReason": "SCRAPE_PARTIAL: scraper zwrócił tylko 61 ofert (baza: 428 aktywnych, próg: 128). Prawdopodobna blokada OLX lub awaria scrapera.",
+    "newOffers": 2,
     "deactivatedOffers": 0,
-    "activeOffers": 426,
-    "foundOffers": 24
+    "activeOffers": 428,
+    "foundOffers": 61
   },
   "recentScans": [
+    {
+      "id": "2026-11-19T12-34-26",
+      "timestamp": "2026-11-19T12:34:26.399595+01:00",
+      "durationFormatted": "55s",
+      "success": false,
+      "failureReason": "SCRAPE_PARTIAL: scraper zwrócił tylko 61 ofert (baza: 428 aktywnych, próg: 128). Prawdopodobna blokada OLX lub awaria scrapera.",
+      "newOffers": 2,
+      "deactivatedOffers": 0,
+      "activeOffers": 428,
+      "foundOffers": 61
+    },
+    {
+      "id": "2026-11-19T12-31-13",
+      "timestamp": "2026-11-19T12:31:13.628680+01:00",
+      "durationFormatted": "12s",
+      "success": false,
+      "failureReason": "SCRAPE_PARTIAL: scraper zwrócił tylko 5 ofert (baza: 426 aktywnych, próg: 127). Prawdopodobna blokada OLX lub awaria scrapera.",
+      "newOffers": 0,
+      "deactivatedOffers": 0,
+      "activeOffers": 426,
+      "foundOffers": 5
+    },
     {
       "id": "2026-11-19T12-20-36",
       "timestamp": "2026-11-19T12:20:36.315580+01:00",
@@ -22,59 +44,37 @@
       "deactivatedOffers": 0,
       "activeOffers": 426,
       "foundOffers": 24
-    },
-    {
-      "id": "2026-11-19T12-17-22",
-      "timestamp": "2026-11-19T12:17:22.859064+01:00",
-      "durationFormatted": "12s",
-      "success": false,
-      "failureReason": "SCRAPE_PARTIAL: scraper zwrócił tylko 31 ofert (baza: 426 aktywnych, próg: 127). Prawdopodobna blokada OLX lub awaria scrapera.",
-      "newOffers": 0,
-      "deactivatedOffers": 0,
-      "activeOffers": 426,
-      "foundOffers": 31
-    },
-    {
-      "id": "2026-11-19T01-57-52",
-      "timestamp": "2026-11-19T01:57:52.659671+01:00",
-      "durationFormatted": "1m 10s",
-      "success": true,
-      "failureReason": null,
-      "newOffers": 1,
-      "deactivatedOffers": 10,
-      "activeOffers": 426,
-      "foundOffers": 480
     }
   ],
   "nextScanAt": "2026-11-19T15:00:00+01:00",
   "alert": {
     "type": "partial_scrape",
     "severity": "critical",
-    "scanId": "2026-11-19T12-20-36",
+    "scanId": "2026-11-19T12-34-26",
     "message": "Częściowy scrape OLX — dezaktywacja ofert wstrzymana. Dane z tego skanu są niepełne.",
     "details": {
-      "reason": "SCRAPE_PARTIAL: scraper zwrócił tylko 24 ofert (baza: 426 aktywnych, próg: 127). Prawdopodobna blokada OLX lub awaria scrapera."
+      "reason": "SCRAPE_PARTIAL: scraper zwrócił tylko 61 ofert (baza: 428 aktywnych, próg: 128). Prawdopodobna blokada OLX lub awaria scrapera."
     }
   },
   "alerts": [
     {
       "type": "partial_scrape",
       "severity": "critical",
-      "scanId": "2026-11-19T12-20-36",
+      "scanId": "2026-11-19T12-34-26",
       "message": "Częściowy scrape OLX — dezaktywacja ofert wstrzymana. Dane z tego skanu są niepełne.",
       "details": {
-        "reason": "SCRAPE_PARTIAL: scraper zwrócił tylko 24 ofert (baza: 426 aktywnych, próg: 127). Prawdopodobna blokada OLX lub awaria scrapera."
+        "reason": "SCRAPE_PARTIAL: scraper zwrócił tylko 61 ofert (baza: 428 aktywnych, próg: 128). Prawdopodobna blokada OLX lub awaria scrapera."
       }
     },
     {
       "type": "scrape_drop",
       "severity": "warning",
-      "scanId": "2026-11-19T12-20-36",
-      "message": "Scraper pobrał 24 ofert — tylko 4.9% mediany ostatnich skanów (487).",
+      "scanId": "2026-11-19T12-34-26",
+      "message": "Scraper pobrał 61 ofert — tylko 12.6% mediany ostatnich skanów (485).",
       "details": {
-        "rawOffers": 24,
-        "medianRawOffers": 487,
-        "percentOfMedian": 4.9
+        "rawOffers": 61,
+        "medianRawOffers": 485,
+        "percentOfMedian": 12.6
       }
     }
   ]
