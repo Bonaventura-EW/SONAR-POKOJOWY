@@ -168,7 +168,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     
         <div class="stat-card no_address">
           <div class="label">Brak adresu</div>
-          <div class="value">15</div>
+          <div class="value">14</div>
           <div class="sub">parser nie znalazł żadnej ulicy w opisie</div>
         </div>
         
@@ -186,7 +186,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         
         <div class="stat-card duplicate">
           <div class="label">Duplikaty</div>
-          <div class="value">0</div>
+          <div class="value">1</div>
           <div class="sub">ten sam pokój 2× w wynikach</div>
         </div>
         
@@ -201,14 +201,47 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="filter-bar">
     <label for="category-filter">Kategoria:</label>
     <select id="category-filter">
-      <option value="all">Wszystkie (21 próbek)</option><option value="no_address">Brak adresu (15)</option><option value="no_coords">Brak współrzędnych (5)</option><option value="excluded">Wykluczone (filtr) (0)</option><option value="duplicate">Duplikaty (0)</option><option value="no_price">Brak ceny (1)</option>
+      <option value="all">Wszystkie (21 próbek)</option><option value="no_address">Brak adresu (14)</option><option value="no_coords">Brak współrzędnych (5)</option><option value="excluded">Wykluczone (filtr) (0)</option><option value="duplicate">Duplikaty (1)</option><option value="no_price">Brak ceny (1)</option>
     </select>
     <label for="search-input">Szukaj:</label>
     <input type="text" id="search-input" placeholder="filtruj po tytule/opisie/URL...">
-    <span class="timestamp">Aktualizacja: 2026-11-25 03:57</span>
+    <span class="timestamp">Aktualizacja: 2026-11-25 17:50</span>
   </div>
 
   <div class="offer-list" id="offer-list">
+    
+    <div class="offer" data-category="duplicate" data-search="wynajem pokoju czechów ">
+      <div class="offer-header">
+        <span class="badge duplicate">duplikat</span>
+        <div class="offer-title">Wynajem pokoju Czechów</div>
+        
+      </div>
+      
+      <div class="offer-meta"><span class="parsed-addr">parsed: "Harnasie"</span></div>
+      
+        <div class="duplicate-compare">
+          <div class="duplicate-compare-title">
+            🔗 Porównaj oferty
+            <span class="similarity-pill">95.1% podobne</span>
+          </div>
+          <div class="duplicate-compare-grid">
+            <div class="duplicate-side this">
+              <div class="role-label">⚠️ Odrzucone (duplikat)</div>
+              <strong>Wynajem pokoju Czechów</strong>
+              <a href="https://www.olx.pl/d/oferta/wynajem-pokoju-czechow-CID3-ID1bJlzq.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="url">www.olx.pl/d/oferta/wynajem-pokoju-czechow-CID3-ID1bJlzq.html?search_reason=search%7Corganic ↗</a>
+              <div class="meta">parsed: Harnasie · cena: 550 zł</div>
+            </div>
+            <div class="duplicate-arrow">≈</div>
+            <div class="duplicate-side original">
+              <div class="role-label">✅ Pozostawione na mapie</div>
+              <strong>ID: wynajem-pokoju-czechow-CID3-ID1bJlUt</strong>
+              <a href="https://www.olx.pl/d/oferta/wynajem-pokoju-czechow-CID3-ID1bJlUt.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="url">www.olx.pl/d/oferta/wynajem-pokoju-czechow-CID3-ID1bJlUt.html?search_reason=search%7Corganic ↗</a>
+              <div class="meta">adres: Harnasie · cena: 550 zł</div>
+            </div>
+          </div>
+        </div>
+        
+    </div>
     
     <div class="offer" data-category="no_address" data-search="pokój 12 m2 dla jednej lub dwóch osob pokój 12 m2 dla jednej lub dwóch osob lublin pokój dla jednej lub dwóch osób 900 zł bez dodatkowych opłat w tej cenie internet ogrzewanie i wszystkie media">
       <div class="offer-header">
@@ -221,28 +254,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       
     </div>
     
-    <div class="offer" data-category="no_address" data-search="pokoje do wynajęcia pokoje do wynajęcia lublin mam do wynajęcia pokoje w spokojnej okolicy czechowa, łatwy dostęp do centrum, blisko przystanek autobusowy, olimp, auchan, skende (ikea)lidl,biedronka oraz silownia. mieszkanie odświeżone, łazienka i toaleta po remoncie. w cenę wynajmu wliczony jest internet, z dodatkowych opłat są tylko woda (jeśli zużycie będzie ponad to co w czynszu). zapraszam do kontaktu.">
-      <div class="offer-header">
-        <span class="badge no_address">brak adresu</span>
-        <div class="offer-title">Pokoje do wynajęcia</div>
-        <a href="https://www.olx.pl/d/oferta/pokoje-do-wynajecia-CID3-ID1dqn5g.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokoje do wynajęcia Lublin Mam do wynajęcia pokoje w spokojnej okolicy Czechowa, łatwy dostęp do centrum, blisko przystanek autobusowy, Olimp, Auchan, Skende (Ikea)Lidl,Biedronka oraz silownia. Mieszkanie odświeżone, łazienka i toaleta po remoncie. W cenę wynajmu wliczony jest internet, z dodatkowych opłat są tylko woda (jeśli zużycie będzie ponad to co w czynszu). Zapraszam do kontaktu.</div>
-      
-      
-    </div>
-    
-    <div class="offer" data-category="no_address" data-search="wynajmę pokój jednosobowy niedaleko politechniki wynajmę pokój jednosobowy niedaleko politechniki lublin oferuję umeblowany pokój jednoosobowy za 700 zł. w mieszkaniu są 3 pokoje, osobno toaleta i łazienka. mieszkają 2 osoby: studenci i osoby pracujące. wolne od zaraz. oferta skierowana dla osób wyłącznie z polskim obywatelstwem.zapraszam do obejrzenia, po szczegóły proszę o kontakt telefoniczny .">
-      <div class="offer-header">
-        <span class="badge no_address">brak adresu</span>
-        <div class="offer-title">Wynajmę pokój jednosobowy niedaleko politechniki</div>
-        <a href="https://www.olx.pl/d/oferta/wynajme-pokoj-jednosobowy-niedaleko-politechniki-CID3-ID1blXQc.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Wynajmę pokój jednosobowy niedaleko politechniki Lublin Oferuję umeblowany pokój jednoosobowy za 700 zł. W mieszkaniu są 3 pokoje, osobno toaleta i łazienka. Mieszkają 2 osoby: studenci i osoby pracujące. Wolne od zaraz. Oferta skierowana dla osób wyłącznie z polskim obywatelstwem.Zapraszam do obejrzenia, po szczegóły proszę o kontakt telefoniczny .</div>
-      
-      
-    </div>
-    
     <div class="offer" data-category="no_address" data-search="pokój 1-os. do wynajęcia w ścisłym centrum, lublin pokój 1-os. do wynajęcia w ścisłym centrum, lublin lublin umeblowany pokój w dużym mieszkaniu w luksusowym apartamentowcu, przy rodzinie. do wynajęcia dla niepalącej licealistki lub studentki i roku – superszybki bezprzewodowy internet do 300 mb/s, dwie łazienki, duży balkon, monitoring/ochrona budynku 24h. 850 zł/m-c bez dodatkowych opłat. lublin, ścisłe centrum.">
       <div class="offer-header">
         <span class="badge no_address">brak adresu</span>
@@ -250,6 +261,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <a href="https://www.olx.pl/d/oferta/pokoj-1-os-do-wynajecia-w-scislym-centrum-lublin-CID3-ID11y0IZ.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
       </div>
       <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój 1-os. do wynajęcia w ścisłym Centrum, Lublin Lublin Umeblowany pokój w dużym mieszkaniu w luksusowym apartamentowcu, przy rodzinie. Do wynajęcia dla niepalącej licealistki lub studentki I roku – superszybki bezprzewodowy internet do 300 Mb/s, dwie łazienki, duży balkon, monitoring/ochrona budynku 24h. 850 zł/m-c bez dodatkowych opłat. Lublin, ścisłe Centrum.</div>
+      
+      
+    </div>
+    
+    <div class="offer" data-category="no_address" data-search="pokoje do wynajęcia pokoje do wynajęcia lublin mam do wynajęcia pokoje w spokojnej okolicy czechowa, łatwy dostęp do centrum, blisko przystanek autobusowy, olimp, auchan, skende (ikea)lidl,biedronka oraz silownia. mieszkanie odświeżone, łazienka i toaleta po remoncie. w cenę wynajmu wliczony jest internet, z dodatkowych opłat są tylko woda (jeśli zużycie będzie ponad to co w czynszu). zapraszam do kontaktu.">
+      <div class="offer-header">
+        <span class="badge no_address">brak adresu</span>
+        <div class="offer-title">Pokoje do wynajęcia</div>
+        <a href="https://www.olx.pl/d/oferta/pokoje-do-wynajecia-CID3-ID1dqn5g.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+      </div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokoje do wynajęcia Lublin Mam do wynajęcia pokoje w spokojnej okolicy Czechowa, łatwy dostęp do centrum, blisko przystanek autobusowy, Olimp, Auchan, Skende (Ikea)Lidl,Biedronka oraz silownia. Mieszkanie odświeżone, łazienka i toaleta po remoncie. W cenę wynajmu wliczony jest internet, z dodatkowych opłat są tylko woda (jeśli zużycie będzie ponad to co w czynszu). Zapraszam do kontaktu.</div>
       
       
     </div>
@@ -272,6 +294,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
         <a href="https://www.olx.pl/d/oferta/pokoj-dla-studenta-lub-mlodego-pracujacego-CID3-ID1d0xvh.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
       </div>
       <div class="offer-desc" onclick="this.classList.toggle('expanded')">Pokój dla studenta lub młodego pracującego Lublin Siewna,pokój dla spokojnego studenta w domku. Do dyspozycji łazienka,kuchnia,wc,możliwość podłączenia do internetu.Blisko do centrum i uczelni PL,UP,UMCS</div>
+      
+      
+    </div>
+    
+    <div class="offer" data-category="no_address" data-search="wynajmę pokój jednosobowy niedaleko politechniki wynajmę pokój jednosobowy niedaleko politechniki lublin oferuję umeblowany pokój jednoosobowy za 700 zł. w mieszkaniu są 3 pokoje, osobno toaleta i łazienka. mieszkają 2 osoby: studenci i osoby pracujące. wolne od zaraz. oferta skierowana dla osób wyłącznie z polskim obywatelstwem.zapraszam do obejrzenia, po szczegóły proszę o kontakt telefoniczny .">
+      <div class="offer-header">
+        <span class="badge no_address">brak adresu</span>
+        <div class="offer-title">Wynajmę pokój jednosobowy niedaleko politechniki</div>
+        <a href="https://www.olx.pl/d/oferta/wynajme-pokoj-jednosobowy-niedaleko-politechniki-CID3-ID1blXQc.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
+      </div>
+      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Wynajmę pokój jednosobowy niedaleko politechniki Lublin Oferuję umeblowany pokój jednoosobowy za 700 zł. W mieszkaniu są 3 pokoje, osobno toaleta i łazienka. Mieszkają 2 osoby: studenci i osoby pracujące. Wolne od zaraz. Oferta skierowana dla osób wyłącznie z polskim obywatelstwem.Zapraszam do obejrzenia, po szczegóły proszę o kontakt telefoniczny .</div>
       
       
     </div>
@@ -311,19 +344,6 @@ więcej informacji na telefon.">
 Łazienka kuchnia.  Cena plus prąd. Ogrzewanie woda w cenie pokoju.
 
 Więcej informacji na telefon.</div>
-      
-      
-    </div>
-    
-    <div class="offer" data-category="no_address" data-search="stancje dla studentów stancje dla studentów lublin do wynajęcia suteryna w domku wolnostojącym na majdanku. 2 pokoje, kuchnia, łazienka. 800 zł za pokój + opłaty.
-dobry dojazd do centrum. w pobliżu sklepy, przychodnia, kościół. nie odpowiadam na maile. kontakt telefoniczny.">
-      <div class="offer-header">
-        <span class="badge no_address">brak adresu</span>
-        <div class="offer-title">Stancje dla studentów</div>
-        <a href="https://www.olx.pl/d/oferta/stancje-dla-studentow-CID3-ID1crdAd.html?search_reason=search%7Corganic" target="_blank" rel="noopener" class="offer-link">→ OLX</a>
-      </div>
-      <div class="offer-desc" onclick="this.classList.toggle('expanded')">Stancje dla studentów Lublin Do wynajęcia suteryna w domku wolnostojącym na Majdanku. 2 pokoje, kuchnia, łazienka. 800 zł za pokój + opłaty.
-Dobry dojazd do centrum. W pobliżu sklepy, przychodnia, kościół. Nie odpowiadam na maile. Kontakt telefoniczny.</div>
       
       
     </div>
