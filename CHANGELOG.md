@@ -13,7 +13,7 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 - **zgłoszenie Mateusza**: `ID1bw9sZ` (MAT, Skrzetuskiego) świeci na mapie, choć od 2–3 dni nie ma go na OLX.
 - **diagnoza**: skan 27.11 03:01 dał **34 reaktywacje** (zwykle 0–6). Wszystkie z profili firmowych, a strony wszystkich sprawdzonych 32 oddają **410/404**. API v1 profilu (`/api/v1/offers/?user_id=X`) zwróciło **63** oferty zamiast ~27 — razem z ogłoszeniami już zdjętymi. Każde przechodziło `_update_existing_offer` → `active=True`. Detal 410 nie odrzucał oferty, a `1bw9sZ` (ta sama cena) w ogóle nie szedł po detal.
 - **fix (`scraper._drop_removed_profile_offers`)**: po Fazie 1 profili HEAD (0 B) dla **każdej** oferty z profili (~60 zapytań równolegle). 404/410 → odrzucone; błąd sieci / inny kod → zostaje. Także aktywne w bazie — inaczej oferty fałszywie reaktywowane 27.11 trzymałyby się na mapie, póki API je oddaje.
-- **dane**: 34 fałszywych reaktywacji z 27.11 zostaje w bazie; zgasną przy najbliższym skanie (HEAD je odrzuci → `_mark_inactive_offers`) — ale z dopisanym fałszywym wpisem w `reactivation_dates`/`deactivation_dates`.
+- **dane (decyzja Mateusza)**: 32 fałszywie reaktywowane rekordy przywrócone do stanu sprzed skanu 27.11 (commit `e02d8bc`), bez śladu reaktywacji w historii. Backup: `data/backups/offers.json.backup_20261127_false_reactivations`. Pozostałe 2 z 34 (`1cVsu2`, `14yjqJ`) żyją (200, zmieniony slug) — prawdziwe reaktywacje, zostają. `docs/` zregenerowane.
 - **nieprzetestowane end-to-end**: `test_integration.py` nie startuje w tej sesji (brak `curl_cffi`); funkcja sprawdzona na atrapie sesji.
 
 ### Ulubione: dodano ogłoszenie 1cvfNu (2026-11-27)
