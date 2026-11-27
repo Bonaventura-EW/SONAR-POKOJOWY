@@ -959,18 +959,12 @@ class OLXScraper:
         już zdjęte z OLX (27.11.2026: 63 zamiast ~27, wszystkie 34 reaktywacje
         tego skanu = strony 410/404, np. ID1bw9sZ profilu MAT). Bez tego filtra
         martwa oferta wraca przez _update_existing_offer jako „reaktywowana"
-        i świeci na mapie. Sprawdzamy HEAD-em (0 B) tylko oferty, które w bazie
-        są nieaktywne albo ich nie ma — aktywnych nie ruszamy. Błąd sieci /
-        inny kod = zostawiamy (lepiej nie wyrzucić żywej oferty).
+        i świeci na mapie. Sprawdzamy HEAD-em (0 B) KAŻDĄ ofertę z profili —
+        także aktywne w bazie, bo raz wpuszczona martwa oferta jest już
+        `active` i inaczej trzymałaby się na mapie, dopóki API ją oddaje.
+        Błąd sieci / inny kod = zostawiamy (nie wyrzucamy żywej oferty).
         """
-        to_check = []
-        for offer in offers:
-            offer_id = offer['url'].split('/')[-1].split('.')[0]
-            short_key = f'_short_{offer_id.split("-ID")[-1]}' if '-ID' in offer_id else None
-            existing = (self.existing_offers.get(offer_id)
-                        or (self.existing_offers.get(short_key) if short_key else None))
-            if not existing or not existing.get('was_active', True):
-                to_check.append(offer)
+        to_check = list(offers)
         if not to_check:
             return offers
 
@@ -985,7 +979,7 @@ class OLXScraper:
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             removed_flags = list(executor.map(_is_removed, to_check))
         removed = {o['url'] for o, gone in zip(to_check, removed_flags) if gone}
-        print(f"   🔎 Weryfikacja HEAD (nieaktywne/nowe w bazie): {len(to_check)}, "
+        print(f"   🔎 Weryfikacja HEAD ofert z profili: {len(to_check)}, "
               f"zdjęte z OLX (404/410) odrzucone: {len(removed)}")
         return [o for o in offers if o['url'] not in removed]
 
