@@ -9,6 +9,9 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Ulubione: dodano ogłoszenie 1cvfNu (2026-11-27)
+- pokój 1-osobowy, `1cvfNu` (numeric_id 1101136088), dopisane do `data/favorites.json`.
+
 ### Profile: panel „nowe ogłoszenia" w oknie Ruch profilu (2026-11-18)
 - **prośba Mateusza**: w oknie „Ruch profilu" brakowało wykresu, kiedy pojawiały się ogłoszenia danego profilu firmowego. Wariant A po podglądzie before/after.
 - **zmiana (`docs/profile_tracker.html`)**: panel „🆕 nowe ogłoszenia" na górze okna, nad odświeżeniami (liczba ofert z `first_seen` w danym dniu), licznik w tytule okna, pozycja w legendzie i w tooltipie dnia. Te same zakresy 30/60/90/wszystko.
