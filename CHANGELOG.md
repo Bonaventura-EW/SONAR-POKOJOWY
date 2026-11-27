@@ -9,6 +9,16 @@ Format luźno oparty na [Keep a Changelog](https://keepachangelog.com/pl/).
 
 ## [Nieopublikowane]
 
+### Profile: zdjęte oferty z API profilu nie wracają na mapę (2026-11-27)
+- **zgłoszenie Mateusza**: `ID1bw9sZ` (MAT, Skrzetuskiego) świeci na mapie, choć od 2–3 dni nie ma go na OLX.
+- **diagnoza**: skan 27.11 03:01 dał **34 reaktywacje** (zwykle 0–6). Wszystkie z profili firmowych, a strony wszystkich sprawdzonych 32 oddają **410/404**. API v1 profilu (`/api/v1/offers/?user_id=X`) zwróciło **63** oferty zamiast ~27 — razem z ogłoszeniami już zdjętymi. Każde przechodziło `_update_existing_offer` → `active=True`. Detal 410 nie odrzucał oferty, a `1bw9sZ` (ta sama cena) w ogóle nie szedł po detal.
+- **fix (`scraper._drop_removed_profile_offers`)**: po Fazie 1 profili HEAD (0 B) dla **każdej** oferty z profili (~60 zapytań równolegle). 404/410 → odrzucone; błąd sieci / inny kod → zostaje. Także aktywne w bazie — inaczej oferty fałszywie reaktywowane 27.11 trzymałyby się na mapie, póki API je oddaje.
+- **dane (decyzja Mateusza)**: 32 fałszywie reaktywowane rekordy przywrócone do stanu sprzed skanu 27.11 (commit `e02d8bc`), bez śladu reaktywacji w historii. Backup: `data/backups/offers.json.backup_20261127_false_reactivations`. Pozostałe 2 z 34 (`1cVsu2`, `14yjqJ`) żyją (200, zmieniony slug) — prawdziwe reaktywacje, zostają. `docs/` zregenerowane.
+- **nieprzetestowane end-to-end**: `test_integration.py` nie startuje w tej sesji (brak `curl_cffi`); funkcja sprawdzona na atrapie sesji.
+
+### Ulubione: dodano ogłoszenie 1cvfNu (2026-11-27)
+- pokój 1-osobowy, `1cvfNu` (numeric_id 1101136088), dopisane do `data/favorites.json`.
+
 ### Profile: panel „nowe ogłoszenia" w oknie Ruch profilu (2026-11-18)
 - **prośba Mateusza**: w oknie „Ruch profilu" brakowało wykresu, kiedy pojawiały się ogłoszenia danego profilu firmowego. Wariant A po podglądzie before/after.
 - **zmiana (`docs/profile_tracker.html`)**: panel „🆕 nowe ogłoszenia" na górze okna, nad odświeżeniami (liczba ofert z `first_seen` w danym dniu), licznik w tytule okna, pozycja w legendzie i w tooltipie dnia. Te same zakresy 30/60/90/wszystko.

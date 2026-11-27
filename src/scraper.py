@@ -952,6 +952,37 @@ class OLXScraper:
         print(f"   ✅ \'{profile_name}\': {len(all_offers)} ofert z {page_num - 1} stron")
         return all_offers
 
+    def _drop_removed_profile_offers(self, offers: List[Dict]) -> List[Dict]:
+        """Odsiewa z wyników API profilu oferty, których strona daje 404/410.
+
+        API v1 profilu (/api/v1/offers/?user_id=X) potrafi oddawać ogłoszenia
+        już zdjęte z OLX (27.11.2026: 63 zamiast ~27, wszystkie 34 reaktywacje
+        tego skanu = strony 410/404, np. ID1bw9sZ profilu MAT). Bez tego filtra
+        martwa oferta wraca przez _update_existing_offer jako „reaktywowana"
+        i świeci na mapie. Sprawdzamy HEAD-em (0 B) KAŻDĄ ofertę z profili —
+        także aktywne w bazie, bo raz wpuszczona martwa oferta jest już
+        `active` i inaczej trzymałaby się na mapie, dopóki API ją oddaje.
+        Błąd sieci / inny kod = zostawiamy (nie wyrzucamy żywej oferty).
+        """
+        to_check = list(offers)
+        if not to_check:
+            return offers
+
+        def _is_removed(offer):
+            try:
+                r = self.session.head(offer['url'].split('?')[0], timeout=15,
+                                      allow_redirects=False)
+                return r.status_code in (404, 410)
+            except NETWORK_EXCEPTIONS:
+                return False
+
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            removed_flags = list(executor.map(_is_removed, to_check))
+        removed = {o['url'] for o, gone in zip(to_check, removed_flags) if gone}
+        print(f"   🔎 Weryfikacja HEAD ofert z profili: {len(to_check)}, "
+              f"zdjęte z OLX (404/410) odrzucone: {len(removed)}")
+        return [o for o in offers if o['url'] not in removed]
+
     def scrape_all_profiles(self, profiles_config: dict,
                             max_pages_per_profile: int = 10) -> List[Dict]:
         """
@@ -988,6 +1019,8 @@ class OLXScraper:
                 self._random_delay()
 
         print(f"\n📊 Profile Faza 1: {len(all_raw)} unikalnych ofert ze wszystkich profili")
+
+        all_raw = self._drop_removed_profile_offers(all_raw)
 
         if not all_raw:
             return []
